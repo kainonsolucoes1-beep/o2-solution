@@ -1,9 +1,27 @@
-from fastapi import FastAPI
+import logging
+
+from app.api import login_routes
+from app.api import me_routes
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
+import asyncio
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+)
+from app.database import engine, Base, get_db
+from app.models import User, Lead
+from app.schemas.lead import LeadCreate, LeadResponse
+from app.api import auth_routes
+from app.api import leads_routes
+from app.sync_followize import start_sync_scheduler
 
 load_dotenv()
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="O2 Solution API",
@@ -11,19 +29,24 @@ app = FastAPI(
     version="0.1.0",
 )
 
-origins = [
-    "http://localhost:3000",
-    "http://localhost",
-    "http://127.0.0.1:3000",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Registrar rotas de autenticação
+app.include_router(auth_routes.router)
+app.include_router(login_routes.router)
+app.include_router(me_routes.router)
+app.include_router(leads_routes.router)
+
+# Startup event para sincronização Followize
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(start_sync_scheduler())
 
 @app.get("/")
 async def root():
@@ -33,10 +56,29 @@ async def root():
 async def health():
     return {"status": "ok", "version": "0.1.0"}
 
-@app.get("/api/v1/leads")
-async def list_leads():
-    return {
-        "status": "success",
-        "data": [],
-        "message": "Conectado ao PostgreSQL em breve"
-    }
+@app.get("/api/v1/leads/{lead_id}", response_model=LeadResponse)
+def get_lead(lead_id: str, db: Session = Depends(get_db)):
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    return lead
+
+@app.put("/api/v1/leads/{lead_id}", response_model=LeadResponse)
+def update_lead(lead_id: str, lead_data: LeadCreate, db: Session = Depends(get_db)):
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    for key, value in lead_data.dict().items():
+        setattr(lead, key, value)
+    db.commit()
+    db.refresh(lead)
+    return lead
+
+@app.delete("/api/v1/leads/{lead_id}")
+def delete_lead(lead_id: str, db: Session = Depends(get_db)):
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    db.delete(lead)
+    db.commit()
+    return {"status": "deleted"}
