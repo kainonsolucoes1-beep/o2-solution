@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-import re
 
 import requests
 from sqlalchemy.orm import Session
