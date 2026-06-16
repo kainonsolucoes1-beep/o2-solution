@@ -30,6 +30,8 @@ class LeadReportItem(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    company: Optional[str] = None
+    attendant: Optional[str] = None
     origem: Optional[str] = None
     status: Optional[str] = None
     value_potential: Optional[float] = None
