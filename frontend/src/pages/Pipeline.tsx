@@ -187,7 +187,7 @@ export default function Pipeline() {
                   <div key={lead.id} className="flex items-center justify-between" style={{ padding: '8px 10px', background: '#FEF2F2', borderRadius: 8 }}>
                     <div>
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{lead.name}</p>
-                      <p style={{ fontSize: 11, color: '#9CA3AF' }}>{lead.days_paused} dias parado</p>
+                      <p style={{ fontSize: 11, color: '#9CA3AF' }}>{lead.hours_without_action}h sem atenção · {lead.status}</p>
                     </div>
                     <button
                       onClick={() => navigate('/leads-report')}
