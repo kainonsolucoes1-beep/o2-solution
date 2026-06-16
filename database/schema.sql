@@ -21,6 +21,7 @@ CREATE TABLE leads (
     phone VARCHAR(20),
     company VARCHAR(255),
     origin VARCHAR(100),
+    attendant VARCHAR(255),
     status VARCHAR(50) DEFAULT 'novo',
     value_potential NUMERIC(12,2),
     notes TEXT,
