@@ -10,7 +10,7 @@ interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[] }
 interface NextActions { call_today: number; send_email: number; follow_proposal: number }
 interface TopSource { name: string; count: number }
 
-const STAGE_COLORS  = ['#3B82F6', '#10B981', '#F59E0B', '#6B7280']
+const STAGE_COLORS  = ['#3B82F6', '#10B981', '#F59E0B', '#6B7280', '#EF4444']
 const SOURCE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444']
 
 function getDateRange(month: string) {

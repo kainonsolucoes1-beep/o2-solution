@@ -83,7 +83,8 @@ def pipeline_funnel(
     agendado = _count_status(db, AGENDADO_STATUSES, date_from, date_to, source)
     proposta = _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source)
     fechado  = _count_status(db, FECHADO_STATUSES,  date_from, date_to, source)
-    total = pendente + agendado + proposta + fechado
+    perdido  = _count_status(db, PERDIDO_STATUSES,  date_from, date_to, source)
+    total = pendente + agendado + proposta + fechado + perdido
 
     def pct(n):
         return round(n / total * 100, 1) if total > 0 else 0.0
@@ -94,6 +95,7 @@ def pipeline_funnel(
             {"stage": "Agendado",         "count": agendado, "percentage": pct(agendado)},
             {"stage": "Proposta Enviada", "count": proposta, "percentage": pct(proposta)},
             {"stage": "Venda Realizada",  "count": fechado,  "percentage": pct(fechado)},
+            {"stage": "Perdido",          "count": perdido,  "percentage": pct(perdido)},
         ]
     }
 
