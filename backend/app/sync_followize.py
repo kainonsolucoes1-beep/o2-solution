@@ -87,7 +87,7 @@ def _refresh_access_token() -> bool:
         data = resp.json()
         _tokens["access"] = data["access_token"]
         _tokens["refresh"] = data.get("refresh_token", refresh)
-        _persist_tokens_to_env(_tokens["access"], _tokens["refresh"])
+        _persist_tokens(_tokens["access"], _tokens["refresh"])
         logger.info("Token Followize renovado com sucesso")
         return True
     except Exception as exc:
@@ -249,6 +249,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
 
 async def sync_leads_from_followize() -> None:
     """Sincroniza leads do Followize para o PostgreSQL."""
+    _load_tokens_from_db()
     if not _tokens["access"]:
         logger.error("FOLLOWIZE_ACCESS_TOKEN não configurado — sync ignorado")
         return
