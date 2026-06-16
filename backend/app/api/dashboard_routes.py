@@ -93,13 +93,12 @@ def top_operators(db: Session = Depends(get_db)):
 
     rows = (
         db.query(
-            func.coalesce(User.first_name, User.username).label("name"),
+            func.coalesce(Lead.origin, "Sem origem").label("name"),
             func.count(Lead.id).label("leads_today"),
         )
-        .join(User, Lead.user_id == User.id)
         .filter(Lead.created_at >= today_start)
         .filter(Lead.created_at < today_end)
-        .group_by(User.id, User.first_name, User.username)
+        .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
         .limit(3)
         .all()
