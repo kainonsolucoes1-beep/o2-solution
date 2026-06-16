@@ -19,6 +19,8 @@ from app.schemas.lead import LeadCreate, LeadResponse
 from app.api import auth_routes
 from app.api import leads_routes
 from app.api import dashboard_routes
+from app.api.auth_routes import get_current_user
+from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler
 
 load_dotenv()
@@ -59,17 +61,21 @@ async def health():
     return {"status": "ok", "version": "0.1.0"}
 
 @app.get("/api/v1/leads/{lead_id}", response_model=LeadResponse)
-def get_lead(lead_id: str, db: Session = Depends(get_db)):
+def get_lead(lead_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if not _is_admin(current_user) and lead.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     return lead
 
 @app.put("/api/v1/leads/{lead_id}", response_model=LeadResponse)
-def update_lead(lead_id: str, lead_data: LeadCreate, db: Session = Depends(get_db)):
+def update_lead(lead_id: str, lead_data: LeadCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if not _is_admin(current_user) and lead.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     for key, value in lead_data.dict().items():
         setattr(lead, key, value)
     db.commit()
@@ -77,10 +83,12 @@ def update_lead(lead_id: str, lead_data: LeadCreate, db: Session = Depends(get_d
     return lead
 
 @app.delete("/api/v1/leads/{lead_id}")
-def delete_lead(lead_id: str, db: Session = Depends(get_db)):
+def delete_lead(lead_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if not _is_admin(current_user) and lead.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     db.delete(lead)
     db.commit()
     return {"status": "deleted"}

@@ -10,10 +10,7 @@ interface Me {
   role: string
 }
 
-interface Operator {
-  id: string
-  name: string
-}
+type Operator = string
 
 interface LeadItem {
   id: string
@@ -119,7 +116,7 @@ export default function LeadsReport() {
       .then(r => {
         setMe(r.data)
         if (r.data.role === 'admin' || r.data.username === 'lucas') {
-          api.get<Operator[]>('/api/v1/users').then(u => setOperators(u.data))
+          api.get<string[]>('/api/v1/leads/origins').then(u => setOperators(u.data))
         }
       })
       .catch(() => navigate('/login'))
@@ -270,9 +267,7 @@ export default function LeadsReport() {
                 >
                   <option value="">Todos</option>
                   {operators.map(op => (
-                    <option key={op.id} value={op.name}>
-                      {op.name}
-                    </option>
+                    <option key={op} value={op}>{op}</option>
                   ))}
                 </select>
               ) : (

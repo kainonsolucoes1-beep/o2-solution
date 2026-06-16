@@ -105,16 +105,10 @@ def _fetch_all_leads(date_from: str) -> list[dict]:
 
 
 def _parse_lead_fields(raw: dict) -> dict:
-    """
-    Extrai campos do formato Followize v3.
-    Estrutura real: lead.name (raiz), lead.contact.email,
-    lead.contact.cellphone, lead.contact.company.name
-    """
     contact: dict = raw.get("contact") or {}
     company_obj = contact.get("company")
     company_obj = company_obj if isinstance(company_obj, dict) else {}
 
-    # lead.name está na raiz; contact.name pode ser null
     name = (
         raw.get("name")
         or contact.get("name")
@@ -125,8 +119,13 @@ def _parse_lead_fields(raw: dict) -> dict:
     phone = contact.get("cellphone") or contact.get("phone") or raw.get("phone")
     company = company_obj.get("name") or contact.get("company_name") or raw.get("company")
     status = raw.get("status") or "novo"
+    attendant = (
+        ((contact.get("attendant") or {}).get("name"))
+        or ((raw.get("attendant") or {}).get("name"))
+        or "Sem atendente"
+    )
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
@@ -137,6 +136,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     phone = fields["phone"]
     company = fields["company"]
     status = fields["status"]
+    attendant = fields["attendant"]
 
     existing = db.query(Lead).filter(Lead.email == email).first() if email else None
 
@@ -145,7 +145,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.phone = phone
         existing.company = company
         existing.status = status
-        existing.origin = "Followize"
+        existing.origin = attendant
         existing.updated_at = datetime.utcnow()
         return "updated"
 
@@ -155,7 +155,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         email=email,
         phone=phone,
         company=company,
-        origin="Followize",
+        origin=attendant,
         status=status,
     ))
     return "inserted"

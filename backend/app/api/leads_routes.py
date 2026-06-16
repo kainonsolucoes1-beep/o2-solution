@@ -23,7 +23,10 @@ def list_leads(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return db.query(Lead).filter(Lead.user_id == current_user.id).all()
+    q = db.query(Lead)
+    if not _is_admin(current_user):
+        q = q.filter(Lead.user_id == current_user.id)
+    return q.all()
 
 
 @router.post("/leads", response_model=LeadResponse, status_code=201)
@@ -65,15 +68,14 @@ def leads_by_period(
         raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
 
     admin = _is_admin(current_user)
-    operator_name = func.coalesce(User.first_name, User.username)
+    my_name = current_user.first_name or current_user.username
 
     def _base_query(q):
-        q = q.outerjoin(User, Lead.user_id == User.id)
         q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if not admin:
-            q = q.filter(Lead.user_id == current_user.id)
+            q = q.filter(Lead.origin == my_name)
         elif origem:
-            q = q.filter(operator_name == origem)
+            q = q.filter(Lead.origin == origem)
         return q
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
@@ -81,14 +83,8 @@ def leads_by_period(
     rows = (
         _base_query(
             db.query(
-                Lead.id,
-                Lead.name,
-                Lead.email,
-                Lead.phone,
-                Lead.status,
-                Lead.value_potential,
-                Lead.created_at,
-                operator_name.label("origem"),
+                Lead.id, Lead.name, Lead.email, Lead.phone,
+                Lead.status, Lead.value_potential, Lead.created_at, Lead.origin,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -99,14 +95,11 @@ def leads_by_period(
 
     leads = [
         LeadReportItem(
-            id=r.id,
-            name=r.name,
-            email=r.email,
-            phone=r.phone,
+            id=r.id, name=r.name, email=r.email, phone=r.phone,
             status=r.status,
             value_potential=float(r.value_potential) if r.value_potential is not None else None,
             created_at=r.created_at,
-            origem=r.origem,
+            origem=r.origin,
         )
         for r in rows
     ]
@@ -121,9 +114,22 @@ def list_operators(
 ):
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
-
     rows = db.query(User).filter(User.is_active.is_(True)).order_by(User.first_name).all()
-    return [
-        OperatorInfo(id=r.id, name=r.first_name or r.username)
-        for r in rows
-    ]
+    return [OperatorInfo(id=r.id, name=r.first_name or r.username) for r in rows]
+
+
+@router.get("/leads/origins", response_model=List[str])
+def list_origins(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    rows = (
+        db.query(Lead.origin)
+        .filter(Lead.origin.isnot(None), Lead.origin != "")
+        .distinct()
+        .order_by(Lead.origin)
+        .all()
+    )
+    return [r.origin for r in rows]
