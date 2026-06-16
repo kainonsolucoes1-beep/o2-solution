@@ -18,6 +18,7 @@ from app.models import User, Lead
 from app.schemas.lead import LeadCreate, LeadResponse
 from app.api import auth_routes
 from app.api import leads_routes
+from app.api import dashboard_routes
 from app.sync_followize import start_sync_scheduler
 
 load_dotenv()
@@ -42,6 +43,7 @@ app.include_router(auth_routes.router)
 app.include_router(login_routes.router)
 app.include_router(me_routes.router)
 app.include_router(leads_routes.router)
+app.include_router(dashboard_routes.router)
 
 # Startup event para sincronização Followize
 @app.on_event("startup")
