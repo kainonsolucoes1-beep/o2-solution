@@ -155,6 +155,9 @@ def _parse_lead_fields(raw: dict) -> dict:
     )
     origin = (raw.get("tracking") or {}).get("source") or "Sem origem"
     created_at = _parse_followize_dt(raw.get("created_at"))
+    last_proposal = raw.get("last_proposal") or {}
+    finalization = raw.get("finalization") or {}
+    value_potential = float(last_proposal.get("amount") or finalization.get("amount") or 0.0)
 
     return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "created_at": created_at}
 
