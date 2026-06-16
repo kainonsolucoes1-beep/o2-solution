@@ -30,6 +30,12 @@ CREATE TABLE leads (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE app_settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE lead_notes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     lead_id UUID NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
