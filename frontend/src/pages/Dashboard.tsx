@@ -107,8 +107,8 @@ function MetaPanel({
   )
 }
 
-function OperatorRow({ name, leads }: { name: string; leads: number }) {
-  const barW = leads > 0 ? Math.max(4, Math.min(100, leads * 10)) : 0
+function OperatorRow({ name, leads, max }: { name: string; leads: number; max: number }) {
+  const barW = leads > 0 && max > 0 ? Math.max(4, Math.round((leads / max) * 100)) : 0
   return (
     <div className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid #F3F4F6' }}>
       <div
@@ -254,7 +254,12 @@ export default function Dashboard() {
           ) : (
             <div>
               {capture.map((op) => (
-                <OperatorRow key={op.name} name={op.name} leads={op.leads_today} />
+                <OperatorRow
+                  key={op.name}
+                  name={op.name}
+                  leads={op.leads_today}
+                  max={Math.max(...capture.map((o) => o.leads_today))}
+                />
               ))}
             </div>
           )}

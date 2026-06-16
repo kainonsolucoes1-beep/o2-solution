@@ -3,12 +3,11 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, cast, Date, and_
+from sqlalchemy import func, cast, Date
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.lead import Lead
-from app.models.user import User
 from app.schemas.dashboard import (
     TodayMetrics,
     TopOperatorsResponse,
