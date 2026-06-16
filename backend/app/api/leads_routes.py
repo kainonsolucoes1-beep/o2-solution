@@ -61,6 +61,7 @@ def leads_by_period(
     date_from: str = Query(..., description="YYYY-MM-DD"),
     date_to: str = Query(..., description="YYYY-MM-DD"),
     origem: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -81,6 +82,8 @@ def leads_by_period(
             q = q.filter(Lead.origin == my_name)
         elif origem:
             q = q.filter(Lead.origin == origem)
+        if status:
+            q = q.filter(func.lower(Lead.status) == status.lower())
         return q
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
