@@ -100,6 +100,7 @@ const COLUMNS: { key: SortKey; label: string }[] = [
 
 export default function LeadsReport() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [me, setMe]               = useState<Me | null>(null)
   const [operators, setOperators] = useState<Operator[]>([])
