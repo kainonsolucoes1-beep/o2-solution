@@ -158,8 +158,10 @@ def _parse_lead_fields(raw: dict) -> dict:
     last_proposal = raw.get("last_proposal") or {}
     finalization = raw.get("finalization") or {}
     value_potential = float(last_proposal.get("amount") or finalization.get("amount") or 0.0)
+    _perception_map = {"hot": "Quente", "warm": "Morno", "cold": "Frio"}
+    perception = _perception_map.get(raw.get("perception") or "", None)
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "created_at": created_at, "value_potential": value_potential}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "created_at": created_at, "value_potential": value_potential, "perception": perception}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
