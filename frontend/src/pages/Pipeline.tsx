@@ -5,10 +5,10 @@ import NavBar from '../components/NavBar'
 
 interface PipelineOverview { novo: number; qualificado: number; proposta: number; fechado: number }
 interface FunnelStage { stage: string; count: number; percentage: number }
-interface AlertLead { id: string; name: string; days_paused?: number; hours_without_action?: number; status?: string }
+interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
 interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[] }
-interface StageConversion { novo_to_qualificado: number; qualificado_to_proposta: number; proposta_to_fechado: number }
-interface PipelineAnalytics { avg_time_in_pipeline: number; conversion_rate: number; stage_conversion: StageConversion }
+interface PipelineAnalytics { avg_time_in_pipeline: number; conversion_rate: number }
+interface NextActions { call_today: number; send_email: number; follow_proposal: number }
 
 const STAGE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#6B7280']
 
@@ -18,6 +18,7 @@ export default function Pipeline() {
   const [funnel, setFunnel] = useState<FunnelStage[]>([])
   const [alerts, setAlerts] = useState<PipelineAlerts | null>(null)
   const [analytics, setAnalytics] = useState<PipelineAnalytics | null>(null)
+  const [nextActions, setNextActions] = useState<NextActions | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -29,12 +30,14 @@ export default function Pipeline() {
       api.get<{ stages: FunnelStage[] }>('/api/v1/pipeline/funnel'),
       api.get<PipelineAlerts>('/api/v1/pipeline/alerts'),
       api.get<PipelineAnalytics>('/api/v1/pipeline/analytics'),
+      api.get<NextActions>('/api/v1/pipeline/next-actions'),
     ])
-      .then(([ov, fn, al, an]) => {
+      .then(([ov, fn, al, an, na]) => {
         setOverview(ov.data)
         setFunnel(fn.data.stages)
         setAlerts(al.data)
         setAnalytics(an.data)
+        setNextActions(na.data)
       })
       .catch(err => {
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
@@ -52,7 +55,7 @@ export default function Pipeline() {
     </div>
   )
 
-  if (error || !overview || !analytics || !alerts) return (
+  if (error || !overview || !analytics || !alerts || !nextActions) return (
     <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
       <NavBar />
       <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
@@ -60,18 +63,42 @@ export default function Pipeline() {
   )
 
   const overviewCards = [
-    { label: 'Novo', value: overview.novo, color: '#3B82F6', bg: '#EFF6FF', icon: '📥' },
-    { label: 'Qualificado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅' },
-    { label: 'Proposta', value: overview.proposta, color: '#F59E0B', bg: '#FFFBEB', icon: '📄' },
-    { label: 'Fechado', value: overview.fechado, color: '#6B7280', bg: '#F3F4F6', icon: '🏆' },
+    { label: 'Novo', value: overview.novo, color: '#3B82F6', bg: '#EFF6FF', icon: '📥', status: 'novo' },
+    { label: 'Qualificado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', status: 'qualificado' },
+    { label: 'Proposta', value: overview.proposta, color: '#F59E0B', bg: '#FFFBEB', icon: '📄', status: 'proposal_sent' },
+    { label: 'Fechado', value: overview.fechado, color: '#6B7280', bg: '#F3F4F6', icon: '🏆', status: 'fechado' },
   ]
 
   const maxCount = funnel.reduce((m, s) => Math.max(m, s.count), 1)
 
-  const stageConversions = [
-    { label: 'Novo → Qualificado', value: analytics.stage_conversion.novo_to_qualificado, color: '#3B82F6' },
-    { label: 'Qualificado → Proposta', value: analytics.stage_conversion.qualificado_to_proposta, color: '#10B981' },
-    { label: 'Proposta → Fechado', value: analytics.stage_conversion.proposta_to_fechado, color: '#F59E0B' },
+  const nextActionCards = [
+    {
+      label: 'Ligar Hoje',
+      icon: '📞',
+      value: nextActions.call_today,
+      sub: 'leads para ligar',
+      color: '#3B82F6',
+      bg: '#EFF6FF',
+      status: 'novo',
+    },
+    {
+      label: 'Enviar Email',
+      icon: '📧',
+      value: nextActions.send_email,
+      sub: 'leads para email',
+      color: '#10B981',
+      bg: '#ECFDF5',
+      status: 'qualificado',
+    },
+    {
+      label: 'Seguir Proposta',
+      icon: '📄',
+      value: nextActions.follow_proposal,
+      sub: 'propostas pendentes',
+      color: '#F59E0B',
+      bg: '#FFFBEB',
+      status: 'proposal_sent',
+    },
   ]
 
   return (
@@ -90,8 +117,9 @@ export default function Pipeline() {
             <div
               key={card.label}
               className="bg-white rounded-xl p-5 flex flex-col gap-2"
-              style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'transform 200ms', cursor: 'default' }}
-              onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+              style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'transform 200ms', cursor: 'pointer' }}
+              onClick={() => navigate(`/leads-report?status=${card.status}`)}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
               onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
             >
               <div style={{ width: 36, height: 36, borderRadius: 8, background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
@@ -103,7 +131,7 @@ export default function Pipeline() {
           ))}
         </div>
 
-        {/* Funnel + Analytics */}
+        {/* Funnel + Métricas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -128,41 +156,24 @@ export default function Pipeline() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <div className="bg-white rounded-xl p-6 flex flex-col gap-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Métricas do Funil
             </h2>
-
-            <div className="flex gap-8">
-              <div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1 p-4 rounded-xl" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
                 <p style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tempo Médio</p>
-                <p style={{ fontSize: 30, fontWeight: 700, color: '#1F2937', lineHeight: 1.2 }}>{analytics.avg_time_in_pipeline}d</p>
+                <p style={{ fontSize: 34, fontWeight: 700, color: '#1F2937', lineHeight: 1.1 }}>{analytics.avg_time_in_pipeline}d</p>
                 <p style={{ fontSize: 11, color: '#9CA3AF' }}>no funil</p>
               </div>
-              <div>
+              <div className="flex flex-col gap-1 p-4 rounded-xl" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
                 <p style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Conversão Geral</p>
-                <p style={{ fontSize: 30, fontWeight: 700, color: '#10B981', lineHeight: 1.2 }}>{analytics.conversion_rate}%</p>
+                <p style={{ fontSize: 34, fontWeight: 700, color: '#10B981', lineHeight: 1.1 }}>{analytics.conversion_rate}%</p>
                 <p style={{ fontSize: 11, color: '#9CA3AF' }}>fechados / total</p>
               </div>
             </div>
-
-            <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 16 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>
-                Conversão por Estágio
-              </p>
-              {stageConversions.map(item => (
-                <div key={item.label} className="flex flex-col gap-1 mb-3">
-                  <div className="flex justify-between">
-                    <span style={{ fontSize: 12, color: '#374151' }}>{item.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{item.value}%</span>
-                  </div>
-                  <div style={{ background: '#F3F4F6', borderRadius: 99, height: 6 }}>
-                    <div style={{ width: `${item.value}%`, height: '100%', background: item.color, borderRadius: 99, transition: 'width 500ms ease' }} />
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
+
         </div>
 
         {/* Alerts */}
@@ -235,6 +246,35 @@ export default function Pipeline() {
           </div>
 
         </div>
+
+        {/* Próximas Ações */}
+        <div>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
+            Próximas Ações
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {nextActionCards.map(card => (
+              <div
+                key={card.label}
+                className="bg-white rounded-xl p-5 flex items-center gap-4"
+                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 200ms, box-shadow 200ms' }}
+                onClick={() => navigate(`/leads-report?status=${card.status}`)}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)' }}
+              >
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                  {card.icon}
+                </div>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{card.label}</p>
+                  <p style={{ fontSize: 24, fontWeight: 700, color: card.color, lineHeight: 1.2 }}>{card.value}</p>
+                  <p style={{ fontSize: 11, color: '#9CA3AF' }}>{card.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </main>
     </div>
   )
