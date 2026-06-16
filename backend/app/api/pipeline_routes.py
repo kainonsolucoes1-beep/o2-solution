@@ -114,6 +114,38 @@ def pipeline_alerts(
     }
 
 
+@router.get("/next-actions")
+def pipeline_next_actions(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    now = _now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    cutoff_5d = now - timedelta(days=5)
+
+    call_today = (
+        db.query(func.count(Lead.id))
+        .filter(_status_in(NOVO_STATUSES))
+        .filter(Lead.created_at >= today_start)
+        .scalar() or 0
+    )
+
+    send_email = (
+        db.query(func.count(Lead.id))
+        .filter(_status_in(QUALIFICADO_STATUSES))
+        .scalar() or 0
+    )
+
+    follow_proposal = (
+        db.query(func.count(Lead.id))
+        .filter(_status_in(PROPOSTA_STATUSES))
+        .filter(Lead.created_at <= cutoff_5d)
+        .scalar() or 0
+    )
+
+    return {"call_today": call_today, "send_email": send_email, "follow_proposal": follow_proposal}
+
+
 @router.get("/analytics")
 def pipeline_analytics(
     current_user: User = Depends(get_current_user),
