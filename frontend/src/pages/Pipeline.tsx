@@ -2,16 +2,17 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import NavBar from '../components/NavBar'
+import SourceDetailModal from '../components/SourceDetailModal'
 
 interface PipelineOverview { novo: number; qualificado: number; proposta: number; fechado: number; perdido: number }
 interface FunnelStage { stage: string; count: number; percentage: number }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
 interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[] }
 interface NextActions { call_today: number; send_email: number; follow_proposal: number }
-interface TopSource { name: string; count: number }
+interface RevenueSource { name: string; total_revenue: number; leads_count: number; average_ticket: number }
 
 const STAGE_COLORS  = ['#3B82F6', '#10B981', '#F59E0B', '#6B7280', '#EF4444']
-const SOURCE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444']
+const SOURCE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16']
 
 function getDateRange(month: string) {
   const [y, m] = month.split('-').map(Number)
@@ -19,6 +20,12 @@ function getDateRange(month: string) {
   const lastDay = new Date(y, m, 0).getDate()
   const last = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
   return { date_from: first, date_to: last }
+}
+
+function fmtShort(n: number) {
+  if (n >= 1_000_000) return `R$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `R$${(n / 1_000).toFixed(0)}k`
+  return `R$${n.toFixed(0)}`
 }
 
 export default function Pipeline() {
@@ -34,7 +41,8 @@ export default function Pipeline() {
   const [funnel, setFunnel] = useState<FunnelStage[]>([])
   const [alerts, setAlerts] = useState<PipelineAlerts | null>(null)
   const [nextActions, setNextActions] = useState<NextActions | null>(null)
-  const [topSources, setTopSources] = useState<TopSource[]>([])
+  const [revenueSources, setRevenueSources] = useState<RevenueSource[]>([])
+  const [modalSource, setModalSource] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -57,14 +65,14 @@ export default function Pipeline() {
       api.get<{ stages: FunnelStage[] }>(`/api/v1/pipeline/funnel${q}`),
       api.get<PipelineAlerts>(`/api/v1/pipeline/alerts${q}`),
       api.get<NextActions>(`/api/v1/pipeline/next-actions${q}`),
-      api.get<{ sources: TopSource[] }>(`/api/v1/pipeline/top-sources${q}`),
+      api.get<{ sources: RevenueSource[] }>(`/api/v1/pipeline/revenue-by-source${q}`),
     ])
       .then(([ov, fn, al, na, ts]) => {
         setOverview(ov.data)
         setFunnel(fn.data.stages)
         setAlerts(al.data)
         setNextActions(na.data)
-        setTopSources(ts.data.sources)
+        setRevenueSources(ts.data.sources)
       })
       .catch(err => {
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
@@ -98,7 +106,7 @@ export default function Pipeline() {
   ]
 
   const maxFunnel    = funnel.reduce((m, s) => Math.max(m, s.count), 1)
-  const maxTopSource = topSources.reduce((m, s) => Math.max(m, s.count), 1)
+  const maxRevSource = revenueSources.reduce((m, s) => Math.max(m, s.total_revenue), 1)
 
   const nextActionCards = [
     { label: 'Ligar Hoje',      icon: '📞', value: nextActions.call_today,     sub: 'leads para ligar',    color: '#3B82F6', bg: '#EFF6FF', nav: '?status=pending' },
@@ -181,24 +189,36 @@ export default function Pipeline() {
           </div>
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Top Fontes
-            </h2>
-            {topSources.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sem dados de origem no período.</p>
+            <div className="flex items-center justify-between">
+              <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Receita Potencial por Fonte
+              </h2>
+              <span style={{ fontSize: 11, color: '#9CA3AF' }}>Clique para detalhes</span>
+            </div>
+            {revenueSources.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sem dados de receita no período.</p>
             ) : (
-              <div className="flex flex-col gap-4">
-                {topSources.map((s, i) => {
-                  const barW = Math.max(4, Math.round((s.count / maxTopSource) * 100))
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                {revenueSources.map((s, i) => {
+                  const barH = Math.max(12, Math.round((s.total_revenue / maxRevSource) * 130))
                   return (
-                    <div key={s.name} className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{s.name}</span>
-                        <span style={{ fontSize: 12, color: '#6B7280' }}>{s.count} leads</span>
-                      </div>
-                      <div style={{ background: '#F3F4F6', borderRadius: 99, height: 10, overflow: 'hidden' }}>
-                        <div style={{ width: `${barW}%`, height: '100%', background: SOURCE_COLORS[i % SOURCE_COLORS.length], borderRadius: 99, transition: 'width 500ms ease' }} />
-                      </div>
+                    <div
+                      key={s.name}
+                      style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+                      onClick={() => setModalSource(s.name)}
+                      title={`${s.name}: ${fmtShort(s.total_revenue)} · ${s.leads_count} leads`}
+                    >
+                      <span style={{ fontSize: 9, color: '#6B7280', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        {fmtShort(s.total_revenue)}
+                      </span>
+                      <div
+                        style={{ width: '100%', height: barH, background: SOURCE_COLORS[i % SOURCE_COLORS.length], borderRadius: '4px 4px 0 0', transition: 'opacity 200ms' }}
+                        onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                        onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                      />
+                      <span style={{ fontSize: 10, color: '#374151', textAlign: 'center', lineHeight: 1.2, wordBreak: 'break-word', maxWidth: '100%' }}>
+                        {s.name.length > 9 ? s.name.slice(0, 8) + '…' : s.name}
+                      </span>
                     </div>
                   )
                 })}
@@ -308,6 +328,18 @@ export default function Pipeline() {
         </div>
 
       </main>
+
+      {modalSource && (() => {
+        const { date_from, date_to } = getDateRange(selectedMonth)
+        return (
+          <SourceDetailModal
+            sourceName={modalSource}
+            dateFrom={date_from}
+            dateTo={date_to}
+            onClose={() => setModalSource(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

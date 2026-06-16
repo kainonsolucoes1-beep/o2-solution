@@ -183,3 +183,86 @@ def pipeline_top_sources(
         .all()
     )
     return {"sources": [{"name": r.origin, "count": r.count} for r in rows]}
+
+
+@router.get("/revenue-by-source")
+def pipeline_revenue_by_source(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    q = db.query(
+        Lead.origin,
+        func.count(Lead.id).label("cnt"),
+        func.sum(Lead.value_potential).label("revenue"),
+    )
+    q = _apply_filters(q, date_from, date_to, source)
+    rows = (
+        q.filter(Lead.origin.isnot(None), Lead.origin != "", Lead.origin != "Sem origem")
+        .group_by(Lead.origin)
+        .order_by(func.sum(Lead.value_potential).desc())
+        .limit(10)
+        .all()
+    )
+    result = []
+    for r in rows:
+        total = float(r.revenue or 0)
+        count = int(r.cnt or 0)
+        result.append({
+            "name": r.origin,
+            "total_revenue": total,
+            "leads_count": count,
+            "average_ticket": round(total / count, 2) if count else 0.0,
+        })
+    return {"sources": result}
+
+
+@router.get("/source-details/{source_name}")
+def pipeline_source_details(
+    source_name: str,
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    agg = _apply_filters(
+        db.query(func.count(Lead.id).label("cnt"), func.sum(Lead.value_potential).label("revenue")),
+        date_from, date_to, source_name,
+    ).first()
+    total_revenue = float(agg.revenue or 0)
+    leads_count   = int(agg.cnt or 0)
+
+    active_q = db.query(func.count(Lead.id)).filter(
+        ~_status_in(PERDIDO_STATUSES),
+        ~_status_in(FECHADO_STATUSES),
+    )
+    active_leads = _apply_filters(active_q, date_from, date_to, source_name).scalar() or 0
+
+    time_rows = _apply_filters(
+        db.query(Lead.created_at, Lead.updated_at),
+        date_from, date_to, source_name,
+    ).all()
+    times = [
+        (r.updated_at - r.created_at).total_seconds() / 86400
+        for r in time_rows
+        if r.updated_at and r.created_at and r.updated_at > r.created_at
+    ]
+    avg_time = round(sum(times) / len(times), 1) if times else 0.0
+
+    return {
+        "name": source_name,
+        "total_revenue": total_revenue,
+        "leads_count": leads_count,
+        "average_ticket": round(total_revenue / leads_count, 2) if leads_count else 0.0,
+        "active_leads": active_leads,
+        "average_time_in_pipeline": avg_time,
+        "distribution_by_status": {
+            "Pendente": _count_status(db, PENDENTE_STATUSES, date_from, date_to, source_name),
+            "Agendado": _count_status(db, AGENDADO_STATUSES, date_from, date_to, source_name),
+            "Proposta": _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source_name),
+            "Venda":    _count_status(db, FECHADO_STATUSES,  date_from, date_to, source_name),
+            "Perdido":  _count_status(db, PERDIDO_STATUSES,  date_from, date_to, source_name),
+        },
+    }
