@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import NavBar from '../components/NavBar'
 
-interface PipelineOverview { novo: number; qualificado: number; proposta: number; fechado: number }
+interface PipelineOverview { novo: number; qualificado: number; proposta: number; fechado: number; perdido: number }
 interface FunnelStage { stage: string; count: number; percentage: number }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
 interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[] }
@@ -94,6 +94,7 @@ export default function Pipeline() {
     { label: 'Qualificado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: '?perception=Quente,Morno' },
     { label: 'Proposta',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: '?status=proposal_sent' },
     { label: 'Fechado',     value: overview.fechado,     color: '#6B7280', bg: '#F3F4F6', icon: '🏆', nav: '?status=waiting_billing' },
+    { label: 'Perdido',     value: overview.perdido,     color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: '?status=sale_not_performed' },
   ]
 
   const maxFunnel    = funnel.reduce((m, s) => Math.max(m, s.count), 1)
@@ -135,7 +136,7 @@ export default function Pipeline() {
         </div>
 
         {/* Overview cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {overviewCards.map(card => (
             <div
               key={card.label}

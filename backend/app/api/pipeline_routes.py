@@ -16,6 +16,7 @@ PENDENTE_STATUSES    = ("pending", "novo", "new")
 AGENDADO_STATUSES    = ("scheduled", "qualificado", "qualified")
 PROPOSTA_STATUSES    = ("proposal_sent",)
 FECHADO_STATUSES     = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
+PERDIDO_STATUSES     = ("sale_not_performed",)
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 
 
@@ -66,6 +67,7 @@ def pipeline_overview(
         "qualificado": _count_perception(db, HOT_WARM_PERCEPTIONS, date_from, date_to, source),
         "proposta":    _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source),
         "fechado":     _count_status(db, FECHADO_STATUSES, date_from, date_to, source),
+        "perdido":     _count_status(db, PERDIDO_STATUSES, date_from, date_to, source),
     }
 
 
