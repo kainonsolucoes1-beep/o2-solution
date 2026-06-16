@@ -20,8 +20,22 @@ _tokens: dict[str, str | None] = {
 }
 
 
+def _persist_tokens_to_env(access: str, refresh: str) -> None:
+    env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env.production")
+    env_path = os.path.abspath(env_path)
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, "r") as f:
+        content = f.read()
+    import re
+    content = re.sub(r"FOLLOWIZE_ACCESS_TOKEN=.*", f"FOLLOWIZE_ACCESS_TOKEN={access}", content)
+    content = re.sub(r"FOLLOWIZE_REFRESH_TOKEN=.*", f"FOLLOWIZE_REFRESH_TOKEN={refresh}", content)
+    with open(env_path, "w") as f:
+        f.write(content)
+    logger.info("Tokens Followize persistidos em .env.production")
+
+
 def _refresh_access_token() -> bool:
-    """Renova o access token via refresh_token. Retorna True se bem-sucedido."""
     refresh = _tokens["refresh"]
     if not refresh:
         logger.error("FOLLOWIZE_REFRESH_TOKEN não configurado — não é possível renovar")
@@ -37,6 +51,7 @@ def _refresh_access_token() -> bool:
         data = resp.json()
         _tokens["access"] = data["access_token"]
         _tokens["refresh"] = data.get("refresh_token", refresh)
+        _persist_tokens_to_env(_tokens["access"], _tokens["refresh"])
         logger.info("Token Followize renovado com sucesso")
         return True
     except Exception as exc:
