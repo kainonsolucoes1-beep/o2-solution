@@ -280,8 +280,8 @@ export default function Dashboard() {
                 />
                 <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} allowDecimals={false} />
                 <Tooltip
-                  formatter={(v: number) => [v, 'Leads']}
-                  labelFormatter={(l: string) => `Data: ${l}`}
+                  formatter={(v: any) => [v, 'Leads']}
+                  labelFormatter={(l: any) => `Data: ${l}`}
                   contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
                 />
                 <Line
