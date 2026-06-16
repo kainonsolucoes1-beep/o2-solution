@@ -512,6 +512,10 @@ export default function LeadsReport() {
           </>
         )}
       </main>
+
+      {selectedLead && (
+        <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} />
+      )}
     </div>
   )
 }
