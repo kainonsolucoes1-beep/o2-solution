@@ -90,7 +90,7 @@ def leads_by_period(
             db.query(
                 Lead.id, Lead.name, Lead.email, Lead.phone,
                 Lead.company, Lead.attendant,
-                Lead.status, Lead.value_potential, Lead.created_at, Lead.origin,
+                Lead.status, Lead.perception, Lead.value_potential, Lead.created_at, Lead.origin,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -103,7 +103,7 @@ def leads_by_period(
         LeadReportItem(
             id=r.id, name=r.name, email=r.email, phone=r.phone,
             company=r.company, attendant=r.attendant,
-            status=r.status,
+            status=r.status, perception=r.perception,
             value_potential=float(r.value_potential) if r.value_potential is not None else None,
             created_at=r.created_at,
             origem=r.origin,
