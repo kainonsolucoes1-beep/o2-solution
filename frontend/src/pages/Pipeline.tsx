@@ -5,7 +5,7 @@ import NavBar from '../components/NavBar'
 
 interface PipelineOverview { novo: number; qualificado: number; proposta: number; fechado: number }
 interface FunnelStage { stage: string; count: number; percentage: number }
-interface AlertLead { id: string; name: string; days_paused?: number; hours_without_action?: number }
+interface AlertLead { id: string; name: string; days_paused?: number; hours_without_action?: number; status?: string }
 interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[] }
 interface StageConversion { novo_to_qualificado: number; qualificado_to_proposta: number; proposta_to_fechado: number }
 interface PipelineAnalytics { avg_time_in_pipeline: number; conversion_rate: number; stage_conversion: StageConversion }
@@ -178,7 +178,7 @@ export default function Pipeline() {
                 {alerts.vencidos.length} leads
               </span>
             </div>
-            <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: -8 }}>7+ dias parados com status Novo</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: -8 }}>Qualquer status sem atenção nas últimas 24h</p>
             {alerts.vencidos.length === 0 ? (
               <p style={{ fontSize: 13, color: '#9CA3AF' }}>Nenhum lead vencido.</p>
             ) : (
