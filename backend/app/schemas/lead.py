@@ -1,7 +1,8 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
+
 
 class LeadCreate(BaseModel):
     name: str
@@ -13,6 +14,7 @@ class LeadCreate(BaseModel):
     value_potential: Optional[float] = None
     notes: Optional[str] = None
 
+
 class LeadResponse(LeadCreate):
     id: UUID
     user_id: Optional[UUID] = None
@@ -21,3 +23,21 @@ class LeadResponse(LeadCreate):
 
     class Config:
         from_attributes = True
+
+
+class LeadReportItem(BaseModel):
+    id: UUID
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    origem: Optional[str] = None
+    status: Optional[str] = None
+    value_potential: Optional[float] = None
+    created_at: datetime
+
+
+class LeadsReportResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    leads: List[LeadReportItem]

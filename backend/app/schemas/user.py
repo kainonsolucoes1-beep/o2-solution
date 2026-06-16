@@ -22,7 +22,13 @@ class UserResponse(BaseModel):
     email: str
     username: str
     first_name: Optional[str]
+    role: str = "user"
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class OperatorInfo(BaseModel):
+    id: UUID
+    name: str
