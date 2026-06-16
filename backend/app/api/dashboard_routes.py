@@ -160,14 +160,13 @@ def daily_capture(db: Session = Depends(get_db)):
 def operators_ranking(db: Session = Depends(get_db)):
     rows = (
         db.query(
-            func.coalesce(User.first_name, User.username).label("name"),
+            func.coalesce(Lead.origin, "Sem origem").label("name"),
             func.count(Lead.id).label("leads"),
             func.count(Lead.id)
             .filter(Lead.status.in_(QUALIFIED_STATUSES))
             .label("qualified"),
         )
-        .join(User, Lead.user_id == User.id)
-        .group_by(User.id, User.first_name, User.username)
+        .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
         .limit(5)
         .all()
