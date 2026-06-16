@@ -218,7 +218,7 @@ export default function Dashboard() {
                 />
                 <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} allowDecimals={false} />
                 <Tooltip
-                  formatter={(v: number) => [v, 'Leads']}
+                  formatter={(v) => [v, 'Leads']}
                   labelFormatter={(l) => `Data: ${l}`}
                 />
                 <Line
