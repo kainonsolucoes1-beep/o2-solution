@@ -77,9 +77,8 @@ def pipeline_alerts(
 
     vencidos_rows = (
         db.query(Lead)
-        .filter(_status_in(NOVO_STATUSES))
-        .filter(Lead.created_at <= cutoff_7d)
-        .order_by(Lead.created_at.asc())
+        .filter(Lead.updated_at <= cutoff_24h)
+        .order_by(Lead.updated_at.asc())
         .limit(10)
         .all()
     )
@@ -88,7 +87,6 @@ def pipeline_alerts(
         db.query(Lead)
         .filter(_status_in(NOVO_STATUSES))
         .filter(Lead.updated_at <= cutoff_24h)
-        .filter(Lead.created_at > cutoff_7d)
         .order_by(Lead.updated_at.asc())
         .limit(10)
         .all()
@@ -99,8 +97,8 @@ def pipeline_alerts(
             {
                 "id": str(r.id),
                 "name": r.name,
-                "days_paused": (now - r.created_at).days if r.created_at else 0,
-                "created_at": r.created_at.strftime("%Y-%m-%d") if r.created_at else None,
+                "hours_without_action": int((now - r.updated_at).total_seconds() / 3600) if r.updated_at else 0,
+                "status": r.status,
             }
             for r in vencidos_rows
         ],
