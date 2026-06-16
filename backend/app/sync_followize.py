@@ -153,6 +153,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     company = fields["company"]
     status = fields["status"]
     attendant = fields["attendant"]
+    created_at = fields["created_at"]
 
     existing = db.query(Lead).filter(Lead.email == email).first() if email else None
 
@@ -162,18 +163,19 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.company = company
         existing.status = status
         existing.origin = attendant
-        existing.updated_at = datetime.utcnow()
+        if created_at:
+            existing.created_at = created_at
+        existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         return "updated"
 
-    db.add(Lead(
-        user_id=user_id,
-        name=name,
-        email=email,
-        phone=phone,
-        company=company,
-        origin=attendant,
-        status=status,
-    ))
+    lead_kwargs = dict(
+        user_id=user_id, name=name, email=email,
+        phone=phone, company=company, origin=attendant, status=status,
+    )
+    if created_at:
+        lead_kwargs["created_at"] = created_at
+
+    db.add(Lead(**lead_kwargs))
     return "inserted"
 
 
