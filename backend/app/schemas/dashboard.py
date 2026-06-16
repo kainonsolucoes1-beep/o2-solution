@@ -39,3 +39,12 @@ class OperatorRanking(BaseModel):
 
 class OperatorsRankingResponse(BaseModel):
     ranking: List[OperatorRanking]
+
+
+class OperatorCapture(BaseModel):
+    name: str
+    leads_today: int
+
+
+class DailyCaptureResponse(BaseModel):
+    operators: List[OperatorCapture]

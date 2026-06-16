@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from typing import List
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, cast, Date
+from sqlalchemy import func, cast, Date, and_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,6 +17,8 @@ from app.schemas.dashboard import (
     DayLeads,
     OperatorsRankingResponse,
     OperatorRanking,
+    DailyCaptureResponse,
+    OperatorCapture,
 )
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
@@ -122,6 +124,30 @@ def last_7_days(db: Session = Depends(get_db)):
         days.append(DayLeads(date=d, leads=counts.get(d, 0)))
 
     return Last7DaysResponse(days=days)
+
+
+@router.get("/daily-capture", response_model=DailyCaptureResponse)
+def daily_capture(db: Session = Depends(get_db)):
+    today = date.today()
+
+    rows = (
+        db.query(
+            func.coalesce(User.first_name, User.username).label("name"),
+            func.count(Lead.id).label("leads_today"),
+        )
+        .outerjoin(
+            Lead,
+            and_(Lead.user_id == User.id, cast(Lead.created_at, Date) == today),
+        )
+        .filter(User.is_active.is_(True))
+        .group_by(User.id, User.first_name, User.username)
+        .order_by(func.count(Lead.id).desc())
+        .all()
+    )
+
+    return DailyCaptureResponse(
+        operators=[OperatorCapture(name=r.name, leads_today=r.leads_today) for r in rows]
+    )
 
 
 @router.get("/operators-ranking", response_model=OperatorsRankingResponse)
