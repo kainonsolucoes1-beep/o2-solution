@@ -254,15 +254,27 @@ async def sync_leads_from_followize() -> None:
         logger.error("FOLLOWIZE_ACCESS_TOKEN não configurado — sync ignorado")
         return
 
-    # Busca leads ALTERADOS nos últimos 2 dias (date_of=change captura percepção/status atualizados)
-    date_from = _date_from_lookback(days=2)
-    logger.info("Iniciando sincronização Followize (date_from=%s, date_of=change)...", date_from)
+    # Busca por criação (novos leads) + por alteração (percepção/status atualizados)
+    date_from_1d = _date_from_lookback(days=1)
+    date_from_2d = _date_from_lookback(days=2)
+    logger.info("Iniciando sincronização Followize (creation=%s, change=%s)...", date_from_1d, date_from_2d)
 
     try:
-        raw_leads = await asyncio.to_thread(_fetch_all_leads, date_from, "change")
+        created, changed = await asyncio.gather(
+            asyncio.to_thread(_fetch_all_leads, date_from_1d, "creation"),
+            asyncio.to_thread(_fetch_all_leads, date_from_2d, "change"),
+        )
     except Exception as exc:
         logger.error("Erro ao buscar leads do Followize: %s", exc)
         return
+
+    # Deduplica por ID (change tem prioridade por ter dados mais recentes)
+    seen: dict[str, dict] = {}
+    for raw in created:
+        seen[str(raw.get("id"))] = raw
+    for raw in changed:
+        seen[str(raw.get("id"))] = raw
+    raw_leads = list(seen.values())
 
     if not raw_leads:
         logger.info("Followize não retornou nenhum lead")
