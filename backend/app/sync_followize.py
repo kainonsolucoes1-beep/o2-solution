@@ -173,6 +173,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     attendant = fields["attendant"]
     origin = fields["origin"]
     created_at = fields["created_at"]
+    value_potential = fields["value_potential"]
 
     if email:
         existing = db.query(Lead).filter(Lead.email == email).first()
@@ -188,6 +189,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.status = status
         existing.origin = origin
         existing.attendant = attendant
+        existing.value_potential = value_potential
         if created_at:
             existing.created_at = created_at
         existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -196,6 +198,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     lead_kwargs = dict(
         user_id=user_id, name=name, email=email, phone=phone,
         company=company, origin=origin, attendant=attendant, status=status,
+        value_potential=value_potential,
     )
     if created_at:
         lead_kwargs["created_at"] = created_at
