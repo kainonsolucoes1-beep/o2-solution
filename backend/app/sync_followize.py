@@ -298,7 +298,7 @@ async def sync_leads_from_followize() -> None:
 
 
 async def start_sync_scheduler() -> None:
-    """Loop infinito: sincroniza Followize a cada 30 minutos."""
+    """Loop infinito: sincroniza Followize a cada 5 minutos."""
     while True:
         await sync_leads_from_followize()
-        await asyncio.sleep(1800)
+        await asyncio.sleep(300)
