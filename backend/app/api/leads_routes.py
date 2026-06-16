@@ -140,3 +140,61 @@ def list_origins(
         .all()
     )
     return [r.origin for r in rows]
+
+
+@router.post("/leads/{lead_id}/status", response_model=StatusUpdateResponse)
+def update_lead_status(
+    lead_id: str,
+    body: StatusUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    lead.status = body.status
+    lead.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+    return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
+
+
+@router.get("/leads/{lead_id}/notes", response_model=NotesListResponse)
+def get_lead_notes(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(LeadNote, User)
+        .outerjoin(User, LeadNote.user_id == User.id)
+        .filter(LeadNote.lead_id == lead_id)
+        .order_by(LeadNote.created_at.desc())
+        .all()
+    )
+    notes = [
+        NoteResponse(
+            id=note.id,
+            content=note.content,
+            created_by=(user.first_name or user.username) if user else "Usuário",
+            created_at=note.created_at,
+        )
+        for note, user in rows
+    ]
+    return NotesListResponse(notes=notes)
+
+
+@router.post("/leads/{lead_id}/notes", response_model=NoteCreateResponse)
+def create_lead_note(
+    lead_id: str,
+    body: NoteCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    note = LeadNote(lead_id=lead.id, user_id=current_user.id, content=body.content)
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return NoteCreateResponse(success=True, note_id=note.id, created_at=note.created_at)
