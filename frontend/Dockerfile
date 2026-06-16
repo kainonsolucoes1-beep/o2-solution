@@ -6,7 +6,7 @@ COPY . .
 # VITE_API_URL="" usa same-origin; nginx faz proxy /api/* → backend:8000
 ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
-RUN npm run build
+RUN npx vite build
 
 FROM nginx:1.27-alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
