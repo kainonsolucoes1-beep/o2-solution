@@ -11,10 +11,14 @@ from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
 
-NOVO_STATUSES = ("novo", "new")
-QUALIFICADO_STATUSES = ("qualificado", "qualified")
-PROPOSTA_STATUSES = ("proposta", "proposal", "proposal_sent")
-FECHADO_STATUSES = ("fechado", "closed", "won", "convertido")
+# Status reais da API Followize (+ fallbacks legados do banco)
+PENDENTE_STATUSES   = ("pending", "novo", "new")
+AGENDADO_STATUSES   = ("scheduled", "qualificado", "qualified")
+PROPOSTA_STATUSES   = ("proposal_sent",)
+FECHADO_STATUSES    = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
+
+# Percepções armazenadas no banco (mapeadas pelo sync)
+HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 
 
 def _now():
@@ -25,8 +29,12 @@ def _status_in(statuses):
     return or_(*[func.lower(Lead.status) == s.lower() for s in statuses])
 
 
-def _count(db: Session, statuses) -> int:
+def _count_status(db: Session, statuses) -> int:
     return db.query(func.count(Lead.id)).filter(_status_in(statuses)).scalar() or 0
+
+
+def _count_perception(db: Session, perceptions) -> int:
+    return db.query(func.count(Lead.id)).filter(Lead.perception.in_(list(perceptions))).scalar() or 0
 
 
 @router.get("/overview")
@@ -35,10 +43,10 @@ def pipeline_overview(
     db: Session = Depends(get_db),
 ):
     return {
-        "novo": _count(db, NOVO_STATUSES),
-        "qualificado": _count(db, QUALIFICADO_STATUSES),
-        "proposta": _count(db, PROPOSTA_STATUSES),
-        "fechado": _count(db, FECHADO_STATUSES),
+        "novo":        _count_status(db, PENDENTE_STATUSES),
+        "qualificado": _count_perception(db, HOT_WARM_PERCEPTIONS),
+        "proposta":    _count_status(db, PROPOSTA_STATUSES),
+        "fechado":     _count_status(db, FECHADO_STATUSES),
     }
 
 
@@ -47,21 +55,21 @@ def pipeline_funnel(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    novo = _count(db, NOVO_STATUSES)
-    qualificado = _count(db, QUALIFICADO_STATUSES)
-    proposta = _count(db, PROPOSTA_STATUSES)
-    fechado = _count(db, FECHADO_STATUSES)
-    total = novo + qualificado + proposta + fechado
+    pendente  = _count_status(db, PENDENTE_STATUSES)
+    agendado  = _count_status(db, AGENDADO_STATUSES)
+    proposta  = _count_status(db, PROPOSTA_STATUSES)
+    fechado   = _count_status(db, FECHADO_STATUSES)
+    total = pendente + agendado + proposta + fechado
 
     def pct(n):
         return round(n / total * 100, 1) if total > 0 else 0.0
 
     return {
         "stages": [
-            {"stage": "Novo", "count": novo, "percentage": pct(novo)},
-            {"stage": "Qualificado", "count": qualificado, "percentage": pct(qualificado)},
-            {"stage": "Proposta", "count": proposta, "percentage": pct(proposta)},
-            {"stage": "Fechado", "count": fechado, "percentage": pct(fechado)},
+            {"stage": "Pendente",        "count": pendente, "percentage": pct(pendente)},
+            {"stage": "Agendado",        "count": agendado, "percentage": pct(agendado)},
+            {"stage": "Proposta Enviada","count": proposta, "percentage": pct(proposta)},
+            {"stage": "Venda Realizada", "count": fechado,  "percentage": pct(fechado)},
         ]
     }
 
@@ -72,7 +80,6 @@ def pipeline_alerts(
     db: Session = Depends(get_db),
 ):
     now = _now()
-    cutoff_7d = now - timedelta(days=7)
     cutoff_24h = now - timedelta(hours=24)
 
     vencidos_rows = (
@@ -85,7 +92,7 @@ def pipeline_alerts(
 
     uncontacted_rows = (
         db.query(Lead)
-        .filter(_status_in(NOVO_STATUSES))
+        .filter(_status_in(PENDENTE_STATUSES))
         .filter(Lead.updated_at <= cutoff_24h)
         .order_by(Lead.updated_at.asc())
         .limit(10)
@@ -125,14 +132,14 @@ def pipeline_next_actions(
 
     call_today = (
         db.query(func.count(Lead.id))
-        .filter(_status_in(NOVO_STATUSES))
+        .filter(_status_in(PENDENTE_STATUSES))
         .filter(Lead.created_at >= today_start)
         .scalar() or 0
     )
 
     send_email = (
         db.query(func.count(Lead.id))
-        .filter(_status_in(QUALIFICADO_STATUSES))
+        .filter(_status_in(AGENDADO_STATUSES))
         .scalar() or 0
     )
 
@@ -151,21 +158,21 @@ def pipeline_analytics(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    total = db.query(func.count(Lead.id)).scalar() or 0
-    novo = _count(db, NOVO_STATUSES)
-    qualificado = _count(db, QUALIFICADO_STATUSES)
-    proposta = _count(db, PROPOSTA_STATUSES)
-    fechado = _count(db, FECHADO_STATUSES)
+    total    = db.query(func.count(Lead.id)).scalar() or 0
+    pendente = _count_status(db, PENDENTE_STATUSES)
+    agendado = _count_status(db, AGENDADO_STATUSES)
+    proposta = _count_status(db, PROPOSTA_STATUSES)
+    fechado  = _count_status(db, FECHADO_STATUSES)
 
     conversion_rate = round(fechado / total * 100, 1) if total > 0 else 0.0
 
-    novo_base = novo + qualificado + proposta + fechado
-    qual_base = qualificado + proposta + fechado
-    prop_base = proposta + fechado
+    p_base = pendente + agendado + proposta + fechado
+    a_base = agendado + proposta + fechado
+    pr_base = proposta + fechado
 
-    nq = round(qual_base / novo_base * 100, 1) if novo_base > 0 else 0.0
-    qp = round(prop_base / qual_base * 100, 1) if qual_base > 0 else 0.0
-    pf = round(fechado / prop_base * 100, 1) if prop_base > 0 else 0.0
+    nq = round(a_base  / p_base  * 100, 1) if p_base  > 0 else 0.0
+    qp = round(pr_base / a_base  * 100, 1) if a_base  > 0 else 0.0
+    pf = round(fechado / pr_base * 100, 1) if pr_base > 0 else 0.0
 
     fechado_leads = (
         db.query(Lead.created_at, Lead.updated_at)
@@ -184,8 +191,8 @@ def pipeline_analytics(
         "avg_time_in_pipeline": avg_days,
         "conversion_rate": conversion_rate,
         "stage_conversion": {
-            "novo_to_qualificado": nq,
-            "qualificado_to_proposta": qp,
-            "proposta_to_fechado": pf,
+            "pendente_to_agendado": nq,
+            "agendado_to_proposta": qp,
+            "proposta_to_fechado":  pf,
         },
     }

@@ -112,6 +112,7 @@ export default function LeadsReport() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
   const [statusFilter] = useState(() => searchParams.get('status') ?? '')
+  const [perceptionFilter, setPerceptionFilter] = useState(() => searchParams.get('perception') ?? '')
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
   const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc')
@@ -130,8 +131,12 @@ export default function LeadsReport() {
   }, [navigate])
 
   useEffect(() => {
-    if (me && searchParams.get('status')) fetchReport(1)
+    if (me && (searchParams.get('status') || searchParams.get('perception'))) fetchReport(1)
   }, [me]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (searched) fetchReport(1)
+  }, [perceptionFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas')
 
@@ -148,6 +153,7 @@ export default function LeadsReport() {
       }
       if (isAdmin && origem) params.origem = origem
       if (statusFilter) params.status = statusFilter
+      if (perceptionFilter) params.perception = perceptionFilter
 
       api
         .get<ReportResponse>('/api/v1/leads/by-period', { params })
@@ -163,7 +169,7 @@ export default function LeadsReport() {
         })
         .finally(() => setLoading(false))
     },
-    [dateFrom, dateTo, origem, statusFilter, isAdmin, navigate],
+    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, isAdmin, navigate],
   )
 
   function handleSearch() { fetchReport(1) }
@@ -302,6 +308,44 @@ export default function LeadsReport() {
               {loading ? 'Buscando…' : 'Buscar'}
             </button>
           </div>
+
+          {perceptionFilter !== '' && (
+            <div className="flex items-center gap-2 mt-4 pt-4" style={{ borderTop: '1px solid #F3F4F6' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Percepção</span>
+              {[
+                { label: 'Ambos', value: 'Quente,Morno' },
+                { label: 'Quente', value: 'Quente' },
+                { label: 'Morno', value: 'Morno' },
+              ].map(opt => {
+                const active = perceptionFilter === opt.value
+                const colors: Record<string, { bg: string; color: string; border: string }> = {
+                  Quente: { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' },
+                  Morno:  { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' },
+                  Ambos:  { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' },
+                }
+                const c = colors[opt.label]
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setPerceptionFilter(opt.value)}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      padding: '4px 14px',
+                      borderRadius: 99,
+                      border: `1px solid ${active ? c.border : '#E5E7EB'}`,
+                      background: active ? c.bg : 'white',
+                      color: active ? c.color : '#6B7280',
+                      cursor: 'pointer',
+                      transition: 'all 150ms',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {error && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}

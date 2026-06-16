@@ -63,10 +63,10 @@ export default function Pipeline() {
   )
 
   const overviewCards = [
-    { label: 'Novo', value: overview.novo, color: '#3B82F6', bg: '#EFF6FF', icon: '📥', status: 'novo' },
-    { label: 'Qualificado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', status: 'qualificado' },
-    { label: 'Proposta', value: overview.proposta, color: '#F59E0B', bg: '#FFFBEB', icon: '📄', status: 'proposal_sent' },
-    { label: 'Fechado', value: overview.fechado, color: '#6B7280', bg: '#F3F4F6', icon: '🏆', status: 'fechado' },
+    { label: 'Pendente',    value: overview.novo,        color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: '?status=pending' },
+    { label: 'Qualificado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: '?perception=Quente,Morno' },
+    { label: 'Proposta',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: '?status=proposal_sent' },
+    { label: 'Fechado',     value: overview.fechado,     color: '#6B7280', bg: '#F3F4F6', icon: '🏆', nav: '?status=waiting_billing' },
   ]
 
   const maxCount = funnel.reduce((m, s) => Math.max(m, s.count), 1)
@@ -79,7 +79,7 @@ export default function Pipeline() {
       sub: 'leads para ligar',
       color: '#3B82F6',
       bg: '#EFF6FF',
-      status: 'novo',
+      nav: '?status=pending',
     },
     {
       label: 'Enviar Email',
@@ -88,7 +88,7 @@ export default function Pipeline() {
       sub: 'leads para email',
       color: '#10B981',
       bg: '#ECFDF5',
-      status: 'qualificado',
+      nav: '?status=scheduled',
     },
     {
       label: 'Seguir Proposta',
@@ -97,7 +97,7 @@ export default function Pipeline() {
       sub: 'propostas pendentes',
       color: '#F59E0B',
       bg: '#FFFBEB',
-      status: 'proposal_sent',
+      nav: '?status=proposal_sent',
     },
   ]
 
@@ -118,7 +118,7 @@ export default function Pipeline() {
               key={card.label}
               className="bg-white rounded-xl p-5 flex flex-col gap-2"
               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'transform 200ms', cursor: 'pointer' }}
-              onClick={() => navigate(`/leads-report?status=${card.status}`)}
+              onClick={() => navigate(`/leads-report${card.nav}`)}
               onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
               onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
             >
@@ -258,7 +258,7 @@ export default function Pipeline() {
                 key={card.label}
                 className="bg-white rounded-xl p-5 flex items-center gap-4"
                 style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 200ms, box-shadow 200ms' }}
-                onClick={() => navigate(`/leads-report?status=${card.status}`)}
+                onClick={() => navigate(`/leads-report${card.nav}`)}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)' }}
               >
