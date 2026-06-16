@@ -47,6 +47,7 @@ app.include_router(login_routes.router)
 app.include_router(me_routes.router)
 app.include_router(leads_routes.router)
 app.include_router(dashboard_routes.router)
+app.include_router(pipeline_routes.router)
 
 # Startup event para sincronização Followize
 @app.on_event("startup")
