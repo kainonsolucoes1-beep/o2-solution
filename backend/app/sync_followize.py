@@ -45,6 +45,20 @@ def _refresh_access_token() -> bool:
         return False
 
 
+def _parse_followize_dt(s: str | None) -> datetime | None:
+    if not s:
+        return None
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S.%f+00:00", "%Y-%m-%dT%H:%M:%S+00:00",
+    ):
+        try:
+            return datetime.strptime(s, fmt) - timedelta(hours=3)
+        except ValueError:
+            continue
+    return None
+
+
 def _date_from_lookback(days: int = 1) -> str:
     """Retorna date_from como 'YYYY-MM-DD' (hoje menos N dias)."""
     return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -125,8 +139,9 @@ def _parse_lead_fields(raw: dict) -> dict:
         or ((raw.get("attendant") or {}).get("name"))
         or "Sem atendente"
     )
+    created_at = _parse_followize_dt(raw.get("created_at"))
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "created_at": created_at}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
