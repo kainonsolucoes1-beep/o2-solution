@@ -141,19 +141,12 @@ def daily_capture(db: Session = Depends(get_db)):
 
     rows = (
         db.query(
-            func.coalesce(User.first_name, User.username).label("name"),
+            func.coalesce(Lead.origin, "Sem origem").label("name"),
             func.count(Lead.id).label("leads_today"),
         )
-        .outerjoin(
-            Lead,
-            and_(
-                Lead.user_id == User.id,
-                Lead.created_at >= today_start,
-                Lead.created_at < today_end,
-            ),
-        )
-        .filter(User.is_active.is_(True))
-        .group_by(User.id, User.first_name, User.username)
+        .filter(Lead.created_at >= today_start)
+        .filter(Lead.created_at < today_end)
+        .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
         .all()
     )
