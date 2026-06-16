@@ -18,6 +18,8 @@ interface LeadItem {
   name: string
   email: string | null
   phone: string | null
+  company: string | null
+  attendant: string | null
   origem: string | null
   status: string | null
   value_potential: number | null
@@ -110,6 +112,7 @@ export default function LeadsReport() {
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
   const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc')
+  const [selectedLead, setSelectedLead] = useState<LeadItem | null>(null)
 
   useEffect(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -369,11 +372,13 @@ export default function LeadsReport() {
                       {sortedLeads.map((lead, i) => (
                         <tr
                           key={lead.id}
+                          onClick={() => setSelectedLead(lead)}
                           style={{
                             borderBottom:
                               i < sortedLeads.length - 1 ? '1px solid #F3F4F6' : 'none',
                             background: 'white',
                             transition: 'background 120ms',
+                            cursor: 'pointer',
                           }}
                           onMouseEnter={e =>
                             (e.currentTarget.style.background = '#F9FAFB')
