@@ -276,7 +276,7 @@ export default function Dashboard() {
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 11, fill: '#9CA3AF' }}
-                  tickFormatter={(v: string) => v.slice(5)}
+                  tickFormatter={(v: any) => v.slice(5)}
                 />
                 <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} allowDecimals={false} />
                 <Tooltip

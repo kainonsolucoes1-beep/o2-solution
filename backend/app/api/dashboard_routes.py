@@ -1,5 +1,5 @@
 import os
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends
@@ -28,20 +28,29 @@ META_MONTHLY = int(os.getenv("META_MONTHLY", 200))
 QUALIFIED_STATUSES = ("qualificado", "qualified", "convertido")
 
 
+def _today_range() -> tuple[datetime, datetime]:
+    """Retorna (today_start, today_end) em UTC para filtros de intervalo."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+    return today_start, today_end
+
+
 @router.get("/today-metrics", response_model=TodayMetrics)
 def today_metrics(db: Session = Depends(get_db)):
-    today = date.today()
-    first_of_month = today.replace(day=1)
+    today_start, today_end = _today_range()
+    month_start = today_start.replace(day=1)
 
     leads_today = (
         db.query(func.count(Lead.id))
-        .filter(cast(Lead.created_at, Date) == today)
+        .filter(Lead.created_at >= today_start)
+        .filter(Lead.created_at < today_end)
         .scalar() or 0
     )
 
     leads_monthly = (
         db.query(func.count(Lead.id))
-        .filter(cast(Lead.created_at, Date) >= first_of_month)
+        .filter(Lead.created_at >= month_start)
         .scalar() or 0
     )
 
@@ -58,10 +67,9 @@ def today_metrics(db: Session = Depends(get_db)):
 
     qualified_leads = (
         db.query(func.count(Lead.id))
-        .filter(
-            cast(Lead.created_at, Date) == today,
-            Lead.status.in_(QUALIFIED_STATUSES),
-        )
+        .filter(Lead.created_at >= today_start)
+        .filter(Lead.created_at < today_end)
+        .filter(Lead.status.in_(QUALIFIED_STATUSES))
         .scalar() or 0
     )
 
@@ -81,7 +89,7 @@ def today_metrics(db: Session = Depends(get_db)):
 
 @router.get("/top-operators", response_model=TopOperatorsResponse)
 def top_operators(db: Session = Depends(get_db)):
-    today = date.today()
+    today_start, today_end = _today_range()
 
     rows = (
         db.query(
@@ -89,7 +97,8 @@ def top_operators(db: Session = Depends(get_db)):
             func.count(Lead.id).label("leads_today"),
         )
         .join(User, Lead.user_id == User.id)
-        .filter(cast(Lead.created_at, Date) == today)
+        .filter(Lead.created_at >= today_start)
+        .filter(Lead.created_at < today_end)
         .group_by(User.id, User.first_name, User.username)
         .order_by(func.count(Lead.id).desc())
         .limit(3)
@@ -103,15 +112,15 @@ def top_operators(db: Session = Depends(get_db)):
 
 @router.get("/last-7-days", response_model=Last7DaysResponse)
 def last_7_days(db: Session = Depends(get_db)):
-    today = date.today()
-    start = today - timedelta(days=6)
+    today_start, _ = _today_range()
+    week_start = today_start - timedelta(days=6)
 
     rows = (
         db.query(
             cast(Lead.created_at, Date).label("day"),
             func.count(Lead.id).label("leads"),
         )
-        .filter(cast(Lead.created_at, Date) >= start)
+        .filter(Lead.created_at >= week_start)
         .group_by(cast(Lead.created_at, Date))
         .order_by(cast(Lead.created_at, Date))
         .all()
@@ -120,7 +129,7 @@ def last_7_days(db: Session = Depends(get_db)):
     counts = {str(r.day): r.leads for r in rows}
     days: List[DayLeads] = []
     for i in range(7):
-        d = str(start + timedelta(days=i))
+        d = str((week_start + timedelta(days=i)).date())
         days.append(DayLeads(date=d, leads=counts.get(d, 0)))
 
     return Last7DaysResponse(days=days)
@@ -128,7 +137,7 @@ def last_7_days(db: Session = Depends(get_db)):
 
 @router.get("/daily-capture", response_model=DailyCaptureResponse)
 def daily_capture(db: Session = Depends(get_db)):
-    today = date.today()
+    today_start, today_end = _today_range()
 
     rows = (
         db.query(
@@ -137,7 +146,11 @@ def daily_capture(db: Session = Depends(get_db)):
         )
         .outerjoin(
             Lead,
-            and_(Lead.user_id == User.id, cast(Lead.created_at, Date) == today),
+            and_(
+                Lead.user_id == User.id,
+                Lead.created_at >= today_start,
+                Lead.created_at < today_end,
+            ),
         )
         .filter(User.is_active.is_(True))
         .group_by(User.id, User.first_name, User.username)
