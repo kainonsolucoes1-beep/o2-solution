@@ -138,9 +138,10 @@ def _parse_lead_fields(raw: dict) -> dict:
         or ((raw.get("attendant") or {}).get("name"))
         or "Sem atendente"
     )
+    origin = (raw.get("tracking") or {}).get("source") or "Sem origem"
     created_at = _parse_followize_dt(raw.get("created_at"))
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "created_at": created_at}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "created_at": created_at}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
