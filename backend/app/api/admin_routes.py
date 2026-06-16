@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -6,7 +8,8 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models import User
 from app.models.app_settings import AppSettings
-from app.sync_followize import update_tokens_in_memory
+from app.sync_followize import update_tokens_in_memory, _fetch_all_leads, _upsert_lead, _date_from_lookback, _load_tokens_from_db
+from app.models import Lead
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -43,3 +46,35 @@ def update_followize_tokens(
     update_tokens_in_memory(body.access_token, body.refresh_token)
 
     return {"success": True}
+
+
+@router.post("/sync-historico")
+async def sync_historico(
+    days: int = Query(default=90, ge=1, le=365),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Reprocessa leads alterados nos últimos N dias para popular percepção/status."""
+    _require_admin(current_user)
+    _load_tokens_from_db()
+    date_from = _date_from_lookback(days=days)
+
+    raw_leads = await asyncio.to_thread(_fetch_all_leads, date_from, "change")
+    if not raw_leads:
+        return {"success": True, "date_from": date_from, "processed": 0}
+
+    from app.models import User as UserModel
+    default_user = db.query(UserModel).first()
+    if not default_user:
+        raise HTTPException(status_code=500, detail="Nenhum usuário no banco")
+
+    inserted = updated = 0
+    for raw in raw_leads:
+        result = _upsert_lead(db, raw, default_user.id)
+        if result == "inserted":
+            inserted += 1
+        else:
+            updated += 1
+    db.commit()
+
+    return {"success": True, "date_from": date_from, "inserted": inserted, "updated": updated}

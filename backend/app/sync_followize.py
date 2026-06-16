@@ -114,7 +114,7 @@ def _date_from_lookback(days: int = 1) -> str:
     return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
 
-def _fetch_leads_page(page: int, date_from: str) -> dict:
+def _fetch_leads_page(page: int, date_from: str, date_of: str = "change") -> dict:
     """Faz GET /v3/leads na API Followize. date_from é obrigatório pela API."""
     headers = {
         "Authorization": f"Bearer {_tokens['access']}",
@@ -123,27 +123,27 @@ def _fetch_leads_page(page: int, date_from: str) -> dict:
     resp = requests.get(
         f"{FOLLOWIZE_API_URL}/v3/leads",
         headers=headers,
-        params={"page": page, "date_from": date_from},
+        params={"page": page, "date_from": date_from, "date_of": date_of},
         timeout=30,
     )
     resp.raise_for_status()
     return resp.json()
 
 
-def _fetch_all_leads(date_from: str) -> list[dict]:
+def _fetch_all_leads(date_from: str, date_of: str = "change") -> list[dict]:
     """Busca todos os leads paginados via v3, renovando token em 401."""
     all_leads: list[dict] = []
     page = 1
 
     while True:
         try:
-            data = _fetch_leads_page(page, date_from)
+            data = _fetch_leads_page(page, date_from, date_of)
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 401:
                 logger.warning("Token expirado (401) — tentando renovar...")
                 if not _refresh_access_token():
                     raise RuntimeError("Renovação de token falhou — sincronização abortada")
-                data = _fetch_leads_page(page, date_from)  # uma tentativa após renovação
+                data = _fetch_leads_page(page, date_from, date_of)  # uma tentativa após renovação
             else:
                 raise
 
@@ -254,12 +254,12 @@ async def sync_leads_from_followize() -> None:
         logger.error("FOLLOWIZE_ACCESS_TOKEN não configurado — sync ignorado")
         return
 
-    # Busca leads criados/atualizados desde ontem (cobre a janela de 30 min com margem)
-    date_from = _date_from_lookback(days=1)
-    logger.info("Iniciando sincronização Followize (date_from=%s)...", date_from)
+    # Busca leads ALTERADOS nos últimos 2 dias (date_of=change captura percepção/status atualizados)
+    date_from = _date_from_lookback(days=2)
+    logger.info("Iniciando sincronização Followize (date_from=%s, date_of=change)...", date_from)
 
     try:
-        raw_leads = await asyncio.to_thread(_fetch_all_leads, date_from)
+        raw_leads = await asyncio.to_thread(_fetch_all_leads, date_from, "change")
     except Exception as exc:
         logger.error("Erro ao buscar leads do Followize: %s", exc)
         return
