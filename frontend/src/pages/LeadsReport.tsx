@@ -22,6 +22,7 @@ interface LeadItem {
   attendant: string | null
   origem: string | null
   status: string | null
+  perception: string | null
   value_potential: number | null
   created_at: string
 }

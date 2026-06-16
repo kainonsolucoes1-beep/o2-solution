@@ -23,6 +23,7 @@ CREATE TABLE leads (
     origin VARCHAR(100),
     attendant VARCHAR(255),
     status VARCHAR(50) DEFAULT 'novo',
+    perception VARCHAR(20),
     value_potential NUMERIC(12,2),
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
