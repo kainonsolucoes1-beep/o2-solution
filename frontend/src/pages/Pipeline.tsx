@@ -211,7 +211,7 @@ export default function Pipeline() {
                 {alerts.uncontacted.length} leads
               </span>
             </div>
-            <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: -8 }}>24h+ sem movimento com status Novo</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: -8 }}>Status Novo sem movimento nas últimas 24h</p>
             {alerts.uncontacted.length === 0 ? (
               <p style={{ fontSize: 13, color: '#9CA3AF' }}>Todos os leads foram contatados.</p>
             ) : (
