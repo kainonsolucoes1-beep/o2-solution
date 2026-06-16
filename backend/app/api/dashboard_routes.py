@@ -55,11 +55,13 @@ def today_metrics(db: Session = Depends(get_db)):
 
     value_pipeline = (
         db.query(func.coalesce(func.sum(Lead.value_potential), 0))
+        .filter(Lead.created_at >= month_start)
         .scalar() or 0.0
     )
 
     average_ticket = (
         db.query(func.coalesce(func.avg(Lead.value_potential), 0))
+        .filter(Lead.created_at >= month_start)
         .filter(Lead.value_potential.isnot(None))
         .scalar() or 0.0
     )
