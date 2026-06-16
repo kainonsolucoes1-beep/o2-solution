@@ -14,7 +14,7 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
 from app.database import engine, Base, get_db
-from app.models import User, Lead, LeadNote
+from app.models import User, Lead, LeadNote, AppSettings
 from app.schemas.lead import LeadCreate, LeadResponse
 from app.api import auth_routes
 from app.api import leads_routes
