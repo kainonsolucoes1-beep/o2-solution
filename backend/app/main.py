@@ -19,6 +19,7 @@ from app.schemas.lead import LeadCreate, LeadResponse
 from app.api import auth_routes
 from app.api import leads_routes
 from app.api import dashboard_routes
+from app.api import pipeline_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler

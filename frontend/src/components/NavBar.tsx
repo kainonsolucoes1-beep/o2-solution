@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom'
 const NAV_LINKS = [
   { to: '/dashboard',    label: 'Dashboard' },
   { to: '/leads-report', label: 'Relatório' },
+  { to: '/pipeline',     label: 'Pipeline' },
 ]
 
 export default function NavBar() {
