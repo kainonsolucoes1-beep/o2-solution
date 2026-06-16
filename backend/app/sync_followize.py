@@ -159,7 +159,7 @@ def _parse_lead_fields(raw: dict) -> dict:
     finalization = raw.get("finalization") or {}
     value_potential = float(last_proposal.get("amount") or finalization.get("amount") or 0.0)
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "created_at": created_at}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "created_at": created_at, "value_potential": value_potential}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
