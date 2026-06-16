@@ -16,6 +16,7 @@ class Lead(Base):
     origin = Column(String(100))
     attendant = Column(String(255))
     status = Column(String(50), default="novo")
+    perception = Column(String(20))
     value_potential = Column(Numeric(12, 2))
     notes = Column(Text)
     created_at = Column(TIMESTAMP, server_default=func.now())
