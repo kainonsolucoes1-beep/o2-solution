@@ -11,6 +11,7 @@ interface LeadItem {
   attendant: string | null
   origem: string | null
   status: string | null
+  perception: string | null
   value_potential: number | null
   created_at: string
 }
@@ -20,6 +21,12 @@ interface Note {
   content: string
   created_by: string
   created_at: string
+}
+
+const PERCEPTION_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  'Quente': { bg: '#FEF2F2', color: '#DC2626', label: 'Quente' },
+  'Morno':  { bg: '#FFFBEB', color: '#D97706', label: 'Morno' },
+  'Frio':   { bg: '#EFF6FF', color: '#2563EB', label: 'Frio' },
 }
 
 const STATUS_OPTIONS = [

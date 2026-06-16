@@ -202,7 +202,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     lead_kwargs = dict(
         user_id=user_id, name=name, email=email, phone=phone,
         company=company, origin=origin, attendant=attendant, status=status,
-        value_potential=value_potential,
+        value_potential=value_potential, perception=perception,
     )
     if created_at:
         lead_kwargs["created_at"] = created_at
