@@ -171,7 +171,12 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     origin = fields["origin"]
     created_at = fields["created_at"]
 
-    existing = db.query(Lead).filter(Lead.email == email).first() if email else None
+    if email:
+        existing = db.query(Lead).filter(Lead.email == email).first()
+    elif phone:
+        existing = db.query(Lead).filter(Lead.phone == phone, Lead.name == name).first()
+    else:
+        existing = None
 
     if existing:
         existing.name = name
