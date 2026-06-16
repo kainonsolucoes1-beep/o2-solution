@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -11,13 +12,10 @@ from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
 
-# Status reais da API Followize (+ fallbacks legados do banco)
-PENDENTE_STATUSES   = ("pending", "novo", "new")
-AGENDADO_STATUSES   = ("scheduled", "qualificado", "qualified")
-PROPOSTA_STATUSES   = ("proposal_sent",)
-FECHADO_STATUSES    = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
-
-# Percepções armazenadas no banco (mapeadas pelo sync)
+PENDENTE_STATUSES    = ("pending", "novo", "new")
+AGENDADO_STATUSES    = ("scheduled", "qualificado", "qualified")
+PROPOSTA_STATUSES    = ("proposal_sent",)
+FECHADO_STATUSES     = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 
 
@@ -29,36 +27,60 @@ def _status_in(statuses):
     return or_(*[func.lower(Lead.status) == s.lower() for s in statuses])
 
 
-def _count_status(db: Session, statuses) -> int:
-    return db.query(func.count(Lead.id)).filter(_status_in(statuses)).scalar() or 0
+def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: Optional[str]):
+    if date_from:
+        try:
+            q = q.filter(Lead.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            q = q.filter(Lead.created_at < datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1))
+        except ValueError:
+            pass
+    if source:
+        q = q.filter(Lead.origin == source)
+    return q
 
 
-def _count_perception(db: Session, perceptions) -> int:
-    return db.query(func.count(Lead.id)).filter(Lead.perception.in_(list(perceptions))).scalar() or 0
+def _count_status(db: Session, statuses, date_from=None, date_to=None, source=None) -> int:
+    q = db.query(func.count(Lead.id)).filter(_status_in(statuses))
+    return _apply_filters(q, date_from, date_to, source).scalar() or 0
+
+
+def _count_perception(db: Session, perceptions, date_from=None, date_to=None, source=None) -> int:
+    q = db.query(func.count(Lead.id)).filter(Lead.perception.in_(list(perceptions)))
+    return _apply_filters(q, date_from, date_to, source).scalar() or 0
 
 
 @router.get("/overview")
 def pipeline_overview(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return {
-        "novo":        _count_status(db, PENDENTE_STATUSES),
-        "qualificado": _count_perception(db, HOT_WARM_PERCEPTIONS),
-        "proposta":    _count_status(db, PROPOSTA_STATUSES),
-        "fechado":     _count_status(db, FECHADO_STATUSES),
+        "novo":        _count_status(db, PENDENTE_STATUSES, date_from, date_to, source),
+        "qualificado": _count_perception(db, HOT_WARM_PERCEPTIONS, date_from, date_to, source),
+        "proposta":    _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source),
+        "fechado":     _count_status(db, FECHADO_STATUSES, date_from, date_to, source),
     }
 
 
 @router.get("/funnel")
 def pipeline_funnel(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    pendente  = _count_status(db, PENDENTE_STATUSES)
-    agendado  = _count_status(db, AGENDADO_STATUSES)
-    proposta  = _count_status(db, PROPOSTA_STATUSES)
-    fechado   = _count_status(db, FECHADO_STATUSES)
+    pendente = _count_status(db, PENDENTE_STATUSES, date_from, date_to, source)
+    agendado = _count_status(db, AGENDADO_STATUSES, date_from, date_to, source)
+    proposta = _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source)
+    fechado  = _count_status(db, FECHADO_STATUSES,  date_from, date_to, source)
     total = pendente + agendado + proposta + fechado
 
     def pct(n):
@@ -66,38 +88,32 @@ def pipeline_funnel(
 
     return {
         "stages": [
-            {"stage": "Pendente",        "count": pendente, "percentage": pct(pendente)},
-            {"stage": "Agendado",        "count": agendado, "percentage": pct(agendado)},
-            {"stage": "Proposta Enviada","count": proposta, "percentage": pct(proposta)},
-            {"stage": "Venda Realizada", "count": fechado,  "percentage": pct(fechado)},
+            {"stage": "Pendente",         "count": pendente, "percentage": pct(pendente)},
+            {"stage": "Agendado",         "count": agendado, "percentage": pct(agendado)},
+            {"stage": "Proposta Enviada", "count": proposta, "percentage": pct(proposta)},
+            {"stage": "Venda Realizada",  "count": fechado,  "percentage": pct(fechado)},
         ]
     }
 
 
 @router.get("/alerts")
 def pipeline_alerts(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     now = _now()
     cutoff_24h = now - timedelta(hours=24)
 
-    vencidos_rows = (
-        db.query(Lead)
-        .filter(Lead.updated_at <= cutoff_24h)
-        .order_by(Lead.updated_at.asc())
-        .limit(10)
-        .all()
-    )
+    vq = db.query(Lead).filter(Lead.updated_at <= cutoff_24h)
+    vq = _apply_filters(vq, date_from, date_to, source)
+    vencidos_rows = vq.order_by(Lead.updated_at.asc()).limit(10).all()
 
-    uncontacted_rows = (
-        db.query(Lead)
-        .filter(_status_in(PENDENTE_STATUSES))
-        .filter(Lead.updated_at <= cutoff_24h)
-        .order_by(Lead.updated_at.asc())
-        .limit(10)
-        .all()
-    )
+    uq = db.query(Lead).filter(_status_in(PENDENTE_STATUSES), Lead.updated_at <= cutoff_24h)
+    uq = _apply_filters(uq, date_from, date_to, source)
+    uncontacted_rows = uq.order_by(Lead.updated_at.asc()).limit(10).all()
 
     return {
         "vencidos": [
@@ -123,6 +139,9 @@ def pipeline_alerts(
 
 @router.get("/next-actions")
 def pipeline_next_actions(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -130,69 +149,33 @@ def pipeline_next_actions(
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff_5d = now - timedelta(days=5)
 
-    call_today = (
-        db.query(func.count(Lead.id))
-        .filter(_status_in(PENDENTE_STATUSES))
-        .filter(Lead.created_at >= today_start)
-        .scalar() or 0
-    )
+    ct_q = db.query(func.count(Lead.id)).filter(_status_in(PENDENTE_STATUSES), Lead.created_at >= today_start)
+    call_today = _apply_filters(ct_q, date_from, date_to, source).scalar() or 0
 
-    send_email = (
-        db.query(func.count(Lead.id))
-        .filter(_status_in(AGENDADO_STATUSES))
-        .scalar() or 0
-    )
+    se_q = db.query(func.count(Lead.id)).filter(_status_in(AGENDADO_STATUSES))
+    send_email = _apply_filters(se_q, date_from, date_to, source).scalar() or 0
 
-    follow_proposal = (
-        db.query(func.count(Lead.id))
-        .filter(_status_in(PROPOSTA_STATUSES))
-        .filter(Lead.created_at <= cutoff_5d)
-        .scalar() or 0
-    )
+    fp_q = db.query(func.count(Lead.id)).filter(_status_in(PROPOSTA_STATUSES), Lead.created_at <= cutoff_5d)
+    follow_proposal = _apply_filters(fp_q, date_from, date_to, source).scalar() or 0
 
     return {"call_today": call_today, "send_email": send_email, "follow_proposal": follow_proposal}
 
 
-@router.get("/analytics")
-def pipeline_analytics(
+@router.get("/top-sources")
+def pipeline_top_sources(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    total    = db.query(func.count(Lead.id)).scalar() or 0
-    pendente = _count_status(db, PENDENTE_STATUSES)
-    agendado = _count_status(db, AGENDADO_STATUSES)
-    proposta = _count_status(db, PROPOSTA_STATUSES)
-    fechado  = _count_status(db, FECHADO_STATUSES)
-
-    conversion_rate = round(fechado / total * 100, 1) if total > 0 else 0.0
-
-    p_base = pendente + agendado + proposta + fechado
-    a_base = agendado + proposta + fechado
-    pr_base = proposta + fechado
-
-    nq = round(a_base  / p_base  * 100, 1) if p_base  > 0 else 0.0
-    qp = round(pr_base / a_base  * 100, 1) if a_base  > 0 else 0.0
-    pf = round(fechado / pr_base * 100, 1) if pr_base > 0 else 0.0
-
-    fechado_leads = (
-        db.query(Lead.created_at, Lead.updated_at)
-        .filter(_status_in(FECHADO_STATUSES))
-        .filter(Lead.updated_at.isnot(None), Lead.created_at.isnot(None))
+    q = db.query(Lead.origin, func.count(Lead.id).label("count"))
+    q = _apply_filters(q, date_from, date_to, source)
+    rows = (
+        q.filter(Lead.origin.isnot(None), Lead.origin != "", Lead.origin != "Sem origem")
+        .group_by(Lead.origin)
+        .order_by(func.count(Lead.id).desc())
+        .limit(5)
         .all()
     )
-
-    if fechado_leads:
-        days_list = [(r.updated_at - r.created_at).days for r in fechado_leads if r.updated_at and r.created_at]
-        avg_days = round(sum(days_list) / len(days_list), 1) if days_list else 0.0
-    else:
-        avg_days = 0.0
-
-    return {
-        "avg_time_in_pipeline": avg_days,
-        "conversion_rate": conversion_rate,
-        "stage_conversion": {
-            "pendente_to_agendado": nq,
-            "agendado_to_proposta": qp,
-            "proposta_to_fechado":  pf,
-        },
-    }
+    return {"sources": [{"name": r.origin, "count": r.count} for r in rows]}

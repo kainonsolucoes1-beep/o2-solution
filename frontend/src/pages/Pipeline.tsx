@@ -7,44 +7,71 @@ interface PipelineOverview { novo: number; qualificado: number; proposta: number
 interface FunnelStage { stage: string; count: number; percentage: number }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
 interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[] }
-interface PipelineAnalytics { avg_time_in_pipeline: number; conversion_rate: number }
 interface NextActions { call_today: number; send_email: number; follow_proposal: number }
+interface TopSource { name: string; count: number }
 
-const STAGE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#6B7280']
+const STAGE_COLORS  = ['#3B82F6', '#10B981', '#F59E0B', '#6B7280']
+const SOURCE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444']
+
+function getDateRange(month: string) {
+  const [y, m] = month.split('-').map(Number)
+  const first = `${y}-${String(m).padStart(2, '0')}-01`
+  const lastDay = new Date(y, m, 0).getDate()
+  const last = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  return { date_from: first, date_to: last }
+}
 
 export default function Pipeline() {
   const navigate = useNavigate()
+  const today = new Date()
+  const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+
+  const [selectedMonth, setSelectedMonth] = useState(defaultMonth)
+  const [selectedSource, setSelectedSource] = useState('')
+  const [sources, setSources] = useState<string[]>([])
+
   const [overview, setOverview] = useState<PipelineOverview | null>(null)
   const [funnel, setFunnel] = useState<FunnelStage[]>([])
   const [alerts, setAlerts] = useState<PipelineAlerts | null>(null)
-  const [analytics, setAnalytics] = useState<PipelineAnalytics | null>(null)
   const [nextActions, setNextActions] = useState<NextActions | null>(null)
+  const [topSources, setTopSources] = useState<TopSource[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    if (localStorage.getItem('token')) {
+      api.get<string[]>('/api/v1/leads/origins').then(r => setSources(r.data)).catch(() => {})
+    }
+  }, [])
+
   const fetchAll = useCallback(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
+    const { date_from, date_to } = getDateRange(selectedMonth)
+    const qs = new URLSearchParams({ date_from, date_to })
+    if (selectedSource) qs.set('source', selectedSource)
+    const q = `?${qs.toString()}`
+
     setLoading(true)
     Promise.all([
-      api.get<PipelineOverview>('/api/v1/pipeline/overview'),
-      api.get<{ stages: FunnelStage[] }>('/api/v1/pipeline/funnel'),
-      api.get<PipelineAlerts>('/api/v1/pipeline/alerts'),
-      api.get<PipelineAnalytics>('/api/v1/pipeline/analytics'),
-      api.get<NextActions>('/api/v1/pipeline/next-actions'),
+      api.get<PipelineOverview>(`/api/v1/pipeline/overview${q}`),
+      api.get<{ stages: FunnelStage[] }>(`/api/v1/pipeline/funnel${q}`),
+      api.get<PipelineAlerts>(`/api/v1/pipeline/alerts${q}`),
+      api.get<NextActions>(`/api/v1/pipeline/next-actions${q}`),
+      api.get<{ sources: TopSource[] }>(`/api/v1/pipeline/top-sources${q}`),
     ])
-      .then(([ov, fn, al, an, na]) => {
+      .then(([ov, fn, al, na, ts]) => {
         setOverview(ov.data)
         setFunnel(fn.data.stages)
         setAlerts(al.data)
-        setAnalytics(an.data)
         setNextActions(na.data)
+        setTopSources(ts.data.sources)
       })
       .catch(err => {
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
         else setError('Erro ao carregar pipeline.')
       })
       .finally(() => setLoading(false))
-  }, [navigate])
+  }, [navigate, selectedMonth, selectedSource])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -55,7 +82,7 @@ export default function Pipeline() {
     </div>
   )
 
-  if (error || !overview || !analytics || !alerts || !nextActions) return (
+  if (error || !overview || !alerts || !nextActions) return (
     <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
       <NavBar />
       <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
@@ -69,36 +96,13 @@ export default function Pipeline() {
     { label: 'Fechado',     value: overview.fechado,     color: '#6B7280', bg: '#F3F4F6', icon: '🏆', nav: '?status=waiting_billing' },
   ]
 
-  const maxCount = funnel.reduce((m, s) => Math.max(m, s.count), 1)
+  const maxFunnel    = funnel.reduce((m, s) => Math.max(m, s.count), 1)
+  const maxTopSource = topSources.reduce((m, s) => Math.max(m, s.count), 1)
 
   const nextActionCards = [
-    {
-      label: 'Ligar Hoje',
-      icon: '📞',
-      value: nextActions.call_today,
-      sub: 'leads para ligar',
-      color: '#3B82F6',
-      bg: '#EFF6FF',
-      nav: '?status=pending',
-    },
-    {
-      label: 'Enviar Email',
-      icon: '📧',
-      value: nextActions.send_email,
-      sub: 'leads para email',
-      color: '#10B981',
-      bg: '#ECFDF5',
-      nav: '?status=scheduled',
-    },
-    {
-      label: 'Seguir Proposta',
-      icon: '📄',
-      value: nextActions.follow_proposal,
-      sub: 'propostas pendentes',
-      color: '#F59E0B',
-      bg: '#FFFBEB',
-      nav: '?status=proposal_sent',
-    },
+    { label: 'Ligar Hoje',      icon: '📞', value: nextActions.call_today,     sub: 'leads para ligar',    color: '#3B82F6', bg: '#EFF6FF', nav: '?status=pending' },
+    { label: 'Enviar Email',    icon: '📧', value: nextActions.send_email,      sub: 'leads para email',    color: '#10B981', bg: '#ECFDF5', nav: '?status=scheduled' },
+    { label: 'Seguir Proposta', icon: '📄', value: nextActions.follow_proposal, sub: 'propostas pendentes', color: '#F59E0B', bg: '#FFFBEB', nav: '?status=proposal_sent' },
   ]
 
   return (
@@ -106,9 +110,28 @@ export default function Pipeline() {
       <NavBar />
       <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
 
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2937' }}>Pipeline de Vendas</h1>
-          <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Visão do funil de vendas em tempo real</p>
+        {/* Header + filtros */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2937' }}>Pipeline de Vendas</h1>
+            <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Visão do funil de vendas em tempo real</p>
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #D1D5DB', color: '#374151', background: 'white', cursor: 'pointer' }}
+            />
+            <select
+              value={selectedSource}
+              onChange={e => setSelectedSource(e.target.value)}
+              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #D1D5DB', color: selectedSource ? '#374151' : '#9CA3AF', background: 'white', cursor: 'pointer', minWidth: 160 }}
+            >
+              <option value="">Todas as origens</option>
+              {sources.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Overview cards */}
@@ -131,7 +154,7 @@ export default function Pipeline() {
           ))}
         </div>
 
-        {/* Funnel + Métricas */}
+        {/* Funil + Top Fontes */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -140,7 +163,7 @@ export default function Pipeline() {
             </h2>
             <div className="flex flex-col gap-4">
               {funnel.map((stage, i) => {
-                const barW = Math.max(4, Math.round((stage.count / maxCount) * 100))
+                const barW = Math.max(4, Math.round((stage.count / maxFunnel) * 100))
                 return (
                   <div key={stage.stage} className="flex flex-col gap-1">
                     <div className="flex items-center justify-between">
@@ -156,27 +179,35 @@ export default function Pipeline() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 flex flex-col gap-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Métricas do Funil
+              Top Fontes
             </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1 p-4 rounded-xl" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-                <p style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tempo Médio</p>
-                <p style={{ fontSize: 34, fontWeight: 700, color: '#1F2937', lineHeight: 1.1 }}>{analytics.avg_time_in_pipeline}d</p>
-                <p style={{ fontSize: 11, color: '#9CA3AF' }}>no funil</p>
+            {topSources.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sem dados de origem no período.</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {topSources.map((s, i) => {
+                  const barW = Math.max(4, Math.round((s.count / maxTopSource) * 100))
+                  return (
+                    <div key={s.name} className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{s.name}</span>
+                        <span style={{ fontSize: 12, color: '#6B7280' }}>{s.count} leads</span>
+                      </div>
+                      <div style={{ background: '#F3F4F6', borderRadius: 99, height: 10, overflow: 'hidden' }}>
+                        <div style={{ width: `${barW}%`, height: '100%', background: SOURCE_COLORS[i % SOURCE_COLORS.length], borderRadius: 99, transition: 'width 500ms ease' }} />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <div className="flex flex-col gap-1 p-4 rounded-xl" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-                <p style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Conversão Geral</p>
-                <p style={{ fontSize: 34, fontWeight: 700, color: '#10B981', lineHeight: 1.1 }}>{analytics.conversion_rate}%</p>
-                <p style={{ fontSize: 11, color: '#9CA3AF' }}>fechados / total</p>
-              </div>
-            </div>
+            )}
           </div>
 
         </div>
 
-        {/* Alerts */}
+        {/* Alertas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #EF4444' }}>
