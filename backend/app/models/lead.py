@@ -14,6 +14,7 @@ class Lead(Base):
     phone = Column(String(20))
     company = Column(String(255))
     origin = Column(String(100))
+    attendant = Column(String(255))
     status = Column(String(50), default="novo")
     value_potential = Column(Numeric(12, 2))
     notes = Column(Text)
