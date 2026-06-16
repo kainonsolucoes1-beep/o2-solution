@@ -514,7 +514,18 @@ export default function LeadsReport() {
       </main>
 
       {selectedLead && (
-        <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} />
+        <LeadDetailModal
+          lead={selectedLead}
+          onClose={() => setSelectedLead(null)}
+          onStatusChange={(id, newStatus) => {
+            setReport(prev =>
+              prev
+                ? { ...prev, leads: prev.leads.map(l => l.id === id ? { ...l, status: newStatus } : l) }
+                : prev
+            )
+            setSelectedLead(prev => prev ? { ...prev, status: newStatus } : null)
+          }}
+        />
       )}
     </div>
   )
