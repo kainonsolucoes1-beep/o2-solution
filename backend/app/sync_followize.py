@@ -20,19 +20,55 @@ _tokens: dict[str, str | None] = {
 }
 
 
-def _persist_tokens_to_env(access: str, refresh: str) -> None:
-    env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env.production")
-    env_path = os.path.abspath(env_path)
-    if not os.path.exists(env_path):
-        return
-    with open(env_path, "r") as f:
-        content = f.read()
-    import re
-    content = re.sub(r"FOLLOWIZE_ACCESS_TOKEN=.*", f"FOLLOWIZE_ACCESS_TOKEN={access}", content)
-    content = re.sub(r"FOLLOWIZE_REFRESH_TOKEN=.*", f"FOLLOWIZE_REFRESH_TOKEN={refresh}", content)
-    with open(env_path, "w") as f:
-        f.write(content)
-    logger.info("Tokens Followize persistidos em .env.production")
+def _persist_tokens(access: str, refresh: str) -> None:
+    """Salva tokens no banco (fonte primária) e no .env.production (fallback)."""
+    # Banco
+    try:
+        from app.models.app_settings import AppSettings
+        db = SessionLocal()
+        try:
+            for key, value in [("followize_access_token", access), ("followize_refresh_token", refresh)]:
+                row = db.query(AppSettings).filter(AppSettings.key == key).first()
+                if row:
+                    row.value = value
+                else:
+                    db.add(AppSettings(key=key, value=value))
+            db.commit()
+            logger.info("Tokens Followize persistidos no banco")
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("Não foi possível salvar tokens no banco: %s", exc)
+
+    # .env.production (fallback legado)
+    try:
+        import re
+        env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env.production"))
+        if os.path.exists(env_path):
+            with open(env_path, "r") as f:
+                content = f.read()
+            content = re.sub(r"FOLLOWIZE_ACCESS_TOKEN=.*", f"FOLLOWIZE_ACCESS_TOKEN={access}", content)
+            content = re.sub(r"FOLLOWIZE_REFRESH_TOKEN=.*", f"FOLLOWIZE_REFRESH_TOKEN={refresh}", content)
+            with open(env_path, "w") as f:
+                f.write(content)
+    except Exception as exc:
+        logger.warning("Não foi possível atualizar .env.production: %s", exc)
+
+
+def _load_tokens_from_db() -> None:
+    """Carrega tokens frescos do banco antes de cada sync."""
+    try:
+        from app.models.app_settings import AppSettings
+        db = SessionLocal()
+        try:
+            for db_key, mem_key in [("followize_access_token", "access"), ("followize_refresh_token", "refresh")]:
+                row = db.query(AppSettings).filter(AppSettings.key == db_key).first()
+                if row and row.value:
+                    _tokens[mem_key] = row.value
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("Não foi possível carregar tokens do banco: %s", exc)
 
 
 def _refresh_access_token() -> bool:
