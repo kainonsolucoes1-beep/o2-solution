@@ -188,15 +188,30 @@ export default function LeadDetailModal({
 
             {/* Info grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px' }}>
-              <Field label="Nome"           value={lead.name} />
-              <Field label="Empresa"        value={lead.company ?? '—'} />
-              <Field label="Email"          value={lead.email ?? '—'} />
-              <Field label="Telefone"       value={lead.phone ?? '—'} />
-              <Field label="Origem"         value={lead.origem ?? '—'} />
-              <Field label="Atendente"      value={lead.attendant ?? '—'} />
+              <Field label="Nome"            value={lead.name} />
+              <Field label="Empresa"         value={lead.company ?? '—'} />
+              <Field label="Email"           value={lead.email ?? '—'} />
+              <Field label="Telefone"        value={lead.phone ?? '—'} />
+              <Field label="Origem"          value={lead.origem ?? '—'} />
+              <Field label="Atendente"       value={lead.attendant ?? '—'} />
               <Field label="Valor Potencial" value={fmtBRL(lead.value_potential)} />
-              <Field label="Data Criação"   value={fmtDate(lead.created_at)} />
+              <Field label="Data Criação"    value={fmtDate(lead.created_at)} />
             </div>
+
+            {/* Percepção */}
+            {lead.perception && (() => {
+              const p = PERCEPTION_STYLE[lead.perception]
+              return p ? (
+                <div className="flex flex-col gap-2">
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Percepção
+                  </span>
+                  <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: p.bg, color: p.color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
+                    {p.label}
+                  </span>
+                </div>
+              ) : null
+            })()}
 
             {/* Status */}
             <div className="flex flex-col gap-2">
