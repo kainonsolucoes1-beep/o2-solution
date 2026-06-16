@@ -129,6 +129,10 @@ export default function LeadsReport() {
       .catch(() => navigate('/login'))
   }, [navigate])
 
+  useEffect(() => {
+    if (me && searchParams.get('status')) fetchReport(1)
+  }, [me]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas')
 
   const fetchReport = useCallback(
@@ -159,7 +163,7 @@ export default function LeadsReport() {
         })
         .finally(() => setLoading(false))
     },
-    [dateFrom, dateTo, origem, isAdmin, navigate],
+    [dateFrom, dateTo, origem, statusFilter, isAdmin, navigate],
   )
 
   function handleSearch() { fetchReport(1) }
