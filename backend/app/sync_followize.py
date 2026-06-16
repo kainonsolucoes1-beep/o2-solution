@@ -176,6 +176,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     origin = fields["origin"]
     created_at = fields["created_at"]
     value_potential = fields["value_potential"]
+    perception = fields["perception"]
 
     if email:
         existing = db.query(Lead).filter(Lead.email == email).first()
@@ -192,6 +193,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.origin = origin
         existing.attendant = attendant
         existing.value_potential = value_potential
+        existing.perception = perception
         if created_at:
             existing.created_at = created_at
         existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
