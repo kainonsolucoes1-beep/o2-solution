@@ -297,6 +297,11 @@ async def sync_leads_from_followize() -> None:
         db.close()
 
 
+def update_tokens_in_memory(access: str, refresh: str) -> None:
+    _tokens["access"] = access
+    _tokens["refresh"] = refresh
+
+
 async def start_sync_scheduler() -> None:
     """Loop infinito: sincroniza Followize a cada 5 minutos."""
     while True:

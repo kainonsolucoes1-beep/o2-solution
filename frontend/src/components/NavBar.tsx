@@ -4,6 +4,7 @@ const NAV_LINKS = [
   { to: '/dashboard',    label: 'Dashboard' },
   { to: '/leads-report', label: 'Relatório' },
   { to: '/pipeline',     label: 'Pipeline' },
+  { to: '/settings',    label: 'Configurações' },
 ]
 
 export default function NavBar() {

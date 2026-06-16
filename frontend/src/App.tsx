@@ -4,6 +4,7 @@ import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import LeadsReport from './pages/LeadsReport'
 import Pipeline from './pages/Pipeline'
+import Settings from './pages/Settings'
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/leads-report" element={<LeadsReport />} />
         <Route path="/pipeline" element={<Pipeline />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </BrowserRouter>
   )
