@@ -111,6 +111,7 @@ export default function LeadsReport() {
   const [report, setReport]       = useState<ReportResponse | null>(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? '')
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
   const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc')
@@ -142,6 +143,7 @@ export default function LeadsReport() {
         limit:     LIMIT,
       }
       if (isAdmin && origem) params.origem = origem
+      if (statusFilter) params.status = statusFilter
 
       api
         .get<ReportResponse>('/api/v1/leads/by-period', { params })
