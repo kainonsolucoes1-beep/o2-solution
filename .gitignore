@@ -1,3 +1,7 @@
+# Environment — nunca commitar secrets
+.env
+.env.production
+
 # Python
 __pycache__/
 *.py[cod]

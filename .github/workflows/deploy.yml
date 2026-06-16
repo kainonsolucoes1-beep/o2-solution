@@ -1,0 +1,35 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: SSH deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd /home/${{ secrets.EC2_USER }}/o2-solution
+
+            echo ">>> Pull latest code"
+            git pull origin main
+
+            echo ">>> Build e subir containers"
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+
+            echo ">>> Aguardar backend ficar healthy"
+            sleep 10
+
+            echo ">>> Limpar imagens antigas"
+            docker image prune -f
+
+            echo "Deploy concluído em $(date)"

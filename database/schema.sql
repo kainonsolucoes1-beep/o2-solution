@@ -22,12 +22,14 @@ CREATE TABLE leads (
     company VARCHAR(255),
     origin VARCHAR(100),
     status VARCHAR(50) DEFAULT 'novo',
-    value_potential DECIMAL(12,2),
+    value_potential NUMERIC(12,2),
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_leads_user_id ON leads(user_id);
 CREATE INDEX idx_leads_status ON leads(status);
+CREATE INDEX idx_leads_created_at ON leads(created_at);

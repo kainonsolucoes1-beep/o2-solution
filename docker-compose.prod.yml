@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:15-alpine
     restart: always
+    env_file: .env.production
     environment:
       POSTGRES_USER: ${DB_USER:-admin}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -12,10 +13,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-o2_solution}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   # ─── Backend FastAPI ──────────────────────────────────────────────────────────
   backend:
