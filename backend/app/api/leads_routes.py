@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,8 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.models import Lead, User
-from app.schemas.lead import LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse
+from app.models import Lead, LeadNote, User
+from app.schemas.lead import (
+    LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
+    StatusUpdateRequest, StatusUpdateResponse,
+    NoteCreateRequest, NoteCreateResponse,
+    NoteResponse, NotesListResponse,
+)
 from app.schemas.user import OperatorInfo
 
 router = APIRouter(prefix="/api/v1", tags=["leads"])

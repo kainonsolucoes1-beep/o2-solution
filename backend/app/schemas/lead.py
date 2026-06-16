@@ -43,3 +43,37 @@ class LeadsReportResponse(BaseModel):
     page: int
     limit: int
     leads: List[LeadReportItem]
+
+
+class StatusUpdateRequest(BaseModel):
+    status: str
+
+
+class StatusUpdateResponse(BaseModel):
+    success: bool
+    lead_id: UUID
+    status: str
+
+
+class NoteCreateRequest(BaseModel):
+    content: str
+
+
+class NoteCreateResponse(BaseModel):
+    success: bool
+    note_id: UUID
+    created_at: datetime
+
+
+class NoteResponse(BaseModel):
+    id: UUID
+    content: str
+    created_by: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NotesListResponse(BaseModel):
+    notes: List[NoteResponse]
