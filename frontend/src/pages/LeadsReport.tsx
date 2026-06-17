@@ -103,8 +103,8 @@ export default function LeadsReport() {
 
   const [me, setMe]               = useState<Me | null>(null)
   const [operators, setOperators] = useState<Operator[]>([])
-  const [dateFrom, setDateFrom]   = useState(monthStart)
-  const [dateTo, setDateTo]       = useState(today)
+  const [dateFrom, setDateFrom]   = useState(() => searchParams.get('date_from') ?? monthStart)
+  const [dateTo, setDateTo]       = useState(() => searchParams.get('date_to') ?? today)
   const [origem, setOrigem]       = useState('')
   const [page, setPage]           = useState(1)
   const [report, setReport]       = useState<ReportResponse | null>(null)
@@ -131,7 +131,7 @@ export default function LeadsReport() {
   }, [navigate])
 
   useEffect(() => {
-    if (me && (searchParams.get('status') || searchParams.get('perception') || vencidosFilter)) fetchReport(1)
+    if (me && (searchParams.get('status') || searchParams.get('perception') || vencidosFilter || searchParams.get('date_from'))) fetchReport(1)
   }, [me]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

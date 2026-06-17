@@ -67,13 +67,18 @@ export default function Pipeline() {
     <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
   )
 
+  const cardNav = (params: Record<string, string>) => {
+    const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...params })
+    return `?${p.toString()}`
+  }
+
   const overviewCards = [
-    { label: 'Pendente',    value: overview.novo,         color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: '?status=pending' },
-    { label: 'Qualificado', value: overview.qualificado,  color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: '?status=qualificado' },
-    { label: 'Proposta',    value: overview.proposta,     color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: '?status=proposal_sent' },
-    { label: 'Negociação',  value: overview.negociacao,   color: '#8B5CF6', bg: '#F5F3FF', icon: '🔥', nav: '?perception=Quente,Morno' },
-    { label: 'Fechado',     value: overview.fechado,      color: '#059669', bg: '#ECFDF5', icon: '🏆', nav: '?status=waiting_billing' },
-    { label: 'Perdido',     value: overview.perdido,      color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: '?status=sale_not_performed' },
+    { label: 'Pendente',    value: overview.novo,        color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: cardNav({ status: 'pending,novo,new' }) },
+    { label: 'Qualificado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
+    { label: 'Proposta',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
+    { label: 'Negociação',  value: overview.negociacao,  color: '#8B5CF6', bg: '#F5F3FF', icon: '🔥', nav: cardNav({ perception: 'Quente,Morno' }) },
+    { label: 'Fechado',     value: overview.fechado,     color: '#059669', bg: '#ECFDF5', icon: '🏆', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
+    { label: 'Perdido',     value: overview.perdido,     color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: cardNav({ status: 'sale_not_performed' }) },
   ]
 
   const distTotal = overview.novo + overview.qualificado + overview.proposta + overview.negociacao + overview.fechado + overview.perdido

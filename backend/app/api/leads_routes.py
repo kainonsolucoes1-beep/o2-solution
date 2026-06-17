@@ -95,7 +95,8 @@ def leads_by_period(
         elif origem:
             q = q.filter(Lead.origin == origem)
         if status:
-            q = q.filter(func.lower(Lead.status) == status.lower())
+            statuses = [s.strip().lower() for s in status.split(',')]
+            q = q.filter(func.lower(Lead.status).in_(statuses))
         if perception:
             percs = [p.strip() for p in perception.split(',')]
             q = q.filter(Lead.perception.in_(percs))
