@@ -1,6 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
+
+interface SyncHealth {
+  last_sync_at: string | null
+  last_sync_ok: boolean
+  last_sync_counts: string
+  last_sync_error: string
+  tokens_configured: boolean
+}
+
+function formatAgo(iso: string | null): string {
+  if (!iso) return '—'
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (diff < 60) return `${diff}s atrás`
+  if (diff < 3600) return `${Math.floor(diff / 60)}min atrás`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`
+  return `${Math.floor(diff / 86400)}d atrás`
+}
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -10,6 +27,25 @@ export default function Settings() {
   const [errorMsg, setErrorMsg] = useState('')
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [syncMsg, setSyncMsg] = useState('')
+  const [health, setHealth] = useState<SyncHealth | null>(null)
+  const [healthLoading, setHealthLoading] = useState(true)
+
+  const fetchHealth = useCallback(async () => {
+    try {
+      const res = await api.get('/api/v1/admin/sync-status')
+      setHealth(res.data as SyncHealth)
+    } catch {
+      // silently ignore — not critical
+    } finally {
+      setHealthLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchHealth()
+    const interval = setInterval(fetchHealth, 30_000)
+    return () => clearInterval(interval)
+  }, [fetchHealth])
 
   async function handleSave() {
     if (!accessToken.trim() || !refreshToken.trim()) {
@@ -56,6 +92,71 @@ export default function Settings() {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2937' }}>Configurações</h1>
           <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Gerenciamento de integrações</p>
+        </div>
+
+        {/* Sync Health Card */}
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1F2937' }}>Status do Sync Automático</h2>
+            <button
+              onClick={fetchHealth}
+              style={{ fontSize: 12, color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: '#F3F4F6' }}
+            >
+              Atualizar
+            </button>
+          </div>
+
+          {healthLoading ? (
+            <p style={{ fontSize: 13, color: '#9CA3AF' }}>Carregando...</p>
+          ) : health ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Status row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{
+                  display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+                  background: !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444',
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>
+                  {!health.last_sync_at
+                    ? 'Nenhum sync registrado ainda'
+                    : health.last_sync_ok
+                      ? `Último sync OK — ${formatAgo(health.last_sync_at)}`
+                      : `Falha no último sync — ${formatAgo(health.last_sync_at)}`}
+                </span>
+              </div>
+
+              {/* Counts */}
+              {health.last_sync_ok && health.last_sync_counts && (
+                <p style={{ fontSize: 12, color: '#6B7280', margin: 0 }}>{health.last_sync_counts}</p>
+              )}
+
+              {/* Error */}
+              {!health.last_sync_ok && health.last_sync_error && (
+                <div style={{ padding: '8px 12px', background: '#FEF2F2', borderRadius: 8, border: '1px solid #FECACA' }}>
+                  <p style={{ fontSize: 12, color: '#991B1B', margin: 0, wordBreak: 'break-word' }}>{health.last_sync_error}</p>
+                </div>
+              )}
+
+              {/* Tokens configured */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{
+                  display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                  background: health.tokens_configured ? '#10B981' : '#EF4444',
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 12, color: '#6B7280' }}>
+                  {health.tokens_configured ? 'Tokens Followize configurados no banco' : 'Tokens não encontrados no banco'}
+                </span>
+              </div>
+
+              <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>
+                Sync automático a cada 5 minutos. Token renovado automaticamente em caso de expiração.
+              </p>
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: '#9CA3AF' }}>Não foi possível carregar o status.</p>
+          )}
         </div>
 
         <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>

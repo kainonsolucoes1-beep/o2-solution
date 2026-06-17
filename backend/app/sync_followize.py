@@ -71,6 +71,31 @@ def _load_tokens_from_db() -> None:
         logger.warning("Não foi possível carregar tokens do banco: %s", exc)
 
 
+def _save_sync_status(ok: bool, counts: str = "", error: str = "") -> None:
+    """Persiste resultado do último sync no banco para visibilidade no painel."""
+    try:
+        from app.models.app_settings import AppSettings
+        db = SessionLocal()
+        now = datetime.now(timezone.utc).isoformat()
+        updates = [("last_sync_at", now), ("last_sync_ok", "1" if ok else "0")]
+        if ok:
+            updates += [("last_sync_counts", counts), ("last_sync_error", "")]
+        else:
+            updates.append(("last_sync_error", error))
+        try:
+            for key, value in updates:
+                row = db.query(AppSettings).filter(AppSettings.key == key).first()
+                if row:
+                    row.value = value
+                else:
+                    db.add(AppSettings(key=key, value=value))
+            db.commit()
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("Não foi possível salvar status do sync: %s", exc)
+
+
 def _refresh_access_token() -> bool:
     refresh = _tokens["refresh"]
     if not refresh:
@@ -265,6 +290,7 @@ async def sync_leads_from_followize() -> None:
         )
     except Exception as exc:
         logger.error("Erro ao buscar leads do Followize: %s", exc)
+        _save_sync_status(False, error=str(exc))
         return
 
     # Deduplica por ID (change tem prioridade por ter dados mais recentes)
@@ -295,6 +321,8 @@ async def sync_leads_from_followize() -> None:
                 updated += 1
 
         db.commit()
+        counts = f"{inserted} inseridos, {updated} atualizados"
+        _save_sync_status(True, counts=counts)
         logger.info(
             "Followize sync concluído: %d leads (%d inseridos, %d atualizados)",
             inserted + updated,
@@ -303,6 +331,7 @@ async def sync_leads_from_followize() -> None:
         )
     except Exception as exc:
         db.rollback()
+        _save_sync_status(False, error=f"Erro ao salvar no banco: {exc}")
         logger.exception("Erro ao salvar leads no banco: %s", exc)
     finally:
         db.close()
@@ -316,5 +345,9 @@ def update_tokens_in_memory(access: str, refresh: str) -> None:
 async def start_sync_scheduler() -> None:
     """Loop infinito: sincroniza Followize a cada 5 minutos."""
     while True:
-        await sync_leads_from_followize()
+        try:
+            await sync_leads_from_followize()
+        except Exception as exc:
+            logger.error("Erro inesperado no scheduler — continuando em 5 min: %s", exc)
+            _save_sync_status(False, error=f"Erro inesperado no scheduler: {exc}")
         await asyncio.sleep(300)

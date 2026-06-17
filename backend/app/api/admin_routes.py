@@ -48,6 +48,25 @@ def update_followize_tokens(
     return {"success": True}
 
 
+@router.get("/sync-status")
+def sync_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from app.models.app_settings import AppSettings
+    keys = ["last_sync_at", "last_sync_ok", "last_sync_counts", "last_sync_error",
+            "followize_access_token", "followize_refresh_token"]
+    rows = {r.key: r.value for r in db.query(AppSettings).filter(AppSettings.key.in_(keys)).all()}
+    return {
+        "last_sync_at": rows.get("last_sync_at"),
+        "last_sync_ok": rows.get("last_sync_ok") == "1",
+        "last_sync_counts": rows.get("last_sync_counts", ""),
+        "last_sync_error": rows.get("last_sync_error", ""),
+        "tokens_configured": bool(rows.get("followize_access_token") and rows.get("followize_refresh_token")),
+    }
+
+
 @router.get("/distinct-statuses")
 def distinct_statuses(
     current_user: User = Depends(get_current_user),
