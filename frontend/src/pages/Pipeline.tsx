@@ -1,12 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
-import { Clock, CheckSquare, FileText, Handshake } from 'lucide-react'
+import { Clock, CheckSquare, FileText, Handshake, Timer } from 'lucide-react'
 import api from '../api'
 interface PipelineOverview { novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
-interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number }
-interface NextActions { call_today: number; send_email: number; follow_proposal: number }
+interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number; avg_time_in_funnel?: number }
 
 const CONV_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
 
@@ -23,7 +22,6 @@ export default function Pipeline() {
 
   const [overview, setOverview] = useState<PipelineOverview | null>(null)
   const [alerts, setAlerts] = useState<PipelineAlerts | null>(null)
-  const [nextActions, setNextActions] = useState<NextActions | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -43,12 +41,10 @@ export default function Pipeline() {
     Promise.all([
       api.get<PipelineOverview>(`/api/v1/pipeline/overview${q}`),
       api.get<PipelineAlerts>(`/api/v1/pipeline/alerts${q}`),
-      api.get<NextActions>(`/api/v1/pipeline/next-actions${q}`),
     ])
-      .then(([ov, al, na]) => {
+      .then(([ov, al]) => {
         setOverview(ov.data)
         setAlerts(al.data)
-        setNextActions(na.data)
       })
       .catch(err => {
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
@@ -63,7 +59,7 @@ export default function Pipeline() {
     <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
   )
 
-  if (error || !overview || !alerts || !nextActions) return (
+  if (error || !overview || !alerts) return (
     <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
   )
 
@@ -123,12 +119,6 @@ export default function Pipeline() {
       note: `${overview.negociacao} em negociação`,
       nav: cardNav({ perception: 'Quente,Morno' }),
     },
-  ]
-
-  const nextActionCards = [
-    { label: 'Ligar Hoje',      icon: '📞', value: nextActions.call_today,     sub: 'leads para ligar',    color: '#3B82F6', bg: '#EFF6FF', nav: '?status=pending' },
-    { label: 'Enviar Email',    icon: '📧', value: nextActions.send_email,      sub: 'leads para email',    color: '#10B981', bg: '#ECFDF5', nav: '?status=scheduled' },
-    { label: 'Seguir Proposta', icon: '📄', value: nextActions.follow_proposal, sub: 'propostas pendentes', color: '#F59E0B', bg: '#FFFBEB', nav: '?status=proposal_sent' },
   ]
 
   return (
@@ -245,8 +235,8 @@ export default function Pipeline() {
 
         </div>
 
-        {/* Alertas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
+        {/* Alertas + Tempo Médio */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xl:gap-6">
 
           <div
             className="bg-white rounded-xl p-6 flex flex-col gap-3"
@@ -268,67 +258,42 @@ export default function Pipeline() {
             <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
           </div>
 
-          <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #F59E0B' }}>
+          <div
+            className="bg-white rounded-xl p-6 flex flex-col gap-4"
+            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #F59E0B', cursor: 'pointer', transition: 'transform 200ms' }}
+            onClick={() => navigate('/leads-report?status=pending,novo,new')}
+            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+          >
             <div className="flex items-center gap-2">
               <span style={{ fontSize: 15 }}>🟡</span>
               <h2 style={{ fontSize: 13, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Não Contatados
               </h2>
               <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#B45309', background: '#FFFBEB', padding: '2px 8px', borderRadius: 99 }}>
-                {alerts.uncontacted.length} leads
+                {alerts.uncontacted_count ?? alerts.uncontacted.length} leads
               </span>
             </div>
-            <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: -8 }}>Status Novo sem movimento nas últimas 24h</p>
-            {alerts.uncontacted.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#9CA3AF' }}>Todos os leads foram contatados.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {alerts.uncontacted.map(lead => (
-                  <div key={lead.id} className="flex items-center justify-between" style={{ padding: '8px 10px', background: '#FFFBEB', borderRadius: 8 }}>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{lead.name}</p>
-                      <p style={{ fontSize: 11, color: '#9CA3AF' }}>{lead.hours_without_action}h sem movimento</p>
-                    </div>
-                    <button
-                      onClick={() => navigate('/leads-report')}
-                      style={{ fontSize: 11, fontWeight: 600, color: '#3B82F6', background: 'white', border: '1px solid #DBEAFE', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
-                    >
-                      Ver Detalhe
-                    </button>
-                  </div>
-                ))}
-              </div>
+            <p style={{ fontSize: 11, color: '#9CA3AF' }}>Status Novo sem movimento nas últimas 24h</p>
+            <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #6366F1' }}>
+            <div className="flex items-center gap-2">
+              <Timer size={15} color="#6366F1" />
+              <h2 style={{ fontSize: 13, fontWeight: 700, color: '#4338CA', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Tempo Médio no Funil
+              </h2>
+            </div>
+            <p style={{ fontSize: 11, color: '#9CA3AF' }}>Média do ciclo completo (fechado + perdido)</p>
+            <p style={{ fontSize: 36, fontWeight: 700, color: '#6366F1', lineHeight: 1 }}>
+              {alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>dias</span>
+            </p>
+            {(alerts.avg_time_in_funnel ?? 0) === 0 && (
+              <p style={{ fontSize: 11, color: '#9CA3AF' }}>Sem leads finalizados no período</p>
             )}
           </div>
 
-        </div>
-
-        {/* Próximas Ações */}
-        <div>
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
-            Próximas Ações
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xl:gap-6">
-            {nextActionCards.map(card => (
-              <div
-                key={card.label}
-                className="bg-white rounded-xl p-5 flex items-center gap-4"
-                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', cursor: 'pointer', transition: 'transform 200ms, box-shadow 200ms' }}
-                onClick={() => navigate(`/leads-report${card.nav}`)}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)' }}
-              >
-                <div style={{ width: 48, height: 48, borderRadius: 12, background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-                  {card.icon}
-                </div>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{card.label}</p>
-                  <p style={{ fontSize: 24, fontWeight: 700, color: card.color, lineHeight: 1.2 }}>{card.value}</p>
-                  <p style={{ fontSize: 11, color: '#9CA3AF' }}>{card.sub}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
       </main>

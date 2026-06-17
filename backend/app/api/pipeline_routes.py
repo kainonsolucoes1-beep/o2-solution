@@ -141,9 +141,25 @@ def pipeline_alerts(
     uq = _apply_filters(uq, date_from, date_to, source)
     uncontacted_rows = uq.order_by(Lead.updated_at.asc()).limit(10).all()
 
+    terminal_rows = _apply_filters(
+        db.query(Lead.created_at, Lead.updated_at).filter(
+            _status_in(FECHADO_STATUSES + PERDIDO_STATUSES),
+            Lead.created_at.isnot(None),
+            Lead.updated_at.isnot(None),
+        ),
+        date_from, date_to, source,
+    ).all()
+    times = [
+        (r.updated_at - r.created_at).total_seconds() / 86400
+        for r in terminal_rows
+        if r.updated_at > r.created_at
+    ]
+    avg_time_in_funnel = round(sum(times) / len(times), 1) if times else 0.0
+
     return {
         "vencidos_count": vencidos_count,
         "uncontacted_count": uncontacted_count,
+        "avg_time_in_funnel": avg_time_in_funnel,
         "vencidos": [
             {
                 "id": str(r.id),
