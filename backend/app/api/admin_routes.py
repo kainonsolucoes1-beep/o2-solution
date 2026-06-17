@@ -67,6 +67,74 @@ def sync_status(
     }
 
 
+@router.post("/deduplicate-leads")
+def deduplicate_leads(
+    dry_run: bool = Query(True, description="True = apenas conta, False = remove os duplicados"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove leads duplicados mantendo o mais recente de cada grupo."""
+    _require_admin(current_user)
+    from sqlalchemy import text
+
+    # IDs a deletar: para cada email duplicado, manter o com followize_id mais alto
+    # (ou o updated_at mais recente se não tiver followize_id)
+    find_email_dupes = text("""
+        SELECT id FROM leads
+        WHERE email IS NOT NULL AND email != ''
+          AND id NOT IN (
+            SELECT DISTINCT ON (email)
+              CASE WHEN followize_id IS NOT NULL
+                   THEN (SELECT id FROM leads l2 WHERE l2.email = l.email ORDER BY l2.followize_id DESC NULLS LAST LIMIT 1)
+                   ELSE (SELECT id FROM leads l2 WHERE l2.email = l.email ORDER BY l2.updated_at DESC NULLS LAST LIMIT 1)
+              END
+            FROM leads l WHERE email IS NOT NULL AND email != ''
+          )
+    """)
+
+    # IDs a deletar: leads sem email com mesmo phone+name, manter o mais recente
+    find_phone_dupes = text("""
+        SELECT id FROM leads
+        WHERE (email IS NULL OR email = '')
+          AND phone IS NOT NULL AND phone != ''
+          AND id NOT IN (
+            SELECT DISTINCT ON (phone, name)
+              CASE WHEN followize_id IS NOT NULL
+                   THEN (SELECT id FROM leads l2 WHERE l2.phone = l.phone AND l2.name = l.name ORDER BY l2.followize_id DESC NULLS LAST LIMIT 1)
+                   ELSE (SELECT id FROM leads l2 WHERE l2.phone = l.phone AND l2.name = l.name ORDER BY l2.updated_at DESC NULLS LAST LIMIT 1)
+              END
+            FROM leads l WHERE (email IS NULL OR email = '') AND phone IS NOT NULL AND phone != ''
+          )
+    """)
+
+    email_dupe_ids = [str(r[0]) for r in db.execute(find_email_dupes).fetchall()]
+    phone_dupe_ids = [str(r[0]) for r in db.execute(find_phone_dupes).fetchall()]
+    all_dupe_ids = list(set(email_dupe_ids + phone_dupe_ids))
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "duplicates_by_email": len(email_dupe_ids),
+            "duplicates_by_phone_name": len(phone_dupe_ids),
+            "total_to_remove": len(all_dupe_ids),
+        }
+
+    if not all_dupe_ids:
+        return {"dry_run": False, "removed": 0}
+
+    import uuid as _uuid
+    uuid_ids = [_uuid.UUID(i) for i in all_dupe_ids]
+    db.query(Lead).filter(Lead.id.in_(uuid_ids)).delete(synchronize_session=False)
+    db.commit()
+
+    return {
+        "dry_run": False,
+        "removed": len(all_dupe_ids),
+        "removed_by_email": len(email_dupe_ids),
+        "removed_by_phone_name": len(phone_dupe_ids),
+    }
+
+
 @router.get("/distinct-statuses")
 def distinct_statuses(
     current_user: User = Depends(get_current_user),
