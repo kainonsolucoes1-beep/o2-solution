@@ -110,7 +110,7 @@ export default function LeadsReport() {
   const [report, setReport]       = useState<ReportResponse | null>(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
-  const [statusFilter] = useState(() => searchParams.get('status') ?? '')
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? '')
   const [perceptionFilter, setPerceptionFilter] = useState(() => searchParams.get('perception') ?? '')
   const vencidosFilter = searchParams.get('vencidos') === '1'
   const [searched, setSearched]   = useState(false)
@@ -302,6 +302,25 @@ export default function LeadsReport() {
                   style={{ color: '#6B7280', minWidth: 170 }}
                 />
               )}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ color: '#1F2937', minWidth: 150 }}
+              >
+                <option value="">Todos</option>
+                <option value="pending,novo,new">Pendente</option>
+                <option value="scheduled,qualificado,qualified">Qualificado</option>
+                <option value="proposal_sent">Proposta</option>
+                <option value="waiting_billing,sale_performed,fechado,closed,won,convertido">Fechado</option>
+                <option value="sale_not_performed">Perdido</option>
+              </select>
             </div>
 
             <button
