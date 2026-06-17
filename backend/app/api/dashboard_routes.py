@@ -370,14 +370,13 @@ def dashboard_performance(
     captacao_mes = _cnt([Lead.created_at >= month_start])
     captacao_mes_ant = _cnt([Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
 
-    # Valor em Carteira (todos os ativos, excluindo perdidos)
+    # Valor em Carteira — mês atual, excluindo perdidos
     not_perdido = ~_s_in(_PERDIDO)
-    valor_carteira = _sum([not_perdido])
-    valor_carteira_mes = _sum([not_perdido, Lead.created_at >= month_start])
+    valor_carteira = _sum([not_perdido, Lead.created_at >= month_start])
     valor_carteira_mes_ant = _sum([not_perdido, Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
 
-    # Ticket médio
-    ticket_medio = _avg([not_perdido])
+    # Ticket médio — mês atual, excluindo perdidos
+    ticket_medio = _avg([not_perdido, Lead.created_at >= month_start])
     ticket_medio_ant = _avg([not_perdido, Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
 
     # Meta financeira — fechados este mês
@@ -391,11 +390,11 @@ def dashboard_performance(
     # Ranking de operadores — mês atual
     ranking_rows = (
         db.query(
-            func.coalesce(Lead.attendant, "Sem responsável").label("name"),
+            func.coalesce(Lead.origin, "Sem origem").label("name"),
             func.count(Lead.id).label("count"),
         )
         .filter(Lead.created_at >= month_start)
-        .group_by(Lead.attendant)
+        .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
         .limit(10)
         .all()
@@ -432,7 +431,7 @@ def dashboard_performance(
         "captacao_mes": captacao_mes,
         "vs_mes_anterior_captacao": _pct(captacao_mes, captacao_mes_ant),
         "valor_carteira": valor_carteira,
-        "vs_carteira": _pct(valor_carteira_mes, valor_carteira_mes_ant),
+        "vs_carteira": _pct(valor_carteira, valor_carteira_mes_ant),
         "ticket_medio": ticket_medio,
         "vs_ticket": _pct(ticket_medio, ticket_medio_ant),
         "meta_financeira": META_FINANCEIRA,
