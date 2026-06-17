@@ -65,14 +65,10 @@ function StatusBadge({ status }: { status: string | null }) {
   return (
     <span
       style={{
-        background: s.bg,
-        color: s.color,
-        padding: '2px 10px',
-        borderRadius: 99,
-        fontSize: 12,
-        fontWeight: 600,
-        textTransform: 'capitalize',
-        whiteSpace: 'nowrap',
+        background: s.bg, color: s.color,
+        padding: '2px 10px', borderRadius: 99,
+        fontSize: 12, fontWeight: 600,
+        textTransform: 'capitalize', whiteSpace: 'nowrap',
       }}
     >
       {status ?? 'novo'}
@@ -200,93 +196,60 @@ export default function LeadsReport() {
     : []
 
   const totalPages = report ? Math.ceil(report.total / LIMIT) : 0
-
   const myName = me ? (me.first_name ?? me.username) : ''
+
+  const labelStyle = { fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }
 
   return (
     <>
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
-        {/* Header */}
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2937' }}>Relatório de Leads</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Relatório de Leads</h1>
           {vencidosFilter ? (
             <p style={{ fontSize: 13, color: '#EF4444', marginTop: 2, fontWeight: 500 }}>
               ⚠️ Exibindo leads vencidos — sem atenção nas últimas 24h
             </p>
           ) : (
-            <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
               Filtre leads por período e atendente
             </p>
           )}
         </div>
 
         {/* Filters */}
-        <div
-          className="bg-white rounded-xl p-6"
-          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-        >
+        <div className="bg-white rounded-xl p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <div className="flex flex-wrap gap-4 items-end">
             <div className="flex flex-col gap-1">
-              <label
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: '#6B7280',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                Data Início
-              </label>
+              <label style={labelStyle}>Data Início</label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={e => setDateFrom(e.target.value)}
                 className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ color: '#1F2937' }}
+                style={{ color: 'var(--text-2)' }}
               />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: '#6B7280',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                Data Fim
-              </label>
+              <label style={labelStyle}>Data Fim</label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={e => setDateTo(e.target.value)}
                 className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ color: '#1F2937' }}
+                style={{ color: 'var(--text-2)' }}
               />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: '#6B7280',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                Atendente
-              </label>
+              <label style={labelStyle}>Atendente</label>
               {isAdmin ? (
                 <select
                   value={origem}
                   onChange={e => setOrigem(e.target.value)}
                   className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{ color: '#1F2937', minWidth: 170 }}
+                  style={{ color: 'var(--text-2)', minWidth: 170 }}
                 >
                   <option value="">Todos</option>
                   {operators.map(op => (
@@ -299,20 +262,18 @@ export default function LeadsReport() {
                   value={myName}
                   disabled
                   className="border rounded-lg px-3 py-2 text-sm bg-gray-50"
-                  style={{ color: '#6B7280', minWidth: 170 }}
+                  style={{ color: 'var(--text-muted)', minWidth: 170 }}
                 />
               )}
             </div>
 
             <div className="flex flex-col gap-1">
-              <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Status
-              </label>
+              <label style={labelStyle}>Status</label>
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
                 className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ color: '#1F2937', minWidth: 150 }}
+                style={{ color: 'var(--text-2)', minWidth: 150 }}
               >
                 <option value="">Todos</option>
                 <option value="pending,novo,new">Pendente</option>
@@ -334,8 +295,8 @@ export default function LeadsReport() {
           </div>
 
           {perceptionFilter !== '' && (
-            <div className="flex items-center gap-2 mt-4 pt-4" style={{ borderTop: '1px solid #F3F4F6' }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Percepção</span>
+            <div className="flex items-center gap-2 mt-4 pt-4" style={{ borderTop: '1px solid var(--border-lt)' }}>
+              <span style={labelStyle}>Percepção</span>
               {[
                 { label: 'Ambos', value: 'Quente,Morno' },
                 { label: 'Quente', value: 'Quente' },
@@ -353,15 +314,11 @@ export default function LeadsReport() {
                     key={opt.value}
                     onClick={() => setPerceptionFilter(opt.value)}
                     style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      padding: '4px 14px',
-                      borderRadius: 99,
-                      border: `1px solid ${active ? c.border : '#E5E7EB'}`,
-                      background: active ? c.bg : 'white',
-                      color: active ? c.color : '#6B7280',
-                      cursor: 'pointer',
-                      transition: 'all 150ms',
+                      fontSize: 12, fontWeight: 600, padding: '4px 14px', borderRadius: 99,
+                      border: `1px solid ${active ? c.border : 'var(--border)'}`,
+                      background: active ? c.bg : 'var(--bg-card)',
+                      color: active ? c.color : 'var(--text-muted)',
+                      cursor: 'pointer', transition: 'all 150ms',
                     }}
                   >
                     {opt.label}
@@ -377,61 +334,47 @@ export default function LeadsReport() {
         {!searched && !loading && (
           <div
             className="text-center py-16 bg-white rounded-xl"
-            style={{ color: '#9CA3AF', fontSize: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+            style={{ color: 'var(--text-subtle)', fontSize: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
           >
             Selecione os filtros e clique em <strong>Buscar</strong> para ver os leads.
           </div>
         )}
 
         {loading && (
-          <p className="text-center text-sm py-12" style={{ color: '#9CA3AF' }}>
+          <p className="text-center text-sm py-12" style={{ color: 'var(--text-subtle)' }}>
             Carregando…
           </p>
         )}
 
         {searched && report && !loading && (
           <>
-            {/* Stats */}
-            <div style={{ fontSize: 13, color: '#6B7280' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
               Mostrando{' '}
-              <strong style={{ color: '#1F2937' }}>{report.leads.length}</strong>{' '}
+              <strong style={{ color: 'var(--text-2)' }}>{report.leads.length}</strong>{' '}
               de{' '}
-              <strong style={{ color: '#1F2937' }}>{report.total}</strong>{' '}
+              <strong style={{ color: 'var(--text-2)' }}>{report.total}</strong>{' '}
               leads
             </div>
 
-            {/* Table */}
-            <div
-              className="bg-white rounded-xl overflow-hidden"
-              style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-            >
+            <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               {report.leads.length === 0 ? (
-                <div
-                  className="py-16 text-center"
-                  style={{ color: '#9CA3AF', fontSize: 14 }}
-                >
+                <div className="py-16 text-center" style={{ color: 'var(--text-subtle)', fontSize: 14 }}>
                   Nenhum lead encontrado para os filtros selecionados.
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr style={{ borderBottom: '2px solid #E5E7EB', background: '#F9FAFB' }}>
+                      <tr style={{ borderBottom: '2px solid var(--border)', background: 'var(--bg-hover)' }}>
                         {COLUMNS.map(col => (
                           <th
                             key={col.key}
                             onClick={() => handleSort(col.key)}
                             style={{
-                              padding: '11px 16px',
-                              textAlign: 'left',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: '#6B7280',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.05em',
-                              cursor: 'pointer',
-                              userSelect: 'none',
-                              whiteSpace: 'nowrap',
+                              padding: '11px 16px', textAlign: 'left',
+                              fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
+                              textTransform: 'uppercase', letterSpacing: '0.05em',
+                              cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
                             }}
                           >
                             {col.label}
@@ -450,67 +393,33 @@ export default function LeadsReport() {
                           key={lead.id}
                           onClick={() => setSelectedLead(lead)}
                           style={{
-                            borderBottom:
-                              i < sortedLeads.length - 1 ? '1px solid #F3F4F6' : 'none',
-                            background: 'white',
+                            borderBottom: i < sortedLeads.length - 1 ? '1px solid var(--border-lt)' : 'none',
+                            background: 'var(--bg-card)',
                             transition: 'background 120ms',
                             cursor: 'pointer',
                           }}
-                          onMouseEnter={e =>
-                            (e.currentTarget.style.background = '#F9FAFB')
-                          }
-                          onMouseLeave={e =>
-                            (e.currentTarget.style.background = 'white')
-                          }
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-card)')}
                         >
-                          <td
-                            style={{
-                              padding: '12px 16px',
-                              fontSize: 13,
-                              color: '#6B7280',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                             {fmtDate(lead.created_at)}
                           </td>
-                          <td
-                            style={{
-                              padding: '12px 16px',
-                              fontSize: 14,
-                              fontWeight: 500,
-                              color: '#1F2937',
-                            }}
-                          >
+                          <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)' }}>
                             {lead.name}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: '#6B7280' }}>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
                             {lead.email ?? '—'}
                           </td>
-                          <td
-                            style={{
-                              padding: '12px 16px',
-                              fontSize: 13,
-                              color: '#6B7280',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                             {lead.phone ?? '—'}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: '#6B7280' }}>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
                             {lead.origem ?? '—'}
                           </td>
                           <td style={{ padding: '12px 16px' }}>
                             <StatusBadge status={lead.status} />
                           </td>
-                          <td
-                            style={{
-                              padding: '12px 16px',
-                              fontSize: 13,
-                              color: '#1F2937',
-                              fontWeight: 500,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', fontWeight: 500, whiteSpace: 'nowrap' }}>
                             {fmtBRL(lead.value_potential)}
                           </td>
                         </tr>
@@ -521,20 +430,15 @@ export default function LeadsReport() {
               )}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-1 flex-wrap">
                 <button
                   onClick={() => fetchReport(page - 1)}
                   disabled={page <= 1 || loading}
                   style={{
-                    padding: '5px 12px',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    border: '1px solid #E5E7EB',
-                    background: 'white',
-                    color: '#1F2937',
-                    cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                    padding: '5px 12px', borderRadius: 8, fontSize: 13,
+                    border: '1px solid var(--border)', background: 'var(--bg-card)',
+                    color: 'var(--text-2)', cursor: page <= 1 ? 'not-allowed' : 'pointer',
                     opacity: page <= 1 ? 0.3 : 1,
                   }}
                 >
@@ -543,7 +447,7 @@ export default function LeadsReport() {
 
                 {getPagesRange(page, totalPages).map((p, i) =>
                   p === '...' ? (
-                    <span key={`ellipsis-${i}`} style={{ padding: '5px 4px', color: '#9CA3AF', fontSize: 13 }}>
+                    <span key={`ellipsis-${i}`} style={{ padding: '5px 4px', color: 'var(--text-subtle)', fontSize: 13 }}>
                       …
                     </span>
                   ) : (
@@ -552,14 +456,11 @@ export default function LeadsReport() {
                       onClick={() => fetchReport(p as number)}
                       disabled={loading}
                       style={{
-                        padding: '5px 11px',
-                        borderRadius: 8,
-                        fontSize: 13,
+                        padding: '5px 11px', borderRadius: 8, fontSize: 13,
                         fontWeight: p === page ? 700 : 400,
-                        background: p === page ? '#2563EB' : 'white',
-                        color: p === page ? 'white' : '#1F2937',
-                        border: '1px solid #E5E7EB',
-                        cursor: 'pointer',
+                        background: p === page ? '#2563EB' : 'var(--bg-card)',
+                        color: p === page ? 'white' : 'var(--text-2)',
+                        border: '1px solid var(--border)', cursor: 'pointer',
                       }}
                     >
                       {p}
@@ -571,13 +472,9 @@ export default function LeadsReport() {
                   onClick={() => fetchReport(page + 1)}
                   disabled={page >= totalPages || loading}
                   style={{
-                    padding: '5px 12px',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    border: '1px solid #E5E7EB',
-                    background: 'white',
-                    color: '#1F2937',
-                    cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                    padding: '5px 12px', borderRadius: 8, fontSize: 13,
+                    border: '1px solid var(--border)', background: 'var(--bg-card)',
+                    color: 'var(--text-2)', cursor: page >= totalPages ? 'not-allowed' : 'pointer',
                     opacity: page >= totalPages ? 0.3 : 1,
                   }}
                 >

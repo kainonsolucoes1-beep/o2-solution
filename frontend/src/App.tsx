@@ -7,9 +7,11 @@ import Pipeline from './pages/Pipeline'
 import Settings from './pages/Settings'
 import Activities from './pages/Activities'
 import Layout from './components/Layout'
+import { ThemeProvider } from './ThemeContext'
 
 export default function App() {
   return (
+    <ThemeProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -24,5 +26,6 @@ export default function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </ThemeProvider>
   )
 }

@@ -37,7 +37,7 @@ function Trend({ value, label }: { value: number; label: string }) {
       <span style={{ fontSize: 12, fontWeight: 600, color }}>
         {value > 0 ? '+' : ''}{value}%
       </span>
-      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{label}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{label}</span>
     </div>
   )
 }
@@ -64,8 +64,8 @@ function KpiCard({
         <Icon size={19} color={iconColor} />
       </div>
       <div>
-        <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
-        <p style={{ fontSize: large ? 28 : 26, fontWeight: 700, color: '#111827', lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 4 }}>{label}</p>
+        <p style={{ fontSize: large ? 28 : 26, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</p>
       </div>
       <Trend value={trend} label={trendLabel} />
     </div>
@@ -95,7 +95,7 @@ export default function Dashboard() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  if (loading) return <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
+  if (loading) return <p className="text-center text-sm mt-20" style={{ color: 'var(--text-subtle)' }}>Carregando...</p>
   if (error || !data) return <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
 
   const metaLeads = data.meta_leads ?? 200
@@ -108,8 +108,8 @@ export default function Dashboard() {
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
       <div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111827' }}>Dashboard</h1>
-        <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Performance operacional em tempo real</p>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-1)' }}>Dashboard</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Performance operacional em tempo real</p>
       </div>
 
       {/* KPI cards */}
@@ -152,7 +152,7 @@ export default function Dashboard() {
       {/* Captação hoje por fonte — mini-cards */}
       {data.captacao_hoje_por_fonte && data.captacao_hoje_por_fonte.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Captação Hoje por Fonte
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3">
@@ -176,7 +176,7 @@ export default function Dashboard() {
                   onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>{f.name}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>{f.name}</span>
                     {i < 3 && (
                       <span style={{ fontSize: 10, fontWeight: 700, color: border, background: `${border}18`, borderRadius: 99, padding: '1px 6px', flexShrink: 0 }}>
                         {badges[i]}
@@ -199,11 +199,11 @@ export default function Dashboard() {
 
         {/* Ranking */}
         <div className="md:col-span-3 bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Ranking de Operadores — {mesNome}
           </h2>
           {data.ranking.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sem captações no período.</p>
+            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações no período.</p>
           ) : (
             <div className="flex flex-col gap-4">
               {data.ranking.map((op, i) => (
@@ -213,20 +213,20 @@ export default function Dashboard() {
                   onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
                 >
-                  <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: '#9CA3AF', fontWeight: 700 }}>
+                  <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
                     {i < 3 ? MEDALS[i] : `${i + 1}°`}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {op.name}
                       </span>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{op.count}</span>
-                        <span style={{ fontSize: 11, color: '#9CA3AF', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{op.count}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
                       </div>
                     </div>
-                    <div style={{ background: '#F3F4F6', borderRadius: 99, height: 7, overflow: 'hidden' }}>
+                    <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 7, overflow: 'hidden' }}>
                       <div style={{
                         width: `${op.bar_pct}%`, height: '100%', borderRadius: 99,
                         background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)],
@@ -244,26 +244,26 @@ export default function Dashboard() {
         <div className="md:col-span-2 flex flex-col gap-4">
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Meta Mensal
             </h2>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
               <div>
-                <p style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{data.captacao_mes ?? 0}</p>
-                <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>de {metaLeads} leads</p>
+                <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{data.captacao_mes ?? 0}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>de {metaLeads} leads</p>
               </div>
               <p style={{ fontSize: 30, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{data.meta_pct}%</p>
             </div>
-            <div style={{ background: '#F3F4F6', borderRadius: 99, height: 10, overflow: 'hidden' }}>
+            <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 10, overflow: 'hidden' }}>
               <div style={{ width: `${data.meta_pct}%`, height: '100%', background: metaColor, borderRadius: 99, transition: 'width 700ms ease' }} />
             </div>
-            <p style={{ fontSize: 12, color: faltam === 0 ? '#10B981' : '#6B7280', fontWeight: faltam === 0 ? 600 : 400 }}>
+            <p style={{ fontSize: 12, color: faltam === 0 ? '#10B981' : 'var(--text-muted)', fontWeight: faltam === 0 ? 600 : 400 }}>
               {faltam === 0 ? 'Meta atingida! 🎉' : `Faltam ${faltam} leads para a meta`}
             </p>
           </div>
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Projeção do Mês
             </h2>
             <p style={{ fontSize: 30, fontWeight: 700, color: projecaoColor, lineHeight: 1 }}>{data.projecao_mes ?? 0} leads</p>
@@ -272,7 +272,7 @@ export default function Dashboard() {
                 ? `+${(data.projecao_mes ?? 0) - metaLeads} acima da meta`
                 : `${metaLeads - (data.projecao_mes ?? 0)} abaixo da meta`}
             </p>
-            <p style={{ fontSize: 11, color: '#9CA3AF' }}>Baseado no ritmo atual de fechamentos</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Baseado no ritmo atual de fechamentos</p>
           </div>
 
         </div>
@@ -280,7 +280,7 @@ export default function Dashboard() {
 
       {/* Evolução diária */}
       <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Evolução da Captação — {mesNome}
         </h2>
         <ResponsiveContainer width="100%" height={220}>
@@ -291,11 +291,11 @@ export default function Dashboard() {
                 <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-            <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} tickLine={false} axisLine={false} allowDecimals={false} width={30} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" vertical={false} />
+            <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} tickLine={false} axisLine={false} allowDecimals={false} width={30} />
             <Tooltip
-              contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12 }}
+              contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12, background: 'var(--bg-card)', color: 'var(--text-2)' }}
               formatter={(v: number) => [v, 'Leads']}
               labelFormatter={(l) => `Dia ${l}`}
             />

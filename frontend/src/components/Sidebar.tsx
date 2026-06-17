@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BarChart2, FileText, Users,
-  CheckSquare, Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X,
+  CheckSquare, Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X, Sun, Moon,
 } from 'lucide-react'
 import api from '../api'
+import { useTheme } from '../ThemeContext'
 
 interface UserInfo { username: string; first_name: string | null; role: string }
 
@@ -19,6 +20,7 @@ const NAV = [
 export default function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { dark, toggle } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
@@ -66,6 +68,26 @@ export default function Sidebar() {
     )
   })
 
+  const themeBtn = (
+    <button
+      onClick={toggle}
+      title={slim ? (dark ? 'Modo claro' : 'Modo escuro') : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        justifyContent: slim ? 'center' : 'flex-start',
+        width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+        color: '#9CA3AF', fontSize: 13, padding: slim ? '6px 0' : '6px 4px',
+        borderRadius: 6, marginBottom: 6,
+        transition: 'color 150ms',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.color = '#E2E8F0' }}
+      onMouseLeave={e => { e.currentTarget.style.color = '#9CA3AF' }}
+    >
+      {dark ? <Sun size={15} /> : <Moon size={15} />}
+      {!slim && <span>{dark ? 'Modo claro' : 'Modo escuro'}</span>}
+    </button>
+  )
+
   const footer = (
     <div style={{ borderTop: '1px solid #1F2937', padding: slim ? '12px 0' : '12px 16px', flexShrink: 0 }}>
       {!slim && user && (
@@ -74,6 +96,7 @@ export default function Sidebar() {
           <p style={{ fontSize: 11, color: '#6B7280', textTransform: 'capitalize', marginTop: 2 }}>{user.role}</p>
         </div>
       )}
+      {themeBtn}
       <button
         onClick={logout}
         title={slim ? 'Sair' : undefined}
@@ -95,7 +118,6 @@ export default function Sidebar() {
   if (isMobile) {
     return (
       <>
-        {/* Hamburger */}
         {!mobileOpen && (
           <button
             onClick={() => setMobileOpen(true)}
@@ -110,16 +132,12 @@ export default function Sidebar() {
             <Menu size={20} />
           </button>
         )}
-
-        {/* Overlay */}
         {mobileOpen && (
           <div
             onClick={() => setMobileOpen(false)}
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }}
           />
         )}
-
-        {/* Drawer */}
         <aside style={{
           position: 'fixed', left: 0, top: 0, bottom: 0, width: 240, zIndex: 50,
           background: '#111827', display: 'flex', flexDirection: 'column',
@@ -144,7 +162,6 @@ export default function Sidebar() {
     )
   }
 
-  // Desktop
   const w = collapsed ? 64 : 240
   return (
     <aside style={{

@@ -41,7 +41,7 @@ export default function Activities() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  if (loading) return <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
+  if (loading) return <p className="text-center text-sm mt-20" style={{ color: 'var(--text-subtle)' }}>Carregando...</p>
   if (error || !actions) return <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error}</p>
 
   const actionCards = [
@@ -61,8 +61,8 @@ export default function Activities() {
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827' }}>Atividades</h1>
-        <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Ações pendentes e leads que precisam de atenção</p>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)' }}>Atividades</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Ações pendentes e leads que precisam de atenção</p>
       </div>
 
       {/* Cards de ações */}
@@ -80,7 +80,7 @@ export default function Activities() {
               <card.Icon size={20} color={card.color} />
             </div>
             <div>
-              <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500 }}>{card.label}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{card.label}</p>
               <p style={{ fontSize: 28, fontWeight: 700, color: card.color, lineHeight: 1.2 }}>{card.value}</p>
             </div>
           </div>
@@ -89,20 +89,20 @@ export default function Activities() {
 
       {/* Tabela */}
       <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #F3F4F6' }}>
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-lt)' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Leads que Precisam de Ação
           </h2>
         </div>
         {leads.length === 0 ? (
-          <p style={{ padding: '24px 20px', fontSize: 14, color: '#9CA3AF' }}>Nenhuma ação pendente.</p>
+          <p style={{ padding: '24px 20px', fontSize: 14, color: 'var(--text-subtle)' }}>Nenhuma ação pendente.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ background: '#F9FAFB' }}>
+                <tr style={{ background: 'var(--bg-hover)' }}>
                   {['Data', 'Cliente', 'Origem', 'Ação Necessária', 'Atribuído a', 'Idle'].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#6B7280', fontSize: 12, whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -112,21 +112,21 @@ export default function Activities() {
                   return (
                     <tr
                       key={lead.id}
-                      style={{ borderTop: '1px solid #F3F4F6', cursor: 'pointer', background: i % 2 === 0 ? 'white' : '#FAFAFA' }}
+                      style={{ borderTop: '1px solid var(--border-lt)', cursor: 'pointer', background: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-faint)' }}
                       onClick={() => navigate('/leads-report')}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#EFF6FF')}
-                      onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'white' : '#FAFAFA')}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-faint)')}
                     >
-                      <td style={{ padding: '10px 16px', color: '#6B7280', whiteSpace: 'nowrap' }}>{fmtDate(lead.created_at)}</td>
-                      <td style={{ padding: '10px 16px', fontWeight: 600, color: '#111827' }}>{lead.name}</td>
-                      <td style={{ padding: '10px 16px', color: '#6B7280' }}>{lead.origin}</td>
+                      <td style={{ padding: '10px 16px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fmtDate(lead.created_at)}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text-1)' }}>{lead.name}</td>
+                      <td style={{ padding: '10px 16px', color: 'var(--text-muted)' }}>{lead.origin}</td>
                       <td style={{ padding: '10px 16px' }}>
                         <span style={{ padding: '3px 10px', borderRadius: 99, background: ac.bg, color: ac.color, fontWeight: 600, fontSize: 12 }}>
                           {lead.action}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 16px', color: '#374151' }}>{lead.attendant}</td>
-                      <td style={{ padding: '10px 16px', color: lead.hours_idle > 24 ? '#EF4444' : '#6B7280', fontWeight: lead.hours_idle > 24 ? 600 : 400 }}>
+                      <td style={{ padding: '10px 16px', color: 'var(--text-3)' }}>{lead.attendant}</td>
+                      <td style={{ padding: '10px 16px', color: lead.hours_idle > 24 ? '#EF4444' : 'var(--text-muted)', fontWeight: lead.hours_idle > 24 ? 600 : 400 }}>
                         {lead.hours_idle}h
                       </td>
                     </tr>

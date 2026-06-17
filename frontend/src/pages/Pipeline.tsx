@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import { Clock, CheckSquare, FileText, Handshake, Timer } from 'lucide-react'
 import api from '../api'
+
 interface PipelineOverview {
   novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number
   novo_value: number; qualificado_value: number; proposta_value: number; negociacao_value: number; fechado_value: number; perdido_value: number
@@ -59,7 +60,7 @@ export default function Pipeline() {
   useEffect(() => { fetchAll() }, [fetchAll])
 
   if (loading) return (
-    <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
+    <p className="text-center text-sm mt-20" style={{ color: 'var(--text-subtle)' }}>Carregando...</p>
   )
 
   if (error || !overview || !alerts) return (
@@ -139,28 +140,28 @@ export default function Pipeline() {
         {/* Header + filtros */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2937' }}>Pipeline de Vendas</h1>
-            <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Visão do funil de vendas em tempo real</p>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Pipeline de Vendas</h1>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Visão do funil de vendas em tempo real</p>
           </div>
           <div className="flex gap-2 flex-wrap items-center">
-            <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 500 }}>De</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>De</span>
             <input
               type="date"
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
-              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #D1D5DB', color: '#374151', background: 'white', cursor: 'pointer' }}
+              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }}
             />
-            <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 500 }}>Até</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Até</span>
             <input
               type="date"
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
-              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #D1D5DB', color: '#374151', background: 'white', cursor: 'pointer' }}
+              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }}
             />
             <select
               value={selectedSource}
               onChange={e => setSelectedSource(e.target.value)}
-              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #D1D5DB', color: selectedSource ? '#374151' : '#9CA3AF', background: 'white', cursor: 'pointer', minWidth: 160 }}
+              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: selectedSource ? 'var(--text-3)' : 'var(--text-subtle)', background: 'var(--bg-input)', cursor: 'pointer', minWidth: 160 }}
             >
               <option value="">Todas as origens</option>
               {sources.map(s => <option key={s} value={s}>{s}</option>)}
@@ -182,7 +183,7 @@ export default function Pipeline() {
               <div style={{ width: 36, height: 36, borderRadius: 8, background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
                 {card.icon}
               </div>
-              <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>{card.label}</span>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>{card.label}</span>
               <span style={{ fontSize: 36, fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</span>
             </div>
           ))}
@@ -192,27 +193,27 @@ export default function Pipeline() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Valor por Etapa
             </h2>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={distStages} layout="vertical" margin={{ top: 0, right: 70, left: 10, bottom: 0 }}>
                 <XAxis type="number" hide />
-                <YAxis type="category" dataKey="stage" tick={{ fontSize: 12, fill: '#6B7280' }} width={90} />
+                <YAxis type="category" dataKey="stage" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} width={90} />
                 <Tooltip
                   formatter={(v: number) => [fmtBrlFull(v), 'Valor potencial']}
-                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12 }}
+                  contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12, background: 'var(--bg-card)', color: 'var(--text-2)' }}
                 />
                 <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={26}>
                   {distStages.map(s => <Cell key={s.stage} fill={s.color} />)}
-                  <LabelList dataKey="value" position="right" style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} formatter={(v: number) => fmtBrl(v)} />
+                  <LabelList dataKey="value" position="right" style={{ fontSize: 11, fontWeight: 600, fill: 'var(--text-3)' }} formatter={(v: number) => fmtBrl(v)} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Conversões do Funil
             </h2>
             <div className="flex flex-col gap-5 mt-1">
@@ -221,7 +222,7 @@ export default function Pipeline() {
                   key={i}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '4px 6px', borderRadius: 8, transition: 'background 150ms' }}
                   onClick={() => navigate(`/leads-report${c.nav}`)}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div style={{ width: 38, height: 38, borderRadius: '50%', background: c.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -230,12 +231,12 @@ export default function Pipeline() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
                       <div>
-                        <p style={{ fontSize: 13, color: '#374151', fontWeight: 600, lineHeight: 1.3 }}>{c.from} → {c.to}</p>
-                        <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>De {c.fromCount} para {c.toCount} leads</p>
+                        <p style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 600, lineHeight: 1.3 }}>{c.from} → {c.to}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 1 }}>De {c.fromCount} para {c.toCount} leads</p>
                       </div>
                       <span style={{ fontSize: 16, fontWeight: 700, color: c.color, marginLeft: 12, flexShrink: 0 }}>{c.rate}%</span>
                     </div>
-                    <div style={{ background: '#F3F4F6', borderRadius: 99, height: 8, overflow: 'hidden', marginTop: 6 }}>
+                    <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 8, overflow: 'hidden', marginTop: 6 }}>
                       <div style={{ width: `${Math.min(100, c.rate)}%`, height: '100%', background: c.color, borderRadius: 99, transition: 'width 500ms ease' }} />
                     </div>
                   </div>
@@ -265,7 +266,7 @@ export default function Pipeline() {
                 {alerts.vencidos_count ?? alerts.vencidos.length} leads
               </span>
             </div>
-            <p style={{ fontSize: 11, color: '#9CA3AF' }}>Qualquer status sem atenção nas últimas 24h</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Qualquer status sem atenção nas últimas 24h</p>
             <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
           </div>
 
@@ -285,7 +286,7 @@ export default function Pipeline() {
                 {alerts.uncontacted_count ?? alerts.uncontacted.length} leads
               </span>
             </div>
-            <p style={{ fontSize: 11, color: '#9CA3AF' }}>Status Novo sem movimento nas últimas 24h</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Status Novo sem movimento nas últimas 24h</p>
             <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
           </div>
 
@@ -296,12 +297,12 @@ export default function Pipeline() {
                 Tempo Médio no Funil
               </h2>
             </div>
-            <p style={{ fontSize: 11, color: '#9CA3AF' }}>Média do ciclo completo (fechado + perdido)</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Média do ciclo completo (fechado + perdido)</p>
             <p style={{ fontSize: 36, fontWeight: 700, color: '#6366F1', lineHeight: 1 }}>
               {alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>dias</span>
             </p>
             {(alerts.avg_time_in_funnel ?? 0) === 0 && (
-              <p style={{ fontSize: 11, color: '#9CA3AF' }}>Sem leads finalizados no período</p>
+              <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Sem leads finalizados no período</p>
             )}
           </div>
 

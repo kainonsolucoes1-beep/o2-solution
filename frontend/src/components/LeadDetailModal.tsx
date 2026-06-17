@@ -60,10 +60,10 @@ function fmtBRL(n: number | null) {
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {label}
       </span>
-      <span style={{ fontSize: 14, color: value === '—' ? '#9CA3AF' : '#1F2937', fontWeight: value === '—' ? 400 : 500 }}>
+      <span style={{ fontSize: 14, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500 }}>
         {value}
       </span>
     </div>
@@ -137,7 +137,6 @@ export default function LeadDetailModal({
 
   return (
     <>
-      {/* Toast */}
       {toast && (
         <div
           style={{
@@ -152,11 +151,10 @@ export default function LeadDetailModal({
         </div>
       )}
 
-      {/* Backdrop */}
       <div
         style={{
           position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.45)',
+          background: 'rgba(0,0,0,0.55)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 50, padding: 16,
         }}
@@ -164,29 +162,28 @@ export default function LeadDetailModal({
       >
         <div
           style={{
-            background: 'white', borderRadius: 16,
+            background: 'var(--bg-card)', borderRadius: 16,
             width: '100%', maxWidth: 580,
             maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
             overflow: 'hidden',
           }}
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div style={{ padding: '18px 24px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: '#1F2937' }}>Detalhe do Lead</span>
+          <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-2)' }}>Detalhe do Lead</span>
             <button
               onClick={onClose}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center' }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center' }}
             >
               <X size={18} />
             </button>
           </div>
 
-          {/* Body (scrollable) */}
+          {/* Body */}
           <div style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-            {/* Info grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px' }}>
               <Field label="Nome"            value={lead.name} />
               <Field label="Empresa"         value={lead.company ?? '—'} />
@@ -198,12 +195,11 @@ export default function LeadDetailModal({
               <Field label="Data Criação"    value={fmtDate(lead.created_at)} />
             </div>
 
-            {/* Percepção */}
             {lead.perception && (() => {
               const p = PERCEPTION_STYLE[lead.perception]
               return p ? (
                 <div className="flex flex-col gap-2">
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Percepção
                   </span>
                   <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: p.bg, color: p.color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
@@ -213,9 +209,8 @@ export default function LeadDetailModal({
               ) : null
             })()}
 
-            {/* Status */}
             <div className="flex flex-col gap-2">
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Status
               </span>
               {editingStatus ? (
@@ -235,8 +230,7 @@ export default function LeadDetailModal({
                           padding: '4px 14px', borderRadius: 99,
                           fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
                           opacity: savingStatus ? 0.6 : 1,
-                          transition: 'all 150ms',
-                          textTransform: 'capitalize',
+                          transition: 'all 150ms', textTransform: 'capitalize',
                         }}
                       >
                         {opt.label}
@@ -245,7 +239,7 @@ export default function LeadDetailModal({
                   })}
                   <button
                     onClick={() => setEditingStatus(false)}
-                    style={{ background: 'none', border: 'none', fontSize: 12, color: '#9CA3AF', cursor: 'pointer', padding: '4px 8px' }}
+                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
                   >
                     Cancelar
                   </button>
@@ -271,13 +265,11 @@ export default function LeadDetailModal({
               )}
             </div>
 
-            {/* Notes */}
             <div className="flex flex-col gap-3">
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Notas
               </span>
 
-              {/* New note */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <textarea
                   value={noteText}
@@ -286,21 +278,22 @@ export default function LeadDetailModal({
                   rows={3}
                   style={{
                     width: '100%', padding: '10px 12px', borderRadius: 8,
-                    border: '1px solid #E5E7EB', fontSize: 13, color: '#1F2937',
+                    border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-2)',
+                    background: 'var(--bg-input)',
                     resize: 'vertical', outline: 'none', fontFamily: 'inherit',
                     boxSizing: 'border-box',
                   }}
                   onFocus={e => (e.currentTarget.style.borderColor = '#3B82F6')}
-                  onBlur={e => (e.currentTarget.style.borderColor = '#E5E7EB')}
+                  onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: '#9CA3AF' }}>{noteText.length}/500</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{noteText.length}/500</span>
                   <button
                     onClick={handleSaveNote}
                     disabled={savingNote || !noteText.trim()}
                     style={{
-                      background: savingNote || !noteText.trim() ? '#E5E7EB' : '#2563EB',
-                      color: savingNote || !noteText.trim() ? '#9CA3AF' : 'white',
+                      background: savingNote || !noteText.trim() ? 'var(--bg-subtle)' : '#2563EB',
+                      color: savingNote || !noteText.trim() ? 'var(--text-subtle)' : 'white',
                       border: 'none', borderRadius: 8,
                       padding: '7px 16px', fontSize: 13, fontWeight: 500,
                       cursor: savingNote || !noteText.trim() ? 'not-allowed' : 'pointer',
@@ -312,28 +305,27 @@ export default function LeadDetailModal({
                 </div>
               </div>
 
-              {/* Timeline */}
               {loadingNotes ? (
-                <p style={{ fontSize: 13, color: '#9CA3AF' }}>Carregando notas…</p>
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando notas…</p>
               ) : notes.length === 0 ? (
-                <p style={{ fontSize: 13, color: '#9CA3AF' }}>Nenhuma nota ainda.</p>
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhuma nota ainda.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {notes.map(note => (
                     <div
                       key={note.id}
                       style={{
-                        background: '#F9FAFB',
-                        border: '1px solid #E5E7EB',
+                        background: 'var(--bg-hover)',
+                        border: '1px solid var(--border)',
                         borderRadius: 10,
                         padding: '12px 14px',
                       }}
                     >
-                      <div style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#4B5563', fontWeight: 700 }}>{note.created_by}</span>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-3b)', fontWeight: 700 }}>{note.created_by}</span>
                         <span>{fmtDate(note.created_at)}</span>
                       </div>
-                      <p style={{ fontSize: 13, color: '#1F2937', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      <p style={{ fontSize: 13, color: 'var(--text-2)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                         {note.content}
                       </p>
                     </div>
@@ -344,7 +336,7 @@ export default function LeadDetailModal({
           </div>
 
           {/* Footer */}
-          <div style={{ padding: '16px 24px', borderTop: '1px solid #F3F4F6', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+          <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-lt)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
             <button
               onClick={onClose}
               style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}
