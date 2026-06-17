@@ -79,43 +79,53 @@ def deduplicate_leads(
 
     # IDs a deletar: para cada email duplicado, manter o com followize_id mais alto
     # (ou o updated_at mais recente se não tiver followize_id)
+    # Duplicados por email — manter o com followize_id mais alto (ou mais recente)
     find_email_dupes = text("""
         SELECT id FROM leads
         WHERE email IS NOT NULL AND email != ''
           AND id NOT IN (
-            SELECT DISTINCT ON (email)
-              CASE WHEN followize_id IS NOT NULL
-                   THEN (SELECT id FROM leads l2 WHERE l2.email = l.email ORDER BY l2.followize_id DESC NULLS LAST LIMIT 1)
-                   ELSE (SELECT id FROM leads l2 WHERE l2.email = l.email ORDER BY l2.updated_at DESC NULLS LAST LIMIT 1)
-              END
-            FROM leads l WHERE email IS NOT NULL AND email != ''
+            SELECT DISTINCT ON (email) id FROM leads
+            WHERE email IS NOT NULL AND email != ''
+            ORDER BY email, followize_id DESC NULLS LAST, updated_at DESC NULLS LAST
           )
     """)
 
-    # IDs a deletar: leads sem email com mesmo phone+name, manter o mais recente
+    # Duplicados por phone+name (sem email) — manter o mais recente
     find_phone_dupes = text("""
         SELECT id FROM leads
         WHERE (email IS NULL OR email = '')
           AND phone IS NOT NULL AND phone != ''
           AND id NOT IN (
-            SELECT DISTINCT ON (phone, name)
-              CASE WHEN followize_id IS NOT NULL
-                   THEN (SELECT id FROM leads l2 WHERE l2.phone = l.phone AND l2.name = l.name ORDER BY l2.followize_id DESC NULLS LAST LIMIT 1)
-                   ELSE (SELECT id FROM leads l2 WHERE l2.phone = l.phone AND l2.name = l.name ORDER BY l2.updated_at DESC NULLS LAST LIMIT 1)
-              END
-            FROM leads l WHERE (email IS NULL OR email = '') AND phone IS NOT NULL AND phone != ''
+            SELECT DISTINCT ON (phone, name) id FROM leads
+            WHERE (email IS NULL OR email = '') AND phone IS NOT NULL AND phone != ''
+            ORDER BY phone, name, followize_id DESC NULLS LAST, updated_at DESC NULLS LAST
+          )
+    """)
+
+    # Duplicados por name apenas (sem email e sem phone) — manter o com followize_id mais alto
+    find_name_dupes = text("""
+        SELECT id FROM leads
+        WHERE (email IS NULL OR email = '')
+          AND (phone IS NULL OR phone = '')
+          AND name != 'Sem nome'
+          AND id NOT IN (
+            SELECT DISTINCT ON (name) id FROM leads
+            WHERE (email IS NULL OR email = '') AND (phone IS NULL OR phone = '') AND name != 'Sem nome'
+            ORDER BY name, followize_id DESC NULLS LAST, updated_at DESC NULLS LAST
           )
     """)
 
     email_dupe_ids = [str(r[0]) for r in db.execute(find_email_dupes).fetchall()]
     phone_dupe_ids = [str(r[0]) for r in db.execute(find_phone_dupes).fetchall()]
-    all_dupe_ids = list(set(email_dupe_ids + phone_dupe_ids))
+    name_dupe_ids  = [str(r[0]) for r in db.execute(find_name_dupes).fetchall()]
+    all_dupe_ids = list(set(email_dupe_ids + phone_dupe_ids + name_dupe_ids))
 
     if dry_run:
         return {
             "dry_run": True,
             "duplicates_by_email": len(email_dupe_ids),
             "duplicates_by_phone_name": len(phone_dupe_ids),
+            "duplicates_by_name_only": len(name_dupe_ids),
             "total_to_remove": len(all_dupe_ids),
         }
 
@@ -132,6 +142,7 @@ def deduplicate_leads(
         "removed": len(all_dupe_ids),
         "removed_by_email": len(email_dupe_ids),
         "removed_by_phone_name": len(phone_dupe_ids),
+        "removed_by_name_only": len(name_dupe_ids),
     }
 
 

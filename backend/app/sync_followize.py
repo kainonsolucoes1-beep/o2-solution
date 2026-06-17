@@ -241,6 +241,14 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
             existing = db.query(Lead).filter(Lead.email == fields["email"]).first()
         elif fields["phone"]:
             existing = db.query(Lead).filter(Lead.phone == fields["phone"], Lead.name == fields["name"]).first()
+        elif fields["name"] and fields["name"] != "Sem nome":
+            # Sem email e sem telefone: deduplicar por nome para evitar registros repetidos
+            existing = (
+                db.query(Lead)
+                .filter(Lead.name == fields["name"], Lead.email.is_(None), Lead.phone.is_(None))
+                .order_by(Lead.followize_id.desc().nullslast())
+                .first()
+            )
 
     if existing:
         existing.followize_id = followize_id
