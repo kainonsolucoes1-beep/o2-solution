@@ -149,26 +149,48 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Chips — captação hoje por fonte */}
+      {/* Captação hoje por fonte — mini-cards */}
       {data.captacao_hoje_por_fonte && data.captacao_hoje_por_fonte.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>
-            Hoje por fonte:
-          </span>
-          {data.captacao_hoje_por_fonte.map((f, i) => (
-            <span
-              key={f.name}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '3px 10px', borderRadius: 99,
-                background: i === 0 ? '#EFF6FF' : '#F3F4F6',
-                border: `1px solid ${i === 0 ? '#BFDBFE' : '#E5E7EB'}`,
-              }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 600, color: i === 0 ? '#2563EB' : '#374151' }}>{f.name}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? '#1D4ED8' : '#111827' }}>{f.count}</span>
-            </span>
-          ))}
+        <div className="flex flex-col gap-3">
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Captação Hoje por Fonte
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3">
+            {data.captacao_hoje_por_fonte.map((f, i) => {
+              const borderColors = ['#F59E0B', '#9CA3AF', '#B45309', '#3B82F6', '#8B5CF6', '#10B981']
+              const numColors    = ['#D97706', '#6B7280', '#92400E', '#2563EB', '#7C3AED', '#059669']
+              const badges       = ['1°', '2°', '3°']
+              const border = borderColors[Math.min(i, borderColors.length - 1)]
+              const numColor = numColors[Math.min(i, numColors.length - 1)]
+              return (
+                <div
+                  key={f.name}
+                  className="bg-white rounded-xl flex flex-col gap-1"
+                  style={{
+                    padding: '14px 16px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    borderLeft: `4px solid ${border}`,
+                    transition: 'transform 180ms, box-shadow 180ms',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.1)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>{f.name}</span>
+                    {i < 3 && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: border, background: `${border}18`, borderRadius: 99, padding: '1px 6px', flexShrink: 0 }}>
+                        {badges[i]}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 28, fontWeight: 700, color: numColor, lineHeight: 1, letterSpacing: '-0.5px' }}>{f.count}</p>
+                  <p style={{ fontSize: 11, color: '#D1D5DB', fontWeight: 500 }}>
+                    {data.captacao_hoje > 0 ? `${Math.round(f.count / data.captacao_hoje * 100)}% do dia` : '—'}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
