@@ -48,6 +48,22 @@ def update_followize_tokens(
     return {"success": True}
 
 
+@router.get("/distinct-statuses")
+def distinct_statuses(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from sqlalchemy import func as sqlfunc
+    rows = (
+        db.query(Lead.status, sqlfunc.count(Lead.id).label("count"))
+        .group_by(Lead.status)
+        .order_by(sqlfunc.count(Lead.id).desc())
+        .all()
+    )
+    return [{"status": r.status, "count": r.count} for r in rows]
+
+
 @router.post("/sync-historico")
 async def sync_historico(
     days: int = Query(default=90, ge=1, le=365),
