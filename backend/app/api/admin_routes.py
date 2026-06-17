@@ -8,7 +8,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models import User
 from app.models.app_settings import AppSettings
-from app.sync_followize import update_tokens_in_memory, _fetch_all_leads, _upsert_lead, _date_from_lookback, _load_tokens_from_db
+from app.sync_followize import update_tokens_in_memory, _fetch_all_leads, _upsert_lead, _date_from_lookback, _load_tokens_from_db, _save_sync_status
 from app.models import Lead
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -94,8 +94,14 @@ async def sync_historico(
     _load_tokens_from_db()
     date_from = _date_from_lookback(days=days)
 
-    raw_leads = await asyncio.to_thread(_fetch_all_leads, date_from, "change")
+    try:
+        raw_leads = await asyncio.to_thread(_fetch_all_leads, date_from, "change")
+    except Exception as exc:
+        _save_sync_status(False, error=f"Reprocessamento falhou: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
     if not raw_leads:
+        _save_sync_status(True, counts="0 inseridos, 0 atualizados")
         return {"success": True, "date_from": date_from, "processed": 0}
 
     from app.models import User as UserModel
@@ -112,4 +118,5 @@ async def sync_historico(
             updated += 1
     db.commit()
 
+    _save_sync_status(True, counts=f"{inserted} inseridos, {updated} atualizados")
     return {"success": True, "date_from": date_from, "inserted": inserted, "updated": updated}
