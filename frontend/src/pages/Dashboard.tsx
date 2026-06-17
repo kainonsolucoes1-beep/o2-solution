@@ -15,8 +15,7 @@ interface PerformanceData {
   vs_carteira: number
   ticket_medio: number
   vs_ticket: number
-  meta_financeira: number
-  valor_fechado_mes: number
+  meta_leads: number
   meta_pct: number
   projecao_mes: number
   ranking: { name: string; count: number; pct: number; bar_pct: number }[]
@@ -99,8 +98,8 @@ export default function Dashboard() {
   if (error || !data) return <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
 
   const metaColor = data.meta_pct >= 80 ? '#10B981' : data.meta_pct >= 50 ? '#F59E0B' : '#EF4444'
-  const projecaoColor = data.projecao_mes >= data.meta_financeira ? '#10B981' : '#F59E0B'
-  const faltam = Math.max(0, data.meta_financeira - data.valor_fechado_mes)
+  const projecaoColor = data.projecao_mes >= data.meta_leads ? '#10B981' : '#F59E0B'
+  const faltam = Math.max(0, data.meta_leads - data.captacao_mes)
   const mesNome = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
@@ -203,8 +202,8 @@ export default function Dashboard() {
             </h2>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
               <div>
-                <p style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{fmtBrl(data.valor_fechado_mes)}</p>
-                <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>de {fmtBrl(data.meta_financeira)}</p>
+                <p style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{data.captacao_mes}</p>
+                <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>de {data.meta_leads} leads</p>
               </div>
               <p style={{ fontSize: 30, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{data.meta_pct}%</p>
             </div>
@@ -212,7 +211,7 @@ export default function Dashboard() {
               <div style={{ width: `${data.meta_pct}%`, height: '100%', background: metaColor, borderRadius: 99, transition: 'width 700ms ease' }} />
             </div>
             <p style={{ fontSize: 12, color: faltam === 0 ? '#10B981' : '#6B7280', fontWeight: faltam === 0 ? 600 : 400 }}>
-              {faltam === 0 ? 'Meta atingida! 🎉' : `Faltam ${fmtBrl(faltam)} para a meta`}
+              {faltam === 0 ? 'Meta atingida! 🎉' : `Faltam ${faltam} leads para a meta`}
             </p>
           </div>
 
@@ -220,11 +219,11 @@ export default function Dashboard() {
             <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Projeção do Mês
             </h2>
-            <p style={{ fontSize: 30, fontWeight: 700, color: projecaoColor, lineHeight: 1 }}>{fmtBrl(data.projecao_mes)}</p>
+            <p style={{ fontSize: 30, fontWeight: 700, color: projecaoColor, lineHeight: 1 }}>{data.projecao_mes} leads</p>
             <p style={{ fontSize: 12, color: projecaoColor, fontWeight: 600 }}>
-              {data.projecao_mes >= data.meta_financeira
-                ? `+${fmtBrl(data.projecao_mes - data.meta_financeira)} acima da meta`
-                : `${fmtBrl(data.meta_financeira - data.projecao_mes)} abaixo da meta`}
+              {data.projecao_mes >= data.meta_leads
+                ? `+${data.projecao_mes - data.meta_leads} acima da meta`
+                : `${data.meta_leads - data.projecao_mes} abaixo da meta`}
             </p>
             <p style={{ fontSize: 11, color: '#9CA3AF' }}>Baseado no ritmo atual de fechamentos</p>
           </div>

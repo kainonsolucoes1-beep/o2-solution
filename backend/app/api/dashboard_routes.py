@@ -325,7 +325,7 @@ def dashboard_health_metrics(db: Session = Depends(get_db)):
     }
 
 
-META_FINANCEIRA = 20_000.0
+META_LEADS = 200
 
 
 @router.get("/performance")
@@ -379,13 +379,12 @@ def dashboard_performance(
     ticket_medio = _avg([not_perdido, Lead.created_at >= month_start])
     ticket_medio_ant = _avg([not_perdido, Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
 
-    # Meta financeira — fechados este mês
-    valor_fechado_mes = _sum([_s_in(_FECHADO), Lead.created_at >= month_start])
-    meta_pct = round(min(valor_fechado_mes / META_FINANCEIRA * 100, 100), 1)
+    # Meta de leads — captação do mês vs meta de 200
+    meta_pct = round(min(captacao_mes / META_LEADS * 100, 100), 1)
 
-    # Projeção: ritmo diário × dias no mês
-    daily_rate = valor_fechado_mes / day_of_month if day_of_month > 0 else 0
-    projecao_mes = round(daily_rate * days_in_month, 2)
+    # Projeção: ritmo diário de captação × dias no mês
+    daily_rate = captacao_mes / day_of_month if day_of_month > 0 else 0
+    projecao_mes = round(daily_rate * days_in_month)
 
     # Ranking de operadores — mês atual
     ranking_rows = (
@@ -396,7 +395,7 @@ def dashboard_performance(
         .filter(Lead.created_at >= month_start)
         .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
-        .limit(10)
+        .limit(3)
         .all()
     )
     total_ranking = sum(r.count for r in ranking_rows)
@@ -434,8 +433,7 @@ def dashboard_performance(
         "vs_carteira": _pct(valor_carteira, valor_carteira_mes_ant),
         "ticket_medio": ticket_medio,
         "vs_ticket": _pct(ticket_medio, ticket_medio_ant),
-        "meta_financeira": META_FINANCEIRA,
-        "valor_fechado_mes": valor_fechado_mes,
+        "meta_leads": META_LEADS,
         "meta_pct": meta_pct,
         "projecao_mes": projecao_mes,
         "ranking": ranking,
