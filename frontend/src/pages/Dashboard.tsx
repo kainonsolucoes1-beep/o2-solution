@@ -184,7 +184,7 @@ export default function Dashboard() {
                     )}
                   </div>
                   <p style={{ fontSize: 28, fontWeight: 700, color: numColor, lineHeight: 1, letterSpacing: '-0.5px' }}>{f.count}</p>
-                  <p style={{ fontSize: 11, color: '#D1D5DB', fontWeight: 500 }}>
+                  <p style={{ fontSize: 11, color: border, fontWeight: 600, opacity: 0.75 }}>
                     {data.captacao_hoje > 0 ? `${Math.round(f.count / data.captacao_hoje * 100)}% do dia` : '—'}
                   </p>
                 </div>
