@@ -424,6 +424,19 @@ def dashboard_performance(
         for d in range(1, day_of_month + 1)
     ]
 
+    # Captação hoje por fonte
+    hoje_fonte_rows = (
+        db.query(
+            func.coalesce(Lead.origin, "Sem origem").label("name"),
+            func.count(Lead.id).label("count"),
+        )
+        .filter(Lead.created_at >= today_start)
+        .group_by(Lead.origin)
+        .order_by(func.count(Lead.id).desc())
+        .all()
+    )
+    captacao_hoje_por_fonte = [{"name": r.name, "count": r.count} for r in hoje_fonte_rows]
+
     return {
         "captacao_hoje": captacao_hoje,
         "vs_ontem": _pct(captacao_hoje, captacao_ontem),
@@ -438,4 +451,5 @@ def dashboard_performance(
         "projecao_mes": projecao_mes,
         "ranking": ranking,
         "evolucao_diaria": evolucao_diaria,
+        "captacao_hoje_por_fonte": captacao_hoje_por_fonte,
     }

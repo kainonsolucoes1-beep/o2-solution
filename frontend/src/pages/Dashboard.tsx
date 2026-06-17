@@ -20,6 +20,7 @@ interface PerformanceData {
   projecao_mes: number
   ranking: { name: string; count: number; pct: number; bar_pct: number }[]
   evolucao_diaria: { day: number; date: string; count: number }[]
+  captacao_hoje_por_fonte: { name: string; count: number }[]
 }
 
 function fmtBrl(value: number): string {
@@ -147,6 +148,29 @@ export default function Dashboard() {
           iconBg="#FFFBEB" iconColor="#F59E0B"
         />
       </div>
+
+      {/* Chips — captação hoje por fonte */}
+      {data.captacao_hoje_por_fonte && data.captacao_hoje_por_fonte.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0 }}>
+            Hoje por fonte:
+          </span>
+          {data.captacao_hoje_por_fonte.map((f, i) => (
+            <span
+              key={f.name}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '3px 10px', borderRadius: 99,
+                background: i === 0 ? '#EFF6FF' : '#F3F4F6',
+                border: `1px solid ${i === 0 ? '#BFDBFE' : '#E5E7EB'}`,
+              }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 600, color: i === 0 ? '#2563EB' : '#374151' }}>{f.name}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? '#1D4ED8' : '#111827' }}>{f.count}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Ranking + Meta/Projeção */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 xl:gap-6 items-start">
