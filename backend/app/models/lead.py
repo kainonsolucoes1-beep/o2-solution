@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Numeric, Boolean, ForeignKey, TIMESTAMP
+from sqlalchemy import Column, String, Text, Numeric, Boolean, ForeignKey, TIMESTAMP, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
@@ -8,6 +8,7 @@ class Lead(Base):
     __tablename__ = "leads"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    followize_id = Column(Integer, nullable=True, unique=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     name = Column(String(255), nullable=False)
     email = Column(String(255))

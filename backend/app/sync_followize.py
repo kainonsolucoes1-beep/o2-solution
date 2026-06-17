@@ -203,45 +203,44 @@ def _parse_lead_fields(raw: dict) -> dict:
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     """Insere ou atualiza um lead. Retorna 'inserted' ou 'updated'."""
     fields = _parse_lead_fields(raw)
-    email = fields["email"]
-    name = fields["name"]
-    phone = fields["phone"]
-    company = fields["company"]
-    status = fields["status"]
-    attendant = fields["attendant"]
-    origin = fields["origin"]
-    created_at = fields["created_at"]
-    value_potential = fields["value_potential"]
-    perception = fields["perception"]
+    followize_id = int(raw["id"]) if raw.get("id") else None
 
-    if email:
-        existing = db.query(Lead).filter(Lead.email == email).first()
-    elif phone:
-        existing = db.query(Lead).filter(Lead.phone == phone, Lead.name == name).first()
-    else:
-        existing = None
+    # Busca pelo ID do Followize (fonte primária e imutável)
+    existing = None
+    if followize_id:
+        existing = db.query(Lead).filter(Lead.followize_id == followize_id).first()
+
+    # Fallback para leads antigos sem followize_id
+    if not existing:
+        if fields["email"]:
+            existing = db.query(Lead).filter(Lead.email == fields["email"]).first()
+        elif fields["phone"]:
+            existing = db.query(Lead).filter(Lead.phone == fields["phone"], Lead.name == fields["name"]).first()
 
     if existing:
-        existing.name = name
-        existing.phone = phone
-        existing.company = company
-        existing.status = status
-        existing.origin = origin
-        existing.attendant = attendant
-        existing.value_potential = value_potential
-        existing.perception = perception
-        if created_at:
-            existing.created_at = created_at
+        existing.followize_id = followize_id
+        existing.name = fields["name"]
+        existing.phone = fields["phone"]
+        existing.company = fields["company"]
+        existing.status = fields["status"]
+        existing.origin = fields["origin"]
+        existing.attendant = fields["attendant"]
+        existing.value_potential = fields["value_potential"]
+        existing.perception = fields["perception"]
+        if fields["created_at"]:
+            existing.created_at = fields["created_at"]
         existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         return "updated"
 
     lead_kwargs = dict(
-        user_id=user_id, name=name, email=email, phone=phone,
-        company=company, origin=origin, attendant=attendant, status=status,
-        value_potential=value_potential, perception=perception,
+        user_id=user_id, followize_id=followize_id,
+        name=fields["name"], email=fields["email"], phone=fields["phone"],
+        company=fields["company"], origin=fields["origin"], attendant=fields["attendant"],
+        status=fields["status"], value_potential=fields["value_potential"],
+        perception=fields["perception"],
     )
-    if created_at:
-        lead_kwargs["created_at"] = created_at
+    if fields["created_at"]:
+        lead_kwargs["created_at"] = fields["created_at"]
 
     db.add(Lead(**lead_kwargs))
     return "inserted"
