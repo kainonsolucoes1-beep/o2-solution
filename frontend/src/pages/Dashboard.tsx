@@ -97,9 +97,10 @@ export default function Dashboard() {
   if (loading) return <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
   if (error || !data) return <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
 
+  const metaLeads = data.meta_leads ?? 200
   const metaColor = data.meta_pct >= 80 ? '#10B981' : data.meta_pct >= 50 ? '#F59E0B' : '#EF4444'
-  const projecaoColor = data.projecao_mes >= data.meta_leads ? '#10B981' : '#F59E0B'
-  const faltam = Math.max(0, data.meta_leads - data.captacao_mes)
+  const projecaoColor = (data.projecao_mes ?? 0) >= metaLeads ? '#10B981' : '#F59E0B'
+  const faltam = Math.max(0, metaLeads - (data.captacao_mes ?? 0))
   const mesNome = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
@@ -202,8 +203,8 @@ export default function Dashboard() {
             </h2>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
               <div>
-                <p style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{data.captacao_mes}</p>
-                <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>de {data.meta_leads} leads</p>
+                <p style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{data.captacao_mes ?? 0}</p>
+                <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>de {metaLeads} leads</p>
               </div>
               <p style={{ fontSize: 30, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{data.meta_pct}%</p>
             </div>
@@ -219,11 +220,11 @@ export default function Dashboard() {
             <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Projeção do Mês
             </h2>
-            <p style={{ fontSize: 30, fontWeight: 700, color: projecaoColor, lineHeight: 1 }}>{data.projecao_mes} leads</p>
+            <p style={{ fontSize: 30, fontWeight: 700, color: projecaoColor, lineHeight: 1 }}>{data.projecao_mes ?? 0} leads</p>
             <p style={{ fontSize: 12, color: projecaoColor, fontWeight: 600 }}>
-              {data.projecao_mes >= data.meta_leads
-                ? `+${data.projecao_mes - data.meta_leads} acima da meta`
-                : `${data.meta_leads - data.projecao_mes} abaixo da meta`}
+              {(data.projecao_mes ?? 0) >= metaLeads
+                ? `+${(data.projecao_mes ?? 0) - metaLeads} acima da meta`
+                : `${metaLeads - (data.projecao_mes ?? 0)} abaixo da meta`}
             </p>
             <p style={{ fontSize: 11, color: '#9CA3AF' }}>Baseado no ritmo atual de fechamentos</p>
           </div>
