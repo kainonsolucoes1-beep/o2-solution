@@ -62,12 +62,20 @@ def pipeline_overview(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    neg_q = db.query(func.count(Lead.id)).filter(
+        Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
+        ~_status_in(FECHADO_STATUSES),
+        ~_status_in(PERDIDO_STATUSES),
+    )
+    negociacao = _apply_filters(neg_q, date_from, date_to, source).scalar() or 0
+
     return {
-        "novo":        _count_status(db, PENDENTE_STATUSES, date_from, date_to, source),
-        "qualificado": _count_perception(db, HOT_WARM_PERCEPTIONS, date_from, date_to, source),
-        "proposta":    _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source),
-        "fechado":     _count_status(db, FECHADO_STATUSES, date_from, date_to, source),
-        "perdido":     _count_status(db, PERDIDO_STATUSES, date_from, date_to, source),
+        "novo":        _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source),
+        "qualificado": _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source),
+        "proposta":    _count_status(db, PROPOSTA_STATUSES,  date_from, date_to, source),
+        "negociacao":  negociacao,
+        "fechado":     _count_status(db, FECHADO_STATUSES,   date_from, date_to, source),
+        "perdido":     _count_status(db, PERDIDO_STATUSES,   date_from, date_to, source),
     }
 
 
