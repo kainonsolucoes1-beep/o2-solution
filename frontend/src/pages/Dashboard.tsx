@@ -1,91 +1,91 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Clock, Users, FileText, CheckCircle2, XCircle,
-  AlertTriangle, PhoneOff, Timer, Target, ArrowUpRight, ArrowDownRight,
-} from 'lucide-react'
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from 'recharts'
+import { TrendingUp, TrendingDown, DollarSign, Users, Zap, Target } from 'lucide-react'
 import api from '../api'
 
-interface KpiData { count: number; vs_previous_month: number }
-interface KpisOverview {
-  pendente: KpiData; qualificado: KpiData; proposta: KpiData
-  fechado: KpiData; perdido: KpiData
-}
-interface HealthMetrics {
-  vencidos: number; uncontacted: number; avg_time_in_funnel: number
-  leads_monthly: number; meta_monthly: number
+interface PerformanceData {
+  captacao_hoje: number
+  vs_ontem: number
+  captacao_mes: number
+  vs_mes_anterior_captacao: number
+  valor_carteira: number
+  vs_carteira: number
+  ticket_medio: number
+  vs_ticket: number
+  meta_financeira: number
+  valor_fechado_mes: number
+  meta_pct: number
+  projecao_mes: number
+  ranking: { name: string; count: number; pct: number; bar_pct: number }[]
+  evolucao_diaria: { day: number; date: string; count: number }[]
 }
 
-const KPI_CONFIG = [
-  { key: 'pendente',    label: 'Pendente',    color: '#3B82F6', bg: '#EFF6FF', Icon: Clock,        invert: false },
-  { key: 'qualificado', label: 'Qualificado', color: '#10B981', bg: '#ECFDF5', Icon: Users,        invert: false },
-  { key: 'proposta',    label: 'Proposta',    color: '#F59E0B', bg: '#FFFBEB', Icon: FileText,     invert: false },
-  { key: 'fechado',     label: 'Fechado',     color: '#059669', bg: '#ECFDF5', Icon: CheckCircle2, invert: false },
-  { key: 'perdido',     label: 'Perdido',     color: '#EF4444', bg: '#FEF2F2', Icon: XCircle,      invert: true  },
-]
+function fmtBrl(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+}
 
-function KpiCard({ label, color, bg, Icon, count, vs, invert }: {
-  label: string; color: string; bg: string; Icon: React.ElementType
-  count: number; vs: number; invert: boolean
+function Trend({ value, label }: { value: number; label: string }) {
+  const up = value >= 0
+  const color = up ? '#10B981' : '#EF4444'
+  const Icon = up ? TrendingUp : TrendingDown
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <Icon size={13} color={color} />
+      <span style={{ fontSize: 12, fontWeight: 600, color }}>
+        {value > 0 ? '+' : ''}{value}%
+      </span>
+      <span style={{ fontSize: 11, color: '#9CA3AF' }}>{label}</span>
+    </div>
+  )
+}
+
+function KpiCard({
+  label, value, trend, trendLabel, Icon, iconBg, iconColor, large,
+}: {
+  label: string; value: string; trend: number; trendLabel: string
+  Icon: React.ElementType; iconBg: string; iconColor: string; large?: boolean
 }) {
-  const good = invert ? vs <= 0 : vs >= 0
-  const trendColor = good ? '#10B981' : '#EF4444'
   return (
     <div
-      className="bg-white rounded-xl p-5 flex flex-col gap-3"
-      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', transition: 'transform 200ms' }}
-      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-      onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+      className="bg-white rounded-xl flex flex-col gap-3"
+      style={{
+        padding: large ? '24px' : '20px',
+        boxShadow: large ? '0 2px 12px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.08)',
+        border: large ? '2px solid #EDE9FE' : '1px solid transparent',
+        transition: 'transform 200ms, box-shadow 200ms',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = large ? '0 2px 12px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.08)' }}
     >
-      <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={18} color={color} />
+      <div style={{ width: 38, height: 38, borderRadius: 10, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={19} color={iconColor} />
       </div>
       <div>
-        <p style={{ fontSize: 13, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
-        <p style={{ fontSize: 36, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{count}</p>
+        <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
+        <p style={{ fontSize: large ? 28 : 26, fontWeight: 700, color: '#111827', lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</p>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {good ? <ArrowUpRight size={14} color={trendColor} /> : <ArrowDownRight size={14} color={trendColor} />}
-        <span style={{ fontSize: 12, fontWeight: 600, color: trendColor }}>{vs > 0 ? '+' : ''}{vs}%</span>
-        <span style={{ fontSize: 11, color: '#9CA3AF' }}>vs mês anterior</span>
-      </div>
+      <Trend value={trend} label={trendLabel} />
     </div>
   )
 }
 
-function HealthCard({ icon: Icon, label, value, sub, color, bg }: {
-  icon: React.ElementType; label: string; value: string | number
-  sub?: string; color: string; bg: string
-}) {
-  return (
-    <div className="bg-white rounded-xl p-5 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-      <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={18} color={color} />
-      </div>
-      <div>
-        <p style={{ fontSize: 13, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
-        <p style={{ fontSize: 32, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{value}</p>
-        {sub && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{sub}</p>}
-      </div>
-    </div>
-  )
-}
+const MEDALS = ['🥇', '🥈', '🥉']
+const BAR_COLORS = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6']
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [kpis, setKpis]       = useState<KpisOverview | null>(null)
-  const [health, setHealth]   = useState<HealthMetrics | null>(null)
+  const [data, setData] = useState<PerformanceData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState('')
+  const [error, setError] = useState('')
 
   const fetchAll = useCallback(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
     setLoading(true)
-    Promise.all([
-      api.get<KpisOverview>('/api/v1/dashboard/kpis-overview'),
-      api.get<HealthMetrics>('/api/v1/dashboard/health-metrics'),
-    ])
-      .then(([k, h]) => { setKpis(k.data); setHealth(h.data) })
+    api.get<PerformanceData>('/api/v1/dashboard/performance')
+      .then(r => setData(r.data))
       .catch(err => {
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
         else setError('Erro ao carregar dashboard.')
@@ -96,84 +96,174 @@ export default function Dashboard() {
   useEffect(() => { fetchAll() }, [fetchAll])
 
   if (loading) return <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
-  if (error || !kpis || !health) return <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
+  if (error || !data) return <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
 
-  const metaPct = health.meta_monthly > 0
-    ? Math.min(100, Math.round(health.leads_monthly / health.meta_monthly * 100))
-    : 0
-  const metaColor = metaPct >= 80 ? '#10B981' : metaPct >= 50 ? '#F59E0B' : '#EF4444'
+  const metaColor = data.meta_pct >= 80 ? '#10B981' : data.meta_pct >= 50 ? '#F59E0B' : '#EF4444'
+  const projecaoColor = data.projecao_mes >= data.meta_financeira ? '#10B981' : '#F59E0B'
+  const faltam = Math.max(0, data.meta_financeira - data.valor_fechado_mes)
+  const mesNome = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
       <div>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111827' }}>Dashboard</h1>
-        <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Visão geral de captação e saúde do pipeline</p>
+        <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Performance operacional em tempo real</p>
       </div>
 
-      {/* KPIs — 5 cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 xl:gap-6">
-        {KPI_CONFIG.map(cfg => {
-          const data = kpis[cfg.key as keyof KpisOverview]
-          return (
-            <KpiCard
-              key={cfg.key}
-              label={cfg.label}
-              color={cfg.color}
-              bg={cfg.bg}
-              Icon={cfg.Icon}
-              count={data.count}
-              vs={data.vs_previous_month}
-              invert={cfg.invert}
-            />
-          )
-        })}
-      </div>
-
-      {/* Saúde — 4 cards */}
+      {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 xl:gap-6">
-
-        <HealthCard
-          icon={AlertTriangle}
-          label="Leads Vencidos"
-          value={health.vencidos}
-          sub="7+ dias parados"
-          color={health.vencidos > 0 ? '#EF4444' : '#10B981'}
-          bg={health.vencidos > 0 ? '#FEF2F2' : '#ECFDF5'}
+        <KpiCard
+          label="Captação Hoje"
+          value={String(data.captacao_hoje)}
+          trend={data.vs_ontem}
+          trendLabel="vs ontem"
+          Icon={Zap}
+          iconBg="#EFF6FF" iconColor="#3B82F6"
         />
-
-        <HealthCard
-          icon={PhoneOff}
-          label="Não Contatados"
-          value={health.uncontacted}
-          sub="24h+ sem movimento"
-          color={health.uncontacted > 0 ? '#F59E0B' : '#10B981'}
-          bg={health.uncontacted > 0 ? '#FFFBEB' : '#ECFDF5'}
+        <KpiCard
+          label="Captação do Mês"
+          value={String(data.captacao_mes)}
+          trend={data.vs_mes_anterior_captacao}
+          trendLabel="vs mês anterior"
+          Icon={Users}
+          iconBg="#ECFDF5" iconColor="#10B981"
         />
-
-        <HealthCard
-          icon={Timer}
-          label="Tempo Médio no Funil"
-          value={`${health.avg_time_in_funnel}d`}
-          sub="média geral"
-          color="#6366F1"
-          bg="#EEF2FF"
+        <KpiCard
+          label="Valor em Carteira"
+          value={fmtBrl(data.valor_carteira)}
+          trend={data.vs_carteira}
+          trendLabel="vs mês anterior"
+          Icon={DollarSign}
+          iconBg="#F5F3FF" iconColor="#8B5CF6"
+          large
         />
+        <KpiCard
+          label="Ticket Médio"
+          value={fmtBrl(data.ticket_medio)}
+          trend={data.vs_ticket}
+          trendLabel="vs mês anterior"
+          Icon={Target}
+          iconBg="#FFFBEB" iconColor="#F59E0B"
+        />
+      </div>
 
-        <div className="bg-white rounded-xl p-5 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 9, background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Target size={18} color="#8B5CF6" />
-          </div>
-          <div>
-            <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>Meta do Mês</p>
-            <p style={{ fontSize: 32, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{metaPct}%</p>
-            <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{health.leads_monthly} de {health.meta_monthly} leads</p>
-          </div>
-          <div style={{ background: '#F3F4F6', borderRadius: 99, height: 6, overflow: 'hidden' }}>
-            <div style={{ width: `${metaPct}%`, height: '100%', background: metaColor, borderRadius: 99, transition: 'width 500ms ease' }} />
-          </div>
+      {/* Ranking + Meta/Projeção */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 xl:gap-6 items-start">
+
+        {/* Ranking */}
+        <div className="md:col-span-3 bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Ranking de Operadores — {mesNome}
+          </h2>
+          {data.ranking.length === 0 ? (
+            <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sem captações no período.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {data.ranking.map((op, i) => (
+                <div
+                  key={op.name}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity 150ms' }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                >
+                  <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: '#9CA3AF', fontWeight: 700 }}>
+                    {i < 3 ? MEDALS[i] : `${i + 1}°`}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {op.name}
+                      </span>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{op.count}</span>
+                        <span style={{ fontSize: 11, color: '#9CA3AF', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
+                      </div>
+                    </div>
+                    <div style={{ background: '#F3F4F6', borderRadius: 99, height: 7, overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${op.bar_pct}%`, height: '100%', borderRadius: 99,
+                        background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)],
+                        transition: 'width 600ms ease',
+                      }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
+        {/* Meta + Projeção */}
+        <div className="md:col-span-2 flex flex-col gap-4">
+
+          <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Meta Mensal
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{fmtBrl(data.valor_fechado_mes)}</p>
+                <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>de {fmtBrl(data.meta_financeira)}</p>
+              </div>
+              <p style={{ fontSize: 30, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{data.meta_pct}%</p>
+            </div>
+            <div style={{ background: '#F3F4F6', borderRadius: 99, height: 10, overflow: 'hidden' }}>
+              <div style={{ width: `${data.meta_pct}%`, height: '100%', background: metaColor, borderRadius: 99, transition: 'width 700ms ease' }} />
+            </div>
+            <p style={{ fontSize: 12, color: faltam === 0 ? '#10B981' : '#6B7280', fontWeight: faltam === 0 ? 600 : 400 }}>
+              {faltam === 0 ? 'Meta atingida! 🎉' : `Faltam ${fmtBrl(faltam)} para a meta`}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Projeção do Mês
+            </h2>
+            <p style={{ fontSize: 30, fontWeight: 700, color: projecaoColor, lineHeight: 1 }}>{fmtBrl(data.projecao_mes)}</p>
+            <p style={{ fontSize: 12, color: projecaoColor, fontWeight: 600 }}>
+              {data.projecao_mes >= data.meta_financeira
+                ? `+${fmtBrl(data.projecao_mes - data.meta_financeira)} acima da meta`
+                : `${fmtBrl(data.meta_financeira - data.projecao_mes)} abaixo da meta`}
+            </p>
+            <p style={{ fontSize: 11, color: '#9CA3AF' }}>Baseado no ritmo atual de fechamentos</p>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Evolução diária */}
+      <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Evolução da Captação — {mesNome}
+        </h2>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={data.evolucao_diaria} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="captGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+            <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} tickLine={false} axisLine={false} allowDecimals={false} width={30} />
+            <Tooltip
+              contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12 }}
+              formatter={(v: number) => [v, 'Leads']}
+              labelFormatter={(l) => `Dia ${l}`}
+            />
+            <Area
+              type="monotone"
+              dataKey="count"
+              stroke="#3B82F6"
+              strokeWidth={2}
+              fill="url(#captGrad)"
+              dot={{ r: 3, fill: '#3B82F6', strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: '#3B82F6' }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
 
     </main>

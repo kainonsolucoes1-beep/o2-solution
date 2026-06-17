@@ -1,4 +1,5 @@
 import os
+import calendar as _cal
 from datetime import datetime, timedelta, timezone
 from typing import List
 
@@ -6,8 +7,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, cast, Date, or_
 from sqlalchemy.orm import Session
 
+from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models.lead import Lead
+from app.models.user import User
 from app.schemas.dashboard import (
     TodayMetrics,
     TopOperatorsResponse,
@@ -319,4 +322,123 @@ def dashboard_health_metrics(db: Session = Depends(get_db)):
         "avg_time_in_funnel": avg_time,
         "leads_monthly": leads_monthly,
         "meta_monthly": META_MONTHLY,
+    }
+
+
+META_FINANCEIRA = 20_000.0
+
+
+@router.get("/performance")
+def dashboard_performance(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today_start - timedelta(days=1)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    prev_month_end = month_start
+    prev_month_start = (month_start - timedelta(days=1)).replace(day=1)
+    day_of_month = now.day
+    days_in_month = _cal.monthrange(now.year, now.month)[1]
+
+    def _pct(curr, prev):
+        if prev == 0:
+            return 100 if curr > 0 else 0
+        return round((curr - prev) / prev * 100)
+
+    def _sum(filters):
+        return float(
+            db.query(func.coalesce(func.sum(Lead.value_potential), 0))
+            .filter(Lead.value_potential.isnot(None), *filters)
+            .scalar() or 0.0
+        )
+
+    def _avg(filters):
+        return float(
+            db.query(func.coalesce(func.avg(Lead.value_potential), 0))
+            .filter(Lead.value_potential.isnot(None), Lead.value_potential > 0, *filters)
+            .scalar() or 0.0
+        )
+
+    def _cnt(filters):
+        return db.query(func.count(Lead.id)).filter(*filters).scalar() or 0
+
+    # Captação
+    captacao_hoje = _cnt([Lead.created_at >= today_start])
+    captacao_ontem = _cnt([Lead.created_at >= yesterday_start, Lead.created_at < today_start])
+    captacao_mes = _cnt([Lead.created_at >= month_start])
+    captacao_mes_ant = _cnt([Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
+
+    # Valor em Carteira (todos os ativos, excluindo perdidos)
+    not_perdido = ~_s_in(_PERDIDO)
+    valor_carteira = _sum([not_perdido])
+    valor_carteira_mes = _sum([not_perdido, Lead.created_at >= month_start])
+    valor_carteira_mes_ant = _sum([not_perdido, Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
+
+    # Ticket médio
+    ticket_medio = _avg([not_perdido])
+    ticket_medio_ant = _avg([not_perdido, Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
+
+    # Meta financeira — fechados este mês
+    valor_fechado_mes = _sum([_s_in(_FECHADO), Lead.created_at >= month_start])
+    meta_pct = round(min(valor_fechado_mes / META_FINANCEIRA * 100, 100), 1)
+
+    # Projeção: ritmo diário × dias no mês
+    daily_rate = valor_fechado_mes / day_of_month if day_of_month > 0 else 0
+    projecao_mes = round(daily_rate * days_in_month, 2)
+
+    # Ranking de operadores — mês atual
+    ranking_rows = (
+        db.query(
+            func.coalesce(Lead.attendant, "Sem responsável").label("name"),
+            func.count(Lead.id).label("count"),
+        )
+        .filter(Lead.created_at >= month_start)
+        .group_by(Lead.attendant)
+        .order_by(func.count(Lead.id).desc())
+        .limit(10)
+        .all()
+    )
+    total_ranking = sum(r.count for r in ranking_rows)
+    max_count = ranking_rows[0].count if ranking_rows else 1
+    ranking = [
+        {
+            "name": r.name,
+            "count": r.count,
+            "pct": round(r.count / total_ranking * 100, 1) if total_ranking else 0.0,
+            "bar_pct": round(r.count / max_count * 100, 1) if max_count else 0.0,
+        }
+        for r in ranking_rows
+    ]
+
+    # Evolução diária — leads por dia no mês
+    daily_rows = (
+        db.query(cast(Lead.created_at, Date).label("day"), func.count(Lead.id).label("count"))
+        .filter(Lead.created_at >= month_start)
+        .group_by(cast(Lead.created_at, Date))
+        .order_by(cast(Lead.created_at, Date))
+        .all()
+    )
+    daily_map = {str(r.day): r.count for r in daily_rows}
+    evolucao_diaria = [
+        {"day": d, "date": f"{now.year}-{now.month:02d}-{d:02d}", "count": daily_map.get(f"{now.year}-{now.month:02d}-{d:02d}", 0)}
+        for d in range(1, day_of_month + 1)
+    ]
+
+    return {
+        "captacao_hoje": captacao_hoje,
+        "vs_ontem": _pct(captacao_hoje, captacao_ontem),
+        "captacao_mes": captacao_mes,
+        "vs_mes_anterior_captacao": _pct(captacao_mes, captacao_mes_ant),
+        "valor_carteira": valor_carteira,
+        "vs_carteira": _pct(valor_carteira_mes, valor_carteira_mes_ant),
+        "ticket_medio": ticket_medio,
+        "vs_ticket": _pct(ticket_medio, ticket_medio_ant),
+        "meta_financeira": META_FINANCEIRA,
+        "valor_fechado_mes": valor_fechado_mes,
+        "meta_pct": meta_pct,
+        "projecao_mes": projecao_mes,
+        "ranking": ranking,
+        "evolucao_diaria": evolucao_diaria,
     }
