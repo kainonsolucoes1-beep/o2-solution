@@ -54,6 +54,11 @@ def _count_perception(db: Session, perceptions, date_from=None, date_to=None, so
     return _apply_filters(q, date_from, date_to, source).scalar() or 0
 
 
+def _sum_value(db: Session, extra_filters, date_from=None, date_to=None, source=None) -> float:
+    q = db.query(func.coalesce(func.sum(Lead.value_potential), 0)).filter(*extra_filters)
+    return float(_apply_filters(q, date_from, date_to, source).scalar() or 0.0)
+
+
 @router.get("/overview")
 def pipeline_overview(
     date_from: Optional[str] = Query(None),
@@ -69,6 +74,13 @@ def pipeline_overview(
     )
     negociacao = _apply_filters(neg_q, date_from, date_to, source).scalar() or 0
 
+    neg_val_q = db.query(func.coalesce(func.sum(Lead.value_potential), 0)).filter(
+        Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
+        ~_status_in(FECHADO_STATUSES),
+        ~_status_in(PERDIDO_STATUSES),
+    )
+    negociacao_value = float(_apply_filters(neg_val_q, date_from, date_to, source).scalar() or 0.0)
+
     return {
         "novo":        _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source),
         "qualificado": _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source),
@@ -76,6 +88,12 @@ def pipeline_overview(
         "negociacao":  negociacao,
         "fechado":     _count_status(db, FECHADO_STATUSES,   date_from, date_to, source),
         "perdido":     _count_status(db, PERDIDO_STATUSES,   date_from, date_to, source),
+        "novo_value":        _sum_value(db, [_status_in(PENDENTE_STATUSES)],  date_from, date_to, source),
+        "qualificado_value": _sum_value(db, [_status_in(AGENDADO_STATUSES)],  date_from, date_to, source),
+        "proposta_value":    _sum_value(db, [_status_in(PROPOSTA_STATUSES)],  date_from, date_to, source),
+        "negociacao_value":  negociacao_value,
+        "fechado_value":     _sum_value(db, [_status_in(FECHADO_STATUSES)],   date_from, date_to, source),
+        "perdido_value":     _sum_value(db, [_status_in(PERDIDO_STATUSES)],   date_from, date_to, source),
     }
 
 

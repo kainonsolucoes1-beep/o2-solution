@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import { Clock, CheckSquare, FileText, Handshake, Timer } from 'lucide-react'
 import api from '../api'
-interface PipelineOverview { novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number }
+interface PipelineOverview {
+  novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number
+  novo_value: number; qualificado_value: number; proposta_value: number; negociacao_value: number; fechado_value: number; perdido_value: number
+}
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
 interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number; avg_time_in_funnel?: number }
 
@@ -79,13 +82,21 @@ export default function Pipeline() {
 
   const distTotal = overview.novo + overview.qualificado + overview.proposta + overview.negociacao + overview.fechado + overview.perdido
   const distStages = [
-    { stage: 'Pendente',    count: overview.novo,        color: '#3B82F6' },
-    { stage: 'Qualificado', count: overview.qualificado, color: '#10B981' },
-    { stage: 'Proposta',    count: overview.proposta,    color: '#F59E0B' },
-    { stage: 'Negociação',  count: overview.negociacao,  color: '#8B5CF6' },
-    { stage: 'Fechado',     count: overview.fechado,     color: '#059669' },
-    { stage: 'Perdido',     count: overview.perdido,     color: '#EF4444' },
+    { stage: 'Pendente',    value: overview.novo_value,        color: '#3B82F6' },
+    { stage: 'Qualificado', value: overview.qualificado_value, color: '#10B981' },
+    { stage: 'Proposta',    value: overview.proposta_value,    color: '#F59E0B' },
+    { stage: 'Negociação',  value: overview.negociacao_value,  color: '#8B5CF6' },
+    { stage: 'Fechado',     value: overview.fechado_value,     color: '#059669' },
+    { stage: 'Perdido',     value: overview.perdido_value,     color: '#EF4444' },
   ]
+
+  function fmtBrl(v: number) {
+    if (v >= 1000) return `R$ ${(v / 1000).toFixed(0)}k`
+    return `R$ ${v.toFixed(0)}`
+  }
+  function fmtBrlFull(v: number) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+  }
 
   const qualOL = overview.qualificado + overview.proposta + overview.negociacao + overview.fechado
   const propOL = overview.proposta + overview.negociacao + overview.fechado
@@ -182,19 +193,19 @@ export default function Pipeline() {
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Distribuição do Funil
+              Valor por Etapa
             </h2>
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={distStages} layout="vertical" margin={{ top: 0, right: 50, left: 10, bottom: 0 }}>
+              <BarChart data={distStages} layout="vertical" margin={{ top: 0, right: 70, left: 10, bottom: 0 }}>
                 <XAxis type="number" hide />
                 <YAxis type="category" dataKey="stage" tick={{ fontSize: 12, fill: '#6B7280' }} width={90} />
                 <Tooltip
-                  formatter={(v: number) => [`${v} leads (${distTotal > 0 ? ((v / distTotal) * 100).toFixed(1) : 0}%)`, '']}
+                  formatter={(v: number) => [fmtBrlFull(v), 'Valor potencial']}
                   contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12 }}
                 />
-                <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={26}>
+                <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={26}>
                   {distStages.map(s => <Cell key={s.stage} fill={s.color} />)}
-                  <LabelList dataKey="count" position="right" style={{ fontSize: 12, fontWeight: 600, fill: '#374151' }} />
+                  <LabelList dataKey="value" position="right" style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} formatter={(v: number) => fmtBrl(v)} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
