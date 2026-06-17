@@ -231,7 +231,6 @@ export default function Pipeline() {
                       <div>
                         <p style={{ fontSize: 13, color: '#374151', fontWeight: 600, lineHeight: 1.3 }}>{c.from} → {c.to}</p>
                         <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>De {c.fromCount} para {c.toCount} leads</p>
-                        <p style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{c.note}</p>
                       </div>
                       <span style={{ fontSize: 16, fontWeight: 700, color: c.color, marginLeft: 12, flexShrink: 0 }}>{c.rate}%</span>
                     </div>
