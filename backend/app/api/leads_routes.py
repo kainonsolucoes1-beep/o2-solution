@@ -63,6 +63,7 @@ def leads_by_period(
     origem: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     perception: Optional[str] = Query(None),
+    vencidos: bool = Query(False),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -74,11 +75,15 @@ def leads_by_period(
     except ValueError:
         raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
 
+    cutoff_24h = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
     admin = _is_admin(current_user)
     my_name = current_user.first_name or current_user.username
 
     def _base_query(q):
-        q = q.filter(Lead.created_at >= start, Lead.created_at < end)
+        if vencidos:
+            q = q.filter(Lead.updated_at <= cutoff_24h)
+        else:
+            q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if not admin:
             q = q.filter(Lead.origin == my_name)
         elif origem:

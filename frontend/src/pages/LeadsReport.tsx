@@ -112,6 +112,7 @@ export default function LeadsReport() {
   const [error, setError]         = useState('')
   const [statusFilter] = useState(() => searchParams.get('status') ?? '')
   const [perceptionFilter, setPerceptionFilter] = useState(() => searchParams.get('perception') ?? '')
+  const vencidosFilter = searchParams.get('vencidos') === '1'
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
   const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc')
@@ -130,7 +131,7 @@ export default function LeadsReport() {
   }, [navigate])
 
   useEffect(() => {
-    if (me && (searchParams.get('status') || searchParams.get('perception'))) fetchReport(1)
+    if (me && (searchParams.get('status') || searchParams.get('perception') || vencidosFilter)) fetchReport(1)
   }, [me]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -144,12 +145,13 @@ export default function LeadsReport() {
       setLoading(true)
       setError('')
 
-      const params: Record<string, string | number> = {
-        date_from: dateFrom,
-        date_to:   dateTo,
+      const params: Record<string, string | number | boolean> = {
+        date_from: vencidosFilter ? '2000-01-01' : dateFrom,
+        date_to:   vencidosFilter ? today : dateTo,
         page:      p,
         limit:     LIMIT,
       }
+      if (vencidosFilter) params.vencidos = true
       if (isAdmin && origem) params.origem = origem
       if (statusFilter) params.status = statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
@@ -168,7 +170,7 @@ export default function LeadsReport() {
         })
         .finally(() => setLoading(false))
     },
-    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, isAdmin, navigate],
+    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, vencidosFilter, isAdmin, navigate],
   )
 
   function handleSearch() { fetchReport(1) }
@@ -208,9 +210,15 @@ export default function LeadsReport() {
         {/* Header */}
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2937' }}>Relatório de Leads</h1>
-          <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>
-            Filtre leads por período e atendente
-          </p>
+          {vencidosFilter ? (
+            <p style={{ fontSize: 13, color: '#EF4444', marginTop: 2, fontWeight: 500 }}>
+              ⚠️ Exibindo leads vencidos — sem atenção nas últimas 24h
+            </p>
+          ) : (
+            <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>
+              Filtre leads por período e atendente
+            </p>
+          )}
         </div>
 
         {/* Filters */}

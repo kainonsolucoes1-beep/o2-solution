@@ -2,16 +2,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import api from '../api'
-import SourceDetailModal from '../components/SourceDetailModal'
-
 interface PipelineOverview { novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
-interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[] }
+interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number }
 interface NextActions { call_today: number; send_email: number; follow_proposal: number }
-interface RevenueSource { name: string; total_revenue: number; leads_count: number; average_ticket: number }
 
 const CONV_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
-const SOURCE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16']
 
 function getDateRange(month: string) {
   const [y, m] = month.split('-').map(Number)
@@ -19,12 +15,6 @@ function getDateRange(month: string) {
   const lastDay = new Date(y, m, 0).getDate()
   const last = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
   return { date_from: first, date_to: last }
-}
-
-function fmtShort(n: number) {
-  if (n >= 1_000_000) return `R$${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `R$${(n / 1_000).toFixed(0)}k`
-  return `R$${n.toFixed(0)}`
 }
 
 export default function Pipeline() {
@@ -39,8 +29,6 @@ export default function Pipeline() {
   const [overview, setOverview] = useState<PipelineOverview | null>(null)
   const [alerts, setAlerts] = useState<PipelineAlerts | null>(null)
   const [nextActions, setNextActions] = useState<NextActions | null>(null)
-  const [revenueSources, setRevenueSources] = useState<RevenueSource[]>([])
-  const [modalSource, setModalSource] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -62,13 +50,11 @@ export default function Pipeline() {
       api.get<PipelineOverview>(`/api/v1/pipeline/overview${q}`),
       api.get<PipelineAlerts>(`/api/v1/pipeline/alerts${q}`),
       api.get<NextActions>(`/api/v1/pipeline/next-actions${q}`),
-      api.get<{ sources: RevenueSource[] }>(`/api/v1/pipeline/revenue-by-source${q}`),
     ])
-      .then(([ov, al, na, ts]) => {
+      .then(([ov, al, na]) => {
         setOverview(ov.data)
         setAlerts(al.data)
         setNextActions(na.data)
-        setRevenueSources(ts.data.sources)
       })
       .catch(err => {
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
@@ -115,8 +101,6 @@ export default function Pipeline() {
     { from: 'Proposta', to: 'Negociação',  rate: propOL > 0 ? +((negOL / propOL) * 100).toFixed(1) : 0, color: CONV_COLORS[2] },
     { from: 'Negociação', to: 'Fechado',   rate: negOL > 0 ? +((overview.fechado / negOL) * 100).toFixed(1) : 0, color: CONV_COLORS[3] },
   ]
-
-  const maxRevSource = revenueSources.reduce((m, s) => Math.max(m, s.total_revenue), 1)
 
   const nextActionCards = [
     { label: 'Ligar Hoje',      icon: '📞', value: nextActions.call_today,     sub: 'leads para ligar',    color: '#3B82F6', bg: '#EFF6FF', nav: '?status=pending' },
@@ -216,79 +200,27 @@ export default function Pipeline() {
 
         </div>
 
-        {/* Receita Potencial por Fonte */}
-        <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div className="flex items-center justify-between">
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Receita Potencial por Fonte
-            </h2>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>Clique para detalhes</span>
-          </div>
-          {revenueSources.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sem dados de receita no período.</p>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-              {revenueSources.map((s, i) => {
-                const barH = Math.max(12, Math.round((s.total_revenue / maxRevSource) * 130))
-                return (
-                  <div
-                    key={s.name}
-                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}
-                    onClick={() => setModalSource(s.name)}
-                    title={`${s.name}: ${fmtShort(s.total_revenue)} · ${s.leads_count} leads`}
-                  >
-                    <span style={{ fontSize: 9, color: '#6B7280', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                      {fmtShort(s.total_revenue)}
-                    </span>
-                    <div
-                      style={{ width: '100%', height: barH, background: SOURCE_COLORS[i % SOURCE_COLORS.length], borderRadius: '4px 4px 0 0', transition: 'opacity 200ms' }}
-                      onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
-                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                    />
-                    <span style={{ fontSize: 10, color: '#374151', textAlign: 'center', lineHeight: 1.2, wordBreak: 'break-word', maxWidth: '100%' }}>
-                      {s.name.length > 9 ? s.name.slice(0, 8) + '…' : s.name}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
         {/* Alertas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-          <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #EF4444' }}>
+          <div
+            className="bg-white rounded-xl p-6 flex flex-col gap-3"
+            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #EF4444', cursor: 'pointer', transition: 'transform 200ms' }}
+            onClick={() => navigate('/leads-report?vencidos=1')}
+            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+          >
             <div className="flex items-center gap-2">
               <span style={{ fontSize: 15 }}>⚠️</span>
               <h2 style={{ fontSize: 13, fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Leads Vencidos
               </h2>
               <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#EF4444', background: '#FEF2F2', padding: '2px 8px', borderRadius: 99 }}>
-                {alerts.vencidos.length} leads
+                {alerts.vencidos_count ?? alerts.vencidos.length} leads
               </span>
             </div>
-            <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: -8 }}>Qualquer status sem atenção nas últimas 24h</p>
-            {alerts.vencidos.length === 0 ? (
-              <p style={{ fontSize: 13, color: '#9CA3AF' }}>Nenhum lead vencido.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {alerts.vencidos.map(lead => (
-                  <div key={lead.id} className="flex items-center justify-between" style={{ padding: '8px 10px', background: '#FEF2F2', borderRadius: 8 }}>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{lead.name}</p>
-                      <p style={{ fontSize: 11, color: '#9CA3AF' }}>{lead.hours_without_action}h sem atenção · {lead.status}</p>
-                    </div>
-                    <button
-                      onClick={() => navigate('/leads-report')}
-                      style={{ fontSize: 11, fontWeight: 600, color: '#3B82F6', background: 'white', border: '1px solid #DBEAFE', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
-                    >
-                      Ver Detalhe
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <p style={{ fontSize: 11, color: '#9CA3AF' }}>Qualquer status sem atenção nas últimas 24h</p>
+            <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
           </div>
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #F59E0B' }}>
@@ -355,18 +287,6 @@ export default function Pipeline() {
         </div>
 
       </main>
-
-      {modalSource && (() => {
-        const { date_from, date_to } = getDateRange(selectedMonth)
-        return (
-          <SourceDetailModal
-            sourceName={modalSource}
-            dateFrom={date_from}
-            dateTo={date_to}
-            onClose={() => setModalSource(null)}
-          />
-        )
-      })()}
     </>
   )
 }

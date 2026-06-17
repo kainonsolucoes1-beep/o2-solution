@@ -12,7 +12,6 @@ const NAV = [
   { to: '/dashboard',    label: 'Dashboard',     Icon: LayoutDashboard },
   { to: '/pipeline',     label: 'Pipeline',      Icon: BarChart2 },
   { to: '/leads-report', label: 'Relatório',     Icon: FileText },
-  { to: '/leads-report', label: 'Leads',         Icon: Users },
   { to: '/activities',   label: 'Atividades',    Icon: CheckSquare },
   { to: '/settings',     label: 'Configurações', Icon: Settings },
 ]
