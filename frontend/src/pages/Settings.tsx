@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
-import NavBar from '../components/NavBar'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -52,9 +51,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
-      <NavBar />
-      <main className="max-w-2xl mx-auto px-4 py-10 flex flex-col gap-6">
+    <main className="max-w-2xl mx-auto px-4 py-10 flex flex-col gap-6">
 
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2937' }}>Configurações</h1>
@@ -163,6 +160,5 @@ export default function Settings() {
         </div>
 
       </main>
-    </div>
   )
 }

@@ -1,336 +1,263 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  LineChart, Line, BarChart, Bar,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList,
 } from 'recharts'
-import { TrendingUp, Users, DollarSign, Target, User } from 'lucide-react'
+import {
+  Clock, Users, FileText, TrendingUp, CheckCircle2, XCircle,
+  AlertTriangle, PhoneOff, Timer, Target, ArrowUpRight, ArrowDownRight,
+} from 'lucide-react'
 import api from '../api'
-import NavBar from '../components/NavBar'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface TodayMetrics {
-  leads_today: number
-  meta_daily: number
-  meta_monthly: number
-  leads_monthly: number
-  value_pipeline: number
-  average_ticket: number
-  qualified_leads: number
-  conversion_rate: number
+interface KpiData { count: number; vs_previous_month: number }
+interface KpisOverview {
+  pendente: KpiData; qualificado: KpiData; proposta: KpiData
+  negociacao: KpiData; fechado: KpiData; perdido: KpiData
+}
+interface FunnelStage { stage: string; count: number; percentage: number; color: string }
+interface Conversion  { from: string; to: string; rate: number }
+interface HealthMetrics {
+  vencidos: number; uncontacted: number; avg_time_in_funnel: number
+  leads_monthly: number; meta_monthly: number
 }
 
-interface OperatorCapture { name: string; leads_today: number }
-interface DayLeads        { date: string; leads: number }
-interface RankingRow      { name: string; leads: number; qualified: number }
+const KPI_CONFIG = [
+  { key: 'pendente',    label: 'Pendente',    color: '#3B82F6', bg: '#EFF6FF',  Icon: Clock,         invert: false },
+  { key: 'qualificado', label: 'Qualificado', color: '#10B981', bg: '#ECFDF5',  Icon: Users,         invert: false },
+  { key: 'proposta',    label: 'Proposta',    color: '#F59E0B', bg: '#FFFBEB',  Icon: FileText,      invert: false },
+  { key: 'negociacao',  label: 'Negociação',  color: '#8B5CF6', bg: '#F5F3FF',  Icon: TrendingUp,    invert: false },
+  { key: 'fechado',     label: 'Fechado',     color: '#059669', bg: '#ECFDF5',  Icon: CheckCircle2,  invert: false },
+  { key: 'perdido',     label: 'Perdido',     color: '#EF4444', bg: '#FEF2F2',  Icon: XCircle,       invert: true  },
+]
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const fmtBRL = (n: number) =>
-  n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-function pct(value: number, meta: number) {
-  return meta > 0 ? Math.min(100, Math.round((value / meta) * 100)) : 0
-}
-
-function progressColor(p: number) {
-  if (p >= 80) return '#10B981'
-  if (p >= 50) return '#F59E0B'
-  return '#EF4444'
-}
-
-// ─── Components ──────────────────────────────────────────────────────────────
-
-function KpiCard({
-  icon, label, value, sub,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  sub?: string
+function KpiCard({ label, color, bg, Icon, count, vs }: {
+  label: string; color: string; bg: string
+  Icon: React.ElementType; count: number; vs: number; invert: boolean
 }) {
+  const good = vs >= 0
+  const trendColor = good ? '#10B981' : '#EF4444'
   return (
     <div
-      className="bg-white rounded-xl p-6 flex flex-col gap-2 cursor-default"
-      style={{
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        transition: 'transform 200ms',
-      }}
-      onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.02)')}
-      onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+      className="bg-white rounded-xl p-5 flex flex-col gap-3"
+      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', transition: 'transform 200ms' }}
+      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+      onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
     >
-      <div className="flex items-center gap-2 text-gray-400">
-        {icon}
-        <span style={{ fontSize: 13, fontWeight: 400 }}>{label}</span>
+      <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={18} color={color} />
       </div>
-      <span style={{ fontSize: 32, fontWeight: 700, color: '#1F2937', lineHeight: 1.1 }}>
-        {value}
-      </span>
-      {sub && <span style={{ fontSize: 13, color: '#9CA3AF' }}>{sub}</span>}
-    </div>
-  )
-}
-
-function MetaPanel({
-  label, value, meta,
-}: {
-  label: string
-  value: number
-  meta: number
-}) {
-  const p = pct(value, meta)
-  const color = progressColor(p)
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {label}
+      <div>
+        <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
+        <p style={{ fontSize: 32, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{count}</p>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {good
+          ? <ArrowUpRight size={14} color={trendColor} />
+          : <ArrowDownRight size={14} color={trendColor} />
+        }
+        <span style={{ fontSize: 12, fontWeight: 600, color: trendColor }}>
+          {vs > 0 ? '+' : ''}{vs}%
         </span>
-        <span style={{ fontSize: 24, fontWeight: 700, color }}>{p}%</span>
+        <span style={{ fontSize: 11, color: '#9CA3AF' }}>vs mês anterior</span>
       </div>
-      <div style={{ background: '#F3F4F6', borderRadius: 99, height: 8, overflow: 'hidden' }}>
-        <div
-          style={{
-            width: `${p}%`,
-            height: '100%',
-            background: color,
-            borderRadius: 99,
-            transition: 'width 400ms ease',
-          }}
-        />
-      </div>
-      <span style={{ fontSize: 13, color: '#9CA3AF' }}>
-        {value} captados &nbsp;·&nbsp; meta {meta}
-      </span>
     </div>
   )
 }
 
-function OperatorRow({ name, leads, max }: { name: string; leads: number; max: number }) {
-  const barW = leads > 0 && max > 0 ? Math.max(4, Math.round((leads / max) * 100)) : 0
+function HealthCard({ icon: Icon, label, value, sub, color, bg }: {
+  icon: React.ElementType; label: string; value: string | number
+  sub?: string; color: string; bg: string
+}) {
   return (
-    <div className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid #F3F4F6' }}>
-      <div
-        className="flex items-center justify-center rounded-full bg-blue-50"
-        style={{ width: 36, height: 36, flexShrink: 0 }}
-      >
-        <User size={18} color="#3B82F6" />
+    <div className="bg-white rounded-xl p-5 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+      <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={18} color={color} />
       </div>
-      <span style={{ fontSize: 14, color: '#1F2937', width: 110, flexShrink: 0 }}>{name}</span>
-      <div style={{ flex: 1, background: '#F3F4F6', borderRadius: 99, height: 6 }}>
-        <div
-          style={{
-            width: `${barW}%`,
-            height: '100%',
-            background: leads > 0 ? '#3B82F6' : '#E5E7EB',
-            borderRadius: 99,
-            transition: 'width 400ms ease',
-          }}
-        />
+      <div>
+        <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
+        <p style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{value}</p>
+        {sub && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{sub}</p>}
       </div>
-      <span style={{ fontSize: 14, fontWeight: 700, color: leads > 0 ? '#1F2937' : '#9CA3AF', width: 60, textAlign: 'right', flexShrink: 0 }}>
-        {leads} lead{leads !== 1 ? 's' : ''}
-      </span>
     </div>
   )
 }
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const navigate = useNavigate()
-
-  const [metrics, setMetrics]     = useState<TodayMetrics | null>(null)
-  const [capture, setCapture]     = useState<OperatorCapture[]>([])
-  const [last7, setLast7]         = useState<DayLeads[]>([])
-  const [ranking, setRanking]     = useState<RankingRow[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState('')
+  const [kpis, setKpis]       = useState<KpisOverview | null>(null)
+  const [funnel, setFunnel]   = useState<FunnelStage[]>([])
+  const [convs, setConvs]     = useState<Conversion[]>([])
+  const [health, setHealth]   = useState<HealthMetrics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState('')
 
   const fetchAll = useCallback(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
     setLoading(true)
-
     Promise.all([
-      api.get<TodayMetrics>('/api/v1/dashboard/today-metrics'),
-      api.get<{ operators: OperatorCapture[] }>('/api/v1/dashboard/daily-capture'),
-      api.get<{ days: DayLeads[] }>('/api/v1/dashboard/last-7-days'),
-      api.get<{ ranking: RankingRow[] }>('/api/v1/dashboard/operators-ranking'),
+      api.get<KpisOverview>('/api/v1/dashboard/kpis-overview'),
+      api.get<{ stages: FunnelStage[] }>('/api/v1/dashboard/funnel-distribution'),
+      api.get<{ conversions: Conversion[] }>('/api/v1/dashboard/funnel-conversions'),
+      api.get<HealthMetrics>('/api/v1/dashboard/health-metrics'),
     ])
-      .then(([m, cap, days, rank]) => {
-        setMetrics(m.data)
-        setCapture(cap.data.operators)
-        setLast7(days.data.days)
-        setRanking(rank.data.ranking)
+      .then(([k, f, c, h]) => {
+        setKpis(k.data)
+        setFunnel(f.data.stages)
+        setConvs(c.data.conversions)
+        setHealth(h.data)
       })
-      .catch((err) => {
-        if (err.response?.status === 401) {
-          localStorage.removeItem('token')
-          navigate('/login')
-        } else {
-          setError('Erro ao carregar dashboard.')
-        }
+      .catch(err => {
+        if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
+        else setError('Erro ao carregar dashboard.')
       })
       .finally(() => setLoading(false))
   }, [navigate])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
-        <NavBar />
-        <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
-      </div>
-    )
-  }
+  if (loading) return (
+    <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
+  )
+  if (error || !kpis || !health) return (
+    <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
+  )
 
-  if (error || !metrics) {
-    return (
-      <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
-        <NavBar />
-        <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
-      </div>
-    )
-  }
+  const metaPct = health.meta_monthly > 0
+    ? Math.min(100, Math.round(health.leads_monthly / health.meta_monthly * 100))
+    : 0
+  const metaColor = metaPct >= 80 ? '#10B981' : metaPct >= 50 ? '#F59E0B' : '#EF4444'
 
   return (
-    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
-      <NavBar />
-      <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
+    <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
 
-        {/* ── Topo: KPIs + Metas ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Header */}
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827' }}>Dashboard</h1>
+        <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Visão geral do funil de vendas</p>
+      </div>
 
-          {/* KPI 2x2 */}
-          <div className="lg:col-span-2 grid grid-cols-2 gap-4">
+      {/* Linha 1 — KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {KPI_CONFIG.map(cfg => {
+          const data = kpis[cfg.key as keyof KpisOverview]
+          return (
             <KpiCard
-              icon={<Users size={16} />}
-              label="Leads Captados Hoje"
-              value={String(metrics.leads_today)}
+              key={cfg.key}
+              label={cfg.label}
+              color={cfg.color}
+              bg={cfg.bg}
+              Icon={cfg.Icon}
+              count={data.count}
+              vs={cfg.invert ? -data.vs_previous_month : data.vs_previous_month}
+              invert={cfg.invert}
             />
-            <KpiCard
-              icon={<TrendingUp size={16} />}
-              label="Leads no Mês"
-              value={String(metrics.leads_monthly)}
-            />
-            <KpiCard
-              icon={<DollarSign size={16} />}
-              label="Valor em Carteira"
-              value={`R$ ${fmtBRL(metrics.value_pipeline)}`}
-            />
-            <KpiCard
-              icon={<Target size={16} />}
-              label="Ticket Médio"
-              value={`R$ ${fmtBRL(metrics.average_ticket)}`}
-            />
-          </div>
+          )
+        })}
+      </div>
 
-          {/* Painel de Metas (lateral direita) */}
-          <div
-            className="bg-white rounded-xl flex flex-col justify-center gap-6 p-6"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-          >
-            <MetaPanel label="Meta Diária" value={metrics.leads_today} meta={metrics.meta_daily} />
-            <div style={{ borderTop: '1px solid #F3F4F6' }} />
-            <MetaPanel label="Meta Mensal" value={metrics.leads_monthly} meta={metrics.meta_monthly} />
-          </div>
-        </div>
+      {/* Linha 2 — Gráficos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* ── Captação do Dia ── */}
-        <div
-          className="bg-white rounded-xl p-6"
-          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-        >
-          <h2
-            className="mb-4"
-            style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-          >
-            Captação do Dia
+        {/* Distribuição do Funil */}
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Distribuição do Funil
           </h2>
-          {capture.length === 0 ? (
-            <p style={{ fontSize: 14, color: '#9CA3AF' }}>Nenhum operador registrado hoje.</p>
-          ) : (
-            <div>
-              {capture.map((op) => (
-                <OperatorRow
-                  key={op.name}
-                  name={op.name}
-                  leads={op.leads_today}
-                  max={Math.max(...capture.map((o) => o.leads_today))}
+          <ResponsiveContainer width="100%" height={230}>
+            <BarChart data={funnel} layout="vertical" margin={{ top: 0, right: 60, left: 10, bottom: 0 }}>
+              <XAxis type="number" hide />
+              <YAxis type="category" dataKey="stage" tick={{ fontSize: 12, fill: '#6B7280' }} width={90} />
+              <Tooltip
+                formatter={(v: number, _: string, p: any) => [`${v} leads (${p.payload.percentage}%)`, '']}
+                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12 }}
+              />
+              <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                {funnel.map((s) => <Cell key={s.stage} fill={s.color} />)}
+                <LabelList
+                  dataKey="count"
+                  position="right"
+                  style={{ fontSize: 12, fontWeight: 600, fill: '#374151' }}
                 />
-              ))}
-            </div>
-          )}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* ── Gráficos ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          {/* Últimos 7 dias */}
-          <div
-            className="bg-white rounded-xl p-6 flex flex-col gap-4"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-          >
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Leads — Últimos 7 Dias
-            </h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={last7} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11, fill: '#9CA3AF' }}
-                  tickFormatter={(v: any) => { const [,m,d] = v.split('-'); return `${d}/${m}` }}
-                />
-                <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} allowDecimals={false} />
-                <Tooltip
-                  formatter={(v: any) => [v, 'Leads']}
-                  labelFormatter={(l: any) => `Data: ${l}`}
-                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="leads"
-                  stroke="#3B82F6"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: '#3B82F6', strokeWidth: 0 }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+        {/* Conversões do Funil */}
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Conversões do Funil
+          </h2>
+          <div className="flex flex-col gap-4 mt-2">
+            {convs.map((c, i) => {
+              const colors = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
+              return (
+                <div key={i} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>
+                      {c.from} → {c.to}
+                    </span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: colors[i] }}>{c.rate}%</span>
+                  </div>
+                  <div style={{ background: '#F3F4F6', borderRadius: 99, height: 8, overflow: 'hidden' }}>
+                    <div style={{ width: `${c.rate}%`, height: '100%', background: colors[i], borderRadius: 99, transition: 'width 500ms ease' }} />
+                  </div>
+                </div>
+              )
+            })}
           </div>
-
-          {/* Ranking geral */}
-          <div
-            className="bg-white rounded-xl p-6 flex flex-col gap-4"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-          >
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Ranking Operadores
-            </h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={ranking} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                />
-                <Bar dataKey="leads" name="Total" radius={[4, 4, 0, 0]}>
-                  {ranking.map((_, i) => (
-                    <Cell
-                      key={i}
-                      fill={i === 0 ? '#3B82F6' : i === 1 ? '#10B981' : '#9CA3AF'}
-                    />
-                  ))}
-                </Bar>
-                <Bar dataKey="qualified" name="Qualificados" fill="#F59E0B" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
         </div>
-      </main>
-    </div>
+
+      </div>
+
+      {/* Linha 3 — Saúde */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+        <HealthCard
+          icon={AlertTriangle}
+          label="Leads Vencidos"
+          value={health.vencidos}
+          sub="7+ dias parados"
+          color={health.vencidos > 0 ? '#EF4444' : '#10B981'}
+          bg={health.vencidos > 0 ? '#FEF2F2' : '#ECFDF5'}
+        />
+
+        <HealthCard
+          icon={PhoneOff}
+          label="Não Contatados"
+          value={health.uncontacted}
+          sub="24h+ sem movimento"
+          color={health.uncontacted > 0 ? '#F59E0B' : '#10B981'}
+          bg={health.uncontacted > 0 ? '#FFFBEB' : '#ECFDF5'}
+        />
+
+        <HealthCard
+          icon={Timer}
+          label="Tempo Médio no Funil"
+          value={`${health.avg_time_in_funnel}d`}
+          sub="média geral"
+          color="#6366F1"
+          bg="#EEF2FF"
+        />
+
+        <div className="bg-white rounded-xl p-5 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Target size={18} color="#8B5CF6" />
+          </div>
+          <div>
+            <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>Meta do Mês</p>
+            <p style={{ fontSize: 28, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{metaPct}%</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>
+              {health.leads_monthly} de {health.meta_monthly} leads
+            </p>
+          </div>
+          <div style={{ background: '#F3F4F6', borderRadius: 99, height: 6, overflow: 'hidden' }}>
+            <div style={{ width: `${metaPct}%`, height: '100%', background: metaColor, borderRadius: 99, transition: 'width 500ms ease' }} />
+          </div>
+        </div>
+
+      </div>
+
+    </main>
   )
 }

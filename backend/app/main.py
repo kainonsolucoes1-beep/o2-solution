@@ -21,6 +21,7 @@ from app.api import leads_routes
 from app.api import dashboard_routes
 from app.api import pipeline_routes
 from app.api import admin_routes
+from app.api import activities_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler
@@ -50,6 +51,7 @@ app.include_router(leads_routes.router)
 app.include_router(dashboard_routes.router)
 app.include_router(pipeline_routes.router)
 app.include_router(admin_routes.router)
+app.include_router(activities_routes.router)
 
 # Startup event para sincronização Followize
 @app.on_event("startup")

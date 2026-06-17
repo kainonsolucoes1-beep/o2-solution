@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, cast, Date
+from sqlalchemy import func, cast, Date, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -25,6 +25,16 @@ router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 META_DAILY = int(os.getenv("META_DAILY", 10))
 META_MONTHLY = int(os.getenv("META_MONTHLY", 200))
 QUALIFIED_STATUSES = ("qualificado", "qualified", "convertido")
+
+_PENDENTE    = ("pending", "novo", "new")
+_QUALIFICADO = ("scheduled", "qualificado", "qualified")
+_PROPOSTA    = ("proposal_sent",)
+_FECHADO     = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
+_PERDIDO     = ("sale_not_performed",)
+
+
+def _s_in(statuses):
+    return or_(*[func.lower(Lead.status) == s.lower() for s in statuses])
 
 
 def _today_range() -> tuple[datetime, datetime]:
@@ -178,3 +188,135 @@ def operators_ranking(db: Session = Depends(get_db)):
             for r in rows
         ]
     )
+
+
+@router.get("/kpis-overview")
+def dashboard_kpis_overview(db: Session = Depends(get_db)):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    prev_month_end = month_start
+    prev_month_start = (month_start - timedelta(days=1)).replace(day=1)
+
+    def _count(statuses, start, end):
+        return db.query(func.count(Lead.id)).filter(
+            _s_in(statuses), Lead.created_at >= start, Lead.created_at < end
+        ).scalar() or 0
+
+    def _count_neg(start, end):
+        return db.query(func.count(Lead.id)).filter(
+            Lead.perception.in_(["Quente", "Morno"]),
+            ~_s_in(_FECHADO), ~_s_in(_PERDIDO),
+            Lead.created_at >= start, Lead.created_at < end,
+        ).scalar() or 0
+
+    def _pct(curr, prev):
+        if prev == 0:
+            return 100 if curr > 0 else 0
+        return round((curr - prev) / prev * 100)
+
+    end = now + timedelta(days=1)
+    result = {}
+    for name, statuses in [
+        ("pendente", _PENDENTE), ("qualificado", _QUALIFICADO),
+        ("proposta", _PROPOSTA), ("fechado", _FECHADO), ("perdido", _PERDIDO),
+    ]:
+        curr = _count(statuses, month_start, end)
+        prev = _count(statuses, prev_month_start, prev_month_end)
+        result[name] = {"count": curr, "vs_previous_month": _pct(curr, prev)}
+
+    curr_neg = _count_neg(month_start, end)
+    prev_neg = _count_neg(prev_month_start, prev_month_end)
+    result["negociacao"] = {"count": curr_neg, "vs_previous_month": _pct(curr_neg, prev_neg)}
+    return result
+
+
+@router.get("/funnel-distribution")
+def dashboard_funnel_distribution(db: Session = Depends(get_db)):
+    def _n(statuses):
+        return db.query(func.count(Lead.id)).filter(_s_in(statuses)).scalar() or 0
+
+    pendente    = _n(_PENDENTE)
+    qualificado = _n(_QUALIFICADO)
+    proposta    = _n(_PROPOSTA)
+    negociacao  = db.query(func.count(Lead.id)).filter(
+        Lead.perception.in_(["Quente", "Morno"]), ~_s_in(_FECHADO), ~_s_in(_PERDIDO)
+    ).scalar() or 0
+    fechado = _n(_FECHADO)
+    perdido = _n(_PERDIDO)
+    total   = pendente + qualificado + proposta + negociacao + fechado + perdido
+
+    def pct(n):
+        return round(n / total * 100, 1) if total else 0.0
+
+    return {"stages": [
+        {"stage": "Pendente",    "count": pendente,    "percentage": pct(pendente),    "color": "#3B82F6"},
+        {"stage": "Qualificado", "count": qualificado, "percentage": pct(qualificado), "color": "#10B981"},
+        {"stage": "Proposta",    "count": proposta,    "percentage": pct(proposta),    "color": "#F59E0B"},
+        {"stage": "Negociação",  "count": negociacao,  "percentage": pct(negociacao),  "color": "#8B5CF6"},
+        {"stage": "Fechado",     "count": fechado,     "percentage": pct(fechado),     "color": "#059669"},
+        {"stage": "Perdido",     "count": perdido,     "percentage": pct(perdido),     "color": "#EF4444"},
+    ]}
+
+
+@router.get("/funnel-conversions")
+def dashboard_funnel_conversions(db: Session = Depends(get_db)):
+    def _n(statuses):
+        return db.query(func.count(Lead.id)).filter(_s_in(statuses)).scalar() or 0
+
+    pendente    = _n(_PENDENTE)
+    qualificado = _n(_QUALIFICADO)
+    proposta    = _n(_PROPOSTA)
+    negociacao  = db.query(func.count(Lead.id)).filter(
+        Lead.perception.in_(["Quente", "Morno"]), ~_s_in(_FECHADO), ~_s_in(_PERDIDO)
+    ).scalar() or 0
+    fechado = _n(_FECHADO)
+
+    total         = pendente + qualificado + proposta + negociacao + fechado + _n(_PERDIDO)
+    qual_or_later = qualificado + proposta + negociacao + fechado
+    prop_or_later = proposta + negociacao + fechado
+    neg_or_later  = negociacao + fechado
+
+    def rate(a, b):
+        return round(a / b * 100, 1) if b else 0.0
+
+    return {"conversions": [
+        {"from": "Pendente",    "to": "Qualificado", "rate": rate(qual_or_later, total)},
+        {"from": "Qualificado", "to": "Proposta",    "rate": rate(prop_or_later, qual_or_later)},
+        {"from": "Proposta",    "to": "Negociação",  "rate": rate(neg_or_later, prop_or_later)},
+        {"from": "Negociação",  "to": "Fechado",     "rate": rate(fechado, neg_or_later)},
+    ]}
+
+
+@router.get("/health-metrics")
+def dashboard_health_metrics(db: Session = Depends(get_db)):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    vencidos = db.query(func.count(Lead.id)).filter(
+        Lead.updated_at <= now - timedelta(days=7)
+    ).scalar() or 0
+
+    uncontacted = db.query(func.count(Lead.id)).filter(
+        _s_in(_PENDENTE), Lead.updated_at <= now - timedelta(hours=24)
+    ).scalar() or 0
+
+    rows = db.query(Lead.created_at, Lead.updated_at).filter(
+        Lead.updated_at.isnot(None), Lead.created_at.isnot(None)
+    ).all()
+    times = [
+        (r.updated_at - r.created_at).total_seconds() / 86400
+        for r in rows if r.updated_at and r.created_at and r.updated_at > r.created_at
+    ]
+    avg_time = round(sum(times) / len(times), 1) if times else 0.0
+
+    leads_monthly = db.query(func.count(Lead.id)).filter(
+        Lead.created_at >= month_start
+    ).scalar() or 0
+
+    return {
+        "vencidos": vencidos,
+        "uncontacted": uncontacted,
+        "avg_time_in_funnel": avg_time,
+        "leads_monthly": leads_monthly,
+        "meta_monthly": META_MONTHLY,
+    }

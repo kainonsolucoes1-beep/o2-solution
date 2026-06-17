@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
-import NavBar from '../components/NavBar'
 import SourceDetailModal from '../components/SourceDetailModal'
 
 interface PipelineOverview { novo: number; qualificado: number; proposta: number; fechado: number; perdido: number }
@@ -84,17 +83,11 @@ export default function Pipeline() {
   useEffect(() => { fetchAll() }, [fetchAll])
 
   if (loading) return (
-    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
-      <NavBar />
-      <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
-    </div>
+    <p className="text-center text-sm mt-20" style={{ color: '#9CA3AF' }}>Carregando...</p>
   )
 
   if (error || !overview || !alerts || !nextActions) return (
-    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
-      <NavBar />
-      <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
-    </div>
+    <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
   )
 
   const overviewCards = [
@@ -115,9 +108,8 @@ export default function Pipeline() {
   ]
 
   return (
-    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
-      <NavBar />
-      <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
+    <>
+    <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
 
         {/* Header + filtros */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -340,6 +332,6 @@ export default function Pipeline() {
           />
         )
       })()}
-    </div>
+    </>
   )
 }

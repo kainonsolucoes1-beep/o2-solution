@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
-import NavBar from '../components/NavBar'
 import LeadDetailModal from '../components/LeadDetailModal'
 
 interface Me {
@@ -203,10 +202,8 @@ export default function LeadsReport() {
   const myName = me ? (me.first_name ?? me.username) : ''
 
   return (
-    <div className="min-h-screen" style={{ background: '#F9FAFB' }}>
-      <NavBar />
-
-      <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
+    <>
+    <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
 
         {/* Header */}
         <div>
@@ -579,6 +576,6 @@ export default function LeadsReport() {
           }}
         />
       )}
-    </div>
+    </>
   )
 }
