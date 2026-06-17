@@ -351,3 +351,24 @@ async def start_sync_scheduler() -> None:
             logger.error("Erro inesperado no scheduler — continuando em 5 min: %s", exc)
             _save_sync_status(False, error=f"Erro inesperado no scheduler: {exc}")
         await asyncio.sleep(300)
+
+
+async def start_token_refresh_scheduler() -> None:
+    """Renova proativamente o token Followize a cada 10 horas.
+
+    O access_token expira em 18h. Renovando a cada 10h garantimos
+    que nunca chegamos perto do limite, mesmo após um restart do container.
+    """
+    await asyncio.sleep(600)  # aguarda 10 min antes do primeiro refresh para não conflitar com startup
+    while True:
+        try:
+            _load_tokens_from_db()
+            ok = await asyncio.to_thread(_refresh_access_token)
+            if ok:
+                logger.info("Token Followize renovado proativamente com sucesso")
+            else:
+                logger.error("Falha na renovação proativa do token — refresh token pode ter expirado")
+                _save_sync_status(False, error="Falha na renovação proativa do token — acesse Configurações e atualize os tokens manualmente")
+        except Exception as exc:
+            logger.error("Erro inesperado na renovação proativa do token: %s", exc)
+        await asyncio.sleep(36000)  # 10 horas

@@ -24,7 +24,7 @@ from app.api import admin_routes
 from app.api import activities_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
-from app.sync_followize import start_sync_scheduler
+from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
@@ -57,6 +57,7 @@ app.include_router(activities_routes.router)
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(start_sync_scheduler())
+    asyncio.create_task(start_token_refresh_scheduler())
 
 @app.get("/")
 async def root():
