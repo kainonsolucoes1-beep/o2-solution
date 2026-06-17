@@ -205,7 +205,7 @@ export default function LeadsReport() {
 
   return (
     <>
-    <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
+    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
         {/* Header */}
         <div>

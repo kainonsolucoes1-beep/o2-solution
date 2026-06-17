@@ -41,8 +41,8 @@ function KpiCard({ label, color, bg, Icon, count, vs, invert }: {
         <Icon size={18} color={color} />
       </div>
       <div>
-        <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
-        <p style={{ fontSize: 32, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{count}</p>
+        <p style={{ fontSize: 13, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
+        <p style={{ fontSize: 36, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{count}</p>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         {good ? <ArrowUpRight size={14} color={trendColor} /> : <ArrowDownRight size={14} color={trendColor} />}
@@ -63,8 +63,8 @@ function HealthCard({ icon: Icon, label, value, sub, color, bg }: {
         <Icon size={18} color={color} />
       </div>
       <div>
-        <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
-        <p style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{value}</p>
+        <p style={{ fontSize: 13, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>{label}</p>
+        <p style={{ fontSize: 32, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{value}</p>
         {sub && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{sub}</p>}
       </div>
     </div>
@@ -104,15 +104,15 @@ export default function Dashboard() {
   const metaColor = metaPct >= 80 ? '#10B981' : metaPct >= 50 ? '#F59E0B' : '#EF4444'
 
   return (
-    <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
+    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827' }}>Dashboard</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111827' }}>Dashboard</h1>
         <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Visão geral de captação e saúde do pipeline</p>
       </div>
 
       {/* KPIs — 5 cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 xl:gap-6">
         {KPI_CONFIG.map(cfg => {
           const data = kpis[cfg.key as keyof KpisOverview]
           return (
@@ -131,7 +131,7 @@ export default function Dashboard() {
       </div>
 
       {/* Saúde — 4 cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 xl:gap-6">
 
         <HealthCard
           icon={AlertTriangle}
@@ -166,7 +166,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 500, marginBottom: 4 }}>Meta do Mês</p>
-            <p style={{ fontSize: 28, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{metaPct}%</p>
+            <p style={{ fontSize: 32, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{metaPct}%</p>
             <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{health.leads_monthly} de {health.meta_monthly} leads</p>
           </div>
           <div style={{ background: '#F3F4F6', borderRadius: 99, height: 6, overflow: 'hidden' }}>

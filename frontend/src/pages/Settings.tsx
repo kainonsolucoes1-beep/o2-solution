@@ -87,7 +87,7 @@ export default function Settings() {
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-10 flex flex-col gap-6">
+    <main className="max-w-3xl mx-auto px-4 md:px-8 py-10 flex flex-col gap-6">
 
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2937' }}>Configurações</h1>

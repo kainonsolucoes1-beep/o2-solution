@@ -109,7 +109,7 @@ export default function Pipeline() {
 
   return (
     <>
-    <main className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
+    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
         {/* Header + filtros */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -144,7 +144,7 @@ export default function Pipeline() {
         </div>
 
         {/* Overview cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 xl:gap-6">
           {overviewCards.map(card => (
             <div
               key={card.label}
@@ -158,19 +158,19 @@ export default function Pipeline() {
                 {card.icon}
               </div>
               <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>{card.label}</span>
-              <span style={{ fontSize: 32, fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</span>
+              <span style={{ fontSize: 36, fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</span>
             </div>
           ))}
         </div>
 
         {/* Distribuição + Conversões */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Distribuição do Funil
             </h2>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={distStages} layout="vertical" margin={{ top: 0, right: 50, left: 10, bottom: 0 }}>
                 <XAxis type="number" hide />
                 <YAxis type="category" dataKey="stage" tick={{ fontSize: 12, fill: '#6B7280' }} width={90} />
@@ -216,7 +216,7 @@ export default function Pipeline() {
         </div>
 
         {/* Alertas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
 
           <div
             className="bg-white rounded-xl p-6 flex flex-col gap-3"
@@ -278,7 +278,7 @@ export default function Pipeline() {
           <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
             Próximas Ações
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xl:gap-6">
             {nextActionCards.map(card => (
               <div
                 key={card.label}
