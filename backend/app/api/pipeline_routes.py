@@ -119,8 +119,13 @@ def pipeline_alerts(
     now = _now()
     cutoff_24h = now - timedelta(hours=24)
 
+    active_filter = or_(
+        _status_in(PENDENTE_STATUSES + AGENDADO_STATUSES + PROPOSTA_STATUSES),
+        Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
+    )
+
     vencidos_count = _apply_filters(
-        db.query(func.count(Lead.id)).filter(Lead.updated_at <= cutoff_24h),
+        db.query(func.count(Lead.id)).filter(Lead.updated_at <= cutoff_24h, active_filter),
         date_from, date_to, source,
     ).scalar() or 0
     uncontacted_count = _apply_filters(
@@ -128,7 +133,7 @@ def pipeline_alerts(
         date_from, date_to, source,
     ).scalar() or 0
 
-    vq = db.query(Lead).filter(Lead.updated_at <= cutoff_24h)
+    vq = db.query(Lead).filter(Lead.updated_at <= cutoff_24h, active_filter)
     vq = _apply_filters(vq, date_from, date_to, source)
     vencidos_rows = vq.order_by(Lead.updated_at.asc()).limit(10).all()
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
+import { Clock, CheckSquare, FileText, Handshake } from 'lucide-react'
 import api from '../api'
 interface PipelineOverview { novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
@@ -9,20 +10,14 @@ interface NextActions { call_today: number; send_email: number; follow_proposal:
 
 const CONV_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
 
-function getDateRange(month: string) {
-  const [y, m] = month.split('-').map(Number)
-  const first = `${y}-${String(m).padStart(2, '0')}-01`
-  const lastDay = new Date(y, m, 0).getDate()
-  const last = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-  return { date_from: first, date_to: last }
-}
-
 export default function Pipeline() {
   const navigate = useNavigate()
-  const today = new Date()
-  const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  const _now = new Date()
+  const todayStr   = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`
+  const monthStart = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-01`
 
-  const [selectedMonth, setSelectedMonth] = useState(defaultMonth)
+  const [dateFrom, setDateFrom]       = useState(monthStart)
+  const [dateTo,   setDateTo]         = useState(todayStr)
   const [selectedSource, setSelectedSource] = useState('')
   const [sources, setSources] = useState<string[]>([])
 
@@ -40,8 +35,7 @@ export default function Pipeline() {
 
   const fetchAll = useCallback(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
-    const { date_from, date_to } = getDateRange(selectedMonth)
-    const qs = new URLSearchParams({ date_from, date_to })
+    const qs = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
     if (selectedSource) qs.set('source', selectedSource)
     const q = `?${qs.toString()}`
 
@@ -61,7 +55,7 @@ export default function Pipeline() {
         else setError('Erro ao carregar pipeline.')
       })
       .finally(() => setLoading(false))
-  }, [navigate, selectedMonth, selectedSource])
+  }, [navigate, dateFrom, dateTo, selectedSource])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -95,11 +89,11 @@ export default function Pipeline() {
   const qualOL = overview.qualificado + overview.proposta + overview.negociacao + overview.fechado
   const propOL = overview.proposta + overview.negociacao + overview.fechado
   const negOL  = overview.negociacao + overview.fechado
-  const convs  = [
-    { from: 'Pendente', to: 'Qualificado', rate: distTotal > 0 ? +((qualOL / distTotal) * 100).toFixed(1) : 0, color: CONV_COLORS[0] },
-    { from: 'Qualificado', to: 'Proposta', rate: qualOL > 0 ? +((propOL / qualOL) * 100).toFixed(1) : 0, color: CONV_COLORS[1] },
-    { from: 'Proposta', to: 'Negociação',  rate: propOL > 0 ? +((negOL / propOL) * 100).toFixed(1) : 0, color: CONV_COLORS[2] },
-    { from: 'Negociação', to: 'Fechado',   rate: negOL > 0 ? +((overview.fechado / negOL) * 100).toFixed(1) : 0, color: CONV_COLORS[3] },
+  const convs = [
+    { from: 'Pendente',    to: 'Qualificado', fromCount: distTotal,        toCount: qualOL,           rate: distTotal > 0 ? +((qualOL / distTotal) * 100).toFixed(1) : 0,         color: CONV_COLORS[0], Icon: Clock },
+    { from: 'Qualificado', to: 'Proposta',    fromCount: qualOL,           toCount: propOL,           rate: qualOL > 0    ? +((propOL / qualOL) * 100).toFixed(1) : 0,            color: CONV_COLORS[1], Icon: CheckSquare },
+    { from: 'Proposta',    to: 'Negociação',  fromCount: propOL,           toCount: negOL,            rate: propOL > 0    ? +((negOL / propOL) * 100).toFixed(1) : 0,             color: CONV_COLORS[2], Icon: FileText },
+    { from: 'Negociação',  to: 'Fechado',     fromCount: negOL,            toCount: overview.fechado, rate: negOL > 0     ? +((overview.fechado / negOL) * 100).toFixed(1) : 0,   color: CONV_COLORS[3], Icon: Handshake },
   ]
 
   const nextActionCards = [
@@ -118,11 +112,19 @@ export default function Pipeline() {
             <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2937' }}>Pipeline de Vendas</h1>
             <p style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>Visão do funil de vendas em tempo real</p>
           </div>
-          <div className="flex gap-3 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 500 }}>De</span>
             <input
-              type="month"
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #D1D5DB', color: '#374151', background: 'white', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 500 }}>Até</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
               style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid #D1D5DB', color: '#374151', background: 'white', cursor: 'pointer' }}
             />
             <select
@@ -183,15 +185,23 @@ export default function Pipeline() {
             <h2 style={{ fontSize: 13, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Conversões do Funil
             </h2>
-            <div className="flex flex-col gap-4 mt-1">
+            <div className="flex flex-col gap-5 mt-1">
               {convs.map((c, i) => (
-                <div key={i} className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{c.from} → {c.to}</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: c.color }}>{c.rate}%</span>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: '50%', background: c.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <c.Icon size={16} color={c.color} />
                   </div>
-                  <div style={{ background: '#F3F4F6', borderRadius: 99, height: 8, overflow: 'hidden' }}>
-                    <div style={{ width: `${c.rate}%`, height: '100%', background: c.color, borderRadius: 99, transition: 'width 500ms ease' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <div>
+                        <p style={{ fontSize: 13, color: '#374151', fontWeight: 600, lineHeight: 1.3 }}>{c.from} → {c.to}</p>
+                        <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>De {c.fromCount} para {c.toCount} leads</p>
+                      </div>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: c.color, marginLeft: 12, flexShrink: 0 }}>{c.rate}%</span>
+                    </div>
+                    <div style={{ background: '#F3F4F6', borderRadius: 99, height: 8, overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.min(100, c.rate)}%`, height: '100%', background: c.color, borderRadius: 99, transition: 'width 500ms ease' }} />
+                    </div>
                   </div>
                 </div>
               ))}

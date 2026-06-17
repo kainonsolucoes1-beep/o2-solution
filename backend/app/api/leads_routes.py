@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -79,9 +79,15 @@ def leads_by_period(
     admin = _is_admin(current_user)
     my_name = current_user.first_name or current_user.username
 
+    _active_statuses = ("pending", "novo", "new", "scheduled", "qualificado", "qualified", "proposal_sent")
+    _active_filter = or_(
+        func.lower(Lead.status).in_([s.lower() for s in _active_statuses]),
+        Lead.perception.in_(["Quente", "Morno"]),
+    )
+
     def _base_query(q):
         if vencidos:
-            q = q.filter(Lead.updated_at <= cutoff_24h)
+            q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
         else:
             q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if not admin:
