@@ -95,10 +95,34 @@ export default function Pipeline() {
   const propOL = overview.proposta + overview.negociacao + overview.fechado
   const negOL  = overview.negociacao + overview.fechado
   const convs = [
-    { from: 'Pendente',    to: 'Qualificado', fromCount: distTotal,        toCount: qualOL,           rate: distTotal > 0 ? +((qualOL / distTotal) * 100).toFixed(1) : 0,         color: CONV_COLORS[0], Icon: Clock },
-    { from: 'Qualificado', to: 'Proposta',    fromCount: qualOL,           toCount: propOL,           rate: qualOL > 0    ? +((propOL / qualOL) * 100).toFixed(1) : 0,            color: CONV_COLORS[1], Icon: CheckSquare },
-    { from: 'Proposta',    to: 'Negociação',  fromCount: propOL,           toCount: negOL,            rate: propOL > 0    ? +((negOL / propOL) * 100).toFixed(1) : 0,             color: CONV_COLORS[2], Icon: FileText },
-    { from: 'Negociação',  to: 'Fechado',     fromCount: negOL,            toCount: overview.fechado, rate: negOL > 0     ? +((overview.fechado / negOL) * 100).toFixed(1) : 0,   color: CONV_COLORS[3], Icon: Handshake },
+    {
+      from: 'Pendente', to: 'Qualificado', fromCount: distTotal, toCount: qualOL,
+      rate: distTotal > 0 ? +((qualOL / distTotal) * 100).toFixed(1) : 0,
+      color: CONV_COLORS[0], Icon: Clock,
+      note: `${overview.novo} ainda pendentes · ${overview.perdido} perdidos sem converter`,
+      nav: cardNav({ status: 'pending,novo,new' }),
+    },
+    {
+      from: 'Qualificado', to: 'Proposta', fromCount: qualOL, toCount: propOL,
+      rate: qualOL > 0 ? +((propOL / qualOL) * 100).toFixed(1) : 0,
+      color: CONV_COLORS[1], Icon: CheckSquare,
+      note: `${overview.qualificado} ainda qualificados`,
+      nav: cardNav({ status: 'scheduled,qualificado,qualified' }),
+    },
+    {
+      from: 'Proposta', to: 'Negociação', fromCount: propOL, toCount: negOL,
+      rate: propOL > 0 ? +((negOL / propOL) * 100).toFixed(1) : 0,
+      color: CONV_COLORS[2], Icon: FileText,
+      note: `${overview.proposta} aguardando negociação`,
+      nav: cardNav({ status: 'proposal_sent' }),
+    },
+    {
+      from: 'Negociação', to: 'Fechado', fromCount: negOL, toCount: overview.fechado,
+      rate: negOL > 0 ? +((overview.fechado / negOL) * 100).toFixed(1) : 0,
+      color: CONV_COLORS[3], Icon: Handshake,
+      note: `${overview.negociacao} em negociação`,
+      nav: cardNav({ perception: 'Quente,Morno' }),
+    },
   ]
 
   const nextActionCards = [
@@ -192,19 +216,26 @@ export default function Pipeline() {
             </h2>
             <div className="flex flex-col gap-5 mt-1">
               {convs.map((c, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  key={i}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '4px 6px', borderRadius: 8, transition: 'background 150ms' }}
+                  onClick={() => navigate(`/leads-report${c.nav}`)}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
                   <div style={{ width: 38, height: 38, borderRadius: '50%', background: c.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <c.Icon size={16} color={c.color} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
                       <div>
                         <p style={{ fontSize: 13, color: '#374151', fontWeight: 600, lineHeight: 1.3 }}>{c.from} → {c.to}</p>
                         <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>De {c.fromCount} para {c.toCount} leads</p>
+                        <p style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{c.note}</p>
                       </div>
                       <span style={{ fontSize: 16, fontWeight: 700, color: c.color, marginLeft: 12, flexShrink: 0 }}>{c.rate}%</span>
                     </div>
-                    <div style={{ background: '#F3F4F6', borderRadius: 99, height: 8, overflow: 'hidden' }}>
+                    <div style={{ background: '#F3F4F6', borderRadius: 99, height: 8, overflow: 'hidden', marginTop: 6 }}>
                       <div style={{ width: `${Math.min(100, c.rate)}%`, height: '100%', background: c.color, borderRadius: 99, transition: 'width 500ms ease' }} />
                     </div>
                   </div>
