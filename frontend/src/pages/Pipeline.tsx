@@ -92,8 +92,7 @@ export default function Pipeline() {
   ]
 
   function fmtBrl(v: number) {
-    if (v >= 1000) return `R$ ${(v / 1000).toFixed(0)}k`
-    return `R$ ${v.toFixed(0)}`
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
   }
   function fmtBrlFull(v: number) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
