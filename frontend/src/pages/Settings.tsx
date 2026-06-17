@@ -40,7 +40,7 @@ export default function Settings() {
     setSyncStatus('loading')
     setSyncMsg('')
     try {
-      const res = await api.post('/api/v1/admin/sync-historico?days=90')
+      const res = await api.post('/api/v1/admin/sync-historico?days=365')
       const d = res.data as { inserted: number; updated: number; date_from: string }
       setSyncMsg(`Concluído: ${d.inserted} inseridos, ${d.updated} atualizados (desde ${d.date_from})`)
       setSyncStatus('success')
@@ -127,7 +127,7 @@ export default function Settings() {
           <div>
             <h2 style={{ fontSize: 15, fontWeight: 700, color: '#1F2937' }}>Reprocessamento Histórico</h2>
             <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
-              Rebusca os últimos 90 dias de leads alterados no Followize e atualiza percepção/status no banco. Use após renovar os tokens.
+              Rebusca os últimos 365 dias de leads alterados no Followize e atualiza percepção/status no banco. Use após renovar os tokens.
             </p>
           </div>
 
@@ -158,7 +158,7 @@ export default function Settings() {
               transition: 'background 150ms',
             }}
           >
-            {syncStatus === 'loading' ? 'Processando... (pode demorar)' : 'Reprocessar 90 dias'}
+            {syncStatus === 'loading' ? 'Processando... (pode demorar)' : 'Reprocessar 365 dias'}
           </button>
         </div>
 
