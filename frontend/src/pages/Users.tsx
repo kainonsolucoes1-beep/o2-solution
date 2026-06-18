@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { UserPlus, X } from 'lucide-react'
+import { UserPlus, X, Pencil } from 'lucide-react'
 import api from '../api'
 
 interface UserItem {
@@ -14,6 +14,7 @@ interface UserItem {
 }
 
 const EMPTY_FORM = { email: '', username: '', first_name: '', password: '', role: 'user' }
+const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '' }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR')
@@ -28,6 +29,10 @@ export default function Users() {
   const [saving, setSaving]       = useState(false)
   const [formError, setFormError] = useState('')
   const [toast, setToast]         = useState<{ msg: string; ok: boolean } | null>(null)
+  const [editUser, setEditUser]   = useState<UserItem | null>(null)
+  const [editForm, setEditForm]   = useState(EMPTY_EDIT)
+  const [editError, setEditError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
   useEffect(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -78,6 +83,34 @@ export default function Users() {
       setToast({ msg: data.is_active ? 'Usuário ativado' : 'Usuário desativado', ok: true })
     } catch {
       setToast({ msg: 'Erro ao atualizar usuário', ok: false })
+    }
+  }
+
+  function openEdit(user: UserItem) {
+    setEditUser(user)
+    setEditForm({ first_name: user.first_name ?? '', email: user.email, username: user.username, password: '' })
+    setEditError('')
+  }
+
+  async function handleEdit() {
+    if (!editUser) return
+    setEditSaving(true)
+    setEditError('')
+    try {
+      const payload: Record<string, string> = {}
+      if (editForm.first_name !== (editUser.first_name ?? '')) payload.first_name = editForm.first_name
+      if (editForm.email !== editUser.email) payload.email = editForm.email
+      if (editForm.username !== editUser.username) payload.username = editForm.username
+      if (editForm.password.trim()) payload.password = editForm.password
+      if (Object.keys(payload).length === 0) { setEditUser(null); return }
+      const { data } = await api.patch<UserItem>(`/api/v1/admin/users/${editUser.id}`, payload)
+      setUsers(u => u.map(x => x.id === data.id ? data : x))
+      setEditUser(null)
+      setToast({ msg: 'Usuário atualizado', ok: true })
+    } catch (err: any) {
+      setEditError(err.response?.data?.detail ?? 'Erro ao atualizar.')
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -183,6 +216,13 @@ export default function Users() {
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button
+                            onClick={() => openEdit(user)}
+                            title="Editar perfil"
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'none', color: 'var(--text-3b)', cursor: 'pointer' }}
+                          >
+                            <Pencil size={12} /> Editar
+                          </button>
+                          <button
                             onClick={() => toggleRole(user)}
                             style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'none', color: 'var(--text-3b)', cursor: 'pointer' }}
                           >
@@ -208,6 +248,60 @@ export default function Users() {
           )}
         </div>
       </main>
+
+      {editUser && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}
+          onClick={() => setEditUser(null)}
+        >
+          <div
+            style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Editar Usuário</span>
+              <button onClick={() => setEditUser(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {[
+                { label: 'Nome', field: 'first_name', type: 'text', placeholder: 'Nome do usuário' },
+                { label: 'Email', field: 'email', type: 'email', placeholder: 'email@empresa.com' },
+                { label: 'Username', field: 'username', type: 'text', placeholder: 'username' },
+                { label: 'Nova senha (deixe em branco para manter)', field: 'password', type: 'password', placeholder: '••••••••' },
+              ].map(({ label, field, type, placeholder }) => (
+                <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>{label}</label>
+                  <input
+                    type={type}
+                    placeholder={placeholder}
+                    value={editForm[field as keyof typeof editForm]}
+                    onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
+                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}
+                  />
+                </div>
+              ))}
+              {editError && <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{editError}</p>}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
+                <button
+                  onClick={() => setEditUser(null)}
+                  style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleEdit}
+                  disabled={editSaving}
+                  style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: editSaving ? '#93C5FD' : '#2563EB', color: 'white', border: 'none', cursor: editSaving ? 'not-allowed' : 'pointer' }}
+                >
+                  {editSaving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div

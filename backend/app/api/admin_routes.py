@@ -253,6 +253,18 @@ def update_user(
         user.is_active = body.is_active
     if body.first_name is not None:
         user.first_name = body.first_name
+    if body.email is not None:
+        existing = db.query(User).filter(User.email == body.email, User.id != user_id).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Email já cadastrado")
+        user.email = body.email
+    if body.username is not None:
+        existing = db.query(User).filter(User.username == body.username, User.id != user_id).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Username já cadastrado")
+        user.username = body.username
+    if body.password is not None and body.password.strip():
+        user.password_hash = hash_password(body.password)
     db.commit()
     db.refresh(user)
     return user
