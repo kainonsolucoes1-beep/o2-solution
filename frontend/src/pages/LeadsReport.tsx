@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
 import LeadDetailModal from '../components/LeadDetailModal'
+import { statusLabel } from '../utils/statusLabel'
 
 interface Me {
   id: string
@@ -72,7 +73,7 @@ function StatusBadge({ status }: { status: string | null }) {
         textTransform: 'capitalize', whiteSpace: 'nowrap',
       }}
     >
-      {status ?? 'novo'}
+      {statusLabel(status)}
     </span>
   )
 }

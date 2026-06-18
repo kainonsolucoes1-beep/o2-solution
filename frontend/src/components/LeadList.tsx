@@ -1,3 +1,5 @@
+import { statusLabel } from '../utils/statusLabel'
+
 interface Lead {
   id: string
   name: string
@@ -42,7 +44,7 @@ export default function LeadList({ leads }: Props) {
               <td className="px-4 py-3 text-gray-600">{lead.company ?? '—'}</td>
               <td className="px-4 py-3">
                 <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">
-                  {lead.status ?? 'novo'}
+                  {statusLabel(lead.status)}
                 </span>
               </td>
               <td className="px-4 py-3 text-gray-600">{lead.origin ?? '—'}</td>

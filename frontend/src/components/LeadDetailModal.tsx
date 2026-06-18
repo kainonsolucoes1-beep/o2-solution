@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import api from '../api'
+import { statusLabel } from '../utils/statusLabel'
 
 interface LeadItem {
   id: string
@@ -59,19 +60,6 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   sale_not_performed:   { bg: 'rgba(220,38,38,0.12)',   color: '#DC2626' },
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  novo: 'Novo', new: 'Novo', pending: 'Novo',
-  qualificado: 'Qualificado', qualified: 'Qualificado', scheduled: 'Qualificado',
-  proposta: 'Proposta', proposal_sent: 'Proposta',
-  fechado: 'Fechado',
-  convertido: 'Convertido',
-  sale_not_performed: 'Venda não realizada',
-}
-
-function statusLabel(s: string | null) {
-  if (!s) return '—'
-  return STATUS_LABEL[s.toLowerCase()] ?? s
-}
 
 function statusColor(s: string | null) {
   if (!s) return { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
