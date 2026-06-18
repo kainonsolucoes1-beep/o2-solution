@@ -286,7 +286,7 @@ export default function Dashboard() {
           <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Evolução da Captação — {mesNome}
           </h2>
-          <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Clique em um ponto para ver detalhes</span>
+          <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Clique no número do dia para ver os leads</span>
         </div>
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart
@@ -300,7 +300,27 @@ export default function Dashboard() {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" vertical={false} />
-            <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} tickLine={false} axisLine={false} />
+            <XAxis
+              dataKey="day"
+              tickLine={false}
+              axisLine={false}
+              tick={(props: { x: number; y: number; payload: { value: number } }) => {
+                const { x, y, payload } = props
+                const item = data.evolucao_diaria.find(d => d.day === payload.value)
+                return (
+                  <text
+                    x={x} y={y} dy={14}
+                    textAnchor="middle"
+                    fontSize={11}
+                    fill={item ? '#3B82F6' : 'var(--text-subtle)'}
+                    style={{ cursor: item ? 'pointer' : 'default', fontWeight: item ? 600 : 400, textDecoration: item ? 'underline' : 'none' }}
+                    onClick={() => item && navigate(`/leads-report?date_from=${item.date}&date_to=${item.date}`)}
+                  >
+                    {payload.value}
+                  </text>
+                )
+              }}
+            />
             <YAxis tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} tickLine={false} axisLine={false} allowDecimals={false} width={30} />
             <Tooltip
               contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12, background: 'var(--bg-card)', color: 'var(--text-2)' }}
@@ -313,19 +333,7 @@ export default function Dashboard() {
               stroke="#3B82F6"
               strokeWidth={2}
               fill="url(#captGrad)"
-              dot={(props: { cx?: number; cy?: number; index?: number; payload?: { date: string } }) => {
-                const { cx, cy, index, payload } = props
-                if (!cx || !cy || !payload?.date) return <g key={index} />
-                return (
-                  <circle
-                    key={index}
-                    cx={cx} cy={cy} r={4}
-                    fill="#3B82F6" stroke="none"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/leads-report?date_from=${payload.date}&date_to=${payload.date}`)}
-                  />
-                )
-              }}
+              dot={{ r: 3, fill: '#3B82F6', strokeWidth: 0 }}
               activeDot={{ r: 6, fill: '#2563EB', stroke: '#fff', strokeWidth: 2 }}
             />
           </AreaChart>
