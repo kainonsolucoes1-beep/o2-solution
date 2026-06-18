@@ -381,7 +381,7 @@ async def start_sync_scheduler() -> None:
         except Exception as exc:
             logger.error("Erro inesperado no scheduler — continuando em 5 min: %s", exc)
             _save_sync_status(False, error=f"Erro inesperado no scheduler: {exc}")
-        await asyncio.sleep(300)
+        await asyncio.sleep(120)
 
 
 async def start_token_refresh_scheduler() -> None:
