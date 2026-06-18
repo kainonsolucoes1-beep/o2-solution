@@ -130,8 +130,8 @@ export default function Settings() {
               )}
 
               {!health.last_sync_ok && health.last_sync_error && (
-                <div style={{ padding: '8px 12px', background: '#FEF2F2', borderRadius: 8, border: '1px solid #FECACA' }}>
-                  <p style={{ fontSize: 12, color: '#991B1B', margin: 0, wordBreak: 'break-word' }}>{health.last_sync_error}</p>
+                <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
+                  <p style={{ fontSize: 12, color: '#EF4444', margin: 0, wordBreak: 'break-word' }}>{health.last_sync_error}</p>
                 </div>
               )}
 
@@ -186,14 +186,14 @@ export default function Settings() {
           </div>
 
           {status === 'success' && (
-            <div style={{ padding: '10px 14px', background: '#ECFDF5', borderRadius: 8, border: '1px solid #A7F3D0' }}>
-              <p style={{ fontSize: 13, color: '#065F46', fontWeight: 600 }}>Tokens atualizados com sucesso. O próximo sync já usará os novos tokens.</p>
+            <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}>
+              <p style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>Tokens atualizados com sucesso. O próximo sync já usará os novos tokens.</p>
             </div>
           )}
 
           {status === 'error' && (
-            <div style={{ padding: '10px 14px', background: '#FEF2F2', borderRadius: 8, border: '1px solid #FECACA' }}>
-              <p style={{ fontSize: 13, color: '#991B1B', fontWeight: 600 }}>{errorMsg}</p>
+            <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
+              <p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{errorMsg}</p>
             </div>
           )}
 
@@ -220,13 +220,13 @@ export default function Settings() {
           </div>
 
           {syncStatus === 'success' && (
-            <div style={{ padding: '10px 14px', background: '#ECFDF5', borderRadius: 8, border: '1px solid #A7F3D0' }}>
-              <p style={{ fontSize: 13, color: '#065F46', fontWeight: 600 }}>{syncMsg}</p>
+            <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}>
+              <p style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>{syncMsg}</p>
             </div>
           )}
           {syncStatus === 'error' && (
-            <div style={{ padding: '10px 14px', background: '#FEF2F2', borderRadius: 8, border: '1px solid #FECACA' }}>
-              <p style={{ fontSize: 13, color: '#991B1B', fontWeight: 600 }}>{syncMsg}</p>
+            <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
+              <p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{syncMsg}</p>
             </div>
           )}
 

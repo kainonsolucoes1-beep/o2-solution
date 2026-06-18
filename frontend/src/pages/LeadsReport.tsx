@@ -44,11 +44,11 @@ const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   .slice(0, 10)
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  novo:        { bg: '#EFF6FF', color: '#2563EB' },
-  qualificado: { bg: '#F0FDF4', color: '#16A34A' },
-  proposta:    { bg: '#FFFBEB', color: '#D97706' },
-  fechado:     { bg: '#F3F4F6', color: '#6B7280' },
-  convertido:  { bg: '#ECFDF5', color: '#059669' },
+  novo:        { bg: 'rgba(59,130,246,0.12)',  color: '#3B82F6' },
+  qualificado: { bg: 'rgba(22,163,74,0.12)',   color: '#16A34A' },
+  proposta:    { bg: 'rgba(217,119,6,0.12)',   color: '#D97706' },
+  fechado:     { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
+  convertido:  { bg: 'rgba(5,150,105,0.12)',   color: '#059669' },
 }
 
 function fmtDate(iso: string) {
@@ -62,7 +62,7 @@ function fmtBRL(n: number | null) {
 
 function StatusBadge({ status }: { status: string | null }) {
   const key = (status ?? 'novo').toLowerCase()
-  const s = STATUS_STYLE[key] ?? { bg: '#F3F4F6', color: '#6B7280' }
+  const s = STATUS_STYLE[key] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
   return (
     <span
       style={{

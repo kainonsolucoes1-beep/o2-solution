@@ -32,9 +32,9 @@ interface StatusHistoryItem {
 }
 
 const PERCEPTION_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  'Quente': { bg: '#FEF2F2', color: '#DC2626', label: 'Quente' },
-  'Morno':  { bg: '#FFFBEB', color: '#D97706', label: 'Morno' },
-  'Frio':   { bg: '#EFF6FF', color: '#2563EB', label: 'Frio' },
+  'Quente': { bg: 'rgba(220,38,38,0.12)',  color: '#DC2626', label: 'Quente' },
+  'Morno':  { bg: 'rgba(217,119,6,0.12)',  color: '#D97706', label: 'Morno' },
+  'Frio':   { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB', label: 'Frio' },
 }
 
 const STATUS_OPTIONS = [
@@ -46,17 +46,17 @@ const STATUS_OPTIONS = [
 ]
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  novo:                 { bg: '#EFF6FF', color: '#2563EB' },
-  new:                  { bg: '#EFF6FF', color: '#2563EB' },
-  pending:              { bg: '#EFF6FF', color: '#2563EB' },
-  qualificado:          { bg: '#F0FDF4', color: '#16A34A' },
-  qualified:            { bg: '#F0FDF4', color: '#16A34A' },
-  scheduled:            { bg: '#F0FDF4', color: '#16A34A' },
-  proposta:             { bg: '#FFFBEB', color: '#D97706' },
-  proposal_sent:        { bg: '#FFFBEB', color: '#D97706' },
-  fechado:              { bg: '#F3F4F6', color: '#6B7280' },
-  convertido:           { bg: '#ECFDF5', color: '#059669' },
-  sale_not_performed:   { bg: '#FEF2F2', color: '#DC2626' },
+  novo:                 { bg: 'rgba(59,130,246,0.12)',  color: '#3B82F6' },
+  new:                  { bg: 'rgba(59,130,246,0.12)',  color: '#3B82F6' },
+  pending:              { bg: 'rgba(59,130,246,0.12)',  color: '#3B82F6' },
+  qualificado:          { bg: 'rgba(22,163,74,0.12)',   color: '#16A34A' },
+  qualified:            { bg: 'rgba(22,163,74,0.12)',   color: '#16A34A' },
+  scheduled:            { bg: 'rgba(22,163,74,0.12)',   color: '#16A34A' },
+  proposta:             { bg: 'rgba(217,119,6,0.12)',   color: '#D97706' },
+  proposal_sent:        { bg: 'rgba(217,119,6,0.12)',   color: '#D97706' },
+  fechado:              { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
+  convertido:           { bg: 'rgba(5,150,105,0.12)',   color: '#059669' },
+  sale_not_performed:   { bg: 'rgba(220,38,38,0.12)',   color: '#DC2626' },
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -74,8 +74,8 @@ function statusLabel(s: string | null) {
 }
 
 function statusColor(s: string | null) {
-  if (!s) return { bg: '#F3F4F6', color: '#6B7280' }
-  return STATUS_STYLE[s.toLowerCase()] ?? { bg: '#F3F4F6', color: '#6B7280' }
+  if (!s) return { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
+  return STATUS_STYLE[s.toLowerCase()] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
 }
 
 function fmtDate(iso: string) {
@@ -184,7 +184,7 @@ export default function LeadDetailModal({
       .catch(() => { setToast({ msg: 'Erro ao excluir lead', ok: false }); setDeleting(false); setConfirmDelete(false) })
   }
 
-  const sStyle = STATUS_STYLE[(status ?? 'novo').toLowerCase()] ?? { bg: '#F3F4F6', color: '#6B7280' }
+  const sStyle = STATUS_STYLE[(status ?? 'novo').toLowerCase()] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
 
   return (
     <>
@@ -439,7 +439,7 @@ export default function LeadDetailModal({
             {isAdmin && !confirmDelete && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: 'none', color: '#EF4444', border: '1px solid #FECACA', cursor: 'pointer' }}
+                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: 'none', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer' }}
               >
                 Excluir lead
               </button>

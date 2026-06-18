@@ -54,68 +54,68 @@ export default function SourceDetailModal({ sourceName, dateFrom, dateTo, onClos
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div style={{ background: 'white', borderRadius: 16, padding: 28, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
-            <p style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Detalhes da Fonte</p>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1F2937', marginTop: 4 }}>{sourceName}</h2>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Detalhes da Fonte</p>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', marginTop: 4 }}>{sourceName}</h2>
           </div>
-          <button onClick={onClose} style={{ fontSize: 20, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, padding: 4 }}>✕</button>
+          <button onClick={onClose} style={{ fontSize: 20, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, padding: 4 }}>✕</button>
         </div>
 
         {loading ? (
-          <p style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 13, padding: '20px 0' }}>Carregando...</p>
+          <p style={{ textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13, padding: '20px 0' }}>Carregando...</p>
         ) : !data ? (
           <p style={{ textAlign: 'center', color: '#EF4444', fontSize: 13, padding: '20px 0' }}>Erro ao carregar dados.</p>
         ) : (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
 
-              <div style={{ background: '#F0FDF4', borderRadius: 12, padding: '14px 16px' }}>
-                <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Receita Total</p>
+              <div style={{ background: 'rgba(5,150,105,0.1)', borderRadius: 12, padding: '14px 16px' }}>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Receita Total</p>
                 <p style={{ fontSize: 22, fontWeight: 700, color: '#059669', marginTop: 4 }}>{fmt(data.total_revenue)}</p>
-                <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Total de valor em carteira</p>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Total de valor em carteira</p>
               </div>
 
-              <div style={{ background: '#EFF6FF', borderRadius: 12, padding: '14px 16px' }}>
-                <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Qtd. de Leads</p>
+              <div style={{ background: 'rgba(59,130,246,0.1)', borderRadius: 12, padding: '14px 16px' }}>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Qtd. de Leads</p>
                 <p style={{ fontSize: 22, fontWeight: 700, color: '#2563EB', marginTop: 4 }}>{data.leads_count}</p>
-                <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Todos os leads dessa origem</p>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Todos os leads dessa origem</p>
               </div>
 
-              <div style={{ background: '#FFFBEB', borderRadius: 12, padding: '14px 16px' }}>
-                <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ticket Médio</p>
+              <div style={{ background: 'rgba(217,119,6,0.1)', borderRadius: 12, padding: '14px 16px' }}>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ticket Médio</p>
                 <p style={{ fontSize: 22, fontWeight: 700, color: '#D97706', marginTop: 4 }}>{fmt(data.average_ticket)}</p>
-                <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Valor médio por lead</p>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Valor médio por lead</p>
               </div>
 
-              <div style={{ background: '#F5F3FF', borderRadius: 12, padding: '14px 16px' }}>
-                <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leads Ativos</p>
+              <div style={{ background: 'rgba(124,58,237,0.1)', borderRadius: 12, padding: '14px 16px' }}>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leads Ativos</p>
                 <p style={{ fontSize: 22, fontWeight: 700, color: '#7C3AED', marginTop: 4 }}>
                   {data.active_leads}
                   {data.leads_count > 0 && (
-                    <span style={{ fontSize: 13, fontWeight: 500, color: '#9CA3AF', marginLeft: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-subtle)', marginLeft: 6 }}>
                       ({Math.round(data.active_leads / data.leads_count * 100)}%)
                     </span>
                   )}
                 </p>
-                <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Em andamento no funil</p>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Em andamento no funil</p>
               </div>
 
-              <div style={{ background: '#FEF2F2', borderRadius: 12, padding: '14px 16px' }}>
-                <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tempo Médio no Funil</p>
+              <div style={{ background: 'rgba(220,38,38,0.1)', borderRadius: 12, padding: '14px 16px' }}>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tempo Médio no Funil</p>
                 <p style={{ fontSize: 22, fontWeight: 700, color: '#DC2626', marginTop: 4 }}>{data.average_time_in_pipeline} dias</p>
-                <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Desde criação até última ação</p>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Desde criação até última ação</p>
               </div>
 
-              <div style={{ background: '#F9FAFB', borderRadius: 12, padding: '14px 16px' }}>
-                <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Distribuição</p>
+              <div style={{ background: 'var(--bg-subtle)', borderRadius: 12, padding: '14px 16px' }}>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Distribuição</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   {Object.entries(dist).map(([st, cnt]) => (
                     <div key={st} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 11, color: STATUS_COLORS[st] || '#6B7280', fontWeight: 600 }}>{st}</span>
-                      <span style={{ fontSize: 11, color: '#6B7280' }}>
+                      <span style={{ fontSize: 11, color: STATUS_COLORS[st] || 'var(--text-muted)', fontWeight: 600 }}>{st}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         {cnt} ({distTotal > 0 ? Math.round(cnt / distTotal * 100) : 0}%)
                       </span>
                     </div>

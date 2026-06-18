@@ -54,7 +54,7 @@ function KpiCard({
       style={{
         padding: large ? '24px' : '20px',
         boxShadow: large ? '0 2px 12px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.08)',
-        border: large ? '2px solid #EDE9FE' : '1px solid transparent',
+        border: large ? '2px solid var(--kpi-accent-border)' : '1px solid transparent',
         transition: 'transform 200ms, box-shadow 200ms',
       }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)' }}
@@ -136,7 +136,7 @@ export default function Dashboard() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
           {selectedDate && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#2563EB' }}>{dateFmtDisplay}</span>
               <button onClick={resetDate} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center', padding: 0 }}>
                 <X size={13} />
