@@ -24,6 +24,7 @@ interface LeadItem {
   perception: string | null
   value_potential: number | null
   created_at: string
+  updated_at: string | null
 }
 
 interface ReportResponse {
@@ -84,7 +85,8 @@ function getPagesRange(current: number, total: number): (number | '...')[] {
 }
 
 const COLUMNS: { key: SortKey; label: string }[] = [
-  { key: 'created_at',     label: 'Data' },
+  { key: 'created_at',     label: 'Criado em' },
+  { key: 'updated_at',     label: 'Atualizado em' },
   { key: 'name',           label: 'Cliente' },
   { key: 'email',          label: 'Email' },
   { key: 'phone',          label: 'Telefone' },
@@ -403,6 +405,9 @@ export default function LeadsReport() {
                         >
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                             {fmtDate(lead.created_at)}
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                            {lead.updated_at ? fmtDate(lead.updated_at) : '—'}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)' }}>
                             {lead.name}

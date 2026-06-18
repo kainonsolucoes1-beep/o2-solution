@@ -110,7 +110,8 @@ def leads_by_period(
             db.query(
                 Lead.id, Lead.name, Lead.email, Lead.phone,
                 Lead.company, Lead.attendant,
-                Lead.status, Lead.perception, Lead.value_potential, Lead.created_at, Lead.origin,
+                Lead.status, Lead.perception, Lead.value_potential,
+                Lead.created_at, Lead.updated_at, Lead.origin,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -126,6 +127,7 @@ def leads_by_period(
             status=r.status, perception=r.perception,
             value_potential=float(r.value_potential) if r.value_potential is not None else None,
             created_at=r.created_at,
+            updated_at=r.updated_at,
             origem=r.origin,
         )
         for r in rows

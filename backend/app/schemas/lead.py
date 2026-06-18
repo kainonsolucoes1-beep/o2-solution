@@ -37,6 +37,7 @@ class LeadReportItem(BaseModel):
     perception: Optional[str] = None
     value_potential: Optional[float] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
 
 class LeadsReportResponse(BaseModel):
