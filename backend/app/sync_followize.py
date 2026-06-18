@@ -292,6 +292,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
 
     lead = Lead(**lead_kwargs)
     db.add(lead)
+    db.flush()
     db.add(LeadStatusHistory(
         lead_id=lead.id,
         from_status=None,
