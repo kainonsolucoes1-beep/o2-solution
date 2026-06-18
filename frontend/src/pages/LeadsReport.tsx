@@ -121,7 +121,7 @@ export default function LeadsReport() {
     api.get<Me>('/api/v1/auth/me')
       .then(r => {
         setMe(r.data)
-        if (r.data.role === 'admin' || r.data.username === 'lucas') {
+        if (r.data.role === 'admin' || r.data.username === 'lucas@o2solution.com.br') {
           api.get<string[]>('/api/v1/leads/origins').then(u => setOperators(u.data))
         }
       })
@@ -136,7 +136,7 @@ export default function LeadsReport() {
     if (searched) fetchReport(1)
   }, [perceptionFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas')
+  const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
 
   const fetchReport = useCallback(
     (p: number) => {
