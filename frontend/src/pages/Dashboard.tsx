@@ -96,19 +96,6 @@ export default function Dashboard() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  function NavDot(props: { cx?: number; cy?: number; payload?: { date: string; day: number; count: number } }) {
-    const { cx, cy, payload } = props
-    if (!cx || !cy || !payload?.date) return null
-    return (
-      <circle
-        cx={cx} cy={cy} r={4}
-        fill="#3B82F6"
-        stroke="none"
-        style={{ cursor: 'pointer' }}
-        onClick={() => navigate(`/leads-report?date_from=${payload.date}&date_to=${payload.date}`)}
-      />
-    )
-  }
 
   if (loading) return <p className="text-center text-sm mt-20" style={{ color: 'var(--text-subtle)' }}>Carregando...</p>
   if (error || !data) return <p className="text-center text-sm mt-20" style={{ color: '#EF4444' }}>{error || 'Sem dados.'}</p>
@@ -326,7 +313,19 @@ export default function Dashboard() {
               stroke="#3B82F6"
               strokeWidth={2}
               fill="url(#captGrad)"
-              dot={<NavDot />}
+              dot={(props: { cx?: number; cy?: number; index?: number; payload?: { date: string } }) => {
+                const { cx, cy, index, payload } = props
+                if (!cx || !cy || !payload?.date) return <g key={index} />
+                return (
+                  <circle
+                    key={index}
+                    cx={cx} cy={cy} r={4}
+                    fill="#3B82F6" stroke="none"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/leads-report?date_from=${payload.date}&date_to=${payload.date}`)}
+                  />
+                )
+              }}
               activeDot={{ r: 6, fill: '#2563EB', stroke: '#fff', strokeWidth: 2 }}
             />
           </AreaChart>
