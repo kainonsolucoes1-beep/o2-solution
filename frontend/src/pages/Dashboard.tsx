@@ -184,8 +184,7 @@ export default function Dashboard() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  function handleDotClick(_: unknown, payload: { payload?: { date: string; day: number; count: number } }) {
-    const pt = payload?.payload
+  function handleDotClick(pt: { date: string; day: number; count: number }) {
     if (!pt?.date) return
     setLoadingDay(true)
     api.get<{ total: number; leads: LeadItem[] }>('/api/v1/leads/by-period', {
@@ -402,7 +401,15 @@ export default function Dashboard() {
           <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Clique em um ponto para ver detalhes</span>
         </div>
         <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={data.evolucao_diaria} margin={{ top: 5, right: 20, left: 0, bottom: 0 }} style={{ cursor: loadingDay ? 'wait' : 'default' }}>
+          <AreaChart
+            data={data.evolucao_diaria}
+            margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
+            style={{ cursor: loadingDay ? 'wait' : 'pointer' }}
+            onClick={(chartData: { activePayload?: { payload: { date: string; day: number; count: number } }[] }) => {
+              const pt = chartData?.activePayload?.[0]?.payload
+              if (pt) handleDotClick(pt)
+            }}
+          >
             <defs>
               <linearGradient id="captGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15} />
@@ -424,7 +431,7 @@ export default function Dashboard() {
               strokeWidth={2}
               fill="url(#captGrad)"
               dot={{ r: 3, fill: '#3B82F6', strokeWidth: 0 }}
-              activeDot={{ r: 6, fill: '#2563EB', stroke: '#fff', strokeWidth: 2, cursor: 'pointer', onClick: handleDotClick }}
+              activeDot={{ r: 6, fill: '#2563EB', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
             />
           </AreaChart>
         </ResponsiveContainer>
