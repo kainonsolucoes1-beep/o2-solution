@@ -6,6 +6,7 @@ import LeadsReport from './pages/LeadsReport'
 import Pipeline from './pages/Pipeline'
 import Settings from './pages/Settings'
 import Activities from './pages/Activities'
+import Users from './pages/Users'
 import Layout from './components/Layout'
 import { ThemeProvider } from './ThemeContext'
 
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/activities" element={<Activities />} />
+          <Route path="/users" element={<Users />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -10,6 +10,8 @@ from app.models import User
 from app.models.app_settings import AppSettings
 from app.sync_followize import update_tokens_in_memory, _fetch_all_leads, _upsert_lead, _date_from_lookback, _load_tokens_from_db, _save_sync_status
 from app.models import Lead
+from app.schemas.user import UserAdminCreate, UserAdminUpdate, UserAdminResponse
+from app.security import hash_password
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -199,3 +201,58 @@ async def sync_historico(
 
     _save_sync_status(True, counts=f"{inserted} inseridos, {updated} atualizados")
     return {"success": True, "date_from": date_from, "inserted": inserted, "updated": updated}
+
+
+@router.get("/users", response_model=list[UserAdminResponse])
+def list_users(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    return db.query(User).order_by(User.created_at.asc()).all()
+
+
+@router.post("/users", response_model=UserAdminResponse, status_code=201)
+def create_user(
+    body: UserAdminCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    if db.query(User).filter(User.email == body.email).first():
+        raise HTTPException(status_code=409, detail="Email já cadastrado")
+    if db.query(User).filter(User.username == body.username).first():
+        raise HTTPException(status_code=409, detail="Username já cadastrado")
+    user = User(
+        email=body.email,
+        username=body.username,
+        password_hash=hash_password(body.password),
+        first_name=body.first_name,
+        role=body.role,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.patch("/users/{user_id}", response_model=UserAdminResponse)
+def update_user(
+    user_id: str,
+    body: UserAdminUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if body.role is not None:
+        user.role = body.role
+    if body.is_active is not None:
+        user.is_active = body.is_active
+    if body.first_name is not None:
+        user.first_name = body.first_name
+    db.commit()
+    db.refresh(user)
+    return user

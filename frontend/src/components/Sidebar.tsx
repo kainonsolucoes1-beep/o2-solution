@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BarChart2, FileText, Users,
-  CheckSquare, Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X, Sun, Moon,
+  CheckSquare, Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X, Sun, Moon, UserCog,
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
@@ -10,11 +10,12 @@ import { useTheme } from '../ThemeContext'
 interface UserInfo { username: string; first_name: string | null; role: string }
 
 const NAV = [
-  { to: '/dashboard',    label: 'Dashboard',     Icon: LayoutDashboard },
-  { to: '/pipeline',     label: 'Pipeline',      Icon: BarChart2 },
-  { to: '/leads-report', label: 'Relatório',     Icon: FileText },
-  { to: '/activities',   label: 'Atividades',    Icon: CheckSquare },
-  { to: '/settings',     label: 'Configurações', Icon: Settings },
+  { to: '/dashboard',    label: 'Dashboard',     Icon: LayoutDashboard, adminOnly: false },
+  { to: '/pipeline',     label: 'Pipeline',      Icon: BarChart2,       adminOnly: false },
+  { to: '/leads-report', label: 'Relatório',     Icon: FileText,        adminOnly: false },
+  { to: '/activities',   label: 'Atividades',    Icon: CheckSquare,     adminOnly: false },
+  { to: '/users',        label: 'Usuários',      Icon: UserCog,         adminOnly: true  },
+  { to: '/settings',     label: 'Configurações', Icon: Settings,        adminOnly: false },
 ]
 
 export default function Sidebar() {
@@ -42,7 +43,9 @@ export default function Sidebar() {
 
   const slim = collapsed && !isMobile
 
-  const navLinks = NAV.map(({ to, label, Icon }) => {
+  const isAdmin = user?.role === 'admin' || user?.username === 'lucas@o2solution.com.br'
+
+  const navLinks = NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => {
     const isActive = location.pathname === to
     return (
       <Link
