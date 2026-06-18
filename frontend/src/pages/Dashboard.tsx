@@ -169,6 +169,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [dayModal, setDayModal] = useState<DayModalData | null>(null)
   const [loadingDay, setLoadingDay] = useState(false)
+  const [hoveredPoint, setHoveredPoint] = useState<{ date: string; day: number; count: number } | null>(null)
 
   const fetchAll = useCallback(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -404,11 +405,13 @@ export default function Dashboard() {
           <AreaChart
             data={data.evolucao_diaria}
             margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
-            style={{ cursor: loadingDay ? 'wait' : 'pointer' }}
-            onClick={(chartData: { activePayload?: { payload: { date: string; day: number; count: number } }[] }) => {
+            style={{ cursor: hoveredPoint ? 'pointer' : 'default' }}
+            onMouseMove={(chartData: { activePayload?: { payload: { date: string; day: number; count: number } }[] }) => {
               const pt = chartData?.activePayload?.[0]?.payload
-              if (pt) handleDotClick(pt)
+              setHoveredPoint(pt ?? null)
             }}
+            onMouseLeave={() => setHoveredPoint(null)}
+            onClick={() => { if (hoveredPoint && !loadingDay) handleDotClick(hoveredPoint) }}
           >
             <defs>
               <linearGradient id="captGrad" x1="0" y1="0" x2="0" y2="1">
