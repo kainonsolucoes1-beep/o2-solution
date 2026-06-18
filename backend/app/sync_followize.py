@@ -7,7 +7,7 @@ import requests
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.models import Lead, User
+from app.models import Lead, LeadStatusHistory, User
 
 logger = logging.getLogger(__name__)
 
@@ -250,19 +250,34 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
                 .first()
             )
 
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
     if existing:
+        prev_status = existing.status
+        new_status = fields["status"]
+
         existing.followize_id = followize_id
         existing.name = fields["name"]
         existing.phone = fields["phone"]
         existing.company = fields["company"]
-        existing.status = fields["status"]
+        existing.status = new_status
         existing.origin = fields["origin"]
         existing.attendant = fields["attendant"]
         existing.value_potential = fields["value_potential"]
         existing.perception = fields["perception"]
         if fields["created_at"]:
             existing.created_at = fields["created_at"]
-        existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        existing.updated_at = now
+
+        if prev_status != new_status:
+            db.add(LeadStatusHistory(
+                lead_id=existing.id,
+                from_status=prev_status,
+                to_status=new_status,
+                changed_at=now,
+                changed_by="Followize",
+            ))
+
         return "updated"
 
     lead_kwargs = dict(
@@ -275,7 +290,15 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     if fields["created_at"]:
         lead_kwargs["created_at"] = fields["created_at"]
 
-    db.add(Lead(**lead_kwargs))
+    lead = Lead(**lead_kwargs)
+    db.add(lead)
+    db.add(LeadStatusHistory(
+        lead_id=lead.id,
+        from_status=None,
+        to_status=fields["status"],
+        changed_at=fields["created_at"] or now,
+        changed_by="Followize",
+    ))
     return "inserted"
 
 
