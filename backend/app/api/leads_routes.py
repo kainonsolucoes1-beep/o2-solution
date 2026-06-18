@@ -7,12 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.models import Lead, LeadNote, User
+from app.models import Lead, LeadNote, LeadStatusHistory, User
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
     StatusUpdateRequest, StatusUpdateResponse,
     NoteCreateRequest, NoteCreateResponse,
     NoteResponse, NotesListResponse,
+    StatusHistoryItem, StatusHistoryResponse,
 )
 from app.schemas.user import OperatorInfo
 
@@ -171,10 +172,34 @@ def update_lead_status(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    prev_status = lead.status
     lead.status = body.status
     lead.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    history = LeadStatusHistory(
+        lead_id=lead.id,
+        from_status=prev_status,
+        to_status=body.status,
+        changed_at=lead.updated_at,
+        changed_by=current_user.first_name or current_user.username,
+    )
+    db.add(history)
     db.commit()
     return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
+
+
+@router.get("/leads/{lead_id}/status-history", response_model=StatusHistoryResponse)
+def get_status_history(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(LeadStatusHistory)
+        .filter(LeadStatusHistory.lead_id == lead_id)
+        .order_by(LeadStatusHistory.changed_at.asc())
+        .all()
+    )
+    return StatusHistoryResponse(history=rows)
 
 
 @router.get("/leads/{lead_id}/notes", response_model=NotesListResponse)

@@ -23,6 +23,14 @@ interface Note {
   created_at: string
 }
 
+interface StatusHistoryItem {
+  id: string
+  from_status: string | null
+  to_status: string
+  changed_at: string
+  changed_by: string | null
+}
+
 const PERCEPTION_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   'Quente': { bg: '#FEF2F2', color: '#DC2626', label: 'Quente' },
   'Morno':  { bg: '#FFFBEB', color: '#D97706', label: 'Morno' },
@@ -38,11 +46,36 @@ const STATUS_OPTIONS = [
 ]
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  novo:        { bg: '#EFF6FF', color: '#2563EB' },
-  qualificado: { bg: '#F0FDF4', color: '#16A34A' },
-  proposta:    { bg: '#FFFBEB', color: '#D97706' },
-  fechado:     { bg: '#F3F4F6', color: '#6B7280' },
-  convertido:  { bg: '#ECFDF5', color: '#059669' },
+  novo:                 { bg: '#EFF6FF', color: '#2563EB' },
+  new:                  { bg: '#EFF6FF', color: '#2563EB' },
+  pending:              { bg: '#EFF6FF', color: '#2563EB' },
+  qualificado:          { bg: '#F0FDF4', color: '#16A34A' },
+  qualified:            { bg: '#F0FDF4', color: '#16A34A' },
+  scheduled:            { bg: '#F0FDF4', color: '#16A34A' },
+  proposta:             { bg: '#FFFBEB', color: '#D97706' },
+  proposal_sent:        { bg: '#FFFBEB', color: '#D97706' },
+  fechado:              { bg: '#F3F4F6', color: '#6B7280' },
+  convertido:           { bg: '#ECFDF5', color: '#059669' },
+  sale_not_performed:   { bg: '#FEF2F2', color: '#DC2626' },
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  novo: 'Novo', new: 'Novo', pending: 'Novo',
+  qualificado: 'Qualificado', qualified: 'Qualificado', scheduled: 'Qualificado',
+  proposta: 'Proposta', proposal_sent: 'Proposta',
+  fechado: 'Fechado',
+  convertido: 'Convertido',
+  sale_not_performed: 'Venda não realizada',
+}
+
+function statusLabel(s: string | null) {
+  if (!s) return '—'
+  return STATUS_LABEL[s.toLowerCase()] ?? s
+}
+
+function statusColor(s: string | null) {
+  if (!s) return { bg: '#F3F4F6', color: '#6B7280' }
+  return STATUS_STYLE[s.toLowerCase()] ?? { bg: '#F3F4F6', color: '#6B7280' }
 }
 
 function fmtDate(iso: string) {
@@ -87,11 +120,16 @@ export default function LeadDetailModal({
   const [noteText, setNoteText]           = useState('')
   const [savingNote, setSavingNote]       = useState(false)
   const [toast, setToast]                 = useState<{ msg: string; ok: boolean } | null>(null)
+  const [history, setHistory]             = useState<StatusHistoryItem[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(true)
 
   useEffect(() => {
     api.get<{ notes: Note[] }>(`/api/v1/leads/${lead.id}/notes`)
       .then(r => setNotes(r.data.notes))
       .finally(() => setLoadingNotes(false))
+    api.get<{ history: StatusHistoryItem[] }>(`/api/v1/leads/${lead.id}/status-history`)
+      .then(r => setHistory(r.data.history))
+      .finally(() => setLoadingHistory(false))
   }, [lead.id])
 
   useEffect(() => {
@@ -261,6 +299,54 @@ export default function LeadDetailModal({
                   >
                     Editar
                   </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Histórico de Etapas
+              </span>
+              {loadingHistory ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
+              ) : history.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem histórico registrado.</p>
+              ) : (
+                <div style={{ position: 'relative', paddingLeft: 20 }}>
+                  <div style={{ position: 'absolute', left: 6, top: 8, bottom: 8, width: 2, background: 'var(--border)', borderRadius: 2 }} />
+                  {history.map((item, i) => {
+                    const c = statusColor(item.to_status)
+                    return (
+                      <div key={item.id} style={{ position: 'relative', marginBottom: i < history.length - 1 ? 16 : 0 }}>
+                        <div style={{
+                          position: 'absolute', left: -17, top: 4,
+                          width: 10, height: 10, borderRadius: '50%',
+                          background: c.color, border: '2px solid var(--bg-card)',
+                          boxShadow: `0 0 0 2px ${c.color}`,
+                        }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {item.from_status ? (
+                            <>
+                              <span style={{ fontSize: 12, fontWeight: 600, background: statusColor(item.from_status).bg, color: statusColor(item.from_status).color, padding: '2px 10px', borderRadius: 99 }}>
+                                {statusLabel(item.from_status)}
+                              </span>
+                              <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>→</span>
+                              <span style={{ fontSize: 12, fontWeight: 600, background: c.bg, color: c.color, padding: '2px 10px', borderRadius: 99 }}>
+                                {statusLabel(item.to_status)}
+                              </span>
+                            </>
+                          ) : (
+                            <span style={{ fontSize: 12, fontWeight: 600, background: c.bg, color: c.color, padding: '2px 10px', borderRadius: 99 }}>
+                              Criado como {statusLabel(item.to_status)}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>
+                          {fmtDate(item.changed_at)}{item.changed_by ? ` · ${item.changed_by}` : ''}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

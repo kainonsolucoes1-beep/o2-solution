@@ -13,8 +13,9 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
+from sqlalchemy import text
 from app.database import engine, Base, get_db
-from app.models import User, Lead, LeadNote, AppSettings
+from app.models import User, Lead, LeadNote, LeadStatusHistory, AppSettings
 from app.schemas.lead import LeadCreate, LeadResponse
 from app.api import auth_routes
 from app.api import leads_routes
@@ -56,6 +57,16 @@ app.include_router(activities_routes.router)
 # Startup event para sincronização Followize
 @app.on_event("startup")
 async def startup_event():
+    with engine.connect() as conn:
+        conn.execute(text("""
+            INSERT INTO lead_status_history (id, lead_id, from_status, to_status, changed_at, changed_by)
+            SELECT gen_random_uuid(), l.id, NULL, COALESCE(l.status, 'novo'), l.created_at, 'sistema'
+            FROM leads l
+            WHERE NOT EXISTS (
+                SELECT 1 FROM lead_status_history h WHERE h.lead_id = l.id
+            )
+        """))
+        conn.commit()
     asyncio.create_task(start_sync_scheduler())
     asyncio.create_task(start_token_refresh_scheduler())
 

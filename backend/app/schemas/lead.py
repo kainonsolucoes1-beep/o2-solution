@@ -78,3 +78,18 @@ class NoteResponse(BaseModel):
 
 class NotesListResponse(BaseModel):
     notes: List[NoteResponse]
+
+
+class StatusHistoryItem(BaseModel):
+    id: UUID
+    from_status: Optional[str] = None
+    to_status: str
+    changed_at: datetime
+    changed_by: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class StatusHistoryResponse(BaseModel):
+    history: List[StatusHistoryItem]
