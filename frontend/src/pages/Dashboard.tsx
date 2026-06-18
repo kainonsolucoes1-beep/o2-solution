@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { TrendingUp, TrendingDown, DollarSign, Users, Zap, Target, X } from 'lucide-react'
+import { TrendingUp, TrendingDown, DollarSign, Users, Zap, Target } from 'lucide-react'
 import api from '../api'
 
 interface PerformanceData {
@@ -75,101 +75,12 @@ function KpiCard({
 const MEDALS = ['🥇', '🥈', '🥉']
 const BAR_COLORS = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6']
 
-interface LeadItem {
-  id: string; name: string; origem: string | null; value_potential: number | null
-}
-interface DayModalData {
-  date: string
-  day: number
-  count: number
-  valor: number
-  porOrigem: { name: string; count: number; valor: number }[]
-}
-
-function DayModal({ data, onClose }: { data: DayModalData; onClose: () => void }) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const dateFmt = new Date(data.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-
-  return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}
-      onClick={onClose}
-    >
-      <div
-        style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-2)' }}>Captação — {dateFmt}</p>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex', alignItems: 'center' }}>
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* KPIs */}
-        <div style={{ padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ background: 'var(--bg-subtle)', borderRadius: 12, padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Leads captados</p>
-            <p style={{ fontSize: 30, fontWeight: 700, color: '#3B82F6', lineHeight: 1 }}>{data.count}</p>
-          </div>
-          <div style={{ background: 'var(--bg-subtle)', borderRadius: 12, padding: '14px 16px' }}>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Valor captado</p>
-            <p style={{ fontSize: data.valor > 0 ? 20 : 30, fontWeight: 700, color: '#8B5CF6', lineHeight: 1 }}>{data.valor > 0 ? fmtBrl(data.valor) : '—'}</p>
-          </div>
-        </div>
-
-        {/* Por origem */}
-        {data.porOrigem.length > 0 && (
-          <div style={{ padding: '0 24px 20px' }}>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Por origem</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {data.porOrigem.map((o, i) => {
-                const pct = data.count > 0 ? Math.round(o.count / data.count * 100) : 0
-                const colors = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6', '#10B981']
-                const c = colors[Math.min(i, colors.length - 1)]
-                return (
-                  <div key={o.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: c, flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.name}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{o.count}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', width: 36, textAlign: 'right', flexShrink: 0 }}>{pct}%</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border-lt)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{ padding: '7px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}
-          >
-            Fechar
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const [data, setData] = useState<PerformanceData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [dayModal, setDayModal] = useState<DayModalData | null>(null)
-  const [loadingDay, setLoadingDay] = useState(false)
-  const [hoveredPoint, setHoveredPoint] = useState<{ date: string; day: number; count: number } | null>(null)
 
   const fetchAll = useCallback(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -185,28 +96,18 @@ export default function Dashboard() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  function handleDotClick(pt: { date: string; day: number; count: number }) {
-    if (!pt?.date) return
-    setLoadingDay(true)
-    api.get<{ total: number; leads: LeadItem[] }>('/api/v1/leads/by-period', {
-      params: { date_from: pt.date, date_to: pt.date, page: 1, limit: 500 },
-    })
-      .then(r => {
-        const leads = r.data.leads
-        const valor = leads.reduce((s, l) => s + (l.value_potential ?? 0), 0)
-        const map: Record<string, { count: number; valor: number }> = {}
-        leads.forEach(l => {
-          const k = l.origem ?? 'Sem origem'
-          if (!map[k]) map[k] = { count: 0, valor: 0 }
-          map[k].count++
-          map[k].valor += l.value_potential ?? 0
-        })
-        const porOrigem = Object.entries(map)
-          .map(([name, v]) => ({ name, ...v }))
-          .sort((a, b) => b.count - a.count)
-        setDayModal({ date: pt.date, day: pt.day, count: pt.count, valor, porOrigem })
-      })
-      .finally(() => setLoadingDay(false))
+  function NavDot(props: { cx?: number; cy?: number; payload?: { date: string; day: number; count: number } }) {
+    const { cx, cy, payload } = props
+    if (!cx || !cy || !payload?.date) return null
+    return (
+      <circle
+        cx={cx} cy={cy} r={4}
+        fill="#3B82F6"
+        stroke="none"
+        style={{ cursor: 'pointer' }}
+        onClick={() => navigate(`/leads-report?date_from=${payload.date}&date_to=${payload.date}`)}
+      />
+    )
   }
 
   if (loading) return <p className="text-center text-sm mt-20" style={{ color: 'var(--text-subtle)' }}>Carregando...</p>
@@ -219,7 +120,6 @@ export default function Dashboard() {
   const mesNome = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
-    <>
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
       <div>
@@ -405,13 +305,6 @@ export default function Dashboard() {
           <AreaChart
             data={data.evolucao_diaria}
             margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
-            style={{ cursor: hoveredPoint ? 'pointer' : 'default' }}
-            onMouseMove={(chartData: { activePayload?: { payload: { date: string; day: number; count: number } }[] }) => {
-              const pt = chartData?.activePayload?.[0]?.payload
-              setHoveredPoint(pt ?? null)
-            }}
-            onMouseLeave={() => setHoveredPoint(null)}
-            onClick={() => { if (hoveredPoint && !loadingDay) handleDotClick(hoveredPoint) }}
           >
             <defs>
               <linearGradient id="captGrad" x1="0" y1="0" x2="0" y2="1">
@@ -433,16 +326,13 @@ export default function Dashboard() {
               stroke="#3B82F6"
               strokeWidth={2}
               fill="url(#captGrad)"
-              dot={{ r: 3, fill: '#3B82F6', strokeWidth: 0 }}
-              activeDot={{ r: 6, fill: '#2563EB', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
+              dot={<NavDot />}
+              activeDot={{ r: 6, fill: '#2563EB', stroke: '#fff', strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
     </main>
-
-    {dayModal && <DayModal data={dayModal} onClose={() => setDayModal(null)} />}
-    </>
   )
 }
