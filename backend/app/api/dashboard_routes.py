@@ -330,17 +330,24 @@ META_LEADS = 200
 
 @router.get("/performance")
 def dashboard_performance(
+    date: str = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if date:
+        ref = datetime.strptime(date, "%Y-%m-%d")
+    else:
+        ref = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    today_start = ref.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
     yesterday_start = today_start - timedelta(days=1)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_start = today_start.replace(day=1)
     prev_month_end = month_start
     prev_month_start = (month_start - timedelta(days=1)).replace(day=1)
-    day_of_month = now.day
-    days_in_month = _cal.monthrange(now.year, now.month)[1]
+    day_of_month = today_start.day
+    days_in_month = _cal.monthrange(today_start.year, today_start.month)[1]
+    now = today_start  # alias para compatibilidade com uso de `now.year/month` abaixo
 
     def _pct(curr, prev):
         if prev == 0:
@@ -365,18 +372,18 @@ def dashboard_performance(
         return db.query(func.count(Lead.id)).filter(*filters).scalar() or 0
 
     # Captação
-    captacao_hoje = _cnt([Lead.created_at >= today_start])
+    captacao_hoje = _cnt([Lead.created_at >= today_start, Lead.created_at < today_end])
     captacao_ontem = _cnt([Lead.created_at >= yesterday_start, Lead.created_at < today_start])
-    captacao_mes = _cnt([Lead.created_at >= month_start])
+    captacao_mes = _cnt([Lead.created_at >= month_start, Lead.created_at < today_end])
     captacao_mes_ant = _cnt([Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
 
-    # Valor em Carteira — mês atual, excluindo perdidos
+    # Valor em Carteira — mês atual até a data de referência, excluindo perdidos
     not_perdido = ~_s_in(_PERDIDO)
-    valor_carteira = _sum([not_perdido, Lead.created_at >= month_start])
+    valor_carteira = _sum([not_perdido, Lead.created_at >= month_start, Lead.created_at < today_end])
     valor_carteira_mes_ant = _sum([not_perdido, Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
 
-    # Ticket médio — mês atual, excluindo perdidos
-    ticket_medio = _avg([not_perdido, Lead.created_at >= month_start])
+    # Ticket médio — mês atual até a data de referência, excluindo perdidos
+    ticket_medio = _avg([not_perdido, Lead.created_at >= month_start, Lead.created_at < today_end])
     ticket_medio_ant = _avg([not_perdido, Lead.created_at >= prev_month_start, Lead.created_at < prev_month_end])
 
     # Meta de leads — captação do mês vs meta de 200
@@ -386,13 +393,13 @@ def dashboard_performance(
     daily_rate = captacao_mes / day_of_month if day_of_month > 0 else 0
     projecao_mes = round(daily_rate * days_in_month)
 
-    # Ranking de operadores — mês atual
+    # Ranking de operadores — mês atual até a data de referência
     ranking_rows = (
         db.query(
             func.coalesce(Lead.origin, "Sem origem").label("name"),
             func.count(Lead.id).label("count"),
         )
-        .filter(Lead.created_at >= month_start)
+        .filter(Lead.created_at >= month_start, Lead.created_at < today_end)
         .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
         .limit(3)
@@ -410,10 +417,10 @@ def dashboard_performance(
         for r in ranking_rows
     ]
 
-    # Evolução diária — leads por dia no mês
+    # Evolução diária — leads por dia no mês até a data de referência
     daily_rows = (
         db.query(cast(Lead.created_at, Date).label("day"), func.count(Lead.id).label("count"))
-        .filter(Lead.created_at >= month_start)
+        .filter(Lead.created_at >= month_start, Lead.created_at < today_end)
         .group_by(cast(Lead.created_at, Date))
         .order_by(cast(Lead.created_at, Date))
         .all()
@@ -424,13 +431,13 @@ def dashboard_performance(
         for d in range(1, day_of_month + 1)
     ]
 
-    # Captação hoje por fonte
+    # Captação do dia por fonte
     hoje_fonte_rows = (
         db.query(
             func.coalesce(Lead.origin, "Sem origem").label("name"),
             func.count(Lead.id).label("count"),
         )
-        .filter(Lead.created_at >= today_start)
+        .filter(Lead.created_at >= today_start, Lead.created_at < today_end)
         .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
         .all()

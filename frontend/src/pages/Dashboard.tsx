@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { TrendingUp, TrendingDown, DollarSign, Users, Zap, Target } from 'lucide-react'
+import { TrendingUp, TrendingDown, DollarSign, Users, Zap, Target, Calendar, X } from 'lucide-react'
 import api from '../api'
 
 interface PerformanceData {
@@ -76,16 +76,21 @@ const MEDALS = ['🥇', '🥈', '🥉']
 const BAR_COLORS = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6']
 
 
+const todayStr = new Date().toISOString().slice(0, 10)
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [data, setData] = useState<PerformanceData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [showPicker, setShowPicker] = useState(false)
 
-  const fetchAll = useCallback(() => {
+  const fetchAll = useCallback((date?: string | null) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
     setLoading(true)
-    api.get<PerformanceData>('/api/v1/dashboard/performance')
+    const params = date ? { date } : {}
+    api.get<PerformanceData>('/api/v1/dashboard/performance', { params })
       .then(r => setData(r.data))
       .catch(err => {
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
@@ -94,7 +99,17 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [navigate])
 
-  useEffect(() => { fetchAll() }, [fetchAll])
+  useEffect(() => { fetchAll(selectedDate) }, [fetchAll, selectedDate])
+
+  function handleDateChange(d: string) {
+    setShowPicker(false)
+    setSelectedDate(d === todayStr ? null : d)
+  }
+
+  function resetDate() {
+    setSelectedDate(null)
+    setShowPicker(false)
+  }
 
 
   if (loading) return <p className="text-center text-sm mt-20" style={{ color: 'var(--text-subtle)' }}>Carregando...</p>
@@ -104,20 +119,59 @@ export default function Dashboard() {
   const metaColor = data.meta_pct >= 80 ? '#10B981' : data.meta_pct >= 50 ? '#F59E0B' : '#EF4444'
   const projecaoColor = (data.projecao_mes ?? 0) >= metaLeads ? '#10B981' : '#F59E0B'
   const faltam = Math.max(0, metaLeads - (data.captacao_mes ?? 0))
-  const mesNome = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+  const refDate = selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date()
+  const mesNome = refDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+  const dateFmtDisplay = selectedDate
+    ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : null
 
   return (
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
-      <div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-1)' }}>Dashboard</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Performance operacional em tempo real</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-1)' }}>Dashboard</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Performance operacional em tempo real</p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
+          {selectedDate && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563EB' }}>{dateFmtDisplay}</span>
+              <button onClick={resetDate} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center', padding: 0 }}>
+                <X size={13} />
+              </button>
+            </div>
+          )}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowPicker(p => !p)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}
+            >
+              <Calendar size={14} />
+              {!selectedDate && 'Ver dia anterior'}
+            </button>
+            {showPicker && (
+              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 20, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
+                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Selecionar data</p>
+                <input
+                  type="date"
+                  max={todayStr}
+                  defaultValue={selectedDate ?? todayStr}
+                  autoFocus
+                  onChange={e => handleDateChange(e.target.value)}
+                  style={{ fontSize: 13, padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border-in)', color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 xl:gap-6">
         <KpiCard
-          label="Captação Hoje"
+          label={selectedDate ? `Captação — ${dateFmtDisplay}` : 'Captação Hoje'}
           value={String(data.captacao_hoje)}
           trend={data.vs_ontem}
           trendLabel="vs ontem"
@@ -155,7 +209,7 @@ export default function Dashboard() {
       {data.captacao_hoje_por_fonte && data.captacao_hoje_por_fonte.length > 0 && (
         <div className="flex flex-col gap-3">
           <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Captação Hoje por Fonte
+            {selectedDate ? `Captação por Fonte — ${dateFmtDisplay}` : 'Captação Hoje por Fonte'}
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3">
             {data.captacao_hoje_por_fonte.map((f, i) => {
