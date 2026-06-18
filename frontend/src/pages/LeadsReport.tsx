@@ -495,6 +495,7 @@ export default function LeadsReport() {
         <LeadDetailModal
           lead={selectedLead}
           onClose={() => setSelectedLead(null)}
+          isAdmin={isAdmin}
           onStatusChange={(id, newStatus) => {
             setReport(prev =>
               prev
@@ -502,6 +503,12 @@ export default function LeadsReport() {
                 : prev
             )
             setSelectedLead(prev => prev ? { ...prev, status: newStatus } : null)
+          }}
+          onDelete={(id) => {
+            setReport(prev =>
+              prev ? { ...prev, leads: prev.leads.filter(l => l.id !== id), total: prev.total - 1 } : prev
+            )
+            setSelectedLead(null)
           }}
         />
       )}

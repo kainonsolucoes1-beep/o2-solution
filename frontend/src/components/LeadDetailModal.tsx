@@ -107,10 +107,14 @@ export default function LeadDetailModal({
   lead,
   onClose,
   onStatusChange,
+  onDelete,
+  isAdmin,
 }: {
   lead: LeadItem
   onClose: () => void
   onStatusChange?: (id: string, newStatus: string) => void
+  onDelete?: (id: string) => void
+  isAdmin?: boolean
 }) {
   const [status, setStatus]               = useState(lead.status ?? 'novo')
   const [editingStatus, setEditingStatus] = useState(false)
@@ -120,6 +124,8 @@ export default function LeadDetailModal({
   const [noteText, setNoteText]           = useState('')
   const [savingNote, setSavingNote]       = useState(false)
   const [toast, setToast]                 = useState<{ msg: string; ok: boolean } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting]           = useState(false)
   const [history, setHistory]             = useState<StatusHistoryItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
 
@@ -169,6 +175,13 @@ export default function LeadDetailModal({
       .then(r => setNotes(r.data.notes))
       .catch(() => setToast({ msg: 'Erro ao salvar nota', ok: false }))
       .finally(() => setSavingNote(false))
+  }
+
+  function handleDelete() {
+    setDeleting(true)
+    api.delete(`/api/v1/leads/${lead.id}`)
+      .then(() => { onDelete?.(lead.id); onClose() })
+      .catch(() => { setToast({ msg: 'Erro ao excluir lead', ok: false }); setDeleting(false); setConfirmDelete(false) })
   }
 
   const sStyle = STATUS_STYLE[(status ?? 'novo').toLowerCase()] ?? { bg: '#F3F4F6', color: '#6B7280' }
@@ -422,7 +435,34 @@ export default function LeadDetailModal({
           </div>
 
           {/* Footer */}
-          <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-lt)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+          <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-lt)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            {isAdmin && !confirmDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: 'none', color: '#EF4444', border: '1px solid #FECACA', cursor: 'pointer' }}
+              >
+                Excluir lead
+              </button>
+            )}
+            {isAdmin && confirmDelete && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, color: '#EF4444', fontWeight: 500 }}>Confirmar exclusão?</span>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#EF4444', color: 'white', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
+                >
+                  {deleting ? 'Excluindo…' : 'Sim, excluir'}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+            {!isAdmin && <span />}
             <button
               onClick={onClose}
               style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}
