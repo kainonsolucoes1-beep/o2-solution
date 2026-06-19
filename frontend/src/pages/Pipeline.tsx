@@ -219,37 +219,90 @@ export default function Pipeline() {
             </ResponsiveContainer>
           </div>
 
-          <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div className="bg-white rounded-xl p-6 flex flex-col" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
               Conversões do Funil
             </h2>
-            <div className="flex flex-col gap-5 mt-1">
-              {convs.map((c, i) => (
-                <div
-                  key={i}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '4px 6px', borderRadius: 8, transition: 'background 150ms' }}
-                  onClick={() => navigate(`/leads-report${c.nav}`)}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <div style={{ width: 38, height: 38, borderRadius: '50%', background: c.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <c.Icon size={16} color={c.color} />
+
+            {/* KPIs executivos */}
+            {(() => {
+              const mainConvs = convs.slice(0, 4)
+              const lostConv  = convs[4]
+              const totalRate = distTotal > 0 ? +((overview.fechado / distTotal) * 100).toFixed(1) : 0
+              const bottleneck = mainConvs.reduce((a, b) => a.rate <= b.rate ? a : b)
+              const bestConv   = mainConvs.reduce((a, b) => a.rate >= b.rate ? a : b)
+              const worstConv  = bottleneck
+
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, background: 'var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
+                    <div style={{ background: 'var(--bg-subtle)', padding: '14px 16px' }}>
+                      <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Conversão Total</p>
+                      <p style={{ fontSize: 28, fontWeight: 800, color: '#059669', lineHeight: 1, margin: 0 }}>{totalRate}<span style={{ fontSize: 14, fontWeight: 600, marginLeft: 2 }}>%</span></p>
+                      <p style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 4 }}>Pendente → Fechado</p>
+                    </div>
+                    <div style={{ background: 'var(--bg-subtle)', padding: '14px 16px' }}>
+                      <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Leads Perdidos</p>
+                      <p style={{ fontSize: 28, fontWeight: 800, color: '#EF4444', lineHeight: 1, margin: 0 }}>{lostConv.rate}<span style={{ fontSize: 14, fontWeight: 600, marginLeft: 2 }}>%</span></p>
+                      <p style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 4 }}>{overview.perdido} leads no período</p>
+                    </div>
+                    <div style={{ background: 'var(--bg-subtle)', padding: '14px 16px' }}>
+                      <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Maior Gargalo</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B', lineHeight: 1.3, margin: 0 }}>{worstConv.from} → {worstConv.to}</p>
+                      <p style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 4 }}>{worstConv.rate}% de conversão</p>
+                    </div>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <div>
-                        <p style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 600, lineHeight: 1.3 }}>{c.from} → {c.to}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 1 }}>De {c.fromCount} para {c.toCount} leads</p>
+
+                  {/* Linhas por etapa */}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {mainConvs.map((c, i) => {
+                      const isBest  = c === bestConv
+                      const isWorst = c === worstConv
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => navigate(`/leads-report${c.nav}`)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '13px 8px', cursor: 'pointer', borderBottom: i < mainConvs.length - 1 ? '1px solid var(--border)' : 'none', borderRadius: 8, transition: 'background 150ms' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div style={{ width: 60, textAlign: 'right', flexShrink: 0 }}>
+                            <span style={{ fontSize: 26, fontWeight: 800, color: c.color, lineHeight: 1 }}>{c.rate}<span style={{ fontSize: 13, fontWeight: 600 }}>%</span></span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)' }}>{c.from} → {c.to}</span>
+                              {isBest && <span style={{ fontSize: 10, fontWeight: 700, color: '#059669', background: '#D1FAE5', padding: '2px 7px', borderRadius: 99, letterSpacing: '0.03em' }}>Melhor Conversão</span>}
+                              {isWorst && <span style={{ fontSize: 10, fontWeight: 700, color: '#B45309', background: '#FEF3C7', padding: '2px 7px', borderRadius: 99, letterSpacing: '0.03em' }}>Maior Gargalo</span>}
+                            </div>
+                            <span style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2, display: 'block' }}>{c.fromCount} → {c.toCount} leads</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Linha separadora — Perdido */}
+                    <div
+                      onClick={() => navigate(`/leads-report${lostConv.nav}`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '13px 8px', cursor: 'pointer', marginTop: 8, borderTop: '1px dashed var(--border)', borderRadius: 8, transition: 'background 150ms' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div style={{ width: 60, textAlign: 'right', flexShrink: 0 }}>
+                        <span style={{ fontSize: 26, fontWeight: 800, color: '#EF4444', lineHeight: 1 }}>{lostConv.rate}<span style={{ fontSize: 13, fontWeight: 600 }}>%</span></span>
                       </div>
-                      <span style={{ fontSize: 16, fontWeight: 700, color: c.color, marginLeft: 12, flexShrink: 0 }}>{c.rate}%</span>
-                    </div>
-                    <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 8, overflow: 'hidden', marginTop: 6 }}>
-                      <div style={{ width: `${Math.min(100, c.rate)}%`, height: '100%', background: c.color, borderRadius: 99, transition: 'width 500ms ease' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)' }}>Total → Perdido</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', background: '#FEE2E2', padding: '2px 7px', borderRadius: 99 }}>Taxa de Perda</span>
+                        </div>
+                        <span style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2, display: 'block' }}>{overview.perdido} leads perdidos no período</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                </>
+              )
+            })()}
           </div>
 
         </div>
