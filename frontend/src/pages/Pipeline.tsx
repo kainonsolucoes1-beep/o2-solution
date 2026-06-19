@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import { Clock, CheckSquare, FileText, Handshake, Timer, XCircle } from 'lucide-react'
 import api from '../api'
 
@@ -93,9 +92,6 @@ export default function Pipeline() {
   ]
 
   function fmtBrl(v: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
-  }
-  function fmtBrlFull(v: number) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
   }
 
@@ -199,24 +195,36 @@ export default function Pipeline() {
         {/* Distribuição + Conversões */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
 
-          <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Valor por Etapa
+          <div className="bg-white rounded-xl p-6 flex flex-col gap-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
+              Distribuição Financeira do Pipeline
             </h2>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={distStages} layout="vertical" margin={{ top: 0, right: 70, left: 10, bottom: 0 }}>
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="stage" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} width={90} />
-                <Tooltip
-                  formatter={(v: number) => [fmtBrlFull(v), 'Valor potencial']}
-                  contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12, background: 'var(--bg-card)', color: 'var(--text-2)' }}
-                />
-                <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={26}>
-                  {distStages.map(s => <Cell key={s.stage} fill={s.color} />)}
-                  <LabelList dataKey="value" position="right" style={{ fontSize: 11, fontWeight: 600, fill: 'var(--text-3)' }} formatter={(v: number) => fmtBrl(v)} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {(() => {
+              const totalValue = distStages.reduce((sum, s) => sum + s.value, 0)
+              const finCards = [
+                { label: 'Valor Total',    value: totalValue,                   color: 'var(--text-3)',  bg: 'var(--bg-subtle)', border: 'var(--border)', nav: null },
+                { label: 'Em Proposta',    value: overview.proposta_value,      color: '#F59E0B',        bg: '#FFFBEB',           border: '#FDE68A',       nav: cardNav({ status: 'proposal_sent' }) },
+                { label: 'Em Negociação',  value: overview.negociacao_value,    color: '#8B5CF6',        bg: '#F5F3FF',           border: '#DDD6FE',       nav: cardNav({ perception: 'Quente,Morno' }) },
+                { label: 'Fechado',        value: overview.fechado_value,       color: '#059669',        bg: '#ECFDF5',           border: '#A7F3D0',       nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
+                { label: 'Perdido',        value: overview.perdido_value,       color: '#EF4444',        bg: '#FEF2F2',           border: '#FECACA',       nav: cardNav({ status: 'sale_not_performed' }) },
+              ]
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {finCards.map((fc, i) => (
+                    <div
+                      key={i}
+                      onClick={() => fc.nav && navigate(`/leads-report${fc.nav}`)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 10, background: fc.bg, border: `1px solid ${fc.border}`, cursor: fc.nav ? 'pointer' : 'default', transition: 'opacity 150ms' }}
+                      onMouseEnter={e => { if (fc.nav) e.currentTarget.style.opacity = '0.85' }}
+                      onMouseLeave={e => { if (fc.nav) e.currentTarget.style.opacity = '1' }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 600, color: fc.color }}>{fc.label}</span>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: fc.color, letterSpacing: '-0.02em' }}>{fmtBrl(fc.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
 
           <div className="bg-white rounded-xl p-6 flex flex-col" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -238,12 +246,12 @@ export default function Pipeline() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, background: 'var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
                     <div style={{ background: 'var(--bg-subtle)', padding: '14px 16px' }}>
                       <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Conversão Total</p>
-                      <p style={{ fontSize: 28, fontWeight: 800, color: '#059669', lineHeight: 1, margin: 0 }}>{totalRate}<span style={{ fontSize: 14, fontWeight: 600, marginLeft: 2 }}>%</span></p>
+                      <p style={{ fontSize: 22, fontWeight: 700, color: '#059669', lineHeight: 1, margin: 0 }}>{totalRate}<span style={{ fontSize: 14, fontWeight: 600, marginLeft: 2 }}>%</span></p>
                       <p style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 4 }}>Pendente → Fechado</p>
                     </div>
                     <div style={{ background: 'var(--bg-subtle)', padding: '14px 16px' }}>
                       <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>Leads Perdidos</p>
-                      <p style={{ fontSize: 28, fontWeight: 800, color: '#EF4444', lineHeight: 1, margin: 0 }}>{lostConv.rate}<span style={{ fontSize: 14, fontWeight: 600, marginLeft: 2 }}>%</span></p>
+                      <p style={{ fontSize: 22, fontWeight: 700, color: '#EF4444', lineHeight: 1, margin: 0 }}>{lostConv.rate}<span style={{ fontSize: 14, fontWeight: 600, marginLeft: 2 }}>%</span></p>
                       <p style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 4 }}>{overview.perdido} leads no período</p>
                     </div>
                     <div style={{ background: 'var(--bg-subtle)', padding: '14px 16px' }}>
@@ -266,8 +274,8 @@ export default function Pipeline() {
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <div style={{ width: 60, textAlign: 'right', flexShrink: 0 }}>
-                            <span style={{ fontSize: 26, fontWeight: 800, color: c.color, lineHeight: 1 }}>{c.rate}<span style={{ fontSize: 13, fontWeight: 600 }}>%</span></span>
+                          <div style={{ width: 56, textAlign: 'right', flexShrink: 0 }}>
+                            <span style={{ fontSize: 20, fontWeight: 700, color: c.color, lineHeight: 1 }}>{c.rate}<span style={{ fontSize: 12, fontWeight: 500, marginLeft: 1 }}>%</span></span>
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -288,8 +296,8 @@ export default function Pipeline() {
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <div style={{ width: 60, textAlign: 'right', flexShrink: 0 }}>
-                        <span style={{ fontSize: 26, fontWeight: 800, color: '#EF4444', lineHeight: 1 }}>{lostConv.rate}<span style={{ fontSize: 13, fontWeight: 600 }}>%</span></span>
+                      <div style={{ width: 56, textAlign: 'right', flexShrink: 0 }}>
+                        <span style={{ fontSize: 20, fontWeight: 700, color: '#EF4444', lineHeight: 1 }}>{lostConv.rate}<span style={{ fontSize: 12, fontWeight: 500, marginLeft: 1 }}>%</span></span>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
