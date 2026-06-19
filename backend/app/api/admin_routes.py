@@ -24,6 +24,8 @@ def _require_admin(user: User):
 class TokenUpdateRequest(BaseModel):
     access_token: str
     refresh_token: str
+    client_id: str = ""
+    client_secret: str = ""
 
 
 @router.post("/followize-tokens")
@@ -34,10 +36,16 @@ def update_followize_tokens(
 ):
     _require_admin(current_user)
 
-    for key, value in [
+    pairs = [
         ("followize_access_token", body.access_token),
         ("followize_refresh_token", body.refresh_token),
-    ]:
+    ]
+    if body.client_id:
+        pairs.append(("followize_client_id", body.client_id))
+    if body.client_secret:
+        pairs.append(("followize_client_secret", body.client_secret))
+
+    for key, value in pairs:
         row = db.query(AppSettings).filter(AppSettings.key == key).first()
         if row:
             row.value = value

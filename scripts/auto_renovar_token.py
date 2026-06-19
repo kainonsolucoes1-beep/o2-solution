@@ -72,7 +72,12 @@ def main():
     log("Enviando tokens para o servidor...")
     push_resp = requests.post(
         f"{DASHBOARD_URL}/api/v1/admin/followize-tokens",
-        json={"access_token": novo_access, "refresh_token": novo_refresh},
+        json={
+            "access_token": novo_access,
+            "refresh_token": novo_refresh,
+            "client_id": client_id,
+            "client_secret": client_secret,
+        },
         headers={"Authorization": f"Bearer {jwt}"},
         timeout=30,
     )

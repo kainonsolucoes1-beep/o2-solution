@@ -96,16 +96,46 @@ def _save_sync_status(ok: bool, counts: str = "", error: str = "") -> None:
         logger.warning("Não foi possível salvar status do sync: %s", exc)
 
 
+def _load_client_credentials() -> tuple[str, str]:
+    """Carrega client_id e client_secret do banco."""
+    try:
+        from app.models.app_settings import AppSettings
+        db = SessionLocal()
+        try:
+            rows = {
+                r.key: r.value
+                for r in db.query(AppSettings)
+                .filter(AppSettings.key.in_(["followize_client_id", "followize_client_secret"]))
+                .all()
+            }
+            return rows.get("followize_client_id", ""), rows.get("followize_client_secret", "")
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("Não foi possível carregar client credentials do banco: %s", exc)
+        return "", ""
+
+
 def _refresh_access_token() -> bool:
     refresh = _tokens["refresh"]
     if not refresh:
         logger.error("FOLLOWIZE_REFRESH_TOKEN não configurado — não é possível renovar")
         return False
 
+    client_id, client_secret = _load_client_credentials()
+    if not client_id or not client_secret:
+        logger.error("followize_client_id/client_secret não configurados no banco — renovação impossível")
+        return False
+
     try:
         resp = requests.post(
             f"{FOLLOWIZE_API_URL}/oauth/token",
-            json={"grant_type": "refresh_token", "refresh_token": refresh},
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh,
+                "client_id": client_id,
+                "client_secret": client_secret,
+            },
             timeout=30,
         )
         resp.raise_for_status()
