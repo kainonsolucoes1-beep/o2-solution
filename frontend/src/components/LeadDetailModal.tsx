@@ -289,10 +289,10 @@ export default function LeadDetailModal({
                     style={{
                       background: sStyle.bg, color: sStyle.color,
                       padding: '4px 14px', borderRadius: 99,
-                      fontSize: 13, fontWeight: 600, textTransform: 'capitalize',
+                      fontSize: 13, fontWeight: 600,
                     }}
                   >
-                    {status}
+                    {statusLabel(status)}
                   </span>
                   <button
                     onClick={() => setEditingStatus(true)}
