@@ -145,8 +145,8 @@ export default function LeadsReport() {
       setError('')
 
       const params: Record<string, string | number | boolean> = {
-        date_from: vencidosFilter ? '2000-01-01' : dateFrom,
-        date_to:   vencidosFilter ? today : dateTo,
+        date_from: dateFrom,
+        date_to:   dateTo,
         page:      p,
         limit:     LIMIT,
       }

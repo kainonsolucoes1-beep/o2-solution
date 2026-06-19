@@ -253,7 +253,7 @@ export default function Pipeline() {
           <div
             className="bg-white rounded-xl p-6 flex flex-col gap-3"
             style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #EF4444', cursor: 'pointer', transition: 'transform 200ms' }}
-            onClick={() => navigate('/leads-report?vencidos=1')}
+            onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
             onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
             onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
           >
@@ -273,7 +273,7 @@ export default function Pipeline() {
           <div
             className="bg-white rounded-xl p-6 flex flex-col gap-4"
             style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #F59E0B', cursor: 'pointer', transition: 'transform 200ms' }}
-            onClick={() => navigate('/leads-report?status=pending,novo,new')}
+            onClick={() => navigate('/leads-report' + cardNav({ status: 'pending,novo,new' }))}
             onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
             onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
           >

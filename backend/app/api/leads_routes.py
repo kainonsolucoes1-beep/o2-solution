@@ -89,8 +89,7 @@ def leads_by_period(
     def _base_query(q):
         if vencidos:
             q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
-        else:
-            q = q.filter(Lead.created_at >= start, Lead.created_at < end)
+        q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if not admin:
             q = q.filter(Lead.origin == my_name)
         elif origem:
