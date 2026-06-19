@@ -256,6 +256,17 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         prev_status = existing.status
         new_status = fields["status"]
 
+        changed = (
+            existing.name != fields["name"]
+            or existing.phone != fields["phone"]
+            or existing.company != fields["company"]
+            or existing.status != new_status
+            or existing.origin != fields["origin"]
+            or existing.attendant != fields["attendant"]
+            or existing.value_potential != fields["value_potential"]
+            or existing.perception != fields["perception"]
+        )
+
         existing.followize_id = followize_id
         existing.name = fields["name"]
         existing.phone = fields["phone"]
@@ -267,7 +278,8 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.perception = fields["perception"]
         if fields["created_at"]:
             existing.created_at = fields["created_at"]
-        existing.updated_at = now
+        if changed:
+            existing.updated_at = now
 
         if prev_status != new_status:
             db.add(LeadStatusHistory(
