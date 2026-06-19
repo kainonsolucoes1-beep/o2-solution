@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
-import { Clock, CheckSquare, FileText, Handshake, Timer } from 'lucide-react'
+import { Clock, CheckSquare, FileText, Handshake, Timer, XCircle } from 'lucide-react'
 import api from '../api'
 
 interface PipelineOverview {
@@ -130,6 +130,13 @@ export default function Pipeline() {
       color: CONV_COLORS[3], Icon: Handshake,
       note: `${overview.negociacao} em negociação`,
       nav: cardNav({ perception: 'Quente,Morno' }),
+    },
+    {
+      from: 'Total', to: 'Perdido', fromCount: distTotal, toCount: overview.perdido,
+      rate: distTotal > 0 ? +((overview.perdido / distTotal) * 100).toFixed(1) : 0,
+      color: '#EF4444', Icon: XCircle,
+      note: `${overview.perdido} leads perdidos no período`,
+      nav: cardNav({ status: 'sale_not_performed' }),
     },
   ]
 
