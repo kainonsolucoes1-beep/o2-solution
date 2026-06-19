@@ -5,6 +5,17 @@ import {
 } from 'recharts'
 import { TrendingUp, TrendingDown, DollarSign, Users, Zap, Target, Calendar, X } from 'lucide-react'
 import api from '../api'
+import { statusLabel } from '../utils/statusLabel'
+
+interface FeedItem {
+  id: string
+  lead_id: string
+  lead_name: string
+  from_status: string | null
+  to_status: string
+  changed_by: string | null
+  changed_at: string
+}
 
 interface PerformanceData {
   captacao_hoje: number
@@ -85,6 +96,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(false)
+  const [feed, setFeed] = useState<FeedItem[]>([])
 
   const fetchAll = useCallback((date?: string | null) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -100,6 +112,12 @@ export default function Dashboard() {
   }, [navigate])
 
   useEffect(() => { fetchAll(selectedDate) }, [fetchAll, selectedDate])
+
+  useEffect(() => {
+    api.get<FeedItem[]>('/api/v1/dashboard/activity-feed')
+      .then(r => setFeed(r.data))
+      .catch(() => {})
+  }, [])
 
   function handleDateChange(d: string) {
     setShowPicker(false)
@@ -392,6 +410,53 @@ export default function Dashboard() {
             />
           </AreaChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Feed de atividades */}
+      <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Atividades Recentes
+        </h2>
+        {feed.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhuma atividade registrada.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {feed.map((item, i) => {
+              const dt = new Date(item.changed_at)
+              const dtStr = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                + ' ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 0',
+                    borderBottom: i < feed.length - 1 ? '1px solid var(--border-lt)' : 'none',
+                  }}
+                >
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
+                      {item.lead_name}
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--text-subtle)', marginLeft: 6 }}>
+                      {item.from_status
+                        ? <>{statusLabel(item.from_status)} <span style={{ color: 'var(--text-subtle)' }}>→</span> <strong style={{ color: 'var(--text-2)' }}>{statusLabel(item.to_status)}</strong></>
+                        : <>entrou como <strong style={{ color: 'var(--text-2)' }}>{statusLabel(item.to_status)}</strong></>
+                      }
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{dtStr}</span>
+                    {item.changed_by && (
+                      <span style={{ fontSize: 11, color: 'var(--text-subtle)', fontStyle: 'italic' }}>{item.changed_by}</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
     </main>

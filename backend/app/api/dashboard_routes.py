@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.models.lead import Lead
+from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
 from app.schemas.dashboard import (
     TodayMetrics,
@@ -460,3 +460,30 @@ def dashboard_performance(
         "evolucao_diaria": evolucao_diaria,
         "captacao_hoje_por_fonte": captacao_hoje_por_fonte,
     }
+
+
+@router.get("/activity-feed")
+def activity_feed(
+    limit: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(LeadStatusHistory, Lead.name)
+        .join(Lead, Lead.id == LeadStatusHistory.lead_id)
+        .order_by(LeadStatusHistory.changed_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": str(h.id),
+            "lead_id": str(h.lead_id),
+            "lead_name": name,
+            "from_status": h.from_status,
+            "to_status": h.to_status,
+            "changed_by": h.changed_by,
+            "changed_at": h.changed_at.isoformat(),
+        }
+        for h, name in rows
+    ]
