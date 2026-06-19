@@ -7,6 +7,7 @@ import Pipeline from './pages/Pipeline'
 import Settings from './pages/Settings'
 import Activities from './pages/Activities'
 import Users from './pages/Users'
+import Forms from './pages/Forms'
 import Layout from './components/Layout'
 import { ThemeProvider } from './ThemeContext'
 
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/activities" element={<Activities />} />
           <Route path="/users" element={<Users />} />
+          <Route path="/forms" element={<Forms />} />
         </Route>
       </Routes>
     </BrowserRouter>

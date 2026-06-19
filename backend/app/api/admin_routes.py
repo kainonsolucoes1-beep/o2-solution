@@ -58,6 +58,16 @@ def update_followize_tokens(
     return {"success": True}
 
 
+@router.get("/form-credentials-key")
+def get_form_credentials_key(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    row = db.query(AppSettings).filter(AppSettings.key == "forms_credentials_key").first()
+    return {"value": row.value if row else ""}
+
+
 @router.get("/sync-status")
 def sync_status(
     current_user: User = Depends(get_current_user),

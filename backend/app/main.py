@@ -16,6 +16,7 @@ logging.basicConfig(
 from sqlalchemy import text
 from app.database import engine, Base, get_db
 from app.models import User, Lead, LeadNote, LeadStatusHistory, AppSettings
+from app.models.form_user import FormUser
 from app.schemas.lead import LeadCreate, LeadResponse
 from app.api import auth_routes
 from app.api import leads_routes
@@ -23,6 +24,7 @@ from app.api import dashboard_routes
 from app.api import pipeline_routes
 from app.api import admin_routes
 from app.api import activities_routes
+from app.api import forms_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler
@@ -53,6 +55,36 @@ app.include_router(dashboard_routes.router)
 app.include_router(pipeline_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(activities_routes.router)
+app.include_router(forms_routes.router)
+
+_FORM_USERS_SEED = [
+    ("isaac",        "Isaac",        "",           "isaac@equipe.com",         "$2b$12$nNCX6xqvp1CPBWT2VmQQxeRymHfesflUbRrRt5CTo5Je0TKnKnOTS"),
+    ("leticia",      "Leticia",      "Matos Silva","leticia@silva.com",         "$2b$12$FLmNwpf6y2Q3zMGlJ9hATOoctEFYfmZgAevAYn.9avAqttvLM36lm"),
+    ("julia",        "Julia",        "",           "julia@equipe.com",          "$2b$12$Le12fc4FL64kbMcjk2Z58ejTvI4HBma46QlMGyqV3YBp81bplgz66"),
+    ("anny",         "Anny",         "",           "anny@equipe.com.br",        "$2b$12$8WE445z2aNYQGmD4tfkomOEWE5QtIPcVp4av9J9.al3Cam64Zce7a"),
+    ("lucas",        "Lucas",        "",           "lucas@admin.com",           "$2b$12$dg98BTCmfkqLqRJ1sCWpZ.KL/mYWqB5f00KgiFrPBphdXZ6.xXKWO"),
+    ("rodolfo",      "Rodolfo",      "",           "rodolfo@equipe.com",        "$2b$12$dfT5JVsAyg.ajCERMIACHuBT0G67PvFDKrsYg6mPkg7JBvNpXCYha"),
+    ("mariaeduarda", "Maria Eduarda","",           "mariaeduarda@equipe.com",   "$2b$12$KV.vpUYhdM6KRkzagu17qeEEk9v/AEngGBnvdA86orHQaOlrhrlo6"),
+    ("clara",        "Clara",        "",           "clara@equipe.com",          "$2b$12$I3fBDL0RL0s6JRaQyfWkg.cmdX5H86FCNQcQgpmPhZK1o1Dp/2Afe"),
+    ("kauany",       "Kauany",       "",           "kauany@equipe.com",         "$2b$12$VIK/QMeEkaj.lDD9Th0FtuUOjDuV0kJg2gqk3uvja2D7OQBvBfqTC"),
+    ("gabrieli",     "Gabrieli",     "",           "gabrieli@equipe.com",       "$2b$12$bgOiyeFjqXfT5Djtq.v7hOpyoDm2wkA2FwIrSirOIS0eolp8BWON6"),
+    ("pedro",        "Pedro",        "",           "pedro@equipe.com",          "$2b$12$wNAoppwqGn1ZXTkiYepX9.gLA0IFmtf42u9mEvR3wAgmAPFniVxj2"),
+]
+
+
+def _seed_form_users(db_session):
+    import secrets
+    for username, first_name, last_name, email, password_hash in _FORM_USERS_SEED:
+        if not db_session.query(FormUser).filter(FormUser.username == username).first():
+            db_session.add(FormUser(
+                username=username, first_name=first_name,
+                last_name=last_name, email=email,
+                password_hash=password_hash,
+            ))
+    if not db_session.query(AppSettings).filter(AppSettings.key == "forms_credentials_key").first():
+        db_session.add(AppSettings(key="forms_credentials_key", value=secrets.token_urlsafe(32)))
+    db_session.commit()
+
 
 # Startup event para sincronização Followize
 @app.on_event("startup")
@@ -67,6 +99,12 @@ async def startup_event():
             )
         """))
         conn.commit()
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        _seed_form_users(db)
+    finally:
+        db.close()
     asyncio.create_task(start_sync_scheduler())
     asyncio.create_task(start_token_refresh_scheduler())
 
