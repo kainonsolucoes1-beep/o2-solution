@@ -80,7 +80,7 @@ def leads_by_period(
     admin = _is_admin(current_user)
     my_name = current_user.first_name or current_user.username
 
-    _active_statuses = ("pending", "novo", "new", "scheduled", "qualificado", "qualified", "proposal_sent")
+    _active_statuses = ("pending", "novo", "new", "qualificado", "qualified", "proposal_sent")
     _active_filter = or_(
         func.lower(Lead.status).in_([s.lower() for s in _active_statuses]),
         Lead.perception.in_(["Quente", "Morno"]),

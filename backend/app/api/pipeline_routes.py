@@ -137,8 +137,9 @@ def pipeline_alerts(
     now = _now()
     cutoff_24h = now - timedelta(hours=24)
 
+    _vencidos_statuses = PENDENTE_STATUSES + ("qualificado", "qualified") + PROPOSTA_STATUSES
     active_filter = or_(
-        _status_in(PENDENTE_STATUSES + AGENDADO_STATUSES + PROPOSTA_STATUSES),
+        _status_in(_vencidos_statuses),
         Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
     )
 
