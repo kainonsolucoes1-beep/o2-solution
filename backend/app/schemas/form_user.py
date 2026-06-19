@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 from pydantic import BaseModel
 
 
@@ -20,7 +21,7 @@ class FormUserUpdate(BaseModel):
 
 
 class FormUserResponse(BaseModel):
-    id: str
+    id: UUID
     username: str
     first_name: str
     last_name: str
