@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { UserPlus, KeyRound, ToggleLeft, ToggleRight, Copy, Check } from 'lucide-react'
+import { UserPlus, KeyRound, ToggleLeft, ToggleRight, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import api from '../api'
 
 interface FormUser {
@@ -20,6 +20,7 @@ export default function Forms() {
   const [loading, setLoading] = useState(true)
   const [credKey, setCredKey] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [credOpen, setCredOpen] = useState(false)
 
   const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState(EMPTY_CREATE)
@@ -129,7 +130,7 @@ export default function Forms() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: '#F9FAFB', margin: 0 }}>Formulário de Leads</h1>
-          <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>Gerencie quem tem acesso ao formulário Streamlit</p>
+          <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>Gerencie quem tem acesso ao Forms</p>
         </div>
         <button
           onClick={() => { setShowCreate(true); setCreateError('') }}
@@ -140,16 +141,27 @@ export default function Forms() {
       </div>
 
       {credKey && (
-        <div style={{ background: '#111827', border: '1px solid #1F2937', borderRadius: 8, padding: '12px 16px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <p style={{ fontSize: 11, color: '#6B7280', margin: '0 0 2px' }}>URL de credenciais (adicione ao st.secrets como FORMS_CREDENTIALS_URL)</p>
-            <code style={{ fontSize: 11, color: '#93C5FD', wordBreak: 'break-all' }}>
-              {`http://54.86.238.165/api/v1/forms/credentials?key=${credKey}`}
-            </code>
-          </div>
-          <button onClick={copyCredUrl} style={{ flexShrink: 0, background: 'none', border: '1px solid #374151', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', color: copied ? '#34D399' : '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-            {copied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+        <div style={{ background: '#111827', border: '1px solid #1F2937', borderRadius: 8, marginBottom: 24, overflow: 'hidden' }}>
+          <button
+            onClick={() => setCredOpen(o => !o)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: credOpen ? '1px solid #1F2937' : 'none' }}
+          >
+            {credOpen ? <ChevronDown size={13} color="#6B7280" /> : <ChevronRight size={13} color="#6B7280" />}
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>URL de Credenciais</span>
           </button>
+          {credOpen && (
+            <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 11, color: '#6B7280', margin: '0 0 4px' }}>Adicione ao st.secrets como <code style={{ color: '#93C5FD' }}>FORMS_CREDENTIALS_URL</code></p>
+                <code style={{ fontSize: 11, color: '#93C5FD', wordBreak: 'break-all' }}>
+                  {`http://54.86.238.165/api/v1/forms/credentials?key=${credKey}`}
+                </code>
+              </div>
+              <button onClick={copyCredUrl} style={{ flexShrink: 0, background: 'none', border: '1px solid #374151', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', color: copied ? '#34D399' : '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                {copied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
