@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { TrendingUp, TrendingDown, DollarSign, Users, Zap, Target, Calendar, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, Users, Zap, PhoneCall, Clock, Calendar, X, ChevronDown, ChevronRight } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 
@@ -34,9 +34,6 @@ interface PerformanceData {
   captacao_hoje_por_fonte: { name: string; count: number }[]
 }
 
-function fmtBrl(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-}
 
 function Trend({ value, label }: { value: number; label: string }) {
   const up = value >= 0
@@ -54,10 +51,10 @@ function Trend({ value, label }: { value: number; label: string }) {
 }
 
 function KpiCard({
-  label, value, trend, trendLabel, Icon, iconBg, iconColor, large,
+  label, value, trend, trendLabel, Icon, iconBg, iconColor, large, subtitle,
 }: {
-  label: string; value: string; trend: number; trendLabel: string
-  Icon: React.ElementType; iconBg: string; iconColor: string; large?: boolean
+  label: string; value: string; trend?: number; trendLabel?: string
+  Icon: React.ElementType; iconBg: string; iconColor: string; large?: boolean; subtitle?: string
 }) {
   return (
     <div
@@ -77,8 +74,9 @@ function KpiCard({
       <div>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 4 }}>{label}</p>
         <p style={{ fontSize: large ? 28 : 26, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</p>
+        {subtitle && <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>{subtitle}</p>}
       </div>
-      <Trend value={trend} label={trendLabel} />
+      {trend !== undefined && trendLabel !== undefined && <Trend value={trend} label={trendLabel} />}
     </div>
   )
 }
@@ -90,6 +88,9 @@ const BAR_COLORS = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6']
 const LIGACOES_HOJE: Record<string, number> = {
   'Isaac': 100,
 }
+
+// Tempo médio de atendimento — atualizar manualmente (ex: '3m 20s')
+const TEMPO_MEDIO_ATENDIMENTO = '—'
 
 
 const todayStr = new Date().toISOString().slice(0, 10)
@@ -211,21 +212,25 @@ export default function Dashboard() {
           iconBg="#ECFDF5" iconColor="#10B981"
         />
         <KpiCard
-          label="Valor em Carteira"
-          value={fmtBrl(data.valor_carteira)}
-          trend={data.vs_carteira}
-          trendLabel="vs mês anterior"
-          Icon={DollarSign}
-          iconBg="#F5F3FF" iconColor="#8B5CF6"
+          label="Taxa de Conversão Diária"
+          value={(() => {
+            const totalLig = Object.values(LIGACOES_HOJE).reduce((a, b) => a + b, 0)
+            return totalLig > 0 ? `${+((data.captacao_hoje / totalLig) * 100).toFixed(1)}%` : '—'
+          })()}
+          subtitle={(() => {
+            const totalLig = Object.values(LIGACOES_HOJE).reduce((a, b) => a + b, 0)
+            return totalLig > 0 ? `${data.captacao_hoje} captações · ${totalLig} ligações` : 'Sem ligações registradas'
+          })()}
+          Icon={PhoneCall}
+          iconBg="#F0FDF4" iconColor="#10B981"
           large
         />
         <KpiCard
-          label="Ticket Médio"
-          value={fmtBrl(data.ticket_medio)}
-          trend={data.vs_ticket}
-          trendLabel="vs mês anterior"
-          Icon={Target}
-          iconBg="#FFFBEB" iconColor="#F59E0B"
+          label="Tempo Médio de Atendimento"
+          value={TEMPO_MEDIO_ATENDIMENTO}
+          subtitle="Atualizado manualmente"
+          Icon={Clock}
+          iconBg="#FFF7ED" iconColor="#F97316"
         />
       </div>
 
