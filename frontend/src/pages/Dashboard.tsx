@@ -97,6 +97,7 @@ export default function Dashboard() {
   const [showPicker, setShowPicker] = useState(false)
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [feedOpen, setFeedOpen] = useState(false)
+  const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
   const [telefonia, setTelefonia] = useState<{ tma: string; ligacoes: Record<string, number> }>({ tma: '—', ligacoes: {} })
 
   const fetchAll = useCallback((date?: string | null) => {
@@ -282,42 +283,93 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Ranking Mensal — nome + captação + barra */}
-        <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Ranking de Operadores — {mesNome}
-          </h2>
-          {data.ranking.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações no período.</p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {data.ranking.map((op, i) => (
-                <div
-                  key={op.name}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity 150ms' }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                >
-                  <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
-                    {i < 3 ? MEDALS[i] : `${i + 1}°`}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {op.name}
-                      </span>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{op.count}</span>
-                        <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
+        {/* Ranking Mensal — nome + captação + barra + expander de fontes */}
+        <div className="bg-white rounded-xl flex flex-col" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ padding: '24px 24px 0' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
+              Ranking de Operadores — {mesNome}
+            </h2>
+            {data.ranking.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-subtle)', paddingBottom: 24 }}>Sem captações no período.</p>
+            ) : (
+              <div className="flex flex-col gap-4" style={{ paddingBottom: 20 }}>
+                {data.ranking.map((op, i) => (
+                  <div
+                    key={op.name}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity 150ms' }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                  >
+                    <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
+                      {i < 3 ? MEDALS[i] : `${i + 1}°`}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {op.name}
+                        </span>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{op.count}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
+                        </div>
+                      </div>
+                      <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 7, overflow: 'hidden' }}>
+                        <div style={{ width: `${op.bar_pct}%`, height: '100%', borderRadius: 99, background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], transition: 'width 600ms ease' }} />
                       </div>
                     </div>
-                    <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 7, overflow: 'hidden' }}>
-                      <div style={{ width: `${op.bar_pct}%`, height: '100%', borderRadius: 99, background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], transition: 'width 600ms ease' }} />
-                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Expander — todas as captações por fonte */}
+          {data.ranking.length > 0 && (
+            <>
+              <button
+                onClick={() => setRankMonthExpanded(o => !o)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '12px 24px', background: 'var(--bg-subtle)', border: 'none',
+                  borderTop: '1px solid var(--border-lt)', cursor: 'pointer',
+                  width: '100%', textAlign: 'left',
+                }}
+              >
+                {rankMonthExpanded ? <ChevronDown size={13} color="var(--text-muted)" /> : <ChevronRight size={13} color="var(--text-muted)" />}
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Ver captações por fonte
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.1)', borderRadius: 99, padding: '1px 7px', marginLeft: 4 }}>
+                  {data.ranking.length}
+                </span>
+              </button>
+              {rankMonthExpanded && (
+                <div style={{ padding: '8px 24px 16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
+                    {['Fonte / Operador', 'Captação', 'Part.'].map(h => (
+                      <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h === 'Fonte / Operador' ? 'left' : 'right' }}>{h}</span>
+                    ))}
+                  </div>
+                  {data.ranking.map((op, i) => (
+                    <div
+                      key={op.name}
+                      style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, alignItems: 'center', padding: '10px 4px', borderBottom: i < data.ranking.length - 1 ? '1px solid var(--border-lt)' : 'none', borderRadius: 6, transition: 'background 150ms' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <span style={{ fontSize: i < 3 ? 15 : 11, width: 20, flexShrink: 0, textAlign: 'center', color: 'var(--text-subtle)', fontWeight: 700 }}>
+                          {i < 3 ? MEDALS[i] : `${i + 1}°`}
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>{op.count}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-subtle)', textAlign: 'right' }}>{op.pct}%</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
 
