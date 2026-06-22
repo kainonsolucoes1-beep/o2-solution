@@ -71,7 +71,12 @@ export default function Forms() {
       setShowCreate(false)
       setCreateForm(EMPTY_CREATE)
     } catch (e: any) {
-      setCreateError(e?.response?.data?.detail ?? 'Erro ao criar usuário.')
+      const detail = e?.response?.data?.detail
+      const status = e?.response?.status
+      const msg = Array.isArray(detail)
+        ? detail.map((d: any) => d.msg).join(', ')
+        : detail ?? (status ? `Erro ${status} ao criar usuário.` : 'Sem resposta do servidor.')
+      setCreateError(msg)
     } finally {
       setCreating(false)
     }
