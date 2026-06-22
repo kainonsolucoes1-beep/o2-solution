@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, BarChart2, FileText, Users,
-  CheckSquare, Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X, Sun, Moon, UserCog, ClipboardList, Phone,
+  CheckSquare, Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X, Sun, Moon, UserCog, ClipboardList, Phone, TrendingUp,
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
@@ -17,6 +17,7 @@ const NAV = [
   { to: '/users',        label: 'Usuários',      Icon: UserCog,         adminOnly: true  },
   { to: '/forms',        label: 'Formulário',    Icon: ClipboardList,   adminOnly: true  },
   { to: '/telefonia',   label: 'Telefonia',     Icon: Phone,           adminOnly: true  },
+  { to: '/kpis',        label: 'KPIs',          Icon: TrendingUp,      adminOnly: false },
   { to: '/settings',     label: 'Configurações', Icon: Settings,        adminOnly: false },
 ]
 
