@@ -244,7 +244,11 @@ def _parse_lead_fields(raw: dict) -> dict:
         or ((raw.get("attendant") or {}).get("name"))
         or "Sem atendente"
     )
-    origin = (raw.get("tracking") or {}).get("source") or "Sem origem"
+    tracking = raw.get("tracking") or {}
+    origin = tracking.get("source") or "Sem origem"
+    if origin.lower() in ("orgânico", "organico", "organic"):
+        import logging as _log
+        _log.getLogger(__name__).info("[TRACKING DEBUG] lead_id=%s tracking=%s", raw.get("id"), tracking)
     created_at = _parse_followize_dt(raw.get("created_at"))
     last_proposal = raw.get("last_proposal") or {}
     finalization = raw.get("finalization") or {}
