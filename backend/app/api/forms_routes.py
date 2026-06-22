@@ -1,7 +1,7 @@
 from typing import List
 
+import bcrypt as _bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Query
-from passlib.hash import bcrypt as bcrypt_hasher
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -49,7 +49,7 @@ def create_form_user(
         first_name=body.first_name,
         last_name=body.last_name,
         email=body.email,
-        password_hash=bcrypt_hasher.hash(body.password),
+        password_hash=_bcrypt.hashpw(body.password.encode(), _bcrypt.gensalt()).decode(),
     )
     db.add(fu)
     db.commit()
@@ -77,7 +77,7 @@ def update_form_user(
     if body.is_active is not None:
         fu.is_active = body.is_active
     if body.password:
-        fu.password_hash = bcrypt_hasher.hash(body.password)
+        fu.password_hash = _bcrypt.hashpw(body.password.encode(), _bcrypt.gensalt()).decode()
     db.commit()
     db.refresh(fu)
     return fu
