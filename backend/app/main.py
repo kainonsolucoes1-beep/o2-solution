@@ -72,6 +72,7 @@ _FORM_USERS_SEED = [
     ("gabrieli",     "Gabrieli",     "",           "gabrieli@equipe.com",       "$2b$12$bgOiyeFjqXfT5Djtq.v7hOpyoDm2wkA2FwIrSirOIS0eolp8BWON6"),
     ("pedro",        "Pedro",        "",           "pedro@equipe.com",          "$2b$12$wNAoppwqGn1ZXTkiYepX9.gLA0IFmtf42u9mEvR3wAgmAPFniVxj2"),
     ("guilherme",    "Guilherme",    "",           "guilherme@equipe.com",      "$2b$12$Ugbocn2SkMX1c5dM5jtaYe4m7aoOAqVh1nBsTZ4WpfOd5Bx4dvt.q"),
+    ("lucascardoso", "Lucas",        "Cardoso",    "lucascardoso@equipe.com",   "$2b$12$cSr2wmE.hlBBjvqEYehffONEHwt6Ijb.pIye2jigxyWBGz10/SaBa"),
 ]
 
 
