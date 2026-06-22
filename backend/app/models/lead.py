@@ -15,6 +15,7 @@ class Lead(Base):
     phone = Column(String(20))
     company = Column(String(255))
     origin = Column(String(100))
+    conversion_point = Column(String(255), nullable=True)
     attendant = Column(String(255))
     status = Column(String(50), default="novo")
     perception = Column(String(20))

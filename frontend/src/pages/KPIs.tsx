@@ -2,12 +2,21 @@ import { useEffect, useState } from 'react'
 import { TrendingUp, ChevronDown, ChevronRight } from 'lucide-react'
 import api from '../api'
 
+interface BreakdownItem {
+  label: string
+  captacoes: number
+  vendas: number
+  cancelados: number
+  conversao: number
+}
+
 interface FonteData {
   fonte: string
   captacoes: number
   vendas: number
   cancelados: number
   conversao: number
+  breakdown: BreakdownItem[]
 }
 
 const SDR_NAMES = new Set([
@@ -31,6 +40,8 @@ export default function KPIs() {
   const [data, setData] = useState<FonteData[]>([])
   const [loading, setLoading] = useState(true)
   const [sdrOpen, setSdrOpen] = useState(false)
+  const [expandedFontes, setExpandedFontes] = useState<Set<string>>(new Set())
+  const toggleFonte = (f: string) => setExpandedFontes(prev => { const s = new Set(prev); s.has(f) ? s.delete(f) : s.add(f); return s })
 
   useEffect(() => {
     setLoading(true)
@@ -65,47 +76,62 @@ export default function KPIs() {
     letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', textAlign: 'left',
   }
 
+  function renderBar(conversao: number) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{
+            width: `${(conversao / maxConversao) * 100}%`, height: '100%',
+            background: conversao >= 30 ? '#059669' : conversao >= 15 ? '#F59E0B' : '#3B82F6',
+            borderRadius: 3, transition: 'width 400ms ease',
+          }} />
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', minWidth: 36, textAlign: 'right' }}>{conversao}%</span>
+      </div>
+    )
+  }
+
   function renderRow(row: FonteData & { isSdrParent?: boolean; isSdrChild?: boolean }, i: number) {
+    const isChild = row.isSdrChild
     const col: React.CSSProperties = {
       padding: '10px 14px', fontSize: 13, color: 'var(--text-2)',
       borderBottom: '1px solid var(--border)',
-      background: row.isSdrChild ? 'var(--bg-subtle)' : i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
+      background: isChild ? 'var(--bg-subtle)' : i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
     }
+    const hasBreakdown = !isChild && !row.isSdrParent && row.breakdown?.length > 0
+    const breakdownOpen = expandedFontes.has(row.fonte)
 
     return (
-      <tr key={row.isSdrChild ? `sdr-child-${row.fonte}` : row.fonte}>
-        <td style={{ ...col, fontWeight: row.isSdrParent ? 700 : row.isSdrChild ? 400 : 500, color: 'var(--text-1)', paddingLeft: row.isSdrChild ? 32 : 14 }}>
-          {row.isSdrParent ? (
-            <button
-              onClick={() => setSdrOpen(o => !o)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 700 }}
-            >
-              {sdrOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              SDR
-            </button>
-          ) : row.isSdrChild ? (
-            <span style={{ color: 'var(--text-2)' }}>{row.fonte}</span>
-          ) : row.fonte}
-        </td>
-        <td style={{ ...col, textAlign: 'right' }}>{row.captacoes}</td>
-        <td style={{ ...col, textAlign: 'right', color: '#059669', fontWeight: 600 }}>{row.vendas}</td>
-        <td style={{ ...col, textAlign: 'right', color: '#EF4444' }}>{row.cancelados}</td>
-        <td style={{ ...col }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{
-                width: `${(row.conversao / maxConversao) * 100}%`,
-                height: '100%',
-                background: row.conversao >= 30 ? '#059669' : row.conversao >= 15 ? '#F59E0B' : '#3B82F6',
-                borderRadius: 3, transition: 'width 400ms ease',
-              }} />
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', minWidth: 36, textAlign: 'right' }}>
-              {row.conversao}%
-            </span>
-          </div>
-        </td>
-      </tr>
+      <>
+        <tr key={row.isSdrChild ? `sdr-child-${row.fonte}` : row.fonte}>
+          <td style={{ ...col, fontWeight: row.isSdrParent ? 700 : isChild ? 400 : 500, color: 'var(--text-1)', paddingLeft: isChild ? 32 : 14 }}>
+            {row.isSdrParent ? (
+              <button onClick={() => setSdrOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 700 }}>
+                {sdrOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} SDR
+              </button>
+            ) : isChild ? (
+              <span style={{ color: 'var(--text-2)' }}>{row.fonte}</span>
+            ) : hasBreakdown ? (
+              <button onClick={() => toggleFonte(row.fonte)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 500 }}>
+                {breakdownOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {row.fonte}
+              </button>
+            ) : row.fonte}
+          </td>
+          <td style={{ ...col, textAlign: 'right' }}>{row.captacoes}</td>
+          <td style={{ ...col, textAlign: 'right', color: '#059669', fontWeight: 600 }}>{row.vendas}</td>
+          <td style={{ ...col, textAlign: 'right', color: '#EF4444' }}>{row.cancelados}</td>
+          <td style={{ ...col }}>{renderBar(row.conversao)}</td>
+        </tr>
+        {hasBreakdown && breakdownOpen && row.breakdown.map(bp => (
+          <tr key={`bp-${row.fonte}-${bp.label}`}>
+            <td style={{ ...col, paddingLeft: 32, fontStyle: 'italic', color: 'var(--text-subtle)', background: 'var(--bg-subtle)' }}>{bp.label}</td>
+            <td style={{ ...col, textAlign: 'right', background: 'var(--bg-subtle)' }}>{bp.captacoes}</td>
+            <td style={{ ...col, textAlign: 'right', color: '#059669', fontWeight: 600, background: 'var(--bg-subtle)' }}>{bp.vendas}</td>
+            <td style={{ ...col, textAlign: 'right', color: '#EF4444', background: 'var(--bg-subtle)' }}>{bp.cancelados}</td>
+            <td style={{ ...col, background: 'var(--bg-subtle)' }}>{renderBar(bp.conversao)}</td>
+          </tr>
+        ))}
+      </>
     )
   }
 

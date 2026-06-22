@@ -246,15 +246,7 @@ def _parse_lead_fields(raw: dict) -> dict:
     )
     tracking = raw.get("tracking") or {}
     origin = tracking.get("source") or "Sem origem"
-    if origin.lower() in ("orgânico", "organico", "organic"):
-        import logging as _log
-        _log.getLogger(__name__).info(
-            "[CONV DEBUG] id=%s conversionGoal=%r conversion_goal=%r oem=%r",
-            raw.get("id"),
-            raw.get("conversionGoal"),
-            raw.get("conversion_goal"),
-            tracking.get("oem"),
-        )
+    conversion_point = raw.get("conversion_goal") or None
     created_at = _parse_followize_dt(raw.get("created_at"))
     last_proposal = raw.get("last_proposal") or {}
     finalization = raw.get("finalization") or {}
@@ -262,7 +254,7 @@ def _parse_lead_fields(raw: dict) -> dict:
     _perception_map = {"hot": "Quente", "warm": "Morno", "cold": "Frio"}
     perception = _perception_map.get(raw.get("perception") or "", None)
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "created_at": created_at, "value_potential": value_potential, "perception": perception}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
@@ -302,6 +294,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
             or existing.company != fields["company"]
             or existing.status != new_status
             or existing.origin != fields["origin"]
+            or existing.conversion_point != fields["conversion_point"]
             or existing.attendant != fields["attendant"]
             or existing.value_potential != fields["value_potential"]
             or existing.perception != fields["perception"]
@@ -313,6 +306,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.company = fields["company"]
         existing.status = new_status
         existing.origin = fields["origin"]
+        existing.conversion_point = fields["conversion_point"]
         existing.attendant = fields["attendant"]
         existing.value_potential = fields["value_potential"]
         existing.perception = fields["perception"]
@@ -335,7 +329,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     lead_kwargs = dict(
         user_id=user_id, followize_id=followize_id,
         name=fields["name"], email=fields["email"], phone=fields["phone"],
-        company=fields["company"], origin=fields["origin"], attendant=fields["attendant"],
+        company=fields["company"], origin=fields["origin"], conversion_point=fields["conversion_point"], attendant=fields["attendant"],
         status=fields["status"], value_potential=fields["value_potential"],
         perception=fields["perception"],
     )

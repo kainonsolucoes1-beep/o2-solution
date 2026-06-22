@@ -36,17 +36,18 @@ def conversao_por_fonte(
     date_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
 
     leads = (
-        db.query(Lead.origin, Lead.status)
+        db.query(Lead.origin, Lead.status, Lead.conversion_point)
         .filter(Lead.created_at >= date_from, Lead.created_at <= date_to)
         .filter(Lead.origin.isnot(None), Lead.origin != "")
         .all()
     )
 
-    venda_set    = {s.lower() for s in VENDA_STATUSES}
+    venda_set     = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
 
-    data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})
-    for origin, status in leads:
+    data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0, "breakdown": defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})})
+
+    for origin, status, conv_point in leads:
         fonte = (origin or "").strip() or "Sem origem"
         data[fonte]["captacoes"] += 1
         s = (status or "").lower()
@@ -55,15 +56,34 @@ def conversao_por_fonte(
         elif s in cancelado_set:
             data[fonte]["cancelados"] += 1
 
+        if conv_point:
+            bp = conv_point.strip().lower()
+            data[fonte]["breakdown"][bp]["captacoes"] += 1
+            if s in venda_set:
+                data[fonte]["breakdown"][bp]["vendas"] += 1
+            elif s in cancelado_set:
+                data[fonte]["breakdown"][bp]["cancelados"] += 1
+
     result = []
     for fonte, counts in sorted(data.items(), key=lambda x: x[1]["captacoes"], reverse=True):
         cap = counts["captacoes"]
+        breakdown = []
+        for label, bc in sorted(counts["breakdown"].items(), key=lambda x: x[1]["captacoes"], reverse=True):
+            bcap = bc["captacoes"]
+            breakdown.append({
+                "label":      label,
+                "captacoes":  bcap,
+                "vendas":     bc["vendas"],
+                "cancelados": bc["cancelados"],
+                "conversao":  round(bc["vendas"] / bcap * 100, 1) if bcap > 0 else 0.0,
+            })
         result.append({
             "fonte":      fonte,
             "captacoes":  cap,
             "vendas":     counts["vendas"],
             "cancelados": counts["cancelados"],
             "conversao":  round(counts["vendas"] / cap * 100, 1) if cap > 0 else 0.0,
+            "breakdown":  breakdown,
         })
 
     return result
