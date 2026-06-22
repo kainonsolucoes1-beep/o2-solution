@@ -266,9 +266,9 @@ def transfer_attendant_clara(
     from datetime import date
     import uuid
 
-    leads = db.query(Lead).filter(Lead.attendant.ilike("%clara%")).all()
+    leads = db.query(Lead).filter(Lead.origin.ilike("%clara%")).all()
     if not leads:
-        return {"transferred": 0, "message": "Nenhum lead encontrado com atendente Clara"}
+        return {"transferred": 0, "message": "Nenhum lead encontrado com origem Clara"}
 
     today = date.today().strftime("%d/%m/%Y")
     for lead in leads:
@@ -276,9 +276,9 @@ def transfer_attendant_clara(
             id=uuid.uuid4(),
             lead_id=lead.id,
             user_id=current_user.id,
-            content=f"Atendente anterior: Clara — transferido para O2 Solution em {today}",
+            content=f"Origem anterior: Clara — transferido para O2 Solution em {today}",
         ))
-        lead.attendant = "O2 Solution"
+        lead.origin = "O2 Solution"
 
     db.commit()
     return {"transferred": len(leads)}
