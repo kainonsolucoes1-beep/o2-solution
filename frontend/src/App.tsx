@@ -8,6 +8,7 @@ import Settings from './pages/Settings'
 import Activities from './pages/Activities'
 import Users from './pages/Users'
 import Forms from './pages/Forms'
+import Telefonia from './pages/Telefonia'
 import Layout from './components/Layout'
 import { ThemeProvider } from './ThemeContext'
 
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/activities" element={<Activities />} />
           <Route path="/users" element={<Users />} />
           <Route path="/forms" element={<Forms />} />
+          <Route path="/telefonia" element={<Telefonia />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -84,13 +84,6 @@ function KpiCard({
 const MEDALS = ['🥇', '🥈', '🥉']
 const BAR_COLORS = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6']
 
-// Ligações por operador — atualizar manualmente
-const LIGACOES_HOJE: Record<string, number> = {
-  'Isaac': 100,
-}
-
-// Tempo médio de atendimento — atualizar manualmente (ex: '3m 20s')
-const TEMPO_MEDIO_ATENDIMENTO = '—'
 
 
 const todayStr = new Date().toISOString().slice(0, 10)
@@ -104,6 +97,7 @@ export default function Dashboard() {
   const [showPicker, setShowPicker] = useState(false)
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [feedOpen, setFeedOpen] = useState(false)
+  const [telefonia, setTelefonia] = useState<{ tma: string; ligacoes: Record<string, number> }>({ tma: '—', ligacoes: {} })
 
   const fetchAll = useCallback((date?: string | null) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -123,6 +117,12 @@ export default function Dashboard() {
   useEffect(() => {
     api.get<FeedItem[]>('/api/v1/dashboard/activity-feed')
       .then(r => setFeed(r.data))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    api.get<{ tma: string; ligacoes: Record<string, number> }>('/api/v1/telefonia/settings')
+      .then(r => setTelefonia({ tma: r.data.tma || '—', ligacoes: r.data.ligacoes }))
       .catch(() => {})
   }, [])
 
@@ -214,11 +214,11 @@ export default function Dashboard() {
         <KpiCard
           label="Taxa de Conversão Diária"
           value={(() => {
-            const totalLig = Object.values(LIGACOES_HOJE).reduce((a, b) => a + b, 0)
+            const totalLig = Object.values(telefonia.ligacoes).reduce((a: number, b: number) => a + b, 0)
             return totalLig > 0 ? `${+((data.captacao_hoje / totalLig) * 100).toFixed(1)}%` : '—'
           })()}
           subtitle={(() => {
-            const totalLig = Object.values(LIGACOES_HOJE).reduce((a, b) => a + b, 0)
+            const totalLig = Object.values(telefonia.ligacoes).reduce((a: number, b: number) => a + b, 0)
             return totalLig > 0 ? `${data.captacao_hoje} captações · ${totalLig} ligações` : 'Sem ligações registradas'
           })()}
           Icon={PhoneCall}
@@ -227,8 +227,8 @@ export default function Dashboard() {
         />
         <KpiCard
           label="Tempo Médio de Atendimento"
-          value={TEMPO_MEDIO_ATENDIMENTO}
-          subtitle="Atualizado manualmente"
+          value={telefonia.tma}
+          subtitle="Atualizado em Telefonia"
           Icon={Clock}
           iconBg="#FFF7ED" iconColor="#F97316"
         />
@@ -252,7 +252,7 @@ export default function Dashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {data.captacao_hoje_por_fonte.map((op, i) => {
-                const ligacoes = LIGACOES_HOJE[op.name] ?? 0
+                const ligacoes = telefonia.ligacoes[op.name] ?? 0
                 const taxa = ligacoes > 0 ? +((op.count / ligacoes) * 100).toFixed(1) : null
                 const taxaColor = taxa === null ? 'var(--text-subtle)' : taxa >= 10 ? '#10B981' : taxa >= 5 ? '#F59E0B' : '#EF4444'
                 return (

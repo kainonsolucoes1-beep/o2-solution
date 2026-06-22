@@ -25,6 +25,7 @@ from app.api import pipeline_routes
 from app.api import admin_routes
 from app.api import activities_routes
 from app.api import forms_routes
+from app.api import telefonia_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler
@@ -56,6 +57,7 @@ app.include_router(pipeline_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(activities_routes.router)
 app.include_router(forms_routes.router)
+app.include_router(telefonia_routes.router)
 
 _FORM_USERS_SEED = [
     ("isaac",        "Isaac",        "",           "isaac@equipe.com",         "$2b$12$nNCX6xqvp1CPBWT2VmQQxeRymHfesflUbRrRt5CTo5Je0TKnKnOTS"),
