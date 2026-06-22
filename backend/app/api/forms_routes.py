@@ -99,8 +99,9 @@ def get_form_credentials(
         "usernames": {
             fu.username: {
                 "email": fu.email,
+                "name": f"{fu.first_name} {fu.last_name}".strip(),
                 "first_name": fu.first_name,
-                "last_name": fu.last_name,
+                "last_name": fu.last_name or "",
                 "password": fu.password_hash,
             }
             for fu in users
