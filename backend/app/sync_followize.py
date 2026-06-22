@@ -248,7 +248,8 @@ def _parse_lead_fields(raw: dict) -> dict:
     origin = tracking.get("source") or "Sem origem"
     if origin.lower() in ("orgânico", "organico", "organic"):
         import logging as _log
-        _log.getLogger(__name__).info("[TRACKING DEBUG] lead_id=%s tracking=%s", raw.get("id"), tracking)
+        _log.getLogger(__name__).info("[RAW DEBUG] lead_id=%s keys=%s", raw.get("id"), list(raw.keys()))
+        _log.getLogger(__name__).info("[RAW DEBUG] lead_id=%s full=%s", raw.get("id"), raw)
     created_at = _parse_followize_dt(raw.get("created_at"))
     last_proposal = raw.get("last_proposal") or {}
     finalization = raw.get("finalization") or {}
