@@ -239,6 +239,25 @@ async def sync_historico(
     return {"success": True, "date_from": date_from, "inserted": inserted, "updated": updated}
 
 
+@router.post("/backfill-status-history")
+def backfill_status_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from sqlalchemy import text
+    result = db.execute(text("""
+        INSERT INTO lead_status_history (id, lead_id, from_status, to_status, changed_at, changed_by)
+        SELECT gen_random_uuid(), l.id, NULL, COALESCE(l.status, 'novo'), COALESCE(l.created_at, NOW()), 'sistema'
+        FROM leads l
+        WHERE NOT EXISTS (
+            SELECT 1 FROM lead_status_history h WHERE h.lead_id = l.id
+        )
+    """))
+    db.commit()
+    return {"inserted": result.rowcount}
+
+
 @router.get("/distinct-attendants")
 def distinct_attendants(
     current_user: User = Depends(get_current_user),
