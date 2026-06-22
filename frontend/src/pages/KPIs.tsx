@@ -12,7 +12,7 @@ interface FonteData {
 
 const SDR_NAMES = new Set([
   'isaac', 'julia', 'leticia', 'maria eduarda', 'anny', 'emily', 'emilly',
-  'pedro', 'lucas', 'guilherme', 'lucascardoso', 'lucas cardoso', 'rodolfo',
+  'pedro', 'lucas', 'guilherme', 'lucascardoso', 'lucas cardoso', 'rodolfo', 'discadora',
 ])
 
 const isSdr = (fonte: string) => SDR_NAMES.has(fonte.toLowerCase())
