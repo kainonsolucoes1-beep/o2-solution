@@ -86,6 +86,11 @@ function KpiCard({
 const MEDALS = ['🥇', '🥈', '🥉']
 const BAR_COLORS = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6']
 
+// Ligações por operador — atualizar manualmente
+const LIGACOES_HOJE: Record<string, number> = {
+  'Isaac': 100,
+}
+
 
 const todayStr = new Date().toISOString().slice(0, 10)
 
@@ -272,45 +277,54 @@ export default function Dashboard() {
       {/* Ranking + Meta/Projeção */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 xl:gap-6 items-start">
 
-        {/* Ranking */}
-        <div className="md:col-span-3 bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        {/* Ranking de Operadores */}
+        <div className="md:col-span-3 bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Ranking de Operadores — {mesNome}
+            Ranking de Operadores — {selectedDate ? dateFmtDisplay : 'Hoje'}
           </h2>
-          {data.ranking.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações no período.</p>
+
+          {/* Cabeçalho da tabela */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 90px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
+            {['Operador', 'Ligações', 'Captação', 'Conversão'].map(h => (
+              <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h === 'Operador' ? 'left' : 'right' }}>{h}</span>
+            ))}
+          </div>
+
+          {data.captacao_hoje_por_fonte.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações hoje.</p>
           ) : (
-            <div className="flex flex-col gap-4">
-              {data.ranking.map((op, i) => (
-                <div
-                  key={op.name}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity 150ms' }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                >
-                  <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
-                    {i < 3 ? MEDALS[i] : `${i + 1}°`}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {data.captacao_hoje_por_fonte.map((op, i) => {
+                const ligacoes = LIGACOES_HOJE[op.name] ?? 0
+                const taxa = ligacoes > 0 ? +((op.count / ligacoes) * 100).toFixed(1) : null
+                const taxaColor = taxa === null ? 'var(--text-subtle)' : taxa >= 10 ? '#10B981' : taxa >= 5 ? '#F59E0B' : '#EF4444'
+                return (
+                  <div
+                    key={op.name}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 90px', gap: 8, alignItems: 'center', padding: '11px 4px', borderBottom: i < data.captacao_hoje_por_fonte.length - 1 ? '1px solid var(--border-lt)' : 'none', transition: 'background 150ms', borderRadius: 6 }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <span style={{ fontSize: i < 3 ? 17 : 12, width: 22, flexShrink: 0, textAlign: 'center', color: 'var(--text-subtle)', fontWeight: 700 }}>
+                        {i < 3 ? MEDALS[i] : `${i + 1}°`}
+                      </span>
                       <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {op.name}
                       </span>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{op.count}</span>
-                        <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
-                      </div>
                     </div>
-                    <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 7, overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${op.bar_pct}%`, height: '100%', borderRadius: 99,
-                        background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)],
-                        transition: 'width 600ms ease',
-                      }} />
-                    </div>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right' }}>
+                      {ligacoes > 0 ? ligacoes : <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>}
+                    </span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>
+                      {op.count}
+                    </span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: taxaColor, textAlign: 'right' }}>
+                      {taxa !== null ? `${taxa}%` : <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>}
+                    </span>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
