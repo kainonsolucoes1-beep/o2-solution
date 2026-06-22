@@ -239,6 +239,23 @@ async def sync_historico(
     return {"success": True, "date_from": date_from, "inserted": inserted, "updated": updated}
 
 
+@router.get("/distinct-attendants")
+def distinct_attendants(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from sqlalchemy import func as sqlfunc
+    rows = (
+        db.query(Lead.attendant, sqlfunc.count(Lead.id).label("count"))
+        .filter(Lead.attendant.isnot(None))
+        .group_by(Lead.attendant)
+        .order_by(sqlfunc.count(Lead.id).desc())
+        .all()
+    )
+    return [{"attendant": r.attendant, "count": r.count} for r in rows]
+
+
 @router.post("/transfer-attendant-clara")
 def transfer_attendant_clara(
     current_user: User = Depends(get_current_user),
