@@ -280,8 +280,6 @@ export default function Pipeline() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)' }}>{c.from} → {c.to}</span>
-                              {isBest && <span style={{ fontSize: 10, fontWeight: 700, color: '#059669', background: '#D1FAE5', padding: '2px 7px', borderRadius: 99, letterSpacing: '0.03em' }}>Melhor Conversão</span>}
-                              {isWorst && <span style={{ fontSize: 10, fontWeight: 700, color: '#B45309', background: '#FEF3C7', padding: '2px 7px', borderRadius: 99, letterSpacing: '0.03em' }}>Maior Gargalo</span>}
                             </div>
                             <span style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2, display: 'block' }}>{c.fromCount} → {c.toCount} leads</span>
                           </div>
@@ -302,7 +300,6 @@ export default function Pipeline() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)' }}>Total → Perdido</span>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', background: '#FEE2E2', padding: '2px 7px', borderRadius: 99 }}>Taxa de Perda</span>
                         </div>
                         <span style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2, display: 'block' }}>{overview.perdido} leads perdidos no período</span>
                       </div>
