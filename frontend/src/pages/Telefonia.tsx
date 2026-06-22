@@ -5,21 +5,52 @@ import api from '../api'
 interface TelefoniaSettings {
   tma: string
   ligacoes: Record<string, number>
+  atendimentos: Record<string, string>
+}
+
+interface Row { name: string; count: string; atendimento: string }
+
+function parseSecs(t: string): number {
+  const parts = t.trim().split(':')
+  if (parts.length !== 3) return 0
+  const [h, m, s] = parts.map(Number)
+  if ([h, m, s].some(isNaN)) return 0
+  return h * 3600 + m * 60 + s
+}
+
+function calcTMA(rows: Row[]): string {
+  let totalSecs = 0, totalCalls = 0
+  for (const row of rows) {
+    const calls = parseInt(row.count)
+    const secs = parseSecs(row.atendimento)
+    if (row.name.trim() && !isNaN(calls) && calls > 0 && secs > 0) {
+      totalSecs += secs
+      totalCalls += calls
+    }
+  }
+  if (totalCalls === 0) return '—'
+  const avg = totalSecs / totalCalls
+  const mins = Math.floor(avg / 60)
+  const secs = Math.floor(avg % 60)
+  return mins > 0 ? `${mins}m ${String(secs).padStart(2, '0')}s` : `${secs}s`
 }
 
 export default function Telefonia() {
-  const [settings, setSettings] = useState<TelefoniaSettings>({ tma: '', ligacoes: {} })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [rows, setRows] = useState<{ name: string; count: string }[]>([])
+  const [rows, setRows] = useState<Row[]>([])
 
   useEffect(() => {
     api.get<TelefoniaSettings>('/api/v1/telefonia/settings')
       .then(r => {
-        setSettings(r.data)
+        const { ligacoes, atendimentos } = r.data
         setRows(
-          Object.entries(r.data.ligacoes).map(([name, count]) => ({ name, count: String(count) }))
+          Object.entries(ligacoes).map(([name, count]) => ({
+            name,
+            count: String(count),
+            atendimento: atendimentos[name] ?? '',
+          }))
         )
       })
       .catch(() => {})
@@ -27,34 +58,38 @@ export default function Telefonia() {
   }, [])
 
   function addRow() {
-    setRows(r => [...r, { name: '', count: '' }])
+    setRows(r => [...r, { name: '', count: '', atendimento: '' }])
   }
 
   function removeRow(i: number) {
     setRows(r => r.filter((_, idx) => idx !== i))
   }
 
-  function updateRow(i: number, field: 'name' | 'count', value: string) {
+  function updateRow(i: number, field: keyof Row, value: string) {
     setRows(r => r.map((row, idx) => idx === i ? { ...row, [field]: value } : row))
   }
 
   async function handleSave() {
     setSaving(true)
     const ligacoes: Record<string, number> = {}
+    const atendimentos: Record<string, string> = {}
     for (const row of rows) {
       const n = row.name.trim()
       const c = parseInt(row.count)
-      if (n && !isNaN(c) && c >= 0) ligacoes[n] = c
+      if (n && !isNaN(c) && c >= 0) {
+        ligacoes[n] = c
+        if (row.atendimento.trim()) atendimentos[n] = row.atendimento.trim()
+      }
     }
     try {
-      await api.put('/api/v1/telefonia/settings', { tma: settings.tma, ligacoes })
+      await api.put('/api/v1/telefonia/settings', { ligacoes, atendimentos })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch {}
     finally { setSaving(false) }
   }
 
-  const input = (value: string, onChange: (v: string) => void, placeholder = '') => (
+  const inp = (value: string, onChange: (v: string) => void, placeholder = '') => (
     <input
       value={value}
       onChange={e => onChange(e.target.value)}
@@ -67,10 +102,12 @@ export default function Telefonia() {
     />
   )
 
+  const tmaCalc = calcTMA(rows)
+
   if (loading) return <p className="text-center text-sm mt-20" style={{ color: 'var(--text-subtle)' }}>Carregando...</p>
 
   return (
-    <main style={{ padding: '24px 32px', maxWidth: 720 }}>
+    <main style={{ padding: '24px 32px', maxWidth: 780 }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
@@ -93,28 +130,28 @@ export default function Telefonia() {
         </button>
       </div>
 
-      {/* TMA */}
+      {/* TMA calculado */}
       <div className="bg-white rounded-xl p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Phone size={15} color="#F97316" />
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Tempo Médio de Atendimento (TMA)</p>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Exibido no card de telefonia do Dashboard</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Calculado automaticamente a partir dos dados abaixo</p>
           </div>
-        </div>
-        <div style={{ maxWidth: 260 }}>
-          {input(settings.tma, v => setSettings(s => ({ ...s, tma: v })), 'ex: 3m 20s')}
+          <span style={{ fontSize: 22, fontWeight: 700, color: tmaCalc === '—' ? 'var(--text-subtle)' : '#F97316' }}>
+            {tmaCalc}
+          </span>
         </div>
       </div>
 
-      {/* Ligações por operador */}
+      {/* Ligações + Atendimento por operador */}
       <div className="bg-white rounded-xl p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Ligações por Operador</p>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Usadas na taxa de conversão diária e no ranking</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Usadas na taxa de conversão diária, no ranking e no cálculo do TMA</p>
           </div>
           <button
             onClick={addRow}
@@ -128,15 +165,16 @@ export default function Telefonia() {
           <p style={{ fontSize: 13, color: 'var(--text-subtle)', padding: '8px 0' }}>Nenhum operador cadastrado. Clique em Adicionar.</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 36px', gap: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
-              {['Operador', 'Ligações', ''].map(h => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 140px 36px', gap: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+              {['Operador', 'Ligações', 'Atendimento', ''].map(h => (
                 <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</span>
               ))}
             </div>
             {rows.map((row, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 36px', gap: 10, alignItems: 'center' }}>
-                {input(row.name, v => updateRow(i, 'name', v), 'Nome do operador')}
-                {input(row.count, v => updateRow(i, 'count', v), '0')}
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 140px 36px', gap: 10, alignItems: 'center' }}>
+                {inp(row.name, v => updateRow(i, 'name', v), 'Nome do operador')}
+                {inp(row.count, v => updateRow(i, 'count', v), '0')}
+                {inp(row.atendimento, v => updateRow(i, 'atendimento', v), '00:00:00')}
                 <button
                   onClick={() => removeRow(i)}
                   style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '7px', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
