@@ -415,6 +415,39 @@ async def sync_leads_from_followize() -> None:
         db.close()
 
 
+async def sync_leads_backfill(days: int = 365) -> None:
+    """Backfill histórico para preencher conversion_point em leads antigos."""
+    _load_tokens_from_db()
+    if not _tokens["access"]:
+        return
+    date_from = _date_from_lookback(days=days)
+    logger.info("Iniciando backfill histórico Followize (days=%d, from=%s)...", days, date_from)
+    try:
+        raw_leads = await asyncio.to_thread(_fetch_all_leads, date_from, "creation")
+    except Exception as exc:
+        logger.error("Erro no backfill Followize: %s", exc)
+        return
+    db: Session = SessionLocal()
+    try:
+        default_user = db.query(User).first()
+        if not default_user:
+            return
+        inserted = updated = 0
+        for raw in raw_leads:
+            result = _upsert_lead(db, raw, default_user.id)
+            if result == "inserted":
+                inserted += 1
+            else:
+                updated += 1
+        db.commit()
+        logger.info("Backfill concluído: %d inseridos, %d atualizados", inserted, updated)
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Erro no backfill: %s", exc)
+    finally:
+        db.close()
+
+
 def update_tokens_in_memory(access: str, refresh: str) -> None:
     _tokens["access"] = access
     _tokens["refresh"] = refresh

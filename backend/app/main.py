@@ -29,7 +29,7 @@ from app.api import telefonia_routes
 from app.api import kpis_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
-from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler
+from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler, sync_leads_backfill
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
@@ -117,6 +117,16 @@ async def startup_event():
         db.close()
     asyncio.create_task(start_sync_scheduler())
     asyncio.create_task(start_token_refresh_scheduler())
+    from app.models.app_settings import AppSettings as _AS
+    from app.database import SessionLocal as _SL
+    _db = _SL()
+    try:
+        if not _db.query(_AS).filter(_AS.key == "conversion_point_backfill_done").first():
+            _db.add(_AS(key="conversion_point_backfill_done", value="1"))
+            _db.commit()
+            asyncio.create_task(sync_leads_backfill(days=365))
+    finally:
+        _db.close()
 
 @app.get("/")
 async def root():
