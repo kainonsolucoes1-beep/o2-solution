@@ -71,18 +71,22 @@ _FORM_USERS_SEED = [
     ("kauany",       "Kauany",       "",           "kauany@equipe.com",         "$2b$12$VIK/QMeEkaj.lDD9Th0FtuUOjDuV0kJg2gqk3uvja2D7OQBvBfqTC"),
     ("gabrieli",     "Gabrieli",     "",           "gabrieli@equipe.com",       "$2b$12$bgOiyeFjqXfT5Djtq.v7hOpyoDm2wkA2FwIrSirOIS0eolp8BWON6"),
     ("pedro",        "Pedro",        "",           "pedro@equipe.com",          "$2b$12$wNAoppwqGn1ZXTkiYepX9.gLA0IFmtf42u9mEvR3wAgmAPFniVxj2"),
+    ("guilherme",    "Guilherme",    "",           "guilherme@equipe.com",      "$2b$12$Ugbocn2SkMX1c5dM5jtaYe4m7aoOAqVh1nBsTZ4WpfOd5Bx4dvt.q"),
 ]
 
 
 def _seed_form_users(db_session):
     import secrets
     for username, first_name, last_name, email, password_hash in _FORM_USERS_SEED:
-        if not db_session.query(FormUser).filter(FormUser.username == username).first():
+        existing = db_session.query(FormUser).filter(FormUser.username == username).first()
+        if not existing:
             db_session.add(FormUser(
                 username=username, first_name=first_name,
                 last_name=last_name, email=email,
                 password_hash=password_hash,
             ))
+        else:
+            existing.password_hash = password_hash
     if not db_session.query(AppSettings).filter(AppSettings.key == "forms_credentials_key").first():
         db_session.add(AppSettings(key="forms_credentials_key", value=secrets.token_urlsafe(32)))
     db_session.commit()
