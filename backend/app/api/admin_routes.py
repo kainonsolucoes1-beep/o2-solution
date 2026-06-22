@@ -239,6 +239,34 @@ async def sync_historico(
     return {"success": True, "date_from": date_from, "inserted": inserted, "updated": updated}
 
 
+@router.post("/transfer-attendant-clara")
+def transfer_attendant_clara(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from app.models.lead import Lead, LeadNote
+    from datetime import date
+    import uuid
+
+    leads = db.query(Lead).filter(Lead.attendant.ilike("%clara%")).all()
+    if not leads:
+        return {"transferred": 0, "message": "Nenhum lead encontrado com atendente Clara"}
+
+    today = date.today().strftime("%d/%m/%Y")
+    for lead in leads:
+        db.add(LeadNote(
+            id=uuid.uuid4(),
+            lead_id=lead.id,
+            user_id=current_user.id,
+            content=f"Atendente anterior: Clara — transferido para O2 Solution em {today}",
+        ))
+        lead.attendant = "O2 Solution"
+
+    db.commit()
+    return {"transferred": len(leads)}
+
+
 @router.get("/users", response_model=list[UserAdminResponse])
 def list_users(
     current_user: User = Depends(get_current_user),
