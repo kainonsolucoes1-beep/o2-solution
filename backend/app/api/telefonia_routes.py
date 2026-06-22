@@ -2,7 +2,7 @@ import json
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from app.db import get_db
+from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.api.auth_routes import get_current_user
 from app.models.user import User
