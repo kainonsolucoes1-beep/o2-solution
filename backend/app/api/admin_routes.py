@@ -28,6 +28,24 @@ class TokenUpdateRequest(BaseModel):
     client_secret: str = ""
 
 
+@router.get("/followize-tokens")
+def get_followize_tokens(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    rows = {
+        r.key: r.value
+        for r in db.query(AppSettings)
+        .filter(AppSettings.key.in_(["followize_access_token", "followize_refresh_token"]))
+        .all()
+    }
+    return {
+        "access_token":  rows.get("followize_access_token", ""),
+        "refresh_token": rows.get("followize_refresh_token", ""),
+    }
+
+
 @router.post("/followize-tokens")
 def update_followize_tokens(
     body: TokenUpdateRequest,
