@@ -229,67 +229,19 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Captação hoje por fonte — mini-cards */}
-      {data.captacao_hoje_por_fonte && data.captacao_hoje_por_fonte.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {selectedDate ? `Captação por Fonte — ${dateFmtDisplay}` : 'Captação Hoje por Fonte'}
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3">
-            {data.captacao_hoje_por_fonte.map((f, i) => {
-              const borderColors = ['#F59E0B', '#9CA3AF', '#B45309', '#3B82F6', '#8B5CF6', '#10B981']
-              const numColors    = ['#D97706', '#6B7280', '#92400E', '#2563EB', '#7C3AED', '#059669']
-              const badges       = ['1°', '2°', '3°']
-              const border = borderColors[Math.min(i, borderColors.length - 1)]
-              const numColor = numColors[Math.min(i, numColors.length - 1)]
-              return (
-                <div
-                  key={f.name}
-                  className="bg-white rounded-xl flex flex-col gap-1"
-                  style={{
-                    padding: '14px 16px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                    borderLeft: `4px solid ${border}`,
-                    transition: 'transform 180ms, box-shadow 180ms',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.1)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>{f.name}</span>
-                    {i < 3 && (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: border, background: `${border}18`, borderRadius: 99, padding: '1px 6px', flexShrink: 0 }}>
-                        {badges[i]}
-                      </span>
-                    )}
-                  </div>
-                  <p style={{ fontSize: 28, fontWeight: 700, color: numColor, lineHeight: 1, letterSpacing: '-0.5px' }}>{f.count}</p>
-                  <p style={{ fontSize: 11, color: border, fontWeight: 600, opacity: 0.75 }}>
-                    {data.captacao_hoje > 0 ? `${Math.round(f.count / data.captacao_hoje * 100)}% do dia` : '—'}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* Rankings lado a lado */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6 items-start">
 
-      {/* Ranking + Meta/Projeção */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 xl:gap-6 items-start">
-
-        {/* Ranking de Operadores */}
-        <div className="md:col-span-3 bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        {/* Ranking Hoje — ligações + captação + conversão */}
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Ranking de Operadores — {selectedDate ? dateFmtDisplay : 'Hoje'}
           </h2>
-
-          {/* Cabeçalho da tabela */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 90px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 72px 72px 82px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
             {['Operador', 'Ligações', 'Captação', 'Conversão'].map(h => (
               <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h === 'Operador' ? 'left' : 'right' }}>{h}</span>
             ))}
           </div>
-
           {data.captacao_hoje_por_fonte.length === 0 ? (
             <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações hoje.</p>
           ) : (
@@ -301,7 +253,7 @@ export default function Dashboard() {
                 return (
                   <div
                     key={op.name}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 90px', gap: 8, alignItems: 'center', padding: '11px 4px', borderBottom: i < data.captacao_hoje_por_fonte.length - 1 ? '1px solid var(--border-lt)' : 'none', transition: 'background 150ms', borderRadius: 6 }}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 72px 72px 82px', gap: 8, alignItems: 'center', padding: '11px 4px', borderBottom: i < data.captacao_hoje_por_fonte.length - 1 ? '1px solid var(--border-lt)' : 'none', borderRadius: 6, transition: 'background 150ms' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -309,16 +261,12 @@ export default function Dashboard() {
                       <span style={{ fontSize: i < 3 ? 17 : 12, width: 22, flexShrink: 0, textAlign: 'center', color: 'var(--text-subtle)', fontWeight: 700 }}>
                         {i < 3 ? MEDALS[i] : `${i + 1}°`}
                       </span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {op.name}
-                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
                     </div>
                     <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right' }}>
                       {ligacoes > 0 ? ligacoes : <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>}
                     </span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>
-                      {op.count}
-                    </span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>{op.count}</span>
                     <span style={{ fontSize: 15, fontWeight: 700, color: taxaColor, textAlign: 'right' }}>
                       {taxa !== null ? `${taxa}%` : <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>}
                     </span>
@@ -329,42 +277,82 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Meta + Projeção */}
-        <div className="md:col-span-2 flex flex-col gap-4">
-
-          <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Meta Mensal
-            </h2>
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{data.captacao_mes ?? 0}</p>
-                <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>de {metaLeads} leads</p>
-              </div>
-              <p style={{ fontSize: 30, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{data.meta_pct}%</p>
+        {/* Ranking Mensal — nome + captação + barra */}
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Ranking de Operadores — {mesNome}
+          </h2>
+          {data.ranking.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações no período.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {data.ranking.map((op, i) => (
+                <div
+                  key={op.name}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity 150ms' }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                >
+                  <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
+                    {i < 3 ? MEDALS[i] : `${i + 1}°`}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {op.name}
+                      </span>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{op.count}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
+                      </div>
+                    </div>
+                    <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 7, overflow: 'hidden' }}>
+                      <div style={{ width: `${op.bar_pct}%`, height: '100%', borderRadius: 99, background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], transition: 'width 600ms ease' }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 10, overflow: 'hidden' }}>
-              <div style={{ width: `${data.meta_pct}%`, height: '100%', background: metaColor, borderRadius: 99, transition: 'width 700ms ease' }} />
-            </div>
-            <p style={{ fontSize: 12, color: faltam === 0 ? '#10B981' : 'var(--text-muted)', fontWeight: faltam === 0 ? 600 : 400 }}>
-              {faltam === 0 ? 'Meta atingida! 🎉' : `Faltam ${faltam} leads para a meta`}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Projeção do Mês
-            </h2>
-            <p style={{ fontSize: 30, fontWeight: 700, color: projecaoColor, lineHeight: 1 }}>{data.projecao_mes ?? 0} leads</p>
-            <p style={{ fontSize: 12, color: projecaoColor, fontWeight: 600 }}>
-              {(data.projecao_mes ?? 0) >= metaLeads
-                ? `+${(data.projecao_mes ?? 0) - metaLeads} acima da meta`
-                : `${metaLeads - (data.projecao_mes ?? 0)} abaixo da meta`}
-            </p>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Baseado no ritmo atual de fechamentos</p>
-          </div>
-
+          )}
         </div>
+
+      </div>
+
+      {/* Meta + Projeção */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
+
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Meta Mensal
+          </h2>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+            <div>
+              <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{data.captacao_mes ?? 0}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>de {metaLeads} leads</p>
+            </div>
+            <p style={{ fontSize: 30, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{data.meta_pct}%</p>
+          </div>
+          <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 10, overflow: 'hidden' }}>
+            <div style={{ width: `${data.meta_pct}%`, height: '100%', background: metaColor, borderRadius: 99, transition: 'width 700ms ease' }} />
+          </div>
+          <p style={{ fontSize: 12, color: faltam === 0 ? '#10B981' : 'var(--text-muted)', fontWeight: faltam === 0 ? 600 : 400 }}>
+            {faltam === 0 ? 'Meta atingida! 🎉' : `Faltam ${faltam} leads para a meta`}
+          </p>
+        </div>
+
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Projeção do Mês
+          </h2>
+          <p style={{ fontSize: 30, fontWeight: 700, color: projecaoColor, lineHeight: 1 }}>{data.projecao_mes ?? 0} leads</p>
+          <p style={{ fontSize: 12, color: projecaoColor, fontWeight: 600 }}>
+            {(data.projecao_mes ?? 0) >= metaLeads
+              ? `+${(data.projecao_mes ?? 0) - metaLeads} acima da meta`
+              : `${metaLeads - (data.projecao_mes ?? 0)} abaixo da meta`}
+          </p>
+          <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Baseado no ritmo atual de fechamentos</p>
+        </div>
+
       </div>
 
       {/* Evolução diária */}
