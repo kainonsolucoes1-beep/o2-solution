@@ -393,7 +393,7 @@ def dashboard_performance(
     daily_rate = captacao_mes / day_of_month if day_of_month > 0 else 0
     projecao_mes = round(daily_rate * days_in_month)
 
-    # Ranking de operadores — mês atual até a data de referência
+    # Ranking de operadores — mês atual até a data de referência (todas as origens)
     ranking_rows = (
         db.query(
             func.coalesce(Lead.origin, "Sem origem").label("name"),
@@ -402,7 +402,6 @@ def dashboard_performance(
         .filter(Lead.created_at >= month_start, Lead.created_at < today_end)
         .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
-        .limit(3)
         .all()
     )
     total_ranking = sum(r.count for r in ranking_rows)
