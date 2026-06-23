@@ -89,7 +89,8 @@ def _seed_form_users(db_session):
                 password_hash=password_hash,
             ))
         else:
-            existing.password_hash = password_hash
+            existing.first_name = first_name
+            existing.last_name = last_name
     if not db_session.query(AppSettings).filter(AppSettings.key == "forms_credentials_key").first():
         db_session.add(AppSettings(key="forms_credentials_key", value=secrets.token_urlsafe(32)))
     db_session.commit()
