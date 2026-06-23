@@ -246,6 +246,8 @@ def _parse_lead_fields(raw: dict) -> dict:
     )
     tracking = raw.get("tracking") or {}
     origin = tracking.get("source") or "Sem origem"
+    _ORIGIN_RENAMES = {"lucas cardoso": "Lucas Carvalho"}
+    origin = _ORIGIN_RENAMES.get(origin.lower(), origin)
     conversion_point = raw.get("conversion_goal") or None
     created_at = _parse_followize_dt(raw.get("created_at"))
     last_proposal = raw.get("last_proposal") or {}
