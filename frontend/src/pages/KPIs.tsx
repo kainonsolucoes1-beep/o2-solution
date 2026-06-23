@@ -25,16 +25,16 @@ const SDR_NAMES = new Set([
   'gabrieli', 'gabrielli', 'kauany', 'kauanny', 'clara', 'o2 solution',
 ])
 
-const ORGANIC_NAMES = new Set(['chatgpt.com', 'site'])
+const ORGANIC_SUB_NAMES = new Set(['chatgpt.com', 'site'])
 
-const isSdr     = (fonte: string) => SDR_NAMES.has(fonte.toLowerCase())
-const isOrganic = (fonte: string) => ORGANIC_NAMES.has(fonte.toLowerCase())
+const isSdr        = (fonte: string) => SDR_NAMES.has(fonte.toLowerCase())
+const isOrganicSub = (fonte: string) => ORGANIC_SUB_NAMES.has(fonte.toLowerCase())
 
-function aggregateGroup(rows: FonteData[], name: string): FonteData {
+function aggregateSdr(rows: FonteData[]): FonteData {
   const cap = rows.reduce((s, r) => s + r.captacoes, 0)
   const ven = rows.reduce((s, r) => s + r.vendas, 0)
   const can = rows.reduce((s, r) => s + r.cancelados, 0)
-  return { fonte: name, captacoes: cap, vendas: ven, cancelados: can, conversao: cap > 0 ? Math.round(ven / cap * 1000) / 10 : 0, breakdown: [] }
+  return { fonte: 'SDR', captacoes: cap, vendas: ven, cancelados: can, conversao: cap > 0 ? Math.round(ven / cap * 1000) / 10 : 0, breakdown: [] }
 }
 
 export default function KPIs() {
@@ -44,7 +44,6 @@ export default function KPIs() {
   const [data, setData] = useState<FonteData[]>([])
   const [loading, setLoading] = useState(true)
   const [sdrOpen, setSdrOpen] = useState(false)
-  const [organicOpen, setOrganicOpen] = useState(false)
   const [expandedFontes, setExpandedFontes] = useState<Set<string>>(new Set())
   const toggleFonte = (f: string) => setExpandedFontes(prev => { const s = new Set(prev); s.has(f) ? s.delete(f) : s.add(f); return s })
 
@@ -57,17 +56,23 @@ export default function KPIs() {
   }, [month])
 
   const sdrRows     = data.filter(d => isSdr(d.fonte))
-  const organicRows = data.filter(d => isOrganic(d.fonte))
-  const otherRows   = data.filter(d => !isSdr(d.fonte) && !isOrganic(d.fonte))
-  const sdrAgg      = sdrRows.length > 0 ? aggregateGroup(sdrRows, 'SDR') : null
-  const organicAgg  = organicRows.length > 0 ? aggregateGroup(organicRows, 'Orgânico') : null
+  const organicSubs = data.filter(d => isOrganicSub(d.fonte))
+  const otherRows   = data
+    .filter(d => !isSdr(d.fonte) && !isOrganicSub(d.fonte))
+    .map(d => d.fonte.toLowerCase() === 'orgânico' && organicSubs.length > 0
+      ? { ...d, breakdown: [
+            ...organicSubs.map(s => ({ label: s.fonte, captacoes: s.captacoes, vendas: s.vendas, cancelados: s.cancelados, conversao: s.conversao })),
+            ...d.breakdown,
+          ] }
+      : d
+    )
+  const sdrAgg = sdrRows.length > 0 ? aggregateSdr(sdrRows) : null
 
-  type RowType = FonteData & { isSdrParent?: boolean; isSdrChild?: boolean; isOrganicParent?: boolean; isOrganicChild?: boolean }
+  type RowType = FonteData & { isSdrParent?: boolean; isSdrChild?: boolean }
   const allRows: RowType[] = []
   const combined = [
     ...otherRows,
-    ...(sdrAgg     ? [{ ...sdrAgg,     isSdrParent: true     }] : []),
-    ...(organicAgg ? [{ ...organicAgg, isOrganicParent: true }] : []),
+    ...(sdrAgg ? [{ ...sdrAgg, isSdrParent: true }] : []),
   ].sort((a, b) => b.captacoes - a.captacoes)
 
   for (const row of combined) {
@@ -75,12 +80,9 @@ export default function KPIs() {
     if ((row as any).isSdrParent && sdrOpen) {
       [...sdrRows].sort((a, b) => b.captacoes - a.captacoes).forEach(r => allRows.push({ ...r, isSdrChild: true }))
     }
-    if ((row as any).isOrganicParent && organicOpen) {
-      [...organicRows].sort((a, b) => b.captacoes - a.captacoes).forEach(r => allRows.push({ ...r, isOrganicChild: true }))
-    }
   }
 
-  const maxConversao = Math.max(...data.map(d => d.conversao), sdrAgg?.conversao ?? 0, organicAgg?.conversao ?? 0, 1)
+  const maxConversao = Math.max(...data.map(d => d.conversao), sdrAgg?.conversao ?? 0, 1)
 
   const colH: React.CSSProperties = {
     padding: '8px 14px', fontSize: 11, fontWeight: 600,
@@ -104,27 +106,22 @@ export default function KPIs() {
   }
 
   function renderRow(row: RowType, i: number) {
-    const isChild = row.isSdrChild || row.isOrganicChild
-    const isParent = row.isSdrParent || row.isOrganicParent
+    const isChild = row.isSdrChild
     const col: React.CSSProperties = {
       padding: '10px 14px', fontSize: 13, color: 'var(--text-2)',
       borderBottom: '1px solid var(--border)',
       background: isChild ? 'var(--bg-subtle)' : i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
     }
-    const hasBreakdown = !isChild && !isParent && row.breakdown?.length > 0
+    const hasBreakdown = !isChild && !row.isSdrParent && row.breakdown?.length > 0
     const breakdownOpen = expandedFontes.has(row.fonte)
 
     return (
       <>
-        <tr key={row.isSdrChild ? `sdr-child-${row.fonte}` : row.isOrganicChild ? `organic-child-${row.fonte}` : row.fonte}>
-          <td style={{ ...col, fontWeight: isParent ? 700 : isChild ? 400 : 500, color: 'var(--text-1)', paddingLeft: isChild ? 32 : 14 }}>
+        <tr key={row.isSdrChild ? `sdr-child-${row.fonte}` : row.fonte}>
+          <td style={{ ...col, fontWeight: row.isSdrParent ? 700 : isChild ? 400 : 500, color: 'var(--text-1)', paddingLeft: isChild ? 32 : 14 }}>
             {row.isSdrParent ? (
               <button onClick={() => setSdrOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 700 }}>
                 {sdrOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} SDR
-              </button>
-            ) : row.isOrganicParent ? (
-              <button onClick={() => setOrganicOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 700 }}>
-                {organicOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Orgânico
               </button>
             ) : isChild ? (
               <span style={{ color: 'var(--text-2)' }}>{row.fonte}</span>
