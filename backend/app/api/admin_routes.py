@@ -303,6 +303,23 @@ def transfer_attendant_clara(
     return {"transferred": len(leads)}
 
 
+@router.post("/rename-origin-lucas-cardoso")
+def rename_origin_lucas_cardoso(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from app.models.lead import Lead
+    from sqlalchemy import text
+    result = db.execute(text("""
+        UPDATE leads SET origin = 'Lucas Carvalho'
+        WHERE LOWER(origin) LIKE '%lucas cardoso%'
+           OR LOWER(attendant) LIKE '%lucas cardoso%'
+    """))
+    db.commit()
+    return {"updated": result.rowcount}
+
+
 @router.get("/users", response_model=list[UserAdminResponse])
 def list_users(
     current_user: User = Depends(get_current_user),
