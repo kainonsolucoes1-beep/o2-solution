@@ -174,12 +174,12 @@ export default function KPIs() {
               <button onClick={() => setSdrOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 700 }}>
                 {sdrOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} SDR
               </button>
-            ) : isChild ? (
-              <span style={{ color: 'var(--text-2)' }}>{row.fonte}</span>
             ) : hasBreakdown ? (
-              <button onClick={() => toggleFonte(row.fonte)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 500 }}>
+              <button onClick={() => toggleFonte(row.fonte)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: isChild ? 400 : 500 }}>
                 {breakdownOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {row.fonte}
               </button>
+            ) : isChild ? (
+              <span style={{ color: 'var(--text-2)' }}>{row.fonte}</span>
             ) : row.fonte}
           </td>
           <td style={{ ...col, textAlign: 'right' }}>{row.captacoes}</td>
