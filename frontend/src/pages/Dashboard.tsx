@@ -205,10 +205,8 @@ export default function Dashboard() {
           iconBg="#EFF6FF" iconColor="#3B82F6"
         />
         <KpiCard
-          label="Captação do Mês"
-          value={String(data.captacao_mes)}
-          trend={data.vs_mes_anterior_captacao}
-          trendLabel="vs mês anterior"
+          label="Atendimentos"
+          value={String(Object.values(telefonia.ligacoes).reduce((a: number, b: number) => a + b, 0))}
           Icon={Users}
           iconBg="#ECFDF5" iconColor="#10B981"
         />
