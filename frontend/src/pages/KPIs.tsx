@@ -109,6 +109,17 @@ export default function KPIs() {
   // Charts use combined (SDR aggregated, orgSubs absorbed into Orgânico visually)
   const combinedTotal = combined.reduce((s, r) => s + r.captacoes, 0)
 
+  // Funnel detail: merge organicSubs (chatgpt.com, Site) into Orgânico's totals
+  const funnelRows = combined.map(r => {
+    if (r.fonte.toLowerCase() === 'orgânico' && organicSubs.length > 0) {
+      const subCap = organicSubs.reduce((s, os) => s + os.captacoes, 0)
+      const subVen = organicSubs.reduce((s, os) => s + os.vendas, 0)
+      const subCan = organicSubs.reduce((s, os) => s + os.cancelados, 0)
+      return { ...r, captacoes: r.captacoes + subCap, vendas: r.vendas + subVen, cancelados: r.cancelados + subCan }
+    }
+    return r
+  }).sort((a, b) => b.captacoes - a.captacoes)
+
   const top4Pie = [...combined].sort((a, b) => b.captacoes - a.captacoes).slice(0, 4)
   const outrosVal = combinedTotal - top4Pie.reduce((s, r) => s + r.captacoes, 0)
   const pieData = [
@@ -328,7 +339,7 @@ export default function KPIs() {
                     <p style={{ fontSize: 10, color: '#93C5FD', fontWeight: 700, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                       Captações por fonte
                     </p>
-                    {combined.map((r, i) => {
+                    {funnelRows.map((r, i) => {
                       const pct = totalCap > 0 ? (r.captacoes / totalCap) * 100 : 0
                       const color = CHART_COLORS[i % CHART_COLORS.length]
                       return (
@@ -356,9 +367,9 @@ export default function KPIs() {
                     <p style={{ fontSize: 10, color: '#FCD34D', fontWeight: 700, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                       Vendas por fonte
                     </p>
-                    {combined.filter(r => r.vendas > 0).length === 0 ? (
+                    {funnelRows.filter(r => r.vendas > 0).length === 0 ? (
                       <p style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>Nenhuma venda no período</p>
-                    ) : combined.filter(r => r.vendas > 0).map((r, i) => {
+                    ) : funnelRows.filter(r => r.vendas > 0).map((r, i) => {
                       const pct = totalVen > 0 ? (r.vendas / totalVen) * 100 : 0
                       return (
                         <div key={r.fonte} style={{ marginBottom: 11 }}>
