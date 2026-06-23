@@ -1,9 +1,11 @@
 import json
+from datetime import date, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.app_settings import AppSettings
+from app.models.telefonia_daily import TelefoniaDaily
 from app.api.auth_routes import get_current_user
 from app.models.user import User
 
@@ -75,5 +77,39 @@ def save_settings(
             row.value = value
         else:
             db.add(AppSettings(key=key, value=value))
+    # Snapshot diário
+    total = sum(body.ligacoes.values())
+    today = date.today()
+    daily = db.query(TelefoniaDaily).filter(TelefoniaDaily.date == today).first()
+    if daily:
+        daily.total_ligacoes = total
+        daily.ligacoes_json  = json.dumps(body.ligacoes, ensure_ascii=False)
+    else:
+        db.add(TelefoniaDaily(
+            date=today,
+            total_ligacoes=total,
+            ligacoes_json=json.dumps(body.ligacoes, ensure_ascii=False),
+        ))
     db.commit()
     return {"success": True}
+
+
+@router.get("/atendimentos-comparativo")
+def atendimentos_comparativo(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    today     = date.today()
+    yesterday = today - timedelta(days=1)
+    hoje      = db.query(TelefoniaDaily).filter(TelefoniaDaily.date == today).first()
+    ontem     = db.query(TelefoniaDaily).filter(TelefoniaDaily.date == yesterday).first()
+    total_hoje  = hoje.total_ligacoes  if hoje  else 0
+    total_ontem = ontem.total_ligacoes if ontem else None
+    diff = None
+    if total_ontem is not None and total_ontem > 0:
+        diff = round((total_hoje - total_ontem) / total_ontem * 100, 1)
+    return {
+        "hoje":  total_hoje,
+        "ontem": total_ontem,
+        "diff":  diff,
+    }

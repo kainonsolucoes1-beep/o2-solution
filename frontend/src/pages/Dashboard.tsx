@@ -99,6 +99,7 @@ export default function Dashboard() {
   const [feedOpen, setFeedOpen] = useState(false)
   const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
   const [telefonia, setTelefonia] = useState<{ tma: string; ligacoes: Record<string, number> }>({ tma: '—', ligacoes: {} })
+  const [atendimentos, setAtendimentos] = useState<{ hoje: number; ontem: number | null; diff: number | null }>({ hoje: 0, ontem: null, diff: null })
 
   const fetchAll = useCallback((date?: string | null) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -124,6 +125,9 @@ export default function Dashboard() {
   useEffect(() => {
     api.get<{ tma: string; ligacoes: Record<string, number> }>('/api/v1/telefonia/settings')
       .then(r => setTelefonia({ tma: r.data.tma || '—', ligacoes: r.data.ligacoes }))
+      .catch(() => {})
+    api.get<{ hoje: number; ontem: number | null; diff: number | null }>('/api/v1/telefonia/atendimentos-comparativo')
+      .then(r => setAtendimentos(r.data))
       .catch(() => {})
   }, [])
 
@@ -206,7 +210,9 @@ export default function Dashboard() {
         />
         <KpiCard
           label="Atendimentos"
-          value={String(Object.values(telefonia.ligacoes).reduce((a: number, b: number) => a + b, 0))}
+          value={String(atendimentos.hoje)}
+          trend={atendimentos.diff ?? undefined}
+          trendLabel="vs ontem"
           Icon={Users}
           iconBg="#ECFDF5" iconColor="#10B981"
         />
