@@ -23,6 +23,7 @@ const SDR_NAMES = new Set([
   'isaac', 'julia', 'leticia', 'maria eduarda', 'anny', 'emily', 'emilly',
   'pedro', 'lucas', 'guilherme', 'lucascardoso', 'lucas cardoso', 'rodolfo', 'discadora',
   'gabrieli', 'gabrielli', 'kauany', 'kauanny', 'clara', 'o2 solution',
+  'lucas carvalho', 'lucascarvalho',
 ])
 
 const ORGANIC_SUB_NAMES = new Set(['chatgpt.com', 'site'])
