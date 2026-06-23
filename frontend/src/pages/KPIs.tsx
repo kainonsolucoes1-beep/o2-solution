@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, ChevronDown, ChevronRight } from 'lucide-react'
+import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  PieChart, Pie, Legend,
+} from 'recharts'
 import api from '../api'
 
 interface BreakdownItem {
@@ -19,6 +23,9 @@ interface FonteData {
   breakdown: BreakdownItem[]
 }
 
+const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
+const MEDALS = ['🥇', '🥈', '🥉']
+
 const SDR_NAMES = new Set([
   'isaac', 'julia', 'leticia', 'maria eduarda', 'anny', 'emily', 'emilly',
   'pedro', 'lucas', 'guilherme', 'lucascardoso', 'lucas cardoso', 'rodolfo', 'discadora',
@@ -36,6 +43,10 @@ function aggregateSdr(rows: FonteData[]): FonteData {
   const ven = rows.reduce((s, r) => s + r.vendas, 0)
   const can = rows.reduce((s, r) => s + r.cancelados, 0)
   return { fonte: 'SDR', captacoes: cap, vendas: ven, cancelados: can, conversao: cap > 0 ? Math.round(ven / cap * 1000) / 10 : 0, breakdown: [] }
+}
+
+function card(bg: string, border: string): React.CSSProperties {
+  return { background: bg, borderRadius: 12, padding: '20px 24px', border: `1px solid ${border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
 }
 
 export default function KPIs() {
@@ -83,6 +94,31 @@ export default function KPIs() {
     }
   }
 
+  // Totals from all raw rows (no double-counting)
+  const totalCap = data.reduce((s, d) => s + d.captacoes, 0)
+  const totalVen = data.reduce((s, d) => s + d.vendas, 0)
+  const totalCan = data.reduce((s, d) => s + d.cancelados, 0)
+  const taxaConv = totalCap > 0 ? Math.round(totalVen / totalCap * 1000) / 10 : 0
+  const pctCan   = totalCap > 0 ? Math.round(totalCan / totalCap * 1000) / 10 : 0
+
+  const principalFonte = combined.length > 0
+    ? combined.reduce((best, r) => r.captacoes > best.captacoes ? r : best)
+    : null
+
+  // Charts use combined (SDR aggregated, orgSubs absorbed into Orgânico visually)
+  const combinedTotal = combined.reduce((s, r) => s + r.captacoes, 0)
+  const top5Bar = [...combined].sort((a, b) => b.captacoes - a.captacoes).slice(0, 5)
+    .map(r => ({ name: r.fonte, captacoes: r.captacoes }))
+
+  const top4Pie = [...combined].sort((a, b) => b.captacoes - a.captacoes).slice(0, 4)
+  const outrosVal = combinedTotal - top4Pie.reduce((s, r) => s + r.captacoes, 0)
+  const pieData = [
+    ...top4Pie.map(r => ({ name: r.fonte, value: r.captacoes })),
+    ...(outrosVal > 0 ? [{ name: 'Outros', value: outrosVal }] : []),
+  ]
+
+  const top5Sdr = [...sdrRows].sort((a, b) => b.captacoes - a.captacoes).slice(0, 5)
+
   const maxConversao = Math.max(...data.map(d => d.conversao), sdrAgg?.conversao ?? 0, 1)
 
   const colH: React.CSSProperties = {
@@ -91,7 +127,7 @@ export default function KPIs() {
     letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', textAlign: 'left',
   }
 
-  function renderBar(conversao: number) {
+  function renderConversaoBar(conversao: number) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
@@ -135,7 +171,7 @@ export default function KPIs() {
           <td style={{ ...col, textAlign: 'right' }}>{row.captacoes}</td>
           <td style={{ ...col, textAlign: 'right', color: '#059669', fontWeight: 600 }}>{row.vendas}</td>
           <td style={{ ...col, textAlign: 'right', color: '#EF4444' }}>{row.cancelados}</td>
-          <td style={{ ...col }}>{renderBar(row.conversao)}</td>
+          <td style={{ ...col }}>{renderConversaoBar(row.conversao)}</td>
         </tr>
         {hasBreakdown && breakdownOpen && row.breakdown.map(bp => (
           <tr key={`bp-${row.fonte}-${bp.label}`}>
@@ -143,7 +179,7 @@ export default function KPIs() {
             <td style={{ ...col, textAlign: 'right', background: 'var(--bg-subtle)' }}>{bp.captacoes}</td>
             <td style={{ ...col, textAlign: 'right', color: '#059669', fontWeight: 600, background: 'var(--bg-subtle)' }}>{bp.vendas}</td>
             <td style={{ ...col, textAlign: 'right', color: '#EF4444', background: 'var(--bg-subtle)' }}>{bp.cancelados}</td>
-            <td style={{ ...col, background: 'var(--bg-subtle)' }}>{renderBar(bp.conversao)}</td>
+            <td style={{ ...col, background: 'var(--bg-subtle)' }}>{renderConversaoBar(bp.conversao)}</td>
           </tr>
         ))}
       </>
@@ -151,8 +187,9 @@ export default function KPIs() {
   }
 
   return (
-    <main style={{ padding: '24px 32px', maxWidth: 860 }}>
+    <main style={{ padding: '24px 32px', maxWidth: 1100 }}>
 
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>KPIs</h1>
@@ -170,7 +207,121 @@ export default function KPIs() {
         />
       </div>
 
-      <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      {/* KPI Cards */}
+      {!loading && data.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+          <div style={card('#EFF6FF', '#BFDBFE')}>
+            <div style={{ fontSize: 11, color: '#3B82F6', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📈 Captações Totais</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#1D4ED8', lineHeight: 1 }}>{totalCap}</div>
+            <div style={{ fontSize: 11, color: '#93C5FD', marginTop: 6 }}>Total de leads capturados</div>
+          </div>
+
+          <div style={card(taxaConv < 1 ? '#FEF2F2' : '#F0FDF4', taxaConv < 1 ? '#FECACA' : '#BBF7D0')}>
+            <div style={{ fontSize: 11, color: taxaConv < 1 ? '#DC2626' : '#16A34A', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {taxaConv < 1 ? '⚠️' : '✅'} Taxa de Conversão
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: taxaConv < 1 ? '#DC2626' : '#15803D', lineHeight: 1 }}>{taxaConv}%</div>
+            <div style={{ fontSize: 11, color: taxaConv < 1 ? '#FCA5A5' : '#86EFAC', marginTop: 6 }}>
+              {taxaConv < 1 ? 'CRÍTICO: Abaixo do esperado' : 'Dentro do esperado'}
+            </div>
+          </div>
+
+          <div style={card('#FEF2F2', '#FECACA')}>
+            <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>❌ Cancelados</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#B91C1C', lineHeight: 1 }}>
+              {totalCan} <span style={{ fontSize: 16, fontWeight: 400 }}>({pctCan}%)</span>
+            </div>
+            <div style={{ fontSize: 11, color: '#FCA5A5', marginTop: 6 }}>Leads perdidos</div>
+          </div>
+
+          <div style={card('#FFF7ED', '#FED7AA')}>
+            <div style={{ fontSize: 11, color: '#F97316', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🎯 Principal Fonte</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#C2410C', lineHeight: 1.2 }}>{principalFonte?.fonte ?? '—'}</div>
+            <div style={{ fontSize: 11, color: '#FDBA74', marginTop: 6 }}>{principalFonte?.captacoes ?? 0} captações</div>
+          </div>
+        </div>
+      )}
+
+      {/* Alerts */}
+      {!loading && data.length > 0 && (taxaConv < 1 || pctCan > 20) && (
+        <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {taxaConv < 1 && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#DC2626', fontSize: 13, fontWeight: 600 }}>
+              <AlertTriangle size={15} /> ⚠️ CRÍTICO: Taxa de conversão abaixo de 1%
+            </div>
+          )}
+          {pctCan > 20 && (
+            <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#EA580C', fontSize: 13, fontWeight: 600 }}>
+              <AlertTriangle size={15} /> ⚠️ Alto índice de cancelamentos ({pctCan}%)
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Charts */}
+      {!loading && data.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
+
+          {/* Bar — Top 5 */}
+          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 16px' }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 14px 4px' }}>Top 5 por Captações</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={top5Bar} layout="vertical" margin={{ left: 0, right: 28, top: 0, bottom: 0 }}>
+                <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={72} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => [v, 'Captações']} />
+                <Bar dataKey="captacoes" radius={[0, 4, 4, 0]}>
+                  {top5Bar.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Pie — Distribuição */}
+          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 16px' }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 14px 4px' }}>Distribuição por Origem</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={68}>
+                  {pieData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => [v, 'Captações']} />
+                <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Funnel — custom */}
+          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px' }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 22px 0' }}>Funil de Conversão</p>
+            {[
+              { label: 'Captações', value: String(totalCap), pct: 100, color: '#3B82F6' },
+              { label: 'Vendas', value: String(totalVen), pct: totalCap > 0 ? (totalVen / totalCap) * 100 : 0, color: '#F59E0B' },
+              { label: 'Conversão', value: `${taxaConv}%`, pct: taxaConv, color: taxaConv < 1 ? '#DC2626' : '#10B981' },
+            ].map((stage, i) => (
+              <div key={i} style={{ marginBottom: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{stage.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: stage.color }}>{stage.value}</span>
+                </div>
+                <div style={{ background: 'var(--border)', borderRadius: 4, height: 20, overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${Math.max(stage.pct, 1.5)}%`,
+                    height: '100%',
+                    background: stage.color,
+                    borderRadius: 4,
+                    transition: 'width 0.5s ease',
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+        </div>
+      )}
+
+      {/* Table — Conversão por Fonte */}
+      <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: top5Sdr.length > 0 ? 24 : 0 }}>
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <TrendingUp size={15} color="#2563EB" />
@@ -202,6 +353,46 @@ export default function KPIs() {
           </table>
         )}
       </div>
+
+      {/* Table — Top 5 SDR Performance */}
+      {!loading && top5Sdr.length > 0 && (
+        <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Top 5 Performance SDR</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Ranking individual dos operadores no mês</p>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-subtle)' }}>
+                <th style={{ ...colH, width: 48 }}>#</th>
+                <th style={colH}>Nome</th>
+                <th style={{ ...colH, textAlign: 'right' }}>Captações</th>
+                <th style={{ ...colH, textAlign: 'right' }}>Vendas</th>
+                <th style={{ ...colH, textAlign: 'right' }}>Taxa %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {top5Sdr.map((r, i) => {
+                const col: React.CSSProperties = {
+                  padding: '10px 14px', fontSize: 13, color: 'var(--text-2)',
+                  borderBottom: i < top5Sdr.length - 1 ? '1px solid var(--border)' : 'none',
+                  background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
+                }
+                const taxaColor = r.conversao >= 5 ? '#059669' : r.conversao > 0 ? '#F59E0B' : '#EF4444'
+                return (
+                  <tr key={r.fonte}>
+                    <td style={{ ...col, fontSize: 17, textAlign: 'center' }}>{MEDALS[i] ?? i + 1}</td>
+                    <td style={{ ...col, fontWeight: 500, color: 'var(--text-1)' }}>{r.fonte}</td>
+                    <td style={{ ...col, textAlign: 'right' }}>{r.captacoes}</td>
+                    <td style={{ ...col, textAlign: 'right', color: '#059669', fontWeight: 600 }}>{r.vendas}</td>
+                    <td style={{ ...col, textAlign: 'right', color: taxaColor, fontWeight: 600 }}>{r.conversao}%</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
     </main>
   )
