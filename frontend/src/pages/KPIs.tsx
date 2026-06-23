@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
 } from 'recharts'
 import api from '../api'
@@ -107,8 +107,6 @@ export default function KPIs() {
 
   // Charts use combined (SDR aggregated, orgSubs absorbed into Orgânico visually)
   const combinedTotal = combined.reduce((s, r) => s + r.captacoes, 0)
-  const top5Bar = [...combined].sort((a, b) => b.captacoes - a.captacoes).slice(0, 5)
-    .map(r => ({ name: r.fonte, captacoes: r.captacoes }))
 
   const top4Pie = [...combined].sort((a, b) => b.captacoes - a.captacoes).slice(0, 4)
   const outrosVal = combinedTotal - top4Pie.reduce((s, r) => s + r.captacoes, 0)
@@ -216,14 +214,10 @@ export default function KPIs() {
             <div style={{ fontSize: 11, color: '#93C5FD', marginTop: 6 }}>Total de leads capturados</div>
           </div>
 
-          <div style={card(taxaConv < 1 ? '#FEF2F2' : '#F0FDF4', taxaConv < 1 ? '#FECACA' : '#BBF7D0')}>
-            <div style={{ fontSize: 11, color: taxaConv < 1 ? '#DC2626' : '#16A34A', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {taxaConv < 1 ? '⚠️' : '✅'} Taxa de Conversão
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: taxaConv < 1 ? '#DC2626' : '#15803D', lineHeight: 1 }}>{taxaConv}%</div>
-            <div style={{ fontSize: 11, color: taxaConv < 1 ? '#FCA5A5' : '#86EFAC', marginTop: 6 }}>
-              {taxaConv < 1 ? 'CRÍTICO: Abaixo do esperado' : 'Dentro do esperado'}
-            </div>
+          <div style={card('#F5F3FF', '#DDD6FE')}>
+            <div style={{ fontSize: 11, color: '#7C3AED', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📊 Taxa de Conversão</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#5B21B6', lineHeight: 1 }}>{taxaConv}%</div>
+            <div style={{ fontSize: 11, color: '#A78BFA', marginTop: 6 }}>Vendas / Captações</div>
           </div>
 
           <div style={card('#FEF2F2', '#FECACA')}>
@@ -243,39 +237,17 @@ export default function KPIs() {
       )}
 
       {/* Alerts */}
-      {!loading && data.length > 0 && (taxaConv < 1 || pctCan > 20) && (
-        <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {taxaConv < 1 && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#DC2626', fontSize: 13, fontWeight: 600 }}>
-              <AlertTriangle size={15} /> ⚠️ CRÍTICO: Taxa de conversão abaixo de 1%
-            </div>
-          )}
-          {pctCan > 20 && (
-            <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#EA580C', fontSize: 13, fontWeight: 600 }}>
-              <AlertTriangle size={15} /> ⚠️ Alto índice de cancelamentos ({pctCan}%)
-            </div>
-          )}
+      {!loading && data.length > 0 && pctCan > 20 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#EA580C', fontSize: 13, fontWeight: 600 }}>
+            <AlertTriangle size={15} /> ⚠️ Alto índice de cancelamentos ({pctCan}%)
+          </div>
         </div>
       )}
 
       {/* Charts */}
       {!loading && data.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
-
-          {/* Bar — Top 5 */}
-          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 16px' }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 14px 4px' }}>Top 5 por Captações</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={top5Bar} layout="vertical" margin={{ left: 0, right: 28, top: 0, bottom: 0 }}>
-                <XAxis type="number" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={72} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => [v, 'Captações']} />
-                <Bar dataKey="captacoes" radius={[0, 4, 4, 0]}>
-                  {top5Bar.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
 
           {/* Pie — Distribuição */}
           <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 16px' }}>
@@ -297,7 +269,7 @@ export default function KPIs() {
             {[
               { label: 'Captações', value: String(totalCap), pct: 100, color: '#3B82F6' },
               { label: 'Vendas', value: String(totalVen), pct: totalCap > 0 ? (totalVen / totalCap) * 100 : 0, color: '#F59E0B' },
-              { label: 'Conversão', value: `${taxaConv}%`, pct: taxaConv, color: taxaConv < 1 ? '#DC2626' : '#10B981' },
+              { label: 'Conversão', value: `${taxaConv}%`, pct: taxaConv, color: '#7C3AED' },
             ].map((stage, i) => (
               <div key={i} style={{ marginBottom: 18 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
