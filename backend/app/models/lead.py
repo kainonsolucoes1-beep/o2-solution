@@ -21,6 +21,7 @@ class Lead(Base):
     perception = Column(String(20))
     value_potential = Column(Numeric(12, 2))
     notes = Column(Text)
+    is_renutrucao = Column(Boolean, default=False, nullable=False, server_default='false')
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())
 

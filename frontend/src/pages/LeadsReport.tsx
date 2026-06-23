@@ -24,6 +24,7 @@ interface LeadItem {
   status: string | null
   perception: string | null
   value_potential: number | null
+  is_renutrucao: boolean
   created_at: string
   updated_at: string | null
 }
@@ -411,7 +412,19 @@ export default function LeadsReport() {
                             {lead.updated_at ? fmtDate(lead.updated_at) : '—'}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)' }}>
-                            {lead.name}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {lead.name}
+                              {lead.is_renutrucao && (
+                                <span style={{
+                                  fontSize: 10, fontWeight: 700, color: '#7C3AED',
+                                  background: '#F5F3FF', border: '1px solid #DDD6FE',
+                                  borderRadius: 20, padding: '2px 8px',
+                                  letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                                }}>
+                                  RENUTRIÇÃO
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
                             {lead.email ?? '—'}

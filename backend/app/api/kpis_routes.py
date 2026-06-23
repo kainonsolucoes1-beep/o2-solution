@@ -87,3 +87,46 @@ def conversao_por_fonte(
         })
 
     return result
+
+
+@router.get("/renutrucao")
+def renutrucao_stats(
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        now = datetime.utcnow()
+        year, mon = now.year, now.month
+
+    date_from = datetime(year, mon, 1)
+    date_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    leads = (
+        db.query(Lead.status)
+        .filter(
+            Lead.is_renutrucao == True,
+            Lead.created_at >= date_from,
+            Lead.created_at <= date_to,
+        )
+        .all()
+    )
+
+    venda_set     = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    cap = len(leads)
+    ven = sum(1 for (s,) in leads if (s or "").lower() in venda_set)
+    can = sum(1 for (s,) in leads if (s or "").lower() in cancelado_set)
+
+    return {
+        "captacoes":  cap,
+        "vendas":     ven,
+        "cancelados": can,
+        "conversao":  round(ven / cap * 100, 1) if cap > 0 else 0.0,
+    }

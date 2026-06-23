@@ -59,6 +59,7 @@ export default function KPIs() {
   const [expandedFontes, setExpandedFontes] = useState<Set<string>>(new Set())
   const toggleFonte = (f: string) => setExpandedFontes(prev => { const s = new Set(prev); s.has(f) ? s.delete(f) : s.add(f); return s })
   const [funnelOpen, setFunnelOpen] = useState(false)
+  const [renutrucao, setRenutrucao] = useState({ captacoes: 0, vendas: 0, cancelados: 0, conversao: 0 })
 
   useEffect(() => {
     setLoading(true)
@@ -66,6 +67,9 @@ export default function KPIs() {
       .then(r => setData(r.data))
       .catch(() => setData([]))
       .finally(() => setLoading(false))
+    api.get<{ captacoes: number; vendas: number; cancelados: number; conversao: number }>(
+      `/api/v1/kpis/renutrucao?month=${month}`
+    ).then(r => setRenutrucao(r.data)).catch(() => {})
   }, [month])
 
   const sdrRows     = data.filter(d => isSdr(d.fonte))
@@ -244,6 +248,37 @@ export default function KPIs() {
             <div style={{ fontSize: 11, color: '#F97316', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🎯 Principal Fonte</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#C2410C', lineHeight: 1.2 }}>{principalFonte?.fonte ?? '—'}</div>
             <div style={{ fontSize: 11, color: '#FDBA74', marginTop: 6 }}>{principalFonte?.captacoes ?? 0} captações</div>
+          </div>
+        </div>
+      )}
+
+      {/* Card Renutrição */}
+      {!loading && renutrucao.captacoes > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
+            borderRadius: 12, padding: '18px 24px',
+            border: '1px solid #4C1D95',
+            boxShadow: '0 2px 12px rgba(124,58,237,0.2)',
+            display: 'flex', alignItems: 'center', gap: 32,
+          }}>
+            <div>
+              <div style={{ fontSize: 10, color: '#A78BFA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+                🔄 Renutrição — {month}
+              </div>
+              <div style={{ fontSize: 11, color: '#6D28D9', marginTop: 2 }}>Leads captados por renutrição no mês</div>
+            </div>
+            {[
+              { label: 'Captações', value: renutrucao.captacoes, color: '#93C5FD' },
+              { label: 'Vendas', value: renutrucao.vendas, color: '#FCD34D' },
+              { label: 'Cancelados', value: renutrucao.cancelados, color: '#FCA5A5' },
+              { label: 'Conversão', value: `${renutrucao.conversao}%`, color: '#A78BFA' },
+            ].map(item => (
+              <div key={item.label} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: item.color, lineHeight: 1 }}>{item.value}</div>
+                <div style={{ fontSize: 10, color: '#6D28D9', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{item.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}

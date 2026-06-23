@@ -110,7 +110,7 @@ def leads_by_period(
                 Lead.id, Lead.name, Lead.email, Lead.phone,
                 Lead.company, Lead.attendant,
                 Lead.status, Lead.perception, Lead.value_potential,
-                Lead.created_at, Lead.updated_at, Lead.origin,
+                Lead.created_at, Lead.updated_at, Lead.origin, Lead.is_renutrucao,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -128,6 +128,7 @@ def leads_by_period(
             created_at=r.created_at,
             updated_at=r.updated_at,
             origem=r.origin,
+            is_renutrucao=bool(r.is_renutrucao),
         )
         for r in rows
     ]
@@ -240,6 +241,8 @@ def create_lead_note(
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     note = LeadNote(lead_id=lead.id, user_id=current_user.id, content=body.content)
     db.add(note)
+    if 'renutrição' in body.content.lower():
+        lead.is_renutrucao = True
     db.commit()
     db.refresh(note)
     return NoteCreateResponse(success=True, note_id=note.id, created_at=note.created_at)

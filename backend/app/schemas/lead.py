@@ -36,6 +36,7 @@ class LeadReportItem(BaseModel):
     status: Optional[str] = None
     perception: Optional[str] = None
     value_potential: Optional[float] = None
+    is_renutrucao: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
 
