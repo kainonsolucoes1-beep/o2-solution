@@ -34,15 +34,25 @@ const SDR_NAMES = new Set([
 ])
 
 const ORGANIC_SUB_NAMES = new Set(['chatgpt.com', 'site'])
+const O2_MEMBER_NAMES  = new Set(['clara', 'maria eduarda', 'gabrieli', 'kauany'])
 
 const isSdr        = (fonte: string) => SDR_NAMES.has(fonte.toLowerCase())
 const isOrganicSub = (fonte: string) => ORGANIC_SUB_NAMES.has(fonte.toLowerCase())
+const isO2Member   = (fonte: string) => O2_MEMBER_NAMES.has(fonte.toLowerCase())
+const isO2Self     = (fonte: string) => fonte.toLowerCase() === 'o2 solution'
 
 function aggregateSdr(rows: FonteData[]): FonteData {
   const cap = rows.reduce((s, r) => s + r.captacoes, 0)
   const ven = rows.reduce((s, r) => s + r.vendas, 0)
   const can = rows.reduce((s, r) => s + r.cancelados, 0)
   return { fonte: 'SDR', captacoes: cap, vendas: ven, cancelados: can, conversao: cap > 0 ? Math.round(ven / cap * 1000) / 10 : 0, breakdown: [] }
+}
+
+function aggregateO2(rows: FonteData[]): FonteData {
+  const cap = rows.reduce((s, r) => s + r.captacoes, 0)
+  const ven = rows.reduce((s, r) => s + r.vendas, 0)
+  const can = rows.reduce((s, r) => s + r.cancelados, 0)
+  return { fonte: 'O2 Solution', captacoes: cap, vendas: ven, cancelados: can, conversao: cap > 0 ? Math.round(ven / cap * 1000) / 10 : 0, breakdown: [] }
 }
 
 function card(bg: string, border: string): React.CSSProperties {
@@ -56,6 +66,7 @@ export default function KPIs() {
   const [data, setData] = useState<FonteData[]>([])
   const [loading, setLoading] = useState(true)
   const [sdrOpen, setSdrOpen] = useState(false)
+  const [o2Open, setO2Open] = useState(false)
   const [expandedFontes, setExpandedFontes] = useState<Set<string>>(new Set())
   const toggleFonte = (f: string) => setExpandedFontes(prev => { const s = new Set(prev); s.has(f) ? s.delete(f) : s.add(f); return s })
   const [funnelOpen, setFunnelOpen] = useState(false)
@@ -72,9 +83,11 @@ export default function KPIs() {
     ).then(r => setRenutrucao(r.data)).catch(() => {})
   }, [month])
 
-  const sdrRows     = data.filter(d => isSdr(d.fonte))
-  const organicSubs = data.filter(d => isOrganicSub(d.fonte))
-  const otherRows   = data
+  const sdrRows      = data.filter(d => isSdr(d.fonte))
+  const o2MemberRows = sdrRows.filter(r => isO2Member(r.fonte))
+  const otherSdrRows = sdrRows.filter(r => !isO2Member(r.fonte) && !isO2Self(r.fonte))
+  const organicSubs  = data.filter(d => isOrganicSub(d.fonte))
+  const otherRows    = data
     .filter(d => !isSdr(d.fonte) && !isOrganicSub(d.fonte))
     .map(d => d.fonte.toLowerCase() === 'orgânico' && organicSubs.length > 0
       ? { ...d, breakdown: [
@@ -84,8 +97,9 @@ export default function KPIs() {
       : d
     )
   const sdrAgg = sdrRows.length > 0 ? aggregateSdr(sdrRows) : null
+  const o2Agg  = o2MemberRows.length > 0 ? aggregateO2(o2MemberRows) : null
 
-  type RowType = FonteData & { isSdrParent?: boolean; isSdrChild?: boolean }
+  type RowType = FonteData & { isSdrParent?: boolean; isSdrChild?: boolean; isO2Parent?: boolean; isO2Child?: boolean }
   const allRows: RowType[] = []
   const combined = [
     ...otherRows,
@@ -95,7 +109,15 @@ export default function KPIs() {
   for (const row of combined) {
     allRows.push(row)
     if ((row as any).isSdrParent && sdrOpen) {
-      [...sdrRows].sort((a, b) => b.captacoes - a.captacoes).forEach(r => allRows.push({ ...r, isSdrChild: true }))
+      const directSdrChildren: RowType[] = otherSdrRows.map(r => ({ ...r, isSdrChild: true }))
+      if (o2Agg) directSdrChildren.push({ ...o2Agg, isSdrChild: true, isO2Parent: true })
+      directSdrChildren.sort((a, b) => b.captacoes - a.captacoes).forEach(r => {
+        allRows.push(r)
+        if ((r as any).isO2Parent && o2Open) {
+          ;[...o2MemberRows].sort((a, b) => b.captacoes - a.captacoes)
+            .forEach(o2r => allRows.push({ ...o2r, isSdrChild: true, isO2Child: true }))
+        }
+      })
     }
   }
 
@@ -157,22 +179,29 @@ export default function KPIs() {
   }
 
   function renderRow(row: RowType, i: number) {
-    const isChild = row.isSdrChild
+    const isChild      = row.isSdrChild
+    const isO2ParentRow = (row as any).isO2Parent
+    const isO2ChildRow  = (row as any).isO2Child
     const col: React.CSSProperties = {
       padding: '10px 14px', fontSize: 13, color: 'var(--text-2)',
       borderBottom: '1px solid var(--border)',
       background: isChild ? 'var(--bg-subtle)' : i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
     }
-    const hasBreakdown = !row.isSdrParent && row.breakdown?.length > 0
+    const hasBreakdown = !row.isSdrParent && !isO2ParentRow && row.breakdown?.length > 0
     const breakdownOpen = expandedFontes.has(row.fonte)
+    const paddingLeft = isO2ChildRow ? 52 : isChild ? 32 : 14
 
     return (
       <>
-        <tr key={row.isSdrChild ? `sdr-child-${row.fonte}` : row.fonte}>
-          <td style={{ ...col, fontWeight: row.isSdrParent ? 700 : isChild ? 400 : 500, color: 'var(--text-1)', paddingLeft: isChild ? 32 : 14 }}>
+        <tr key={isO2ChildRow ? `o2-child-${row.fonte}` : row.isSdrChild ? `sdr-child-${row.fonte}` : row.fonte}>
+          <td style={{ ...col, fontWeight: row.isSdrParent ? 700 : isChild ? 400 : 500, color: 'var(--text-1)', paddingLeft }}>
             {row.isSdrParent ? (
               <button onClick={() => setSdrOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 700 }}>
                 {sdrOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} SDR
+              </button>
+            ) : isO2ParentRow ? (
+              <button onClick={() => setO2Open(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 400 }}>
+                {o2Open ? <ChevronDown size={14} /> : <ChevronRight size={14} />} O2 Solution
               </button>
             ) : hasBreakdown ? (
               <button onClick={() => toggleFonte(row.fonte)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: isChild ? 400 : 500 }}>
@@ -189,7 +218,7 @@ export default function KPIs() {
         </tr>
         {hasBreakdown && breakdownOpen && row.breakdown.map(bp => (
           <tr key={`bp-${row.fonte}-${bp.label}`}>
-            <td style={{ ...col, paddingLeft: isChild ? 52 : 32, fontStyle: 'italic', color: 'var(--text-subtle)', background: 'var(--bg-subtle)' }}>{bp.label}</td>
+            <td style={{ ...col, paddingLeft: isO2ChildRow ? 68 : isChild ? 52 : 32, fontStyle: 'italic', color: 'var(--text-subtle)', background: 'var(--bg-subtle)' }}>{bp.label}</td>
             <td style={{ ...col, textAlign: 'right', background: 'var(--bg-subtle)' }}>{bp.captacoes}</td>
             <td style={{ ...col, textAlign: 'right', color: '#059669', fontWeight: 600, background: 'var(--bg-subtle)' }}>{bp.vendas}</td>
             <td style={{ ...col, textAlign: 'right', color: '#EF4444', background: 'var(--bg-subtle)' }}>{bp.cancelados}</td>
