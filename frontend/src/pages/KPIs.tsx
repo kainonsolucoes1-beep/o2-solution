@@ -252,36 +252,6 @@ export default function KPIs() {
         </div>
       )}
 
-      {/* Card Renutrição */}
-      {!loading && renutrucao.captacoes > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #1E1B4B 0%, #2E1065 100%)',
-            borderRadius: 12, padding: '18px 24px',
-            border: '1px solid #4C1D95',
-            boxShadow: '0 2px 12px rgba(124,58,237,0.2)',
-            display: 'flex', alignItems: 'center', gap: 32,
-          }}>
-            <div>
-              <div style={{ fontSize: 10, color: '#A78BFA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
-                🔄 Renutrição — {month}
-              </div>
-              <div style={{ fontSize: 11, color: '#6D28D9', marginTop: 2 }}>Leads captados por renutrição no mês</div>
-            </div>
-            {[
-              { label: 'Captações', value: renutrucao.captacoes, color: '#93C5FD' },
-              { label: 'Vendas', value: renutrucao.vendas, color: '#FCD34D' },
-              { label: 'Cancelados', value: renutrucao.cancelados, color: '#FCA5A5' },
-              { label: 'Conversão', value: `${renutrucao.conversao}%`, color: '#A78BFA' },
-            ].map(item => (
-              <div key={item.label} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: item.color, lineHeight: 1 }}>{item.value}</div>
-                <div style={{ fontSize: 10, color: '#6D28D9', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{item.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Alerts */}
       {!loading && data.length > 0 && pctCan > 20 && (
