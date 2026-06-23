@@ -163,7 +163,7 @@ export default function KPIs() {
       borderBottom: '1px solid var(--border)',
       background: isChild ? 'var(--bg-subtle)' : i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
     }
-    const hasBreakdown = !isChild && !row.isSdrParent && row.breakdown?.length > 0
+    const hasBreakdown = !row.isSdrParent && row.breakdown?.length > 0
     const breakdownOpen = expandedFontes.has(row.fonte)
 
     return (
@@ -189,7 +189,7 @@ export default function KPIs() {
         </tr>
         {hasBreakdown && breakdownOpen && row.breakdown.map(bp => (
           <tr key={`bp-${row.fonte}-${bp.label}`}>
-            <td style={{ ...col, paddingLeft: 32, fontStyle: 'italic', color: 'var(--text-subtle)', background: 'var(--bg-subtle)' }}>{bp.label}</td>
+            <td style={{ ...col, paddingLeft: isChild ? 52 : 32, fontStyle: 'italic', color: 'var(--text-subtle)', background: 'var(--bg-subtle)' }}>{bp.label}</td>
             <td style={{ ...col, textAlign: 'right', background: 'var(--bg-subtle)' }}>{bp.captacoes}</td>
             <td style={{ ...col, textAlign: 'right', color: '#059669', fontWeight: 600, background: 'var(--bg-subtle)' }}>{bp.vendas}</td>
             <td style={{ ...col, textAlign: 'right', color: '#EF4444', background: 'var(--bg-subtle)' }}>{bp.cancelados}</td>
