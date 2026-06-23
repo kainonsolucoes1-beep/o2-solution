@@ -58,6 +58,7 @@ export default function KPIs() {
   const [sdrOpen, setSdrOpen] = useState(false)
   const [expandedFontes, setExpandedFontes] = useState<Set<string>>(new Set())
   const toggleFonte = (f: string) => setExpandedFontes(prev => { const s = new Set(prev); s.has(f) ? s.delete(f) : s.add(f); return s })
+  const [funnelOpen, setFunnelOpen] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -263,30 +264,125 @@ export default function KPIs() {
             </ResponsiveContainer>
           </div>
 
-          {/* Funnel — custom */}
-          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px' }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 22px 0' }}>Funil de Conversão</p>
-            {[
-              { label: 'Captações', value: String(totalCap), pct: 100, color: '#3B82F6' },
-              { label: 'Vendas', value: String(totalVen), pct: totalCap > 0 ? (totalVen / totalCap) * 100 : 0, color: '#F59E0B' },
-              { label: 'Conversão', value: `${taxaConv}%`, pct: taxaConv, color: '#7C3AED' },
-            ].map((stage, i) => (
-              <div key={i} style={{ marginBottom: 18 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{stage.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: stage.color }}>{stage.value}</span>
+          {/* Funnel — custom with expandable detail */}
+          <div className="bg-white rounded-xl" style={{
+            boxShadow: funnelOpen ? '0 4px 24px rgba(124,58,237,0.18)' : '0 1px 3px rgba(0,0,0,0.08)',
+            overflow: 'hidden',
+            transition: 'box-shadow 0.3s ease',
+          }}>
+            <div style={{ padding: '20px 24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Funil de Conversão</p>
+                <button
+                  onClick={() => setFunnelOpen(o => !o)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    background: funnelOpen ? '#7C3AED' : 'transparent',
+                    border: '1px solid #7C3AED', borderRadius: 20,
+                    padding: '4px 11px', cursor: 'pointer',
+                    fontSize: 11, fontWeight: 600,
+                    color: funnelOpen ? '#fff' : '#7C3AED',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {funnelOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                  {funnelOpen ? 'Fechar' : 'Detalhar'}
+                </button>
+              </div>
+              {[
+                { label: 'Captações', value: String(totalCap), pct: 100, color: '#3B82F6' },
+                { label: 'Vendas', value: String(totalVen), pct: totalCap > 0 ? (totalVen / totalCap) * 100 : 0, color: '#F59E0B' },
+                { label: 'Conversão', value: `${taxaConv}%`, pct: taxaConv, color: '#7C3AED' },
+              ].map((stage, i) => (
+                <div key={i} style={{ marginBottom: 18 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{stage.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: stage.color }}>{stage.value}</span>
+                  </div>
+                  <div style={{ background: 'var(--border)', borderRadius: 4, height: 20, overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${Math.max(stage.pct, 1.5)}%`,
+                      height: '100%', background: stage.color,
+                      borderRadius: 4, transition: 'width 0.5s ease',
+                    }} />
+                  </div>
                 </div>
-                <div style={{ background: 'var(--border)', borderRadius: 4, height: 20, overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${Math.max(stage.pct, 1.5)}%`,
-                    height: '100%',
-                    background: stage.color,
-                    borderRadius: 4,
-                    transition: 'width 0.5s ease',
-                  }} />
+              ))}
+            </div>
+
+            {/* Expandable breakdown */}
+            <div style={{
+              maxHeight: funnelOpen ? '520px' : '0px',
+              overflow: 'hidden',
+              transition: 'max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%)',
+                padding: '20px 24px 24px',
+                borderTop: '1px solid rgba(124,58,237,0.35)',
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+
+                  {/* Captações por fonte */}
+                  <div>
+                    <p style={{ fontSize: 10, color: '#93C5FD', fontWeight: 700, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      Captações por fonte
+                    </p>
+                    {combined.map((r, i) => {
+                      const pct = totalCap > 0 ? (r.captacoes / totalCap) * 100 : 0
+                      const color = CHART_COLORS[i % CHART_COLORS.length]
+                      return (
+                        <div key={r.fonte} style={{ marginBottom: 11 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontSize: 11, color: '#CBD5E1', maxWidth: '68%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.fonte}</span>
+                            <span style={{ fontSize: 11, color: '#93C5FD', fontWeight: 700 }}>{r.captacoes}</span>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                            <div style={{
+                              width: `${pct}%`, height: '100%',
+                              background: `linear-gradient(90deg, ${color}, ${color}bb)`,
+                              borderRadius: 3,
+                              boxShadow: `0 0 8px ${color}55`,
+                              transition: 'width 0.7s ease',
+                            }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Vendas por fonte */}
+                  <div>
+                    <p style={{ fontSize: 10, color: '#FCD34D', fontWeight: 700, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      Vendas por fonte
+                    </p>
+                    {combined.filter(r => r.vendas > 0).length === 0 ? (
+                      <p style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>Nenhuma venda no período</p>
+                    ) : combined.filter(r => r.vendas > 0).map((r, i) => {
+                      const pct = totalVen > 0 ? (r.vendas / totalVen) * 100 : 0
+                      return (
+                        <div key={r.fonte} style={{ marginBottom: 11 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontSize: 11, color: '#CBD5E1', maxWidth: '68%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.fonte}</span>
+                            <span style={{ fontSize: 11, color: '#FCD34D', fontWeight: 700 }}>{r.vendas}</span>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                            <div style={{
+                              width: `${pct}%`, height: '100%',
+                              background: 'linear-gradient(90deg, #F59E0B, #FBBF24)',
+                              borderRadius: 3,
+                              boxShadow: '0 0 8px #F59E0B55',
+                              transition: 'width 0.7s ease',
+                            }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
                 </div>
               </div>
-            ))}
+            </div>
           </div>
 
         </div>
