@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.models.lead import Lead, LeadStatusHistory
+from app.models.lead import Lead
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
@@ -176,33 +176,38 @@ def pipeline_alerts(
     avg_time_in_funnel = round(sum(times) / len(times), 1) if times else 0.0
 
     # Desempenho no atendimento: tempo médio que o lead ficou em "novo" antes de avançar
-    from sqlalchemy import text as sa_text
-    date_from_dt = datetime.strptime(date_from, "%Y-%m-%d") if date_from else None
-    date_to_dt   = datetime.strptime(date_to,   "%Y-%m-%d") + timedelta(days=1) if date_to else None
-    perf_row = db.execute(sa_text("""
-        SELECT
-            AVG(EXTRACT(EPOCH FROM (ne.exit_at - nn.novo_at)) / 60),
-            COUNT(DISTINCT l.id)
-        FROM leads l
-        JOIN (
-            SELECT lead_id, MIN(changed_at) AS novo_at
-            FROM lead_status_history
-            WHERE LOWER(to_status) IN ('novo','new','pending')
-            GROUP BY lead_id
-        ) nn ON l.id = nn.lead_id
-        JOIN (
-            SELECT lead_id, MIN(changed_at) AS exit_at
-            FROM lead_status_history
-            WHERE LOWER(from_status) IN ('novo','new','pending')
-            GROUP BY lead_id
-        ) ne ON nn.lead_id = ne.lead_id
-        WHERE ne.exit_at > nn.novo_at
-          AND (:date_from IS NULL OR l.created_at >= :date_from)
-          AND (:date_to   IS NULL OR l.created_at <  :date_to)
-          AND (:source    IS NULL OR l.origin = :source)
-    """), {"date_from": date_from_dt, "date_to": date_to_dt, "source": source or None}).fetchone()
-    avg_first_contact_minutes = round(float(perf_row[0]), 1) if perf_row and perf_row[0] else 0.0
-    contacted_count = int(perf_row[1]) if perf_row and perf_row[1] else 0
+    avg_first_contact_minutes = 0.0
+    contacted_count = 0
+    try:
+        from sqlalchemy import text as sa_text
+        date_from_dt = datetime.strptime(date_from, "%Y-%m-%d") if date_from else None
+        date_to_dt   = datetime.strptime(date_to,   "%Y-%m-%d") + timedelta(days=1) if date_to else None
+        perf_row = db.execute(sa_text("""
+            SELECT
+                AVG(EXTRACT(EPOCH FROM (ne.exit_at - nn.novo_at)) / 60),
+                COUNT(DISTINCT l.id)
+            FROM leads l
+            JOIN (
+                SELECT lead_id, MIN(changed_at) AS novo_at
+                FROM lead_status_history
+                WHERE LOWER(to_status) IN ('novo','new','pending')
+                GROUP BY lead_id
+            ) nn ON l.id = nn.lead_id
+            JOIN (
+                SELECT lead_id, MIN(changed_at) AS exit_at
+                FROM lead_status_history
+                WHERE LOWER(from_status) IN ('novo','new','pending')
+                GROUP BY lead_id
+            ) ne ON nn.lead_id = ne.lead_id
+            WHERE ne.exit_at > nn.novo_at
+              AND (:date_from IS NULL OR l.created_at >= :date_from)
+              AND (:date_to   IS NULL OR l.created_at <  :date_to)
+              AND (:source    IS NULL OR l.origin = :source)
+        """), {"date_from": date_from_dt, "date_to": date_to_dt, "source": source or None}).fetchone()
+        avg_first_contact_minutes = round(float(perf_row[0]), 1) if perf_row and perf_row[0] else 0.0
+        contacted_count = int(perf_row[1]) if perf_row and perf_row[1] else 0
+    except Exception as _perf_err:
+        import traceback; traceback.print_exc()
 
     return {
         "vencidos_count": vencidos_count,
