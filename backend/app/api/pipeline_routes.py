@@ -67,7 +67,11 @@ def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: 
         except ValueError:
             pass
     if source:
-        q = q.filter(Lead.origin == source)
+        parts = [s.strip() for s in source.split(',') if s.strip()]
+        if len(parts) == 1:
+            q = q.filter(Lead.origin == parts[0])
+        else:
+            q = q.filter(Lead.origin.in_(parts))
     return q
 
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, CheckSquare, FileText, Handshake, Timer, XCircle } from 'lucide-react'
+import { Clock, CheckSquare, FileText, Handshake, Timer, XCircle, ChevronDown } from 'lucide-react'
 import api from '../api'
 
 interface PipelineOverview {
@@ -20,14 +20,14 @@ export default function Pipeline() {
 
   const [dateFrom, setDateFrom]       = useState(monthStart)
   const [dateTo,   setDateTo]         = useState(todayStr)
-  const [selectedSource, setSelectedSource] = useState('')
+  const [selectedSources, setSelectedSources] = useState<string[]>([])
+  const [sourcesOpen, setSourcesOpen] = useState(false)
   const [sources, setSources] = useState<string[]>([])
 
   const [overview, setOverview] = useState<PipelineOverview | null>(null)
   const [alerts, setAlerts] = useState<PipelineAlerts | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<'Comercial' | 'SDR'>('Comercial')
 
   useEffect(() => {
     if (localStorage.getItem('token')) {
@@ -38,7 +38,7 @@ export default function Pipeline() {
   const fetchAll = useCallback(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
     const qs = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
-    if (selectedSource) qs.set('source', selectedSource)
+    if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     const q = `?${qs.toString()}`
 
     setLoading(true)
@@ -55,7 +55,7 @@ export default function Pipeline() {
         else setError('Erro ao carregar pipeline.')
       })
       .finally(() => setLoading(false))
-  }, [navigate, dateFrom, dateTo, selectedSource])
+  }, [navigate, dateFrom, dateTo, selectedSources])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -162,37 +162,39 @@ export default function Pipeline() {
               onChange={e => setDateTo(e.target.value)}
               style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }}
             />
-            <select
-              value={selectedSource}
-              onChange={e => setSelectedSource(e.target.value)}
-              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: selectedSource ? 'var(--text-3)' : 'var(--text-subtle)', background: 'var(--bg-input)', cursor: 'pointer', minWidth: 160 }}
-            >
-              <option value="">Todas as origens</option>
-              {sources.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setSourcesOpen(o => !o)}
+                style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: selectedSources.length > 0 ? 'var(--text-3)' : 'var(--text-subtle)', background: 'var(--bg-input)', cursor: 'pointer', minWidth: 160, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
+              >
+                <span>{selectedSources.length === 0 ? 'Todas as origens' : selectedSources.length === 1 ? selectedSources[0] : `${selectedSources.length} origens selecionadas`}</span>
+                <ChevronDown size={13} />
+              </button>
+              {sourcesOpen && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setSourcesOpen(false)} />
+                  <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, background: 'var(--bg-card, white)', border: '1px solid var(--border-in)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, minWidth: 220, maxHeight: 280, overflowY: 'auto' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #F1F5F9' }}>
+                      <input type="checkbox" checked={selectedSources.length === 0} onChange={() => setSelectedSources([])} readOnly />
+                      <span style={{ color: 'var(--text-2)' }}>Todas as origens</span>
+                    </label>
+                    {sources.map(s => (
+                      <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedSources.includes(s)}
+                          onChange={() => setSelectedSources(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                        />
+                        <span style={{ color: 'var(--text-2)' }}>{s}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Sub-abas */}
-        <div style={{ display: 'flex', borderBottom: '2px solid #E2E8F0' }}>
-          {(['Comercial', 'SDR'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              padding: '8px 24px', border: 'none', background: 'none', cursor: 'pointer',
-              fontSize: 14, fontWeight: activeTab === tab ? 600 : 400,
-              color: activeTab === tab ? '#1E3A5F' : '#64748B',
-              borderBottom: activeTab === tab ? '2px solid #1E3A5F' : '2px solid transparent',
-              marginBottom: -2,
-            }}>{tab}</button>
-          ))}
-        </div>
-
-        {activeTab === 'SDR' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-            <p style={{ color: 'var(--text-subtle)', fontSize: 15 }}>Em construção…</p>
-          </div>
-        )}
-
-        {activeTab === 'Comercial' && <>
         {/* Overview cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 xl:gap-6">
           {overviewCards.map(card => (
@@ -389,7 +391,6 @@ export default function Pipeline() {
           </div>
 
         </div>
-        </>}
 
       </main>
     </>
