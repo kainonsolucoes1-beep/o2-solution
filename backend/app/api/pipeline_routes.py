@@ -187,14 +187,14 @@ def pipeline_alerts(
     )
     contact_rows = _apply_filters(
         db.query(
-            func.extract('epoch', first_contact_subq.c.first_contact_at - Lead.created_at) / 3600
+            func.extract('epoch', first_contact_subq.c.first_contact_at - Lead.created_at) / 60
         )
         .join(first_contact_subq, Lead.id == first_contact_subq.c.lead_id)
         .filter(first_contact_subq.c.first_contact_at > Lead.created_at),
         date_from, date_to, source,
     ).all()
-    hours_list = [float(r[0]) for r in contact_rows if r[0] is not None and float(r[0]) > 0]
-    avg_first_contact_hours = round(sum(hours_list) / len(hours_list), 1) if hours_list else 0.0
+    mins_list = [float(r[0]) for r in contact_rows if r[0] is not None and float(r[0]) > 0]
+    avg_first_contact_minutes = round(sum(mins_list) / len(mins_list), 1) if mins_list else 0.0
 
     contacted_count = _apply_filters(
         db.query(func.count(func.distinct(Lead.id)))
@@ -206,7 +206,7 @@ def pipeline_alerts(
         "vencidos_count": vencidos_count,
         "uncontacted_count": uncontacted_count,
         "avg_time_in_funnel": avg_time_in_funnel,
-        "avg_first_contact_hours": avg_first_contact_hours,
+        "avg_first_contact_minutes": avg_first_contact_minutes,
         "contacted_count": int(contacted_count),
         "vencidos": [
             {

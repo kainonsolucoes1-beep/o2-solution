@@ -8,7 +8,7 @@ interface PipelineOverview {
   novo_value: number; qualificado_value: number; proposta_value: number; negociacao_value: number; fechado_value: number; perdido_value: number
 }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
-interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number; avg_time_in_funnel?: number; avg_first_contact_hours?: number; contacted_count?: number }
+interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number; avg_time_in_funnel?: number; avg_first_contact_minutes?: number; contacted_count?: number }
 
 const CONV_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
 
@@ -344,7 +344,7 @@ export default function Pipeline() {
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Tempo médio de 1° contato com o lead</p>
             <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>
-              {alerts.avg_first_contact_hours ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>h</span>
+              {alerts.avg_first_contact_minutes ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span>
             </p>
             <p style={{ fontSize: 12, color: 'var(--text-subtle)' }}>
               {alerts.contacted_count ?? 0} leads atendidos no período
