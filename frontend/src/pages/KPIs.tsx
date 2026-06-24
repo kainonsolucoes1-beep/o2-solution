@@ -89,13 +89,28 @@ export default function KPIs() {
   const organicSubs  = data.filter(d => isOrganicSub(d.fonte))
   const otherRows    = data
     .filter(d => !isSdr(d.fonte) && !isOrganicSub(d.fonte))
-    .map(d => d.fonte.toLowerCase() === 'orgânico' && organicSubs.length > 0
-      ? { ...d, breakdown: [
+    .map(d => {
+      if (d.fonte.toLowerCase() === 'orgânico' && organicSubs.length > 0) {
+        const subCap = organicSubs.reduce((s, os) => s + os.captacoes, 0)
+        const subVen = organicSubs.reduce((s, os) => s + os.vendas, 0)
+        const subCan = organicSubs.reduce((s, os) => s + os.cancelados, 0)
+        const newCap = d.captacoes + subCap
+        const newVen = d.vendas + subVen
+        const newCan = d.cancelados + subCan
+        return {
+          ...d,
+          captacoes: newCap,
+          vendas: newVen,
+          cancelados: newCan,
+          conversao: newCap > 0 ? Math.round(newVen / newCap * 1000) / 10 : 0,
+          breakdown: [
             ...organicSubs.map(s => ({ label: s.fonte, captacoes: s.captacoes, vendas: s.vendas, cancelados: s.cancelados, conversao: s.conversao })),
             ...d.breakdown,
-          ] }
-      : d
-    )
+          ],
+        }
+      }
+      return d
+    })
   const sdrAgg = sdrRows.length > 0 ? aggregateSdr(sdrRows) : null
   const o2Agg  = o2MemberRows.length > 0 ? aggregateO2(o2MemberRows) : null
 
