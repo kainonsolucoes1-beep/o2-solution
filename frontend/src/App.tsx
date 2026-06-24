@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard'
 import LeadsReport from './pages/LeadsReport'
 import Pipeline from './pages/Pipeline'
 import Settings from './pages/Settings'
-import Activities from './pages/Activities'
 import Users from './pages/Users'
 import Forms from './pages/Forms'
 import Telefonia from './pages/Telefonia'
@@ -26,7 +25,6 @@ export default function App() {
           <Route path="/leads-report" element={<LeadsReport />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/activities" element={<Activities />} />
           <Route path="/users" element={<Users />} />
           <Route path="/forms" element={<Forms />} />
           <Route path="/telefonia" element={<Telefonia />} />
