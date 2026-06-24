@@ -587,7 +587,7 @@ export default function KPIs() {
           />
           <div style={{
             position: 'fixed', top: '50%', left: '50%',
-            zIndex: 50, width: 400,
+            zIndex: 50, width: 520,
             background: 'linear-gradient(135deg, #0F172A 0%, #1A1040 100%)',
             border: '1px solid rgba(124,58,237,0.45)',
             borderRadius: 18,
