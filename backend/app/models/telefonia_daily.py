@@ -13,6 +13,7 @@ class TelefoniaDaily(Base):
     total_ligacoes    = Column(Integer, nullable=False, default=0)
     ligacoes_json     = Column(Text, nullable=False, default="{}")
     atendimentos_json = Column(Text, nullable=False, default="{}")
+    pausas_json       = Column(Text, nullable=False, default="{}")
     tma               = Column(Text, nullable=False, default="—")
     created_at        = Column(TIMESTAMP, server_default=func.now())
     updated_at        = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

@@ -6,15 +6,16 @@ interface TelefoniaSettings {
   tma: string
   ligacoes: Record<string, number>
   atendimentos: Record<string, string>
+  pausas: Record<string, string>
 }
 
-interface Row { name: string; count: string; atendimento: string }
+interface Row { name: string; count: string; atendimento: string; pausa: string }
 
 interface HistoricoOperador {
   nome: string
   ligacoes: number
-  atendimento: string
   tma_individual: string
+  pausa: string
 }
 
 interface HistoricoDay {
@@ -76,28 +77,31 @@ export default function Telefonia() {
     const s = new Set(prev); s.has(d) ? s.delete(d) : s.add(d); return s
   })
 
+  function refreshHistorico() {
+    api.get<HistoricoDay[]>('/api/v1/telefonia/historico?days=14')
+      .then(r => setHistorico(r.data)).catch(() => {})
+  }
+
   useEffect(() => {
     api.get<TelefoniaSettings>('/api/v1/telefonia/settings')
       .then(r => {
-        const { ligacoes, atendimentos } = r.data
+        const { ligacoes, atendimentos, pausas } = r.data
         setRows(
           Object.entries(ligacoes).map(([name, count]) => ({
             name,
             count: String(count),
             atendimento: atendimentos[name] ?? '',
+            pausa: pausas?.[name] ?? '',
           }))
         )
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-
-    api.get<HistoricoDay[]>('/api/v1/telefonia/historico?days=14')
-      .then(r => setHistorico(r.data))
-      .catch(() => {})
+    refreshHistorico()
   }, [])
 
   function addRow() {
-    setRows(r => [...r, { name: '', count: '', atendimento: '' }])
+    setRows(r => [...r, { name: '', count: '', atendimento: '', pausa: '' }])
   }
 
   function removeRow(i: number) {
@@ -112,21 +116,21 @@ export default function Telefonia() {
     setSaving(true)
     const ligacoes: Record<string, number> = {}
     const atendimentos: Record<string, string> = {}
+    const pausas: Record<string, string> = {}
     for (const row of rows) {
       const n = row.name.trim()
       const c = parseInt(row.count)
       if (n && !isNaN(c) && c >= 0) {
         ligacoes[n] = c
         if (row.atendimento.trim()) atendimentos[n] = row.atendimento.trim()
+        if (row.pausa.trim())       pausas[n]       = row.pausa.trim()
       }
     }
     try {
-      await api.put('/api/v1/telefonia/settings', { ligacoes, atendimentos })
+      await api.put('/api/v1/telefonia/settings', { ligacoes, atendimentos, pausas })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
-      // Refresh historico
-      api.get<HistoricoDay[]>('/api/v1/telefonia/historico?days=14')
-        .then(r => setHistorico(r.data)).catch(() => {})
+      refreshHistorico()
     } catch {}
     finally { setSaving(false) }
   }
@@ -155,7 +159,7 @@ export default function Telefonia() {
   }
 
   return (
-    <main style={{ padding: '24px 32px', maxWidth: 860 }}>
+    <main style={{ padding: '24px 32px', maxWidth: 960 }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
@@ -194,12 +198,12 @@ export default function Telefonia() {
         </div>
       </div>
 
-      {/* Ligações + Atendimento + TMA individual por operador */}
+      {/* Tabela de operadores */}
       <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 24 }}>
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Ligações por Operador</p>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>TMA individual calculado por operador. Salve para registrar o dia no histórico.</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>TMA individual calculado em tempo real. Salve para registrar o dia no histórico.</p>
           </div>
           <button
             onClick={addRow}
@@ -218,6 +222,7 @@ export default function Telefonia() {
                 <th style={colH}>Operador</th>
                 <th style={{ ...colH, textAlign: 'right' }}>Ligações</th>
                 <th style={{ ...colH, textAlign: 'right' }}>Atendimento total</th>
+                <th style={{ ...colH, textAlign: 'right' }}>Pausa</th>
                 <th style={{ ...colH, textAlign: 'right' }}>TMA</th>
                 <th style={{ ...colH, width: 40 }}></th>
               </tr>
@@ -232,16 +237,19 @@ export default function Telefonia() {
                 }
                 return (
                   <tr key={i}>
-                    <td style={{ ...col, minWidth: 160 }}>
+                    <td style={{ ...col, minWidth: 140 }}>
                       {inp(row.name, v => updateRow(i, 'name', v), 'Nome do operador')}
                     </td>
-                    <td style={{ ...col, width: 110 }}>
+                    <td style={{ ...col, width: 100 }}>
                       {inp(row.count, v => updateRow(i, 'count', v), '0')}
                     </td>
-                    <td style={{ ...col, width: 150 }}>
+                    <td style={{ ...col, width: 140 }}>
                       {inp(row.atendimento, v => updateRow(i, 'atendimento', v), '00:00:00')}
                     </td>
-                    <td style={{ ...col, textAlign: 'right', width: 100, fontWeight: 600, color: tmaInd === '—' ? 'var(--text-subtle)' : '#F97316' }}>
+                    <td style={{ ...col, width: 140 }}>
+                      {inp(row.pausa, v => updateRow(i, 'pausa', v), '00:00:00')}
+                    </td>
+                    <td style={{ ...col, textAlign: 'right', width: 90, fontWeight: 600, color: tmaInd === '—' ? 'var(--text-subtle)' : '#F97316' }}>
                       {tmaInd}
                     </td>
                     <td style={{ ...col, width: 40, textAlign: 'center' }}>
@@ -288,16 +296,26 @@ export default function Telefonia() {
                 const col: React.CSSProperties = {
                   padding: '10px 12px', fontSize: 13, color: 'var(--text-2)',
                   borderBottom: '1px solid var(--border)',
-                  background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
+                  background: i % 2 === 1 && !expanded ? 'var(--bg-subtle)' : 'transparent',
+                }
+                const subHeaderCol: React.CSSProperties = {
+                  padding: '6px 12px', fontSize: 10, fontWeight: 700,
+                  color: 'var(--text-subtle)', textTransform: 'uppercase' as const,
+                  letterSpacing: '0.05em', background: '#F8FAFF',
+                  borderBottom: '1px solid var(--border)',
                 }
                 const subCol: React.CSSProperties = {
-                  padding: '8px 12px 8px 36px', fontSize: 12, color: 'var(--text-subtle)',
+                  padding: '9px 12px', fontSize: 12, color: 'var(--text-2)',
                   borderBottom: '1px solid var(--border)',
-                  background: 'var(--bg-subtle)',
+                  background: '#FAFBFF',
                 }
                 return (
                   <>
-                    <tr key={day.date} style={{ cursor: 'pointer' }} onClick={() => toggleDay(day.date)}>
+                    <tr
+                      key={day.date}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => toggleDay(day.date)}
+                    >
                       <td style={{ ...col, fontWeight: 600, color: 'var(--text-1)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -306,18 +324,34 @@ export default function Telefonia() {
                       </td>
                       <td style={{ ...col, textAlign: 'right', fontWeight: 600 }}>{day.total_ligacoes}</td>
                       <td style={{ ...col, textAlign: 'right', color: day.tma === '—' ? 'var(--text-subtle)' : '#F97316', fontWeight: 600 }}>{day.tma}</td>
-                      <td style={{ ...col, textAlign: 'center' }}>
-                        {expanded ? <ChevronDown size={13} color="var(--text-subtle)" /> : <ChevronRight size={13} color="var(--text-subtle)" />}
+                      <td style={{ ...col, textAlign: 'center', color: 'var(--text-subtle)' }}>
+                        {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                       </td>
                     </tr>
-                    {expanded && day.operadores.map(op => (
-                      <tr key={`${day.date}-${op.nome}`}>
-                        <td style={{ ...subCol, fontStyle: 'italic' }}>{op.nome}</td>
-                        <td style={{ ...subCol, textAlign: 'right' }}>{op.ligacoes}</td>
-                        <td style={{ ...subCol, textAlign: 'right' }}>{op.atendimento || '—'}</td>
-                        <td style={{ ...subCol, textAlign: 'right', color: op.tma_individual === '—' ? 'var(--text-subtle)' : '#F97316', fontWeight: 600 }}>{op.tma_individual}</td>
-                      </tr>
-                    ))}
+
+                    {expanded && day.operadores.length > 0 && (
+                      <>
+                        {/* Sub-header */}
+                        <tr>
+                          <td style={{ ...subHeaderCol, paddingLeft: 36 }}>Operador</td>
+                          <td style={{ ...subHeaderCol, textAlign: 'right' }}>Ligações</td>
+                          <td style={{ ...subHeaderCol, textAlign: 'right' }}>TMA</td>
+                          <td style={{ ...subHeaderCol, textAlign: 'right' }}>Pausa</td>
+                        </tr>
+                        {day.operadores.map(op => (
+                          <tr key={`${day.date}-${op.nome}`}>
+                            <td style={{ ...subCol, paddingLeft: 36, fontStyle: 'italic', color: 'var(--text-subtle)' }}>{op.nome}</td>
+                            <td style={{ ...subCol, textAlign: 'right' }}>{op.ligacoes}</td>
+                            <td style={{ ...subCol, textAlign: 'right', fontWeight: 600, color: op.tma_individual === '—' ? 'var(--text-subtle)' : '#F97316' }}>
+                              {op.tma_individual}
+                            </td>
+                            <td style={{ ...subCol, textAlign: 'right', color: op.pausa ? 'var(--text-2)' : 'var(--text-subtle)' }}>
+                              {op.pausa || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
                   </>
                 )
               })}

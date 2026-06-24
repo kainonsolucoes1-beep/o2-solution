@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/v1/telefonia", tags=["telefonia"])
 class TelefoniaSettings(BaseModel):
     ligacoes: dict[str, int] = {}
     atendimentos: dict[str, str] = {}
+    pausas: dict[str, str] = {}
 
 
 def _calc_tma(ligacoes: dict, atendimentos: dict) -> str:
@@ -49,15 +50,17 @@ def get_settings(
     rows = {
         r.key: r.value
         for r in db.query(AppSettings).filter(
-            AppSettings.key.in_(["telefonia_ligacoes", "telefonia_atendimentos"])
+            AppSettings.key.in_(["telefonia_ligacoes", "telefonia_atendimentos", "telefonia_pausas"])
         ).all()
     }
-    ligacoes = json.loads(rows["telefonia_ligacoes"]) if rows.get("telefonia_ligacoes") else {}
+    ligacoes     = json.loads(rows["telefonia_ligacoes"])     if rows.get("telefonia_ligacoes")     else {}
     atendimentos = json.loads(rows["telefonia_atendimentos"]) if rows.get("telefonia_atendimentos") else {}
+    pausas       = json.loads(rows["telefonia_pausas"])       if rows.get("telefonia_pausas")       else {}
     return {
-        "tma": _calc_tma(ligacoes, atendimentos),
-        "ligacoes": ligacoes,
+        "tma":         _calc_tma(ligacoes, atendimentos),
+        "ligacoes":    ligacoes,
         "atendimentos": atendimentos,
+        "pausas":      pausas,
     }
 
 
@@ -70,6 +73,7 @@ def save_settings(
     pairs = [
         ("telefonia_ligacoes",     json.dumps(body.ligacoes,     ensure_ascii=False)),
         ("telefonia_atendimentos", json.dumps(body.atendimentos, ensure_ascii=False)),
+        ("telefonia_pausas",       json.dumps(body.pausas,       ensure_ascii=False)),
     ]
     for key, value in pairs:
         row = db.query(AppSettings).filter(AppSettings.key == key).first()
@@ -86,6 +90,7 @@ def save_settings(
         daily.total_ligacoes    = total
         daily.ligacoes_json     = json.dumps(body.ligacoes,     ensure_ascii=False)
         daily.atendimentos_json = json.dumps(body.atendimentos, ensure_ascii=False)
+        daily.pausas_json       = json.dumps(body.pausas,       ensure_ascii=False)
         daily.tma               = tma
     else:
         db.add(TelefoniaDaily(
@@ -93,6 +98,7 @@ def save_settings(
             total_ligacoes=total,
             ligacoes_json=json.dumps(body.ligacoes,         ensure_ascii=False),
             atendimentos_json=json.dumps(body.atendimentos, ensure_ascii=False),
+            pausas_json=json.dumps(body.pausas,             ensure_ascii=False),
             tma=tma,
         ))
     db.commit()
@@ -133,12 +139,13 @@ def historico(
     for r in records:
         ligacoes     = json.loads(r.ligacoes_json     or "{}")
         atendimentos = json.loads(r.atendimentos_json or "{}")
+        pausas       = json.loads(r.pausas_json       or "{}")
         operadores = [
             {
-                "nome":          nome,
-                "ligacoes":      calls,
-                "atendimento":   atendimentos.get(nome, ""),
+                "nome":           nome,
+                "ligacoes":       calls,
                 "tma_individual": _tma_individual(calls, atendimentos.get(nome, "")),
+                "pausa":          pausas.get(nome, ""),
             }
             for nome, calls in sorted(ligacoes.items(), key=lambda x: x[1], reverse=True)
         ]
