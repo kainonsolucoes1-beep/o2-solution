@@ -150,16 +150,8 @@ export default function KPIs() {
   // Charts use combined (SDR aggregated, orgSubs absorbed into Orgânico visually)
   const combinedTotal = combined.reduce((s, r) => s + r.captacoes, 0)
 
-  // Funnel detail: merge organicSubs (chatgpt.com, Site) into Orgânico's totals
-  const funnelRows = combined.map(r => {
-    if (r.fonte.toLowerCase() === 'orgânico' && organicSubs.length > 0) {
-      const subCap = organicSubs.reduce((s, os) => s + os.captacoes, 0)
-      const subVen = organicSubs.reduce((s, os) => s + os.vendas, 0)
-      const subCan = organicSubs.reduce((s, os) => s + os.cancelados, 0)
-      return { ...r, captacoes: r.captacoes + subCap, vendas: r.vendas + subVen, cancelados: r.cancelados + subCan }
-    }
-    return r
-  }).sort((a, b) => b.captacoes - a.captacoes)
+  // combined already has organicSubs merged into Orgânico — use directly
+  const funnelRows = combined
 
   const top4Pie = [...combined].sort((a, b) => b.captacoes - a.captacoes).slice(0, 4)
   const outrosVal = combinedTotal - top4Pie.reduce((s, r) => s + r.captacoes, 0)
