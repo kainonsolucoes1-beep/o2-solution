@@ -93,7 +93,11 @@ def leads_by_period(
         if not admin:
             q = q.filter(Lead.origin == my_name)
         elif origem:
-            q = q.filter(Lead.origin == origem)
+            parts = [s.strip() for s in origem.split(',') if s.strip()]
+            if len(parts) == 1:
+                q = q.filter(Lead.origin == parts[0])
+            else:
+                q = q.filter(Lead.origin.in_(parts))
         if status:
             statuses = [s.strip().lower() for s in status.split(',')]
             q = q.filter(func.lower(Lead.status).in_(statuses))
