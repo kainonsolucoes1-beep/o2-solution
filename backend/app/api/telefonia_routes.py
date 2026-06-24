@@ -1,6 +1,6 @@
 import json
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import get_db
@@ -79,19 +79,76 @@ def save_settings(
             db.add(AppSettings(key=key, value=value))
     # Snapshot diário
     total = sum(body.ligacoes.values())
+    tma   = _calc_tma(body.ligacoes, body.atendimentos)
     today = date.today()
     daily = db.query(TelefoniaDaily).filter(TelefoniaDaily.date == today).first()
     if daily:
-        daily.total_ligacoes = total
-        daily.ligacoes_json  = json.dumps(body.ligacoes, ensure_ascii=False)
+        daily.total_ligacoes    = total
+        daily.ligacoes_json     = json.dumps(body.ligacoes,     ensure_ascii=False)
+        daily.atendimentos_json = json.dumps(body.atendimentos, ensure_ascii=False)
+        daily.tma               = tma
     else:
         db.add(TelefoniaDaily(
             date=today,
             total_ligacoes=total,
-            ligacoes_json=json.dumps(body.ligacoes, ensure_ascii=False),
+            ligacoes_json=json.dumps(body.ligacoes,         ensure_ascii=False),
+            atendimentos_json=json.dumps(body.atendimentos, ensure_ascii=False),
+            tma=tma,
         ))
     db.commit()
     return {"success": True}
+
+
+def _tma_individual(calls: int, atendimento: str) -> str:
+    if not atendimento or calls <= 0:
+        return "—"
+    parts = atendimento.strip().split(":")
+    if len(parts) != 3:
+        return "—"
+    try:
+        secs = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+    except ValueError:
+        return "—"
+    if secs <= 0:
+        return "—"
+    avg = secs / calls
+    m, s = int(avg) // 60, int(avg) % 60
+    return f"{m}m {s:02d}s" if m > 0 else f"{s}s"
+
+
+@router.get("/historico")
+def historico(
+    days: int = Query(14, ge=1, le=90),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from_date = date.today() - timedelta(days=days - 1)
+    records = (
+        db.query(TelefoniaDaily)
+        .filter(TelefoniaDaily.date >= from_date)
+        .order_by(TelefoniaDaily.date.desc())
+        .all()
+    )
+    result = []
+    for r in records:
+        ligacoes     = json.loads(r.ligacoes_json     or "{}")
+        atendimentos = json.loads(r.atendimentos_json or "{}")
+        operadores = [
+            {
+                "nome":          nome,
+                "ligacoes":      calls,
+                "atendimento":   atendimentos.get(nome, ""),
+                "tma_individual": _tma_individual(calls, atendimentos.get(nome, "")),
+            }
+            for nome, calls in sorted(ligacoes.items(), key=lambda x: x[1], reverse=True)
+        ]
+        result.append({
+            "date":           r.date.isoformat(),
+            "total_ligacoes": r.total_ligacoes,
+            "tma":            r.tma or "—",
+            "operadores":     operadores,
+        })
+    return result
 
 
 @router.get("/atendimentos-comparativo")

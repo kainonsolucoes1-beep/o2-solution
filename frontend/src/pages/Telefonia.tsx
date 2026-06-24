@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Phone, Plus, Trash2, Save } from 'lucide-react'
+import { Phone, Plus, Trash2, Save, ChevronDown, ChevronRight, Clock } from 'lucide-react'
 import api from '../api'
 
 interface TelefoniaSettings {
@@ -9,6 +9,20 @@ interface TelefoniaSettings {
 }
 
 interface Row { name: string; count: string; atendimento: string }
+
+interface HistoricoOperador {
+  nome: string
+  ligacoes: number
+  atendimento: string
+  tma_individual: string
+}
+
+interface HistoricoDay {
+  date: string
+  total_ligacoes: number
+  tma: string
+  operadores: HistoricoOperador[]
+}
 
 function parseSecs(t: string): number {
   const parts = t.trim().split(':')
@@ -35,11 +49,32 @@ function calcTMA(rows: Row[]): string {
   return mins > 0 ? `${mins}m ${String(secs).padStart(2, '0')}s` : `${secs}s`
 }
 
+function calcIndividualTMA(row: Row): string {
+  const calls = parseInt(row.count)
+  const secs = parseSecs(row.atendimento)
+  if (isNaN(calls) || calls <= 0 || secs <= 0) return '—'
+  const avg = secs / calls
+  const m = Math.floor(avg / 60)
+  const s = Math.floor(avg % 60)
+  return m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`
+}
+
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
 export default function Telefonia() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [rows, setRows] = useState<Row[]>([])
+  const [historico, setHistorico] = useState<HistoricoDay[]>([])
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set())
+
+  const toggleDay = (d: string) => setExpandedDays(prev => {
+    const s = new Set(prev); s.has(d) ? s.delete(d) : s.add(d); return s
+  })
 
   useEffect(() => {
     api.get<TelefoniaSettings>('/api/v1/telefonia/settings')
@@ -55,6 +90,10 @@ export default function Telefonia() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    api.get<HistoricoDay[]>('/api/v1/telefonia/historico?days=14')
+      .then(r => setHistorico(r.data))
+      .catch(() => {})
   }, [])
 
   function addRow() {
@@ -85,6 +124,9 @@ export default function Telefonia() {
       await api.put('/api/v1/telefonia/settings', { ligacoes, atendimentos })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
+      // Refresh historico
+      api.get<HistoricoDay[]>('/api/v1/telefonia/historico?days=14')
+        .then(r => setHistorico(r.data)).catch(() => {})
     } catch {}
     finally { setSaving(false) }
   }
@@ -106,8 +148,14 @@ export default function Telefonia() {
 
   if (loading) return <p className="text-center text-sm mt-20" style={{ color: 'var(--text-subtle)' }}>Carregando...</p>
 
+  const colH: React.CSSProperties = {
+    padding: '8px 12px', fontSize: 11, fontWeight: 600,
+    color: 'var(--text-subtle)', textTransform: 'uppercase',
+    letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', textAlign: 'left',
+  }
+
   return (
-    <main style={{ padding: '24px 32px', maxWidth: 780 }}>
+    <main style={{ padding: '24px 32px', maxWidth: 860 }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
@@ -130,14 +178,14 @@ export default function Telefonia() {
         </button>
       </div>
 
-      {/* TMA calculado */}
+      {/* TMA global */}
       <div className="bg-white rounded-xl p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Phone size={15} color="#F97316" />
           </div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Tempo Médio de Atendimento (TMA)</p>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Tempo Médio de Atendimento (TMA) Global</p>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Calculado automaticamente a partir dos dados abaixo</p>
           </div>
           <span style={{ fontSize: 22, fontWeight: 700, color: tmaCalc === '—' ? 'var(--text-subtle)' : '#F97316' }}>
@@ -146,12 +194,12 @@ export default function Telefonia() {
         </div>
       </div>
 
-      {/* Ligações + Atendimento por operador */}
-      <div className="bg-white rounded-xl p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      {/* Ligações + Atendimento + TMA individual por operador */}
+      <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden', marginBottom: 24 }}>
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Ligações por Operador</p>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Usadas na taxa de conversão diária, no ranking e no cálculo do TMA</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>TMA individual calculado por operador. Salve para registrar o dia no histórico.</p>
           </div>
           <button
             onClick={addRow}
@@ -162,30 +210,121 @@ export default function Telefonia() {
         </div>
 
         {rows.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--text-subtle)', padding: '8px 0' }}>Nenhum operador cadastrado. Clique em Adicionar.</p>
+          <p style={{ fontSize: 13, color: 'var(--text-subtle)', padding: '16px 24px' }}>Nenhum operador cadastrado. Clique em Adicionar.</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 140px 36px', gap: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
-              {['Operador', 'Ligações', 'Atendimento', ''].map(h => (
-                <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</span>
-              ))}
-            </div>
-            {rows.map((row, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 140px 36px', gap: 10, alignItems: 'center' }}>
-                {inp(row.name, v => updateRow(i, 'name', v), 'Nome do operador')}
-                {inp(row.count, v => updateRow(i, 'count', v), '0')}
-                {inp(row.atendimento, v => updateRow(i, 'atendimento', v), '00:00:00')}
-                <button
-                  onClick={() => removeRow(i)}
-                  style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '7px', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-subtle)' }}>
+                <th style={colH}>Operador</th>
+                <th style={{ ...colH, textAlign: 'right' }}>Ligações</th>
+                <th style={{ ...colH, textAlign: 'right' }}>Atendimento total</th>
+                <th style={{ ...colH, textAlign: 'right' }}>TMA</th>
+                <th style={{ ...colH, width: 40 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => {
+                const tmaInd = calcIndividualTMA(row)
+                const col: React.CSSProperties = {
+                  padding: '10px 12px', fontSize: 13, color: 'var(--text-2)',
+                  borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none',
+                  background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
+                }
+                return (
+                  <tr key={i}>
+                    <td style={{ ...col, minWidth: 160 }}>
+                      {inp(row.name, v => updateRow(i, 'name', v), 'Nome do operador')}
+                    </td>
+                    <td style={{ ...col, width: 110 }}>
+                      {inp(row.count, v => updateRow(i, 'count', v), '0')}
+                    </td>
+                    <td style={{ ...col, width: 150 }}>
+                      {inp(row.atendimento, v => updateRow(i, 'atendimento', v), '00:00:00')}
+                    </td>
+                    <td style={{ ...col, textAlign: 'right', width: 100, fontWeight: 600, color: tmaInd === '—' ? 'var(--text-subtle)' : '#F97316' }}>
+                      {tmaInd}
+                    </td>
+                    <td style={{ ...col, width: 40, textAlign: 'center' }}>
+                      <button
+                        onClick={() => removeRow(i)}
+                        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '6px', cursor: 'pointer', color: '#EF4444', display: 'inline-flex', alignItems: 'center' }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         )}
       </div>
+
+      {/* Histórico diário */}
+      {historico.length > 0 && (
+        <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Clock size={15} color="#2563EB" />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Histórico por Dia</p>
+              <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Últimos 14 dias registrados — clique no dia para ver por operador</p>
+            </div>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-subtle)' }}>
+                <th style={colH}>Data</th>
+                <th style={{ ...colH, textAlign: 'right' }}>Total ligações</th>
+                <th style={{ ...colH, textAlign: 'right' }}>TMA global</th>
+                <th style={{ ...colH, width: 40 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {historico.map((day, i) => {
+                const expanded = expandedDays.has(day.date)
+                const col: React.CSSProperties = {
+                  padding: '10px 12px', fontSize: 13, color: 'var(--text-2)',
+                  borderBottom: '1px solid var(--border)',
+                  background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
+                }
+                const subCol: React.CSSProperties = {
+                  padding: '8px 12px 8px 36px', fontSize: 12, color: 'var(--text-subtle)',
+                  borderBottom: '1px solid var(--border)',
+                  background: 'var(--bg-subtle)',
+                }
+                return (
+                  <>
+                    <tr key={day.date} style={{ cursor: 'pointer' }} onClick={() => toggleDay(day.date)}>
+                      <td style={{ ...col, fontWeight: 600, color: 'var(--text-1)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                          {formatDate(day.date)}
+                        </span>
+                      </td>
+                      <td style={{ ...col, textAlign: 'right', fontWeight: 600 }}>{day.total_ligacoes}</td>
+                      <td style={{ ...col, textAlign: 'right', color: day.tma === '—' ? 'var(--text-subtle)' : '#F97316', fontWeight: 600 }}>{day.tma}</td>
+                      <td style={{ ...col, textAlign: 'center' }}>
+                        {expanded ? <ChevronDown size={13} color="var(--text-subtle)" /> : <ChevronRight size={13} color="var(--text-subtle)" />}
+                      </td>
+                    </tr>
+                    {expanded && day.operadores.map(op => (
+                      <tr key={`${day.date}-${op.nome}`}>
+                        <td style={{ ...subCol, fontStyle: 'italic' }}>{op.nome}</td>
+                        <td style={{ ...subCol, textAlign: 'right' }}>{op.ligacoes}</td>
+                        <td style={{ ...subCol, textAlign: 'right' }}>{op.atendimento || '—'}</td>
+                        <td style={{ ...subCol, textAlign: 'right', color: op.tma_individual === '—' ? 'var(--text-subtle)' : '#F97316', fontWeight: 600 }}>{op.tma_individual}</td>
+                      </tr>
+                    ))}
+                  </>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
     </main>
   )

@@ -102,6 +102,8 @@ async def startup_event():
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS conversion_point VARCHAR(255)"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS is_renutrucao BOOLEAN NOT NULL DEFAULT false"))
+        conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS atendimentos_json TEXT NOT NULL DEFAULT '{}'"))
+        conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS tma TEXT NOT NULL DEFAULT '—'"))
         conn.execute(text("""
             INSERT INTO lead_status_history (id, lead_id, from_status, to_status, changed_at, changed_by)
             SELECT gen_random_uuid(), l.id, NULL, COALESCE(l.status, 'novo'), l.created_at, 'sistema'
