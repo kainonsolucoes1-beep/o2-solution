@@ -281,7 +281,7 @@ export default function LeadsReport() {
               >
                 <option value="">Todos</option>
                 <option value="pending,novo,new">Pendente</option>
-                <option value="scheduled,qualificado,qualified">Qualificado</option>
+                <option value="scheduled,qualificado,qualified">Agendado</option>
                 <option value="proposal_sent">Proposta</option>
                 <option value="waiting_billing,sale_performed,fechado,closed,won,convertido">Fechado</option>
                 <option value="sale_not_performed">Perdido</option>

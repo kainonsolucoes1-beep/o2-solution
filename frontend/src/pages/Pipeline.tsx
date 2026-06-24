@@ -75,7 +75,7 @@ export default function Pipeline() {
 
   const overviewCards = [
     { label: 'Pendente',    value: overview.novo,        color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: cardNav({ status: 'pending,novo,new' }) },
-    { label: 'Qualificado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
+    { label: 'Agendado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
     { label: 'Proposta',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
     { label: 'Negociação',  value: overview.negociacao,  color: '#8B5CF6', bg: '#F5F3FF', icon: '🔥', nav: cardNav({ perception: 'Quente,Morno' }) },
     { label: 'Fechado',     value: overview.fechado,     color: '#059669', bg: '#ECFDF5', icon: '🏆', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
@@ -85,7 +85,7 @@ export default function Pipeline() {
   const distTotal = overview.novo + overview.qualificado + overview.proposta + overview.negociacao + overview.fechado + overview.perdido
   const distStages = [
     { stage: 'Pendente',    value: overview.novo_value,        color: '#3B82F6' },
-    { stage: 'Qualificado', value: overview.qualificado_value, color: '#10B981' },
+    { stage: 'Agendado', value: overview.qualificado_value, color: '#10B981' },
     { stage: 'Proposta',    value: overview.proposta_value,    color: '#F59E0B' },
     { stage: 'Negociação',  value: overview.negociacao_value,  color: '#8B5CF6' },
     { stage: 'Fechado',     value: overview.fechado_value,     color: '#059669' },
@@ -101,17 +101,17 @@ export default function Pipeline() {
   const negOL  = overview.negociacao + overview.fechado
   const convs = [
     {
-      from: 'Pendente', to: 'Qualificado', fromCount: distTotal, toCount: qualOL,
+      from: 'Pendente', to: 'Agendado', fromCount: distTotal, toCount: qualOL,
       rate: distTotal > 0 ? +((qualOL / distTotal) * 100).toFixed(1) : 0,
       color: CONV_COLORS[0], Icon: Clock,
       note: `${overview.novo} ainda pendentes · ${overview.perdido} perdidos sem converter`,
       nav: cardNav({ status: 'pending,novo,new' }),
     },
     {
-      from: 'Qualificado', to: 'Proposta', fromCount: qualOL, toCount: propOL,
+      from: 'Agendado', to: 'Proposta', fromCount: qualOL, toCount: propOL,
       rate: qualOL > 0 ? +((propOL / qualOL) * 100).toFixed(1) : 0,
       color: CONV_COLORS[1], Icon: CheckSquare,
-      note: `${overview.qualificado} ainda qualificados`,
+      note: `${overview.qualificado} ainda agendados`,
       nav: cardNav({ status: 'scheduled,qualificado,qualified' }),
     },
     {
