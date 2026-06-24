@@ -184,22 +184,16 @@ def pipeline_alerts(
         date_to_dt   = datetime.strptime(date_to,   "%Y-%m-%d") + timedelta(days=1) if date_to else None
         perf_row = db.execute(sa_text("""
             SELECT
-                AVG(EXTRACT(EPOCH FROM (ne.exit_at - nn.novo_at)) / 60),
+                AVG(EXTRACT(EPOCH FROM (ne.first_exit - l.created_at)) / 60),
                 COUNT(DISTINCT l.id)
             FROM leads l
             JOIN (
-                SELECT lead_id, MIN(changed_at) AS novo_at
-                FROM lead_status_history
-                WHERE LOWER(to_status) IN ('novo','new','pending')
-                GROUP BY lead_id
-            ) nn ON l.id = nn.lead_id
-            JOIN (
-                SELECT lead_id, MIN(changed_at) AS exit_at
+                SELECT lead_id, MIN(changed_at) AS first_exit
                 FROM lead_status_history
                 WHERE LOWER(from_status) IN ('novo','new','pending')
                 GROUP BY lead_id
-            ) ne ON nn.lead_id = ne.lead_id
-            WHERE ne.exit_at > nn.novo_at
+            ) ne ON l.id = ne.lead_id
+            WHERE ne.first_exit > l.created_at
               AND (:date_from IS NULL OR l.created_at >= :date_from)
               AND (:date_to   IS NULL OR l.created_at <  :date_to)
               AND (:source    IS NULL OR l.origin = :source)
