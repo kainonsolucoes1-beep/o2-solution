@@ -12,6 +12,13 @@ interface BreakdownItem {
   vendas: number
   cancelados: number
   conversao: number
+  _qFonte?: string  // organic sub: label is an origin, not conv_point
+}
+
+interface LeadVenda {
+  nome: string
+  valor: number | null
+  data: string | null
 }
 
 interface FonteData {
@@ -61,6 +68,9 @@ interface PopoverData {
   vendas: number
   cancelados: number
   conversao: number
+  queryFonte?: string
+  queryConvPoint?: string
+  queryRenutrucao?: boolean
 }
 
 function card(bg: string, border: string): React.CSSProperties {
@@ -80,12 +90,28 @@ export default function KPIs() {
   const [funnelOpen, setFunnelOpen] = useState(false)
   const [renutrucao, setRenutrucao] = useState({ captacoes: 0, vendas: 0, cancelados: 0, conversao: 0 })
   const [popover, setPopover] = useState<PopoverData | null>(null)
+  const [popoverLeads, setPopoverLeads] = useState<LeadVenda[] | null>(null)
+  const [popoverLeadsLoading, setPopoverLeadsLoading] = useState(false)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPopover(null) }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
+
+  useEffect(() => {
+    if (!popover?.queryFonte) { setPopoverLeads(null); return }
+    setPopoverLeadsLoading(true)
+    setPopoverLeads(null)
+    const params = new URLSearchParams({ month })
+    params.set('fonte', popover.queryFonte)
+    if (popover.queryConvPoint) params.set('conv_point', popover.queryConvPoint)
+    if (popover.queryRenutrucao) params.set('renutrucao', 'true')
+    api.get<LeadVenda[]>(`/api/v1/kpis/leads-vendas?${params}`)
+      .then(r => setPopoverLeads(r.data))
+      .catch(() => setPopoverLeads([]))
+      .finally(() => setPopoverLeadsLoading(false))
+  }, [popover])
 
   useEffect(() => {
     setLoading(true)
@@ -119,7 +145,7 @@ export default function KPIs() {
           cancelados: newCan,
           conversao: newCap > 0 ? Math.round(newVen / newCap * 1000) / 10 : 0,
           breakdown: [
-            ...organicSubs.map(s => ({ label: s.fonte, captacoes: s.captacoes, vendas: s.vendas, cancelados: s.cancelados, conversao: s.conversao })),
+            ...organicSubs.map(s => ({ label: s.fonte, captacoes: s.captacoes, vendas: s.vendas, cancelados: s.cancelados, conversao: s.conversao, _qFonte: s.fonte })),
             ...d.breakdown,
           ],
         }
@@ -214,7 +240,7 @@ export default function KPIs() {
     const paddingLeft = isO2ChildRow ? 52 : isChild ? 32 : 14
     // Leaf rows (not aggregate parents) open the popover on click
     const isPopoverRow = !row.isSdrParent && !isO2ParentRow && !(hasBreakdown && !isChild)
-    const openPopover = () => setPopover({ label: row.fonte, captacoes: row.captacoes, vendas: row.vendas, cancelados: row.cancelados, conversao: row.conversao })
+    const openPopover = () => setPopover({ label: row.fonte, captacoes: row.captacoes, vendas: row.vendas, cancelados: row.cancelados, conversao: row.conversao, queryFonte: row.fonte })
 
     return (
       <>
@@ -248,7 +274,13 @@ export default function KPIs() {
         {hasBreakdown && breakdownOpen && row.breakdown.map(bp => (
           <tr
             key={`bp-${row.fonte}-${bp.label}`}
-            onClick={() => setPopover({ label: bp.label, captacoes: bp.captacoes, vendas: bp.vendas, cancelados: bp.cancelados, conversao: bp.conversao })}
+            onClick={() => {
+              let qFonte: string | undefined, qConvPoint: string | undefined, qRen: boolean | undefined
+              if (bp._qFonte !== undefined) { qFonte = bp._qFonte }
+              else if (bp.label === '🔄 Renutrição') { qFonte = row.fonte; qRen = true }
+              else { qFonte = row.fonte; qConvPoint = bp.label }
+              setPopover({ label: bp.label, captacoes: bp.captacoes, vendas: bp.vendas, cancelados: bp.cancelados, conversao: bp.conversao, queryFonte: qFonte, queryConvPoint: qConvPoint, queryRenutrucao: qRen })
+            }}
             style={{ cursor: 'pointer' }}
           >
             <td style={{ ...col, paddingLeft: isO2ChildRow ? 68 : isChild ? 52 : 32, fontStyle: 'italic', color: 'var(--text-subtle)', background: 'var(--bg-subtle)' }}>{bp.label}</td>
@@ -555,7 +587,7 @@ export default function KPIs() {
           />
           <div style={{
             position: 'fixed', top: '50%', left: '50%',
-            zIndex: 50, width: 360,
+            zIndex: 50, width: 400,
             background: 'linear-gradient(135deg, #0F172A 0%, #1A1040 100%)',
             border: '1px solid rgba(124,58,237,0.45)',
             borderRadius: 18,
@@ -602,6 +634,35 @@ export default function KPIs() {
                 }} />
               </div>
             </div>
+
+            {(popoverLeadsLoading || (popoverLeads && popoverLeads.length > 0)) && (
+              <div style={{ marginTop: 22, borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 16 }}>
+                <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>
+                  Clientes fechados{popoverLeads ? ` (${popoverLeads.length})` : ''}
+                </p>
+                {popoverLeadsLoading ? (
+                  <p style={{ fontSize: 12, color: '#334155', textAlign: 'center', padding: '8px 0' }}>Carregando...</p>
+                ) : (
+                  <div style={{ maxHeight: 180, overflowY: 'auto', paddingRight: 2 }}>
+                    {popoverLeads!.map((lead, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: i < popoverLeads!.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                        <span style={{ fontSize: 12, color: '#CBD5E1', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 10 }}>{lead.nome}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+                          {lead.valor != null && (
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#6EE7B7', lineHeight: 1.3 }}>
+                              {lead.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                          )}
+                          {lead.data && (
+                            <span style={{ fontSize: 10, color: '#475569', lineHeight: 1.3 }}>{lead.data}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}

@@ -123,6 +123,55 @@ def conversao_por_fonte(
     return result
 
 
+@router.get("/leads-vendas")
+def leads_vendas_por_fonte(
+    month: str = Query(None),
+    fonte: str = Query(None),
+    conv_point: str = Query(None),
+    renutrucao: bool = Query(False),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            now = datetime.utcnow(); year, mon = now.year, now.month
+    else:
+        now = datetime.utcnow(); year, mon = now.year, now.month
+
+    date_from = datetime(year, mon, 1)
+    date_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    filters = [
+        Lead.created_at >= date_from,
+        Lead.created_at <= date_to,
+        Lead.status.in_(VENDA_STATUSES),
+    ]
+    if fonte:
+        filters.append(Lead.origin.ilike(fonte))
+    if conv_point:
+        filters.append(Lead.conversion_point.ilike(conv_point))
+    if renutrucao:
+        filters.append(Lead.is_renutrucao == True)
+
+    leads = (
+        db.query(Lead.name, Lead.value_potential, Lead.updated_at)
+        .filter(*filters)
+        .order_by(Lead.updated_at.desc())
+        .limit(30)
+        .all()
+    )
+    return [
+        {
+            "nome":  l.name,
+            "valor": float(l.value_potential) if l.value_potential else None,
+            "data":  l.updated_at.strftime("%d/%m/%Y") if l.updated_at else None,
+        }
+        for l in leads
+    ]
+
+
 @router.get("/renutrucao")
 def renutrucao_stats(
     month: str = Query(None),
