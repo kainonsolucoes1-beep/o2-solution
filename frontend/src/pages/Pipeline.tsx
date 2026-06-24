@@ -69,7 +69,7 @@ export default function Pipeline() {
 
   const cardNav = (params: Record<string, string>) => {
     const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...params })
-    if (selectedSource) p.set('origem', selectedSource)
+    if (selectedSources.length > 0) p.set('origem', selectedSources.join(','))
     return `?${p.toString()}`
   }
 
