@@ -77,7 +77,7 @@ export default function Pipeline() {
     { label: 'Pendente',    value: overview.novo,        color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: cardNav({ status: 'pending,novo,new' }) },
     { label: 'Agendado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
     { label: 'Proposta',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
-    { label: 'Negociação',  value: overview.negociacao,  color: '#8B5CF6', bg: '#F5F3FF', icon: '🔥', nav: cardNav({ perception: 'Quente,Morno' }) },
+    { label: 'Qualificado',  value: overview.negociacao,  color: '#8B5CF6', bg: '#F5F3FF', icon: '🔥', nav: cardNav({ perception: 'Quente,Morno' }) },
     { label: 'Fechado',     value: overview.fechado,     color: '#059669', bg: '#ECFDF5', icon: '🏆', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
     { label: 'Perdido',     value: overview.perdido,     color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: cardNav({ status: 'sale_not_performed' }) },
   ]
@@ -87,7 +87,7 @@ export default function Pipeline() {
     { stage: 'Pendente',    value: overview.novo_value,        color: '#3B82F6' },
     { stage: 'Agendado', value: overview.qualificado_value, color: '#10B981' },
     { stage: 'Proposta',    value: overview.proposta_value,    color: '#F59E0B' },
-    { stage: 'Negociação',  value: overview.negociacao_value,  color: '#8B5CF6' },
+    { stage: 'Qualificado',  value: overview.negociacao_value,  color: '#8B5CF6' },
     { stage: 'Fechado',     value: overview.fechado_value,     color: '#059669' },
     { stage: 'Perdido',     value: overview.perdido_value,     color: '#EF4444' },
   ]
@@ -115,17 +115,17 @@ export default function Pipeline() {
       nav: cardNav({ status: 'scheduled,qualificado,qualified' }),
     },
     {
-      from: 'Proposta', to: 'Negociação', fromCount: propOL, toCount: negOL,
+      from: 'Proposta', to: 'Qualificado', fromCount: propOL, toCount: negOL,
       rate: propOL > 0 ? +((negOL / propOL) * 100).toFixed(1) : 0,
       color: CONV_COLORS[2], Icon: FileText,
-      note: `${overview.proposta} aguardando negociação`,
+      note: `${overview.proposta} aguardando qualificação`,
       nav: cardNav({ status: 'proposal_sent' }),
     },
     {
-      from: 'Negociação', to: 'Fechado', fromCount: negOL, toCount: overview.fechado,
+      from: 'Qualificado', to: 'Fechado', fromCount: negOL, toCount: overview.fechado,
       rate: negOL > 0 ? +((overview.fechado / negOL) * 100).toFixed(1) : 0,
       color: CONV_COLORS[3], Icon: Handshake,
-      note: `${overview.negociacao} em negociação`,
+      note: `${overview.negociacao} qualificados`,
       nav: cardNav({ perception: 'Quente,Morno' }),
     },
     {
@@ -227,7 +227,7 @@ export default function Pipeline() {
               const finCards = [
                 { label: 'Valor Total',    value: totalValue,                   color: 'var(--text-3)',  bg: 'var(--bg-subtle)', border: 'var(--border)', nav: null },
                 { label: 'Em Proposta',    value: overview.proposta_value,      color: '#F59E0B',        bg: '#FFFBEB',           border: '#FDE68A',       nav: cardNav({ status: 'proposal_sent' }) },
-                { label: 'Em Negociação',  value: overview.negociacao_value,    color: '#8B5CF6',        bg: '#F5F3FF',           border: '#DDD6FE',       nav: cardNav({ perception: 'Quente,Morno' }) },
+                { label: 'Qualificado',  value: overview.negociacao_value,    color: '#8B5CF6',        bg: '#F5F3FF',           border: '#DDD6FE',       nav: cardNav({ perception: 'Quente,Morno' }) },
                 { label: 'Fechado',        value: overview.fechado_value,       color: '#059669',        bg: '#ECFDF5',           border: '#A7F3D0',       nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
                 { label: 'Perdido',        value: overview.perdido_value,       color: '#EF4444',        bg: '#FEF2F2',           border: '#FECACA',       nav: cardNav({ status: 'sale_not_performed' }) },
               ]
