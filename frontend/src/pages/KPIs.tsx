@@ -208,8 +208,8 @@ export default function KPIs() {
   const colH: React.CSSProperties = {
     padding: '13px 14px', fontSize: 11, fontWeight: 700,
     color: '#94A3B8', textTransform: 'uppercase',
-    letterSpacing: '0.07em', background: '#0F172A',
-    borderBottom: '2px solid #1E3A5F', textAlign: 'left',
+    letterSpacing: '0.07em', background: '#1E293B',
+    borderBottom: '2px solid #334155', textAlign: 'left',
   }
 
   function renderConversaoBar(conversao: number) {
@@ -356,7 +356,7 @@ export default function KPIs() {
       {!loading && data.length > 0 && pctCan > 20 && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 8, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#EA580C', fontSize: 13, fontWeight: 600 }}>
-            <AlertTriangle size={15} /> ⚠️ Alto índice de cancelamentos ({pctCan}%)
+            <AlertTriangle size={15} /> Alto índice de cancelamentos ({pctCan}%)
           </div>
         </div>
       )}
