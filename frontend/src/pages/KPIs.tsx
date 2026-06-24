@@ -92,6 +92,7 @@ export default function KPIs() {
   const [popover, setPopover] = useState<PopoverData | null>(null)
   const [popoverLeads, setPopoverLeads] = useState<LeadVenda[] | null>(null)
   const [popoverLeadsLoading, setPopoverLeadsLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('Indicadores Chave')
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPopover(null) }
@@ -320,6 +321,20 @@ export default function KPIs() {
         />
       </div>
 
+      {/* Sub-abas */}
+      <div style={{ display: 'flex', borderBottom: '2px solid #E2E8F0', marginBottom: 24 }}>
+        {(['Indicadores Chave'] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            padding: '8px 24px', border: 'none', background: 'none', cursor: 'pointer',
+            fontSize: 14, fontWeight: activeTab === tab ? 600 : 400,
+            color: activeTab === tab ? '#1E3A5F' : '#64748B',
+            borderBottom: activeTab === tab ? '2px solid #1E3A5F' : '2px solid transparent',
+            marginBottom: -2,
+          }}>{tab}</button>
+        ))}
+      </div>
+
+      {activeTab === 'Indicadores Chave' && <>
       {/* KPI Cards */}
       {!loading && data.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
@@ -647,6 +662,7 @@ export default function KPIs() {
           </div>
         </>
       )}
+      </>}
 
     </main>
   )

@@ -27,6 +27,7 @@ export default function Pipeline() {
   const [alerts, setAlerts] = useState<PipelineAlerts | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState<'Comercial' | 'SDR'>('Comercial')
 
   useEffect(() => {
     if (localStorage.getItem('token')) {
@@ -172,6 +173,26 @@ export default function Pipeline() {
           </div>
         </div>
 
+        {/* Sub-abas */}
+        <div style={{ display: 'flex', borderBottom: '2px solid #E2E8F0' }}>
+          {(['Comercial', 'SDR'] as const).map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{
+              padding: '8px 24px', border: 'none', background: 'none', cursor: 'pointer',
+              fontSize: 14, fontWeight: activeTab === tab ? 600 : 400,
+              color: activeTab === tab ? '#1E3A5F' : '#64748B',
+              borderBottom: activeTab === tab ? '2px solid #1E3A5F' : '2px solid transparent',
+              marginBottom: -2,
+            }}>{tab}</button>
+          ))}
+        </div>
+
+        {activeTab === 'SDR' && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+            <p style={{ color: 'var(--text-subtle)', fontSize: 15 }}>Em construção…</p>
+          </div>
+        )}
+
+        {activeTab === 'Comercial' && <>
         {/* Overview cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 xl:gap-6">
           {overviewCards.map(card => (
@@ -368,6 +389,7 @@ export default function Pipeline() {
           </div>
 
         </div>
+        </>}
 
       </main>
     </>
