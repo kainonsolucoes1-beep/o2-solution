@@ -603,42 +603,12 @@ export default function KPIs() {
             </button>
 
             <p style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Indicador</p>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#F1F5F9', margin: '0 0 28px', wordBreak: 'break-all', lineHeight: 1.35 }}>{popover.label}</h2>
+            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#F1F5F9', margin: '0 0 20px', wordBreak: 'break-all', lineHeight: 1.35 }}>{popover.label}</h2>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 28 }}>
-              {[
-                { value: popover.captacoes, label: 'Captações', color: '#93C5FD' },
-                { value: popover.vendas,    label: 'Vendas',    color: '#6EE7B7' },
-                { value: popover.cancelados,label: 'Cancelados',color: '#FCA5A5' },
-              ].map(({ value, label, color }) => (
-                <div key={label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '14px 10px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ fontSize: 30, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
-                  <div style={{ fontSize: 9, color: '#475569', marginTop: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
-                </div>
-              ))}
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-                <span style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Conversão</span>
-                <span style={{ fontSize: 20, fontWeight: 700, color: '#A78BFA' }}>{popover.conversao}%</span>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 6, height: 8, overflow: 'hidden' }}>
-                <div style={{
-                  width: `${Math.min(Math.max(popover.conversao, popover.conversao > 0 ? 2 : 0), 100)}%`,
-                  height: '100%',
-                  background: 'linear-gradient(90deg, #7C3AED, #A78BFA)',
-                  borderRadius: 6,
-                  boxShadow: '0 0 14px rgba(124,58,237,0.7)',
-                  transition: 'width 0.5s ease',
-                }} />
-              </div>
-            </div>
-
-            {(popoverLeadsLoading || (popoverLeads && popoverLeads.length > 0)) && (
-              <div style={{ marginTop: 22, borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 16 }}>
+            {(popoverLeadsLoading || (popoverLeads !== null)) && (
+              <div>
                 <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>
-                  Clientes fechados{popoverLeads ? ` (${popoverLeads.length})` : ''}
+                  Clientes fechados{popoverLeads ? ` (${popoverLeads.length})` : ' (...)'}
                 </p>
                 {popoverLeadsLoading ? (
                   <p style={{ fontSize: 12, color: '#334155', textAlign: 'center', padding: '8px 0' }}>Carregando...</p>
