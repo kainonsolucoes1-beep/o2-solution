@@ -176,45 +176,33 @@ def pipeline_alerts(
     avg_time_in_funnel = round(sum(times) / len(times), 1) if times else 0.0
 
     # Desempenho no atendimento: tempo médio que o lead ficou em "novo" antes de avançar
-    novo_statuses = ('novo', 'new', 'pending')
-    novo_entry_subq = (
-        db.query(
-            LeadStatusHistory.lead_id,
-            func.min(LeadStatusHistory.changed_at).label('novo_at'),
-        )
-        .filter(func.lower(LeadStatusHistory.to_status).in_(novo_statuses))
-        .group_by(LeadStatusHistory.lead_id)
-        .subquery()
-    )
-    novo_exit_subq = (
-        db.query(
-            LeadStatusHistory.lead_id,
-            func.min(LeadStatusHistory.changed_at).label('exit_at'),
-        )
-        .filter(func.lower(LeadStatusHistory.from_status).in_(novo_statuses))
-        .group_by(LeadStatusHistory.lead_id)
-        .subquery()
-    )
-    contact_rows = _apply_filters(
-        db.query(
-            func.extract('epoch', novo_exit_subq.c.exit_at - novo_entry_subq.c.novo_at) / 60
-        )
-        .select_from(novo_entry_subq)
-        .join(novo_exit_subq, novo_entry_subq.c.lead_id == novo_exit_subq.c.lead_id)
-        .join(Lead, Lead.id == novo_entry_subq.c.lead_id)
-        .filter(novo_exit_subq.c.exit_at > novo_entry_subq.c.novo_at),
-        date_from, date_to, source,
-    ).all()
-    mins_list = [float(r[0]) for r in contact_rows if r[0] is not None and float(r[0]) > 0]
-    avg_first_contact_minutes = round(sum(mins_list) / len(mins_list), 1) if mins_list else 0.0
-
-    contacted_count = _apply_filters(
-        db.query(func.count(func.distinct(Lead.id)))
-        .select_from(novo_entry_subq)
-        .join(novo_exit_subq, novo_entry_subq.c.lead_id == novo_exit_subq.c.lead_id)
-        .join(Lead, Lead.id == novo_entry_subq.c.lead_id),
-        date_from, date_to, source,
-    ).scalar() or 0
+    from sqlalchemy import text as sa_text
+    date_from_dt = datetime.strptime(date_from, "%Y-%m-%d") if date_from else None
+    date_to_dt   = datetime.strptime(date_to,   "%Y-%m-%d") + timedelta(days=1) if date_to else None
+    perf_row = db.execute(sa_text("""
+        SELECT
+            AVG(EXTRACT(EPOCH FROM (ne.exit_at - nn.novo_at)) / 60),
+            COUNT(DISTINCT l.id)
+        FROM leads l
+        JOIN (
+            SELECT lead_id, MIN(changed_at) AS novo_at
+            FROM lead_status_history
+            WHERE LOWER(to_status) IN ('novo','new','pending')
+            GROUP BY lead_id
+        ) nn ON l.id = nn.lead_id
+        JOIN (
+            SELECT lead_id, MIN(changed_at) AS exit_at
+            FROM lead_status_history
+            WHERE LOWER(from_status) IN ('novo','new','pending')
+            GROUP BY lead_id
+        ) ne ON nn.lead_id = ne.lead_id
+        WHERE ne.exit_at > nn.novo_at
+          AND (:date_from IS NULL OR l.created_at >= :date_from)
+          AND (:date_to   IS NULL OR l.created_at <  :date_to)
+          AND (:source    IS NULL OR l.origin = :source)
+    """), {"date_from": date_from_dt, "date_to": date_to_dt, "source": source or None}).fetchone()
+    avg_first_contact_minutes = round(float(perf_row[0]), 1) if perf_row and perf_row[0] else 0.0
+    contacted_count = int(perf_row[1]) if perf_row and perf_row[1] else 0
 
     return {
         "vencidos_count": vencidos_count,
