@@ -220,9 +220,9 @@ export default function Telefonia() {
             <thead>
               <tr style={{ background: 'var(--bg-subtle)' }}>
                 <th style={colH}>Operador</th>
-                <th style={{ ...colH, textAlign: 'right' }}>Ligações</th>
-                <th style={{ ...colH, textAlign: 'right' }}>Atendimento total</th>
-                <th style={{ ...colH, textAlign: 'right' }}>Pausa</th>
+                <th style={colH}>Ligações</th>
+                <th style={colH}>Atendimento total</th>
+                <th style={colH}>Pausa</th>
                 <th style={{ ...colH, textAlign: 'right' }}>TMA</th>
                 <th style={{ ...colH, width: 40 }}></th>
               </tr>
