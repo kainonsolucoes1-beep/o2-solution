@@ -164,28 +164,18 @@ def pipeline_alerts(
     now = _now()
     cutoff_24h = now - timedelta(hours=24)
 
-    _vencidos_statuses = PENDENTE_STATUSES + ("qualificado", "qualified") + PROPOSTA_STATUSES
-    active_filter = or_(
-        _status_in(_vencidos_statuses),
-        Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
-    )
+    vencidos_filter = _status_in(PENDENTE_STATUSES)
 
     vencidos_count = _apply_filters(
-        db.query(func.count(Lead.id)).filter(Lead.updated_at <= cutoff_24h, active_filter),
+        db.query(func.count(Lead.id)).filter(Lead.updated_at <= cutoff_24h, vencidos_filter),
         date_from, date_to, source,
     ).scalar() or 0
-    uncontacted_count = _apply_filters(
-        db.query(func.count(Lead.id)).filter(_status_in(PENDENTE_STATUSES), Lead.updated_at <= cutoff_24h),
-        date_from, date_to, source,
-    ).scalar() or 0
+    uncontacted_count = vencidos_count
 
-    vq = db.query(Lead).filter(Lead.updated_at <= cutoff_24h, active_filter)
+    vq = db.query(Lead).filter(Lead.updated_at <= cutoff_24h, vencidos_filter)
     vq = _apply_filters(vq, date_from, date_to, source)
     vencidos_rows = vq.order_by(Lead.updated_at.asc()).limit(10).all()
-
-    uq = db.query(Lead).filter(_status_in(PENDENTE_STATUSES), Lead.updated_at <= cutoff_24h)
-    uq = _apply_filters(uq, date_from, date_to, source)
-    uncontacted_rows = uq.order_by(Lead.updated_at.asc()).limit(10).all()
+    uncontacted_rows = vencidos_rows
 
     terminal_rows = _apply_filters(
         db.query(Lead.created_at, Lead.updated_at).filter(
