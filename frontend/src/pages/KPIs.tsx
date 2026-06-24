@@ -206,22 +206,24 @@ export default function KPIs() {
   const maxConversao = Math.max(...data.map(d => d.conversao), sdrAgg?.conversao ?? 0, 1)
 
   const colH: React.CSSProperties = {
-    padding: '8px 14px', fontSize: 11, fontWeight: 600,
-    color: 'var(--text-subtle)', textTransform: 'uppercase',
-    letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', textAlign: 'left',
+    padding: '13px 14px', fontSize: 11, fontWeight: 700,
+    color: '#94A3B8', textTransform: 'uppercase',
+    letterSpacing: '0.07em', background: '#0F172A',
+    borderBottom: '2px solid #1E3A5F', textAlign: 'left',
   }
 
   function renderConversaoBar(conversao: number) {
+    const barColor = conversao >= 30 ? '#059669' : conversao >= 15 ? '#F59E0B' : '#3B82F6'
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ flex: 1, height: 8, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
           <div style={{
             width: `${(conversao / maxConversao) * 100}%`, height: '100%',
-            background: conversao >= 30 ? '#059669' : conversao >= 15 ? '#F59E0B' : '#3B82F6',
-            borderRadius: 3, transition: 'width 400ms ease',
+            background: barColor, borderRadius: 4, transition: 'width 400ms ease',
+            boxShadow: conversao > 0 ? `0 0 10px ${barColor}99` : 'none',
           }} />
         </div>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', minWidth: 36, textAlign: 'right' }}>{conversao}%</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', minWidth: 40, textAlign: 'right' }}>{conversao}%</span>
       </div>
     )
   }
@@ -238,6 +240,7 @@ export default function KPIs() {
     const hasBreakdown = !row.isSdrParent && !isO2ParentRow && row.breakdown?.length > 0
     const breakdownOpen = expandedFontes.has(row.fonte)
     const paddingLeft = isO2ChildRow ? 52 : isChild ? 32 : 14
+    const accentColor = row.isSdrParent ? '#3B82F6' : isO2ParentRow ? '#8B5CF6' : isO2ChildRow ? '#A78BFA' : isChild ? '#60A5FA' : row.fonte.toLowerCase().includes('orgân') ? '#10B981' : '#F59E0B'
     // Leaf rows (not aggregate parents) open the popover on click
     const isPopoverRow = !row.isSdrParent && !isO2ParentRow && !(hasBreakdown && !isChild)
     const openPopover = () => setPopover({ label: row.fonte, captacoes: row.captacoes, vendas: row.vendas, cancelados: row.cancelados, conversao: row.conversao, queryFonte: row.fonte })
@@ -246,10 +249,11 @@ export default function KPIs() {
       <>
         <tr
           key={isO2ChildRow ? `o2-child-${row.fonte}` : row.isSdrChild ? `sdr-child-${row.fonte}` : row.fonte}
+          className="kpis-row"
           onClick={isPopoverRow ? openPopover : undefined}
           style={isPopoverRow ? { cursor: 'pointer' } : undefined}
         >
-          <td style={{ ...col, fontWeight: row.isSdrParent ? 700 : isChild ? 400 : 500, color: 'var(--text-1)', paddingLeft }}>
+          <td style={{ ...col, fontWeight: row.isSdrParent ? 700 : isChild ? 400 : 500, color: 'var(--text-1)', paddingLeft, borderLeft: `3px solid ${accentColor}` }}>
             {row.isSdrParent ? (
               <button onClick={() => setSdrOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 700 }}>
                 {sdrOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} SDR
@@ -274,6 +278,7 @@ export default function KPIs() {
         {hasBreakdown && breakdownOpen && row.breakdown.map(bp => (
           <tr
             key={`bp-${row.fonte}-${bp.label}`}
+            className="kpis-bp-row"
             onClick={() => {
               let qFonte: string | undefined, qConvPoint: string | undefined, qRen: boolean | undefined
               if (bp._qFonte !== undefined) { qFonte = bp._qFonte }
@@ -515,9 +520,14 @@ export default function KPIs() {
         ) : data.length === 0 ? (
           <p style={{ padding: '32px 24px', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum dado para o período selecionado.</p>
         ) : (
+          <>
+          <style>{`
+            .kpis-row:hover > td { background: #EFF6FF !important; transition: background 0.15s ease; }
+            .kpis-bp-row:hover > td { background: #F0FDF4 !important; transition: background 0.15s ease; }
+          `}</style>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: 'var(--bg-subtle)' }}>
+              <tr>
                 <th style={colH}>Fonte</th>
                 <th style={{ ...colH, textAlign: 'right' }}>Captações</th>
                 <th style={{ ...colH, textAlign: 'right' }}>Vendas</th>
@@ -529,6 +539,7 @@ export default function KPIs() {
               {allRows.map((row, i) => renderRow(row, i))}
             </tbody>
           </table>
+          </>
         )}
       </div>
 
