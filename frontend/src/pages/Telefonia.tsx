@@ -135,7 +135,7 @@ export default function Telefonia() {
     finally { setSaving(false) }
   }
 
-  const inp = (value: string, onChange: (v: string) => void, placeholder = '') => (
+  const inp = (value: string, onChange: (v: string) => void, placeholder = '', align: 'left' | 'center' = 'center') => (
     <input
       value={value}
       onChange={e => onChange(e.target.value)}
@@ -143,7 +143,7 @@ export default function Telefonia() {
       style={{
         width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-in)',
         borderRadius: 7, padding: '8px 10px', color: 'var(--text-2)', fontSize: 13,
-        boxSizing: 'border-box' as const,
+        boxSizing: 'border-box' as const, textAlign: align,
       }}
     />
   )
@@ -220,10 +220,10 @@ export default function Telefonia() {
             <thead>
               <tr style={{ background: 'var(--bg-subtle)' }}>
                 <th style={colH}>Operador</th>
-                <th style={colH}>Ligações</th>
-                <th style={colH}>Atendimento total</th>
-                <th style={colH}>Pausa</th>
-                <th style={{ ...colH, textAlign: 'right' }}>TMA</th>
+                <th style={{ ...colH, textAlign: 'center' }}>Ligações</th>
+                <th style={{ ...colH, textAlign: 'center' }}>Atendimento total</th>
+                <th style={{ ...colH, textAlign: 'center' }}>Pausa</th>
+                <th style={{ ...colH, textAlign: 'center' }}>TMA</th>
                 <th style={{ ...colH, width: 40 }}></th>
               </tr>
             </thead>
@@ -238,7 +238,7 @@ export default function Telefonia() {
                 return (
                   <tr key={i}>
                     <td style={{ ...col, minWidth: 140 }}>
-                      {inp(row.name, v => updateRow(i, 'name', v), 'Nome do operador')}
+                      {inp(row.name, v => updateRow(i, 'name', v), 'Nome do operador', 'left')}
                     </td>
                     <td style={{ ...col, width: 100 }}>
                       {inp(row.count, v => updateRow(i, 'count', v), '0')}
@@ -249,7 +249,7 @@ export default function Telefonia() {
                     <td style={{ ...col, width: 140 }}>
                       {inp(row.pausa, v => updateRow(i, 'pausa', v), '00:00:00')}
                     </td>
-                    <td style={{ ...col, textAlign: 'right', width: 90, fontWeight: 600, color: tmaInd === '—' ? 'var(--text-subtle)' : '#F97316' }}>
+                    <td style={{ ...col, textAlign: 'center', width: 90, fontWeight: 600, color: tmaInd === '—' ? 'var(--text-subtle)' : '#F97316' }}>
                       {tmaInd}
                     </td>
                     <td style={{ ...col, width: 40, textAlign: 'center' }}>
