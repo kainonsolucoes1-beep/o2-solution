@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X } from 'lucide-react'
 import {
   Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
@@ -55,6 +55,14 @@ function aggregateO2(rows: FonteData[]): FonteData {
   return { fonte: 'O2 Solution', captacoes: cap, vendas: ven, cancelados: can, conversao: cap > 0 ? Math.round(ven / cap * 1000) / 10 : 0, breakdown: [] }
 }
 
+interface PopoverData {
+  label: string
+  captacoes: number
+  vendas: number
+  cancelados: number
+  conversao: number
+}
+
 function card(bg: string, border: string): React.CSSProperties {
   return { background: bg, borderRadius: 12, padding: '20px 24px', border: `1px solid ${border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
 }
@@ -71,6 +79,13 @@ export default function KPIs() {
   const toggleFonte = (f: string) => setExpandedFontes(prev => { const s = new Set(prev); s.has(f) ? s.delete(f) : s.add(f); return s })
   const [funnelOpen, setFunnelOpen] = useState(false)
   const [renutrucao, setRenutrucao] = useState({ captacoes: 0, vendas: 0, cancelados: 0, conversao: 0 })
+  const [popover, setPopover] = useState<PopoverData | null>(null)
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPopover(null) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -197,10 +212,17 @@ export default function KPIs() {
     const hasBreakdown = !row.isSdrParent && !isO2ParentRow && row.breakdown?.length > 0
     const breakdownOpen = expandedFontes.has(row.fonte)
     const paddingLeft = isO2ChildRow ? 52 : isChild ? 32 : 14
+    // Leaf rows (not aggregate parents) open the popover on click
+    const isPopoverRow = !row.isSdrParent && !isO2ParentRow && !(hasBreakdown && !isChild)
+    const openPopover = () => setPopover({ label: row.fonte, captacoes: row.captacoes, vendas: row.vendas, cancelados: row.cancelados, conversao: row.conversao })
 
     return (
       <>
-        <tr key={isO2ChildRow ? `o2-child-${row.fonte}` : row.isSdrChild ? `sdr-child-${row.fonte}` : row.fonte}>
+        <tr
+          key={isO2ChildRow ? `o2-child-${row.fonte}` : row.isSdrChild ? `sdr-child-${row.fonte}` : row.fonte}
+          onClick={isPopoverRow ? openPopover : undefined}
+          style={isPopoverRow ? { cursor: 'pointer' } : undefined}
+        >
           <td style={{ ...col, fontWeight: row.isSdrParent ? 700 : isChild ? 400 : 500, color: 'var(--text-1)', paddingLeft }}>
             {row.isSdrParent ? (
               <button onClick={() => setSdrOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: 700 }}>
@@ -211,7 +233,7 @@ export default function KPIs() {
                 {o2Open ? <ChevronDown size={14} /> : <ChevronRight size={14} />} O2 Solution
               </button>
             ) : hasBreakdown ? (
-              <button onClick={() => toggleFonte(row.fonte)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: isChild ? 400 : 500 }}>
+              <button onClick={e => { e.stopPropagation(); toggleFonte(row.fonte) }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-1)', fontSize: 13, fontWeight: isChild ? 400 : 500 }}>
                 {breakdownOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {row.fonte}
               </button>
             ) : isChild ? (
@@ -224,7 +246,11 @@ export default function KPIs() {
           <td style={{ ...col }}>{renderConversaoBar(row.conversao)}</td>
         </tr>
         {hasBreakdown && breakdownOpen && row.breakdown.map(bp => (
-          <tr key={`bp-${row.fonte}-${bp.label}`}>
+          <tr
+            key={`bp-${row.fonte}-${bp.label}`}
+            onClick={() => setPopover({ label: bp.label, captacoes: bp.captacoes, vendas: bp.vendas, cancelados: bp.cancelados, conversao: bp.conversao })}
+            style={{ cursor: 'pointer' }}
+          >
             <td style={{ ...col, paddingLeft: isO2ChildRow ? 68 : isChild ? 52 : 32, fontStyle: 'italic', color: 'var(--text-subtle)', background: 'var(--bg-subtle)' }}>{bp.label}</td>
             <td style={{ ...col, textAlign: 'right', background: 'var(--bg-subtle)' }}>{bp.captacoes}</td>
             <td style={{ ...col, textAlign: 'right', color: '#059669', fontWeight: 600, background: 'var(--bg-subtle)' }}>{bp.vendas}</td>
@@ -512,6 +538,72 @@ export default function KPIs() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Popover */}
+      {popover && (
+        <>
+          <style>{`
+            @keyframes popoverIn {
+              from { opacity: 0; transform: translate(-50%, -48%) scale(0.93); }
+              to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            }
+          `}</style>
+          <div
+            onClick={() => setPopover(null)}
+            style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(3px)' }}
+          />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%',
+            zIndex: 50, width: 360,
+            background: 'linear-gradient(135deg, #0F172A 0%, #1A1040 100%)',
+            border: '1px solid rgba(124,58,237,0.45)',
+            borderRadius: 18,
+            padding: '32px 36px 28px',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.55), 0 0 48px rgba(124,58,237,0.12)',
+            animation: 'popoverIn 0.22s cubic-bezier(0.34,1.56,0.64,1) forwards',
+          }}>
+            <button
+              onClick={() => setPopover(null)}
+              style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+            >
+              <X size={14} />
+            </button>
+
+            <p style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Indicador</p>
+            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#F1F5F9', margin: '0 0 28px', wordBreak: 'break-all', lineHeight: 1.35 }}>{popover.label}</h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 28 }}>
+              {[
+                { value: popover.captacoes, label: 'Captações', color: '#93C5FD' },
+                { value: popover.vendas,    label: 'Vendas',    color: '#6EE7B7' },
+                { value: popover.cancelados,label: 'Cancelados',color: '#FCA5A5' },
+              ].map(({ value, label, color }) => (
+                <div key={label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '14px 10px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ fontSize: 30, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontSize: 9, color: '#475569', marginTop: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                <span style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Conversão</span>
+                <span style={{ fontSize: 20, fontWeight: 700, color: '#A78BFA' }}>{popover.conversao}%</span>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 6, height: 8, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${Math.min(Math.max(popover.conversao, popover.conversao > 0 ? 2 : 0), 100)}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #7C3AED, #A78BFA)',
+                  borderRadius: 6,
+                  boxShadow: '0 0 14px rgba(124,58,237,0.7)',
+                  transition: 'width 0.5s ease',
+                }} />
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
     </main>
