@@ -615,16 +615,16 @@ export default function KPIs() {
                 ) : (
                   <div style={{ maxHeight: 180, overflowY: 'auto', paddingRight: 2 }}>
                     {popoverLeads!.map((lead, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: i < popoverLeads!.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                        <span style={{ fontSize: 12, color: '#CBD5E1', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 10 }}>{lead.nome}</span>
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < popoverLeads!.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: '#E2E8F0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 12 }}>{lead.nome}</span>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
                           {lead.valor != null && (
-                            <span style={{ fontSize: 11, fontWeight: 700, color: '#6EE7B7', lineHeight: 1.3 }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: '#6EE7B7', lineHeight: 1.4 }}>
                               {lead.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </span>
                           )}
                           {lead.data && (
-                            <span style={{ fontSize: 10, color: '#475569', lineHeight: 1.3 }}>{lead.data}</span>
+                            <span style={{ fontSize: 12, color: '#64748B', lineHeight: 1.4 }}>{lead.data}</span>
                           )}
                         </div>
                       </div>
