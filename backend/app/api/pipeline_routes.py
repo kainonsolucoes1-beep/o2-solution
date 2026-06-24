@@ -24,6 +24,33 @@ def _now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _business_minutes(start: datetime, end: datetime) -> float:
+    """Minutos úteis entre dois datetimes (seg-sex 08h-18h)."""
+    WORK_START, WORK_END = 8, 18
+    if not start or not end or end <= start:
+        return 0.0
+    total = 0.0
+    cur = start.replace(tzinfo=None)
+    end = end.replace(tzinfo=None)
+    while cur < end:
+        if cur.weekday() >= 5:
+            days = 7 - cur.weekday()
+            cur = (cur + timedelta(days=days)).replace(hour=WORK_START, minute=0, second=0, microsecond=0)
+            continue
+        day_start = cur.replace(hour=WORK_START, minute=0, second=0, microsecond=0)
+        day_end   = cur.replace(hour=WORK_END,   minute=0, second=0, microsecond=0)
+        if cur < day_start:
+            cur = day_start
+            continue
+        if cur >= day_end:
+            cur = day_start + timedelta(days=1)
+            continue
+        segment_end = min(end, day_end)
+        total += (segment_end - cur).total_seconds() / 60
+        cur = day_start + timedelta(days=1)
+    return total
+
+
 def _status_in(statuses):
     return or_(*[func.lower(Lead.status) == s.lower() for s in statuses])
 
@@ -182,10 +209,8 @@ def pipeline_alerts(
         from sqlalchemy import text as sa_text
         date_from_dt = datetime.strptime(date_from, "%Y-%m-%d") if date_from else None
         date_to_dt   = datetime.strptime(date_to,   "%Y-%m-%d") + timedelta(days=1) if date_to else None
-        perf_row = db.execute(sa_text("""
-            SELECT
-                AVG(EXTRACT(EPOCH FROM (ne.first_exit - l.created_at)) / 60),
-                COUNT(DISTINCT l.id)
+        perf_rows = db.execute(sa_text("""
+            SELECT l.created_at, ne.first_exit
             FROM leads l
             JOIN (
                 SELECT lead_id, MIN(changed_at) AS first_exit
@@ -197,9 +222,10 @@ def pipeline_alerts(
               AND (:date_from IS NULL OR l.created_at >= :date_from)
               AND (:date_to   IS NULL OR l.created_at <  :date_to)
               AND (:source    IS NULL OR l.origin = :source)
-        """), {"date_from": date_from_dt, "date_to": date_to_dt, "source": source or None}).fetchone()
-        avg_first_contact_minutes = round(float(perf_row[0]), 1) if perf_row and perf_row[0] else 0.0
-        contacted_count = int(perf_row[1]) if perf_row and perf_row[1] else 0
+        """), {"date_from": date_from_dt, "date_to": date_to_dt, "source": source or None}).fetchall()
+        biz_mins = [_business_minutes(r[0], r[1]) for r in perf_rows if r[0] and r[1]]
+        avg_first_contact_minutes = round(sum(biz_mins) / len(biz_mins), 1) if biz_mins else 0.0
+        contacted_count = len(biz_mins)
     except Exception as _perf_err:
         import traceback; traceback.print_exc()
 
