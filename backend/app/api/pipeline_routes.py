@@ -175,22 +175,33 @@ def pipeline_alerts(
     ]
     avg_time_in_funnel = round(sum(times) / len(times), 1) if times else 0.0
 
-    # Desempenho no atendimento: tempo médio de 1° contato manual
-    first_contact_subq = (
+    # Desempenho no atendimento: tempo médio que o lead ficou em "novo" antes de avançar
+    novo_statuses = ('novo', 'new', 'pending')
+    novo_entry_subq = (
         db.query(
             LeadStatusHistory.lead_id,
-            func.min(LeadStatusHistory.changed_at).label('first_contact_at'),
+            func.min(LeadStatusHistory.changed_at).label('novo_at'),
         )
-        .filter(LeadStatusHistory.changed_by != 'Followize')
+        .filter(func.lower(LeadStatusHistory.to_status).in_(novo_statuses))
+        .group_by(LeadStatusHistory.lead_id)
+        .subquery()
+    )
+    novo_exit_subq = (
+        db.query(
+            LeadStatusHistory.lead_id,
+            func.min(LeadStatusHistory.changed_at).label('exit_at'),
+        )
+        .filter(func.lower(LeadStatusHistory.from_status).in_(novo_statuses))
         .group_by(LeadStatusHistory.lead_id)
         .subquery()
     )
     contact_rows = _apply_filters(
         db.query(
-            func.extract('epoch', first_contact_subq.c.first_contact_at - Lead.created_at) / 60
+            func.extract('epoch', novo_exit_subq.c.exit_at - novo_entry_subq.c.novo_at) / 60
         )
-        .join(first_contact_subq, Lead.id == first_contact_subq.c.lead_id)
-        .filter(first_contact_subq.c.first_contact_at > Lead.created_at),
+        .join(novo_exit_subq, novo_entry_subq.c.lead_id == novo_exit_subq.c.lead_id)
+        .join(Lead, Lead.id == novo_entry_subq.c.lead_id)
+        .filter(novo_exit_subq.c.exit_at > novo_entry_subq.c.novo_at),
         date_from, date_to, source,
     ).all()
     mins_list = [float(r[0]) for r in contact_rows if r[0] is not None and float(r[0]) > 0]
@@ -198,7 +209,8 @@ def pipeline_alerts(
 
     contacted_count = _apply_filters(
         db.query(func.count(func.distinct(Lead.id)))
-        .join(first_contact_subq, Lead.id == first_contact_subq.c.lead_id),
+        .join(novo_entry_subq, Lead.id == novo_entry_subq.c.lead_id)
+        .join(novo_exit_subq, novo_entry_subq.c.lead_id == novo_exit_subq.c.lead_id),
         date_from, date_to, source,
     ).scalar() or 0
 

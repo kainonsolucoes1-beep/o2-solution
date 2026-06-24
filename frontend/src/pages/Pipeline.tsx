@@ -342,7 +342,7 @@ export default function Pipeline() {
                 Desempenho no Atendimento
               </h2>
             </div>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Tempo médio de 1° contato com o lead</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Tempo médio em "Novo" antes de avançar no funil</p>
             <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>
               {alerts.avg_first_contact_minutes ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span>
             </p>
