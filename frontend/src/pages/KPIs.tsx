@@ -602,12 +602,12 @@ export default function KPIs() {
               <X size={14} />
             </button>
 
-            <p style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Indicador</p>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#F1F5F9', margin: '0 0 20px', wordBreak: 'break-all', lineHeight: 1.35 }}>{popover.label}</h2>
+            <p style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Indicador</p>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#F1F5F9', margin: '0 0 20px', wordBreak: 'break-all', lineHeight: 1.35 }}>{popover.label}</h2>
 
             {(popoverLeadsLoading || (popoverLeads !== null)) && (
               <div>
-                <p style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>
+                <p style={{ fontSize: 12, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px' }}>
                   Clientes fechados{popoverLeads ? ` (${popoverLeads.length})` : ' (...)'}
                 </p>
                 {popoverLeadsLoading ? (
@@ -616,15 +616,15 @@ export default function KPIs() {
                   <div style={{ maxHeight: 180, overflowY: 'auto', paddingRight: 2 }}>
                     {popoverLeads!.map((lead, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < popoverLeads!.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
-                        <span style={{ fontSize: 14, fontWeight: 500, color: '#E2E8F0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 12 }}>{lead.nome}</span>
+                        <span style={{ fontSize: 16, fontWeight: 500, color: '#E2E8F0', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 14 }}>{lead.nome}</span>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
                           {lead.valor != null && (
-                            <span style={{ fontSize: 14, fontWeight: 700, color: '#6EE7B7', lineHeight: 1.4 }}>
+                            <span style={{ fontSize: 16, fontWeight: 700, color: '#6EE7B7', lineHeight: 1.4 }}>
                               {lead.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </span>
                           )}
                           {lead.data && (
-                            <span style={{ fontSize: 12, color: '#64748B', lineHeight: 1.4 }}>{lead.data}</span>
+                            <span style={{ fontSize: 13, color: '#64748B', lineHeight: 1.4 }}>{lead.data}</span>
                           )}
                         </div>
                       </div>
