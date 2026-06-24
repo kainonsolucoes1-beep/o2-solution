@@ -199,6 +199,7 @@ def pipeline_alerts(
         db.query(
             func.extract('epoch', novo_exit_subq.c.exit_at - novo_entry_subq.c.novo_at) / 60
         )
+        .select_from(novo_entry_subq)
         .join(novo_exit_subq, novo_entry_subq.c.lead_id == novo_exit_subq.c.lead_id)
         .join(Lead, Lead.id == novo_entry_subq.c.lead_id)
         .filter(novo_exit_subq.c.exit_at > novo_entry_subq.c.novo_at),
@@ -209,8 +210,9 @@ def pipeline_alerts(
 
     contacted_count = _apply_filters(
         db.query(func.count(func.distinct(Lead.id)))
-        .join(novo_entry_subq, Lead.id == novo_entry_subq.c.lead_id)
-        .join(novo_exit_subq, novo_entry_subq.c.lead_id == novo_exit_subq.c.lead_id),
+        .select_from(novo_entry_subq)
+        .join(novo_exit_subq, novo_entry_subq.c.lead_id == novo_exit_subq.c.lead_id)
+        .join(Lead, Lead.id == novo_entry_subq.c.lead_id),
         date_from, date_to, source,
     ).scalar() or 0
 
