@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.models.lead import Lead
+from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
@@ -175,10 +175,39 @@ def pipeline_alerts(
     ]
     avg_time_in_funnel = round(sum(times) / len(times), 1) if times else 0.0
 
+    # Desempenho no atendimento: tempo médio de 1° contato manual
+    first_contact_subq = (
+        db.query(
+            LeadStatusHistory.lead_id,
+            func.min(LeadStatusHistory.changed_at).label('first_contact_at'),
+        )
+        .filter(LeadStatusHistory.changed_by != 'Followize')
+        .group_by(LeadStatusHistory.lead_id)
+        .subquery()
+    )
+    contact_rows = _apply_filters(
+        db.query(
+            func.extract('epoch', first_contact_subq.c.first_contact_at - Lead.created_at) / 3600
+        )
+        .join(first_contact_subq, Lead.id == first_contact_subq.c.lead_id)
+        .filter(first_contact_subq.c.first_contact_at > Lead.created_at),
+        date_from, date_to, source,
+    ).all()
+    hours_list = [float(r[0]) for r in contact_rows if r[0] is not None and float(r[0]) > 0]
+    avg_first_contact_hours = round(sum(hours_list) / len(hours_list), 1) if hours_list else 0.0
+
+    contacted_count = _apply_filters(
+        db.query(func.count(func.distinct(Lead.id)))
+        .join(first_contact_subq, Lead.id == first_contact_subq.c.lead_id),
+        date_from, date_to, source,
+    ).scalar() or 0
+
     return {
         "vencidos_count": vencidos_count,
         "uncontacted_count": uncontacted_count,
         "avg_time_in_funnel": avg_time_in_funnel,
+        "avg_first_contact_hours": avg_first_contact_hours,
+        "contacted_count": int(contacted_count),
         "vencidos": [
             {
                 "id": str(r.id),

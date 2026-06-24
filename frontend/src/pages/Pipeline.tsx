@@ -8,7 +8,7 @@ interface PipelineOverview {
   novo_value: number; qualificado_value: number; proposta_value: number; negociacao_value: number; fechado_value: number; perdido_value: number
 }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
-interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number; avg_time_in_funnel?: number }
+interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number; avg_time_in_funnel?: number; avg_first_contact_hours?: number; contacted_count?: number }
 
 const CONV_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
 
@@ -335,31 +335,27 @@ export default function Pipeline() {
             <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
           </div>
 
-          <div
-            className="bg-white rounded-xl p-6 flex flex-col gap-4"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #F59E0B', cursor: 'pointer', transition: 'transform 200ms' }}
-            onClick={() => navigate('/leads-report' + cardNav({ status: 'pending,novo,new' }))}
-            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-          >
+          <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #10B981' }}>
             <div className="flex items-center gap-2">
-              <span style={{ fontSize: 15 }}>🟡</span>
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Não Contatados
+              <span style={{ fontSize: 15 }}>⚡</span>
+              <h2 style={{ fontSize: 13, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Desempenho no Atendimento
               </h2>
-              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#B45309', background: '#FFFBEB', padding: '2px 8px', borderRadius: 99 }}>
-                {alerts.uncontacted_count ?? alerts.uncontacted.length} leads
-              </span>
             </div>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Status Novo sem movimento nas últimas 24h</p>
-            <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Tempo médio de 1° contato com o lead</p>
+            <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>
+              {alerts.avg_first_contact_hours ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>h</span>
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--text-subtle)' }}>
+              {alerts.contacted_count ?? 0} leads atendidos no período
+            </p>
           </div>
 
           <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #6366F1' }}>
             <div className="flex items-center gap-2">
               <Timer size={15} color="#6366F1" />
               <h2 style={{ fontSize: 13, fontWeight: 700, color: '#4338CA', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Tempo Médio no Funil
+                Tempo Médio para o Fechamento
               </h2>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Média do ciclo completo (fechado + perdido)</p>
