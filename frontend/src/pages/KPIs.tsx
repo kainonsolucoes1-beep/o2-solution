@@ -329,10 +329,10 @@ export default function KPIs() {
             <div style={{ fontSize: 11, color: '#93C5FD', marginTop: 6 }}>Total de leads capturados</div>
           </div>
 
-          <div style={card('#F5F3FF', '#DDD6FE')}>
-            <div style={{ fontSize: 11, color: '#7C3AED', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📊 Taxa de Conversão</div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: '#5B21B6', lineHeight: 1 }}>{taxaConv}%</div>
-            <div style={{ fontSize: 11, color: '#A78BFA', marginTop: 6 }}>Vendas / Captações</div>
+          <div style={card('#F5F3FF', '#C4B5FD')}>
+            <div style={{ fontSize: 11, color: '#6D28D9', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📊 Taxa de Conversão</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#4C1D95', lineHeight: 1 }}>{taxaConv}%</div>
+            <div style={{ fontSize: 11, color: '#8B5CF6', marginTop: 6 }}>Vendas / Captações</div>
           </div>
 
           <div style={card('#FEF2F2', '#FECACA')}>
