@@ -366,7 +366,7 @@ export default function KPIs() {
           <div style={card('#FFF7ED', '#FED7AA')}>
             <div style={{ fontSize: 11, color: '#F97316', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🎯 Melhor Fonte</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#C2410C', lineHeight: 1.2 }}>{melhorFonte?.fonte ?? '—'}</div>
-            <div style={{ fontSize: 11, color: '#FDBA74', marginTop: 6 }}>{melhorFonte?.conversao ?? 0}% de conversão</div>
+            <div style={{ fontSize: 11, color: '#92400E', marginTop: 6 }}>{melhorFonte?.conversao ?? 0}% de conversão</div>
           </div>
         </div>
       )}
