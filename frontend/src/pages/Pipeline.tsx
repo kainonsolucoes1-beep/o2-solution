@@ -29,6 +29,11 @@ export default function Pipeline() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  interface MotivoItem { reason: string; count: number; pct: number; total_value: number }
+  const [showLostModal, setShowLostModal] = useState(false)
+  const [motivos, setMotivos] = useState<MotivoItem[]>([])
+  const [motivosLoading, setMotivosLoading] = useState(false)
+
   useEffect(() => {
     if (localStorage.getItem('token')) {
       api.get<string[]>('/api/v1/leads/origins').then(r => setSources(r.data)).catch(() => {})
@@ -59,6 +64,15 @@ export default function Pipeline() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  function openLostModal() {
+    setShowLostModal(true)
+    setMotivosLoading(true)
+    api.get<MotivoItem[]>('/api/v1/kpis/motivos-cancelamento', { params: { date_from: dateFrom, date_to: dateTo } })
+      .then(r => setMotivos(r.data))
+      .catch(() => setMotivos([]))
+      .finally(() => setMotivosLoading(false))
+  }
+
   if (loading) return (
     <p className="text-center text-sm mt-20" style={{ color: 'var(--text-subtle)' }}>Carregando...</p>
   )
@@ -79,7 +93,7 @@ export default function Pipeline() {
     { label: 'Enviada',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
     { label: 'Qualificado',  value: overview.negociacao,  color: '#8B5CF6', bg: '#F5F3FF', icon: '🔥', nav: cardNav({ perception: 'Quente,Morno' }) },
     { label: 'Fechado',     value: overview.fechado,     color: '#059669', bg: '#ECFDF5', icon: '🏆', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
-    { label: 'Perdido',     value: overview.perdido,     color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: cardNav({ status: 'sale_not_performed' }) },
+    { label: 'Perdido',     value: overview.perdido,     color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: cardNav({ status: 'sale_not_performed' }), onOpen: openLostModal },
   ]
 
   const distTotal = overview.novo + overview.qualificado + overview.proposta + overview.negociacao + overview.fechado + overview.perdido
@@ -202,7 +216,7 @@ export default function Pipeline() {
               key={card.label}
               className="bg-white rounded-xl p-5 flex flex-col gap-2"
               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'transform 200ms', cursor: 'pointer' }}
-              onClick={() => navigate(`/leads-report${card.nav}`)}
+              onClick={() => (card as any).onOpen ? (card as any).onOpen() : navigate(`/leads-report${card.nav}`)}
               onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
               onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
             >
@@ -394,6 +408,87 @@ export default function Pipeline() {
         </div>
 
       </main>
+
+      {showLostModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setShowLostModal(false)}
+        >
+          <div
+            style={{ background: 'var(--bg-card, white)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Motivos de Cancelamento</h2>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                  {dateFrom} até {dateTo} · {overview.perdido} leads perdidos
+                </p>
+              </div>
+              <button
+                onClick={() => setShowLostModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '16px 24px 24px' }}>
+              {motivosLoading ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '24px 0' }}>Carregando...</p>
+              ) : motivos.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '24px 0' }}>Nenhum motivo registrado no período.</p>
+              ) : (
+                <>
+                  {/* Total R$ perdido */}
+                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '14px 16px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#EF4444' }}>Total R$ perdido</span>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: '#EF4444' }}>
+                      {fmtBrl(motivos.reduce((s, m) => s + m.total_value, 0))}
+                    </span>
+                  </div>
+
+                  {/* Lista de motivos */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {motivos.map((m, i) => (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0 }}>{m.reason}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: '#EF4444', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 99, padding: '2px 10px', whiteSpace: 'nowrap' }}>
+                              {m.count} lead{m.count !== 1 ? 's' : ''}
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-3)', minWidth: 90, textAlign: 'right' }}>
+                              {fmtBrl(m.total_value)}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Barra de progresso */}
+                        <div style={{ height: 5, background: 'var(--bg-subtle)', borderRadius: 99, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${m.pct}%`, background: '#EF4444', borderRadius: 99, opacity: 0.7 }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{m.pct}% dos cancelamentos</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Link para ver os leads */}
+                  <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                    <button
+                      onClick={() => { setShowLostModal(false); navigate(`/leads-report${cardNav({ status: 'sale_not_performed' })}`) }}
+                      style={{ fontSize: 13, color: '#3B82F6', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      Ver todos os leads perdidos no Relatório →
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
