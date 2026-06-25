@@ -387,10 +387,15 @@ export default function KPIs() {
 
           {/* Ranking de Fontes */}
           <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px', overflowY: 'auto', maxHeight: 340 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 16px' }}>Ranking de Fontes</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 52px 52px', gap: 4, marginBottom: 8 }}>
-              {['Fonte', 'Cap.', '%', 'Conv.'].map(h => (
-                <span key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: h === 'Fonte' ? 'left' : 'right' }}>{h}</span>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 16px' }}>Performance por Fonte</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 52px 56px 64px', gap: 4, marginBottom: 8 }}>
+              {[
+                { label: 'Fonte', align: 'left' },
+                { label: 'Leads', align: 'right' },
+                { label: 'Participação', align: 'right' },
+                { label: 'Conversão', align: 'right' },
+              ].map(h => (
+                <span key={h.label} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: h.align as any }}>{h.label}</span>
               ))}
             </div>
             {[...combined].sort((a, b) => b.captacoes - a.captacoes).map((r, i) => {
@@ -400,14 +405,14 @@ export default function KPIs() {
               const dotColor = isOrg ? '#10B981' : isSdrRow ? '#3B82F6' : CHART_COLORS[i % CHART_COLORS.length]
               const convColor = r.conversao >= 10 ? '#059669' : r.conversao >= 5 ? '#F59E0B' : '#EF4444'
               return (
-                <div key={r.fonte} style={{ display: 'grid', gridTemplateColumns: '1fr 44px 52px 52px', gap: 4, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border-lt)' }}>
+                <div key={r.fonte} style={{ display: 'grid', gridTemplateColumns: '1fr 52px 56px 64px', gap: 4, alignItems: 'center', padding: '9px 0', borderBottom: '1px solid var(--border-lt)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
                     <span style={{ fontSize: 12, fontWeight: isOrg || isSdrRow ? 700 : 500, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.fonte}</span>
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right' }}>{r.captacoes}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-subtle)', textAlign: 'right' }}>{pct}%</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: convColor, textAlign: 'right' }}>{r.conversao}%</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, textAlign: 'right' }}>{pct}%</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: convColor, textAlign: 'right' }}>{r.conversao}%</span>
                 </div>
               )
             })}
