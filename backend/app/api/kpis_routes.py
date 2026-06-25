@@ -249,8 +249,8 @@ def motivos_cancelamento(
         )
         .filter(
             Lead.status == "sale_not_performed",
-            Lead.updated_at >= dt_from,
-            Lead.updated_at <= dt_to,
+            Lead.created_at >= dt_from,
+            Lead.created_at <= dt_to,
         )
         .group_by(Lead.lost_reason)
         .order_by(func.count(Lead.id).desc())
