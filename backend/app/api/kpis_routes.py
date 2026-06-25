@@ -297,7 +297,11 @@ def receita_potencial(
 
     total = (
         db.query(func.coalesce(func.sum(Lead.value_potential), 0))
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to)
+        .filter(
+            Lead.created_at >= dt_from,
+            Lead.created_at <= dt_to,
+            Lead.status != "sale_not_performed",
+        )
         .scalar()
     )
     return {"total": float(total)}

@@ -388,12 +388,12 @@ export default function KPIs() {
           {/* Ranking de Fontes */}
           <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px', overflowY: 'auto', maxHeight: 340 }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 16px' }}>Performance por Fonte</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 52px 56px 64px', gap: 4, marginBottom: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 44px 54px', gap: 4, marginBottom: 8 }}>
               {[
                 { label: 'Fonte', align: 'left' },
-                { label: 'Leads', align: 'right' },
-                { label: 'Participação', align: 'right' },
-                { label: 'Conversão', align: 'right' },
+                { label: 'Cap.', align: 'right' },
+                { label: 'Part.', align: 'right' },
+                { label: 'Conv.', align: 'right' },
               ].map(h => (
                 <span key={h.label} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: h.align as any }}>{h.label}</span>
               ))}
@@ -405,7 +405,7 @@ export default function KPIs() {
               const dotColor = isOrg ? '#10B981' : isSdrRow ? '#3B82F6' : CHART_COLORS[i % CHART_COLORS.length]
               const convColor = r.conversao >= 10 ? '#059669' : r.conversao >= 5 ? '#F59E0B' : '#EF4444'
               return (
-                <div key={r.fonte} style={{ display: 'grid', gridTemplateColumns: '1fr 52px 56px 64px', gap: 4, alignItems: 'center', padding: '9px 0', borderBottom: '1px solid var(--border-lt)' }}>
+                <div key={r.fonte} style={{ display: 'grid', gridTemplateColumns: '1fr 44px 44px 54px', gap: 4, alignItems: 'center', padding: '9px 0', borderBottom: '1px solid var(--border-lt)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
                     <span style={{ fontSize: 12, fontWeight: isOrg || isSdrRow ? 700 : 500, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.fonte}</span>
@@ -446,7 +446,6 @@ export default function KPIs() {
               {[
                 { label: 'Captações', value: String(totalCap), pct: 100, color: '#3B82F6' },
                 { label: 'Vendas', value: String(totalVen), pct: totalCap > 0 ? (totalVen / totalCap) * 100 : 0, color: '#F59E0B' },
-                { label: 'Conversão', value: `${taxaConv}%`, pct: taxaConv, color: '#7C3AED' },
               ].map((stage, i) => (
                 <div key={i} style={{ marginBottom: 18 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -647,35 +646,6 @@ export default function KPIs() {
         </div>
       )}
 
-      {/* Motivos de Cancelamento */}
-      {!loading && motivos.length > 0 && (
-        <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)' }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Motivos de Cancelamento</p>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Baseado no campo "Motivo" do Followize no mês selecionado</p>
-          </div>
-          <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {motivos.map((m, i) => (
-              <div key={m.reason}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>{m.reason}</span>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#EF4444' }}>{m.count}</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-subtle)', minWidth: 40, textAlign: 'right' }}>{m.pct}%</span>
-                  </div>
-                </div>
-                <div style={{ background: '#F1F5F9', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${m.pct}%`, height: '100%', borderRadius: 4,
-                    background: i === 0 ? '#EF4444' : i === 1 ? '#F97316' : '#F59E0B',
-                    transition: 'width 500ms ease',
-                  }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Popover */}
       {popover && (
