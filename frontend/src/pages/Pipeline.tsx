@@ -67,7 +67,9 @@ export default function Pipeline() {
   function openLostModal() {
     setShowLostModal(true)
     setMotivosLoading(true)
-    api.get<MotivoItem[]>('/api/v1/kpis/motivos-cancelamento', { params: { date_from: dateFrom, date_to: dateTo } })
+    const params: Record<string, string> = { date_from: dateFrom, date_to: dateTo }
+    if (selectedSources.length > 0) params.origin = selectedSources.join(',')
+    api.get<MotivoItem[]>('/api/v1/kpis/motivos-cancelamento', { params })
       .then(r => setMotivos(r.data))
       .catch(() => setMotivos([]))
       .finally(() => setMotivosLoading(false))

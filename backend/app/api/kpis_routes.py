@@ -220,6 +220,7 @@ def motivos_cancelamento(
     month: str = Query(None),
     date_from: str = Query(None),
     date_to: str = Query(None),
+    origin: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -241,17 +242,25 @@ def motivos_cancelamento(
         dt_from = datetime(year, mon, 1)
         dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
 
+    filters = [
+        Lead.status == "sale_not_performed",
+        Lead.created_at >= dt_from,
+        Lead.created_at <= dt_to,
+    ]
+    if origin:
+        parts = [s.strip() for s in origin.split(',') if s.strip()]
+        if len(parts) == 1:
+            filters.append(Lead.origin == parts[0])
+        else:
+            filters.append(Lead.origin.in_(parts))
+
     rows = (
         db.query(
             Lead.lost_reason,
             func.count(Lead.id).label("total"),
             func.coalesce(func.sum(Lead.value_potential), 0).label("total_value"),
         )
-        .filter(
-            Lead.status == "sale_not_performed",
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
-        )
+        .filter(*filters)
         .group_by(Lead.lost_reason)
         .order_by(func.count(Lead.id).desc())
         .all()
