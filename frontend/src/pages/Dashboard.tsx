@@ -248,7 +248,7 @@ export default function Dashboard() {
             Ranking de Operadores — {selectedDate ? dateFmtDisplay : 'Hoje'}
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 72px 72px 82px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
-            {['Operador', 'Ligações', 'Captação', 'Conversão'].map(h => (
+            {['Operador', 'Captação', 'Ligações', 'Conversão'].map(h => (
               <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h === 'Operador' ? 'left' : 'right' }}>{h}</span>
             ))}
           </div>
@@ -273,10 +273,10 @@ export default function Dashboard() {
                       </span>
                       <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
                     </div>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>{op.count}</span>
                     <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right' }}>
                       {ligacoes > 0 ? ligacoes : <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>}
                     </span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>{op.count}</span>
                     <span style={{ fontSize: 15, fontWeight: 700, color: taxaColor, textAlign: 'right' }}>
                       {taxa !== null ? `${taxa}%` : <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>}
                     </span>
