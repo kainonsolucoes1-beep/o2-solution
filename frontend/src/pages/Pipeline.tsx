@@ -76,7 +76,7 @@ export default function Pipeline() {
   const overviewCards = [
     { label: 'Pendente',    value: overview.novo,        color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: cardNav({ status: 'pending,novo,new' }) },
     { label: 'Agendado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
-    { label: 'Proposta',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
+    { label: 'Enviada',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
     { label: 'Qualificado',  value: overview.negociacao,  color: '#8B5CF6', bg: '#F5F3FF', icon: '🔥', nav: cardNav({ perception: 'Quente,Morno' }) },
     { label: 'Fechado',     value: overview.fechado,     color: '#059669', bg: '#ECFDF5', icon: '🏆', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
     { label: 'Perdido',     value: overview.perdido,     color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: cardNav({ status: 'sale_not_performed' }) },
@@ -226,6 +226,7 @@ export default function Pipeline() {
               const totalValue = distStages.reduce((sum, s) => sum + s.value, 0)
               const finCards = [
                 { label: 'Valor Total',    value: totalValue,                   color: 'var(--text-3)',  bg: 'var(--bg-subtle)', border: 'var(--border)', nav: null },
+                { label: 'Agendado',       value: overview.qualificado_value,   color: '#10B981',        bg: '#ECFDF5',           border: '#A7F3D0',       nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
                 { label: 'Em Proposta',    value: overview.proposta_value,      color: '#F59E0B',        bg: '#FFFBEB',           border: '#FDE68A',       nav: cardNav({ status: 'proposal_sent' }) },
                 { label: 'Qualificado',  value: overview.negociacao_value,    color: '#8B5CF6',        bg: '#F5F3FF',           border: '#DDD6FE',       nav: cardNav({ perception: 'Quente,Morno' }) },
                 { label: 'Fechado',        value: overview.fechado_value,       color: '#059669',        bg: '#ECFDF5',           border: '#A7F3D0',       nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },

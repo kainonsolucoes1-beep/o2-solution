@@ -301,7 +301,7 @@ export default function KPIs() {
   }
 
   return (
-    <main style={{ padding: '24px 32px', maxWidth: 1100 }}>
+    <main style={{ padding: '24px 32px' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
@@ -378,7 +378,7 @@ export default function KPIs() {
 
       {/* Charts */}
       {!loading && data.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
 
           {/* Pie — Distribuição */}
           <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 16px' }}>
@@ -513,6 +513,25 @@ export default function KPIs() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Renutrição */}
+          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Renutrição</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[
+                { label: 'Captações', value: renutrucao.captacoes, color: '#3B82F6', bg: '#EFF6FF' },
+                { label: 'Vendas', value: renutrucao.vendas, color: '#059669', bg: '#ECFDF5' },
+                { label: 'Cancelados', value: renutrucao.cancelados, color: '#EF4444', bg: '#FEF2F2' },
+                { label: 'Conversão', value: `${renutrucao.conversao}%`, color: '#7C3AED', bg: '#EDE9FE' },
+              ].map(({ label, value, color, bg }) => (
+                <div key={label} style={{ background: bg, borderRadius: 10, padding: '14px 16px' }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 6px' }}>{label}</p>
+                  <p style={{ fontSize: 22, fontWeight: 700, color, margin: 0, lineHeight: 1 }}>{value}</p>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>Leads reativados no período</p>
           </div>
 
         </div>
