@@ -340,13 +340,13 @@ export default function KPIs() {
           <div style={card('#EFF6FF', '#BFDBFE')}>
             <div style={{ fontSize: 11, color: '#3B82F6', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📈 Captações Totais</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: '#1D4ED8', lineHeight: 1 }}>{totalCap}</div>
-            <div style={{ fontSize: 11, color: '#93C5FD', marginTop: 6 }}>Total de leads capturados</div>
+            <div style={{ fontSize: 11, color: '#1E40AF', marginTop: 6 }}>Total de leads capturados</div>
           </div>
 
           <div style={card('#EDE9FE', '#8B5CF6')}>
             <div style={{ fontSize: 11, color: '#6D28D9', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📊 Taxa de Conversão</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: '#4C1D95', lineHeight: 1 }}>{taxaConv}%</div>
-            <div style={{ fontSize: 11, color: '#7C3AED', marginTop: 6 }}>Vendas / Captações</div>
+            <div style={{ fontSize: 11, color: '#4C1D95', marginTop: 6 }}>Vendas / Captações</div>
           </div>
 
           <div style={card('#FEF2F2', '#FECACA')}>
@@ -354,13 +354,13 @@ export default function KPIs() {
             <div style={{ fontSize: 32, fontWeight: 700, color: '#B91C1C', lineHeight: 1 }}>
               {totalCan} <span style={{ fontSize: 16, fontWeight: 400 }}>({pctCan}%)</span>
             </div>
-            <div style={{ fontSize: 11, color: '#FCA5A5', marginTop: 6 }}>Leads perdidos</div>
+            <div style={{ fontSize: 11, color: '#991B1B', marginTop: 6 }}>Leads perdidos</div>
           </div>
 
           <div style={card('#ECFDF5', '#A7F3D0')}>
             <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>💰 Receita Potencial</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#065F46', lineHeight: 1.2 }}>{fmtBrl(receitaPotencial)}</div>
-            <div style={{ fontSize: 11, color: '#6EE7B7', marginTop: 6 }}>Valor total dos leads do mês</div>
+            <div style={{ fontSize: 11, color: '#065F46', marginTop: 6 }}>Valor total dos leads do mês</div>
           </div>
 
           <div style={card('#FFF7ED', '#FED7AA')}>
