@@ -115,6 +115,7 @@ def leads_by_period(
                 Lead.company, Lead.attendant,
                 Lead.status, Lead.perception, Lead.value_potential,
                 Lead.created_at, Lead.updated_at, Lead.origin, Lead.is_renutrucao,
+                Lead.lost_reason, Lead.lost_message,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -133,6 +134,8 @@ def leads_by_period(
             updated_at=r.updated_at,
             origem=r.origin,
             is_renutrucao=bool(r.is_renutrucao),
+            lost_reason=r.lost_reason,
+            lost_message=r.lost_message,
         )
         for r in rows
     ]

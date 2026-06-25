@@ -25,6 +25,8 @@ interface LeadItem {
   perception: string | null
   value_potential: number | null
   is_renutrucao: boolean
+  lost_reason: string | null
+  lost_message: string | null
   created_at: string
   updated_at: string | null
 }
@@ -437,6 +439,11 @@ export default function LeadsReport() {
                           </td>
                           <td style={{ padding: '12px 16px' }}>
                             <StatusBadge status={lead.status} />
+                            {lead.lost_reason && (
+                              <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 500, marginTop: 4, whiteSpace: 'nowrap' }}>
+                                {lead.lost_reason}
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', fontWeight: 500, whiteSpace: 'nowrap' }}>
                             {fmtBRL(lead.value_potential)}

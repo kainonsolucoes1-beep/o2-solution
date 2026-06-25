@@ -37,6 +37,8 @@ class LeadReportItem(BaseModel):
     perception: Optional[str] = None
     value_potential: Optional[float] = None
     is_renutrucao: bool = False
+    lost_reason: Optional[str] = None
+    lost_message: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
