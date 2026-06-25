@@ -385,32 +385,3 @@ def update_user(
     db.commit()
     db.refresh(user)
     return user
-
-
-@router.get("/debug-finalization")
-def debug_finalization(
-    days: int = Query(90),
-    current_user: User = Depends(get_current_user),
-):
-    """Endpoint temporário: inspeciona objeto 'finalization' de leads sale_not_performed no Followize."""
-    _require_admin(current_user)
-    from app.sync_followize import _fetch_leads_page, _load_tokens_from_db
-    _load_tokens_from_db()
-    from datetime import datetime, timedelta
-    date_from = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-    all_lost = []
-    for p in range(1, 6):
-        page = _fetch_leads_page(p, date_from)
-        leads = page.get("data") or []
-        all_lost += [l for l in leads if l.get("status") == "sale_not_performed"]
-        if len(leads) < 25 or len(all_lost) >= 5:
-            break
-    samples = []
-    for l in all_lost[:5]:
-        samples.append({
-            "followize_id": l.get("id"),
-            "name": (l.get("contact") or {}).get("name") or l.get("name"),
-            "finalization": l.get("finalization"),
-            "all_keys": list(l.keys()),
-        })
-    return {"days": days, "lost_found": len(all_lost), "samples": samples}

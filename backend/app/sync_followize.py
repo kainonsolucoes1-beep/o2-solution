@@ -255,8 +255,11 @@ def _parse_lead_fields(raw: dict) -> dict:
     value_potential = float(last_proposal.get("amount") or finalization.get("amount") or 0.0)
     _perception_map = {"hot": "Quente", "warm": "Morno", "cold": "Frio"}
     perception = _perception_map.get(raw.get("perception") or "", None)
+    unrealized = finalization.get("unrealized_sale_reason") or {}
+    lost_reason = unrealized.get("name") or None
+    lost_message = finalization.get("message") or None
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
@@ -312,6 +315,8 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.attendant = fields["attendant"]
         existing.value_potential = fields["value_potential"]
         existing.perception = fields["perception"]
+        existing.lost_reason = fields["lost_reason"]
+        existing.lost_message = fields["lost_message"]
         if fields["created_at"]:
             existing.created_at = fields["created_at"]
         if changed:
@@ -334,6 +339,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         company=fields["company"], origin=fields["origin"], conversion_point=fields["conversion_point"], attendant=fields["attendant"],
         status=fields["status"], value_potential=fields["value_potential"],
         perception=fields["perception"],
+        lost_reason=fields["lost_reason"], lost_message=fields["lost_message"],
     )
     if fields["created_at"]:
         lead_kwargs["created_at"] = fields["created_at"]

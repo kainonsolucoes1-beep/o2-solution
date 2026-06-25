@@ -213,3 +213,44 @@ def renutrucao_stats(
         "cancelados": can,
         "conversao":  round(ven / cap * 100, 1) if cap > 0 else 0.0,
     }
+
+
+@router.get("/motivos-cancelamento")
+def motivos_cancelamento(
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    import calendar
+    date_from = datetime(year, mon, 1)
+    date_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    rows = (
+        db.query(Lead.lost_reason, func.count(Lead.id).label("total"))
+        .filter(
+            Lead.status == "sale_not_performed",
+            Lead.updated_at >= date_from,
+            Lead.updated_at <= date_to,
+        )
+        .group_by(Lead.lost_reason)
+        .order_by(func.count(Lead.id).desc())
+        .all()
+    )
+
+    total = sum(r.total for r in rows)
+    return [
+        {
+            "reason": r.lost_reason or "Não informado",
+            "count": r.total,
+            "pct": round(r.total / total * 100, 1) if total > 0 else 0.0,
+        }
+        for r in rows
+    ]

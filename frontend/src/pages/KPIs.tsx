@@ -89,6 +89,7 @@ export default function KPIs() {
   const toggleFonte = (f: string) => setExpandedFontes(prev => { const s = new Set(prev); s.has(f) ? s.delete(f) : s.add(f); return s })
   const [funnelOpen, setFunnelOpen] = useState(false)
   const [renutrucao, setRenutrucao] = useState({ captacoes: 0, vendas: 0, cancelados: 0, conversao: 0 })
+  const [motivos, setMotivos] = useState<{ reason: string; count: number; pct: number }[]>([])
   const [popover, setPopover] = useState<PopoverData | null>(null)
   const [popoverLeads, setPopoverLeads] = useState<LeadVenda[] | null>(null)
   const [popoverLeadsLoading, setPopoverLeadsLoading] = useState(false)
@@ -123,6 +124,9 @@ export default function KPIs() {
     api.get<{ captacoes: number; vendas: number; cancelados: number; conversao: number }>(
       `/api/v1/kpis/renutrucao?month=${month}`
     ).then(r => setRenutrucao(r.data)).catch(() => {})
+    api.get<{ reason: string; count: number; pct: number }[]>(
+      `/api/v1/kpis/motivos-cancelamento?month=${month}`
+    ).then(r => setMotivos(r.data)).catch(() => {})
   }, [month])
 
   const sdrRows      = data.filter(d => isSdr(d.fonte))
@@ -614,6 +618,36 @@ export default function KPIs() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Motivos de Cancelamento */}
+      {!loading && motivos.length > 0 && (
+        <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Motivos de Cancelamento</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Baseado no campo "Motivo" do Followize no mês selecionado</p>
+          </div>
+          <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {motivos.map((m, i) => (
+              <div key={m.reason}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>{m.reason}</span>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#EF4444' }}>{m.count}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-subtle)', minWidth: 40, textAlign: 'right' }}>{m.pct}%</span>
+                  </div>
+                </div>
+                <div style={{ background: '#F1F5F9', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${m.pct}%`, height: '100%', borderRadius: 4,
+                    background: i === 0 ? '#EF4444' : i === 1 ? '#F97316' : '#F59E0B',
+                    transition: 'width 500ms ease',
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
