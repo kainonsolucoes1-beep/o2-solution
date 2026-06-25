@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X } from 'lucide-react'
 import {
   Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, Legend,
 } from 'recharts'
 import api from '../api'
 
@@ -90,6 +89,7 @@ export default function KPIs() {
   const [funnelOpen, setFunnelOpen] = useState(false)
   const [renutrucao, setRenutrucao] = useState({ captacoes: 0, vendas: 0, cancelados: 0, conversao: 0 })
   const [motivos, setMotivos] = useState<{ reason: string; count: number; pct: number }[]>([])
+  const [receitaPotencial, setReceitaPotencial] = useState(0)
   const [popover, setPopover] = useState<PopoverData | null>(null)
   const [popoverLeads, setPopoverLeads] = useState<LeadVenda[] | null>(null)
   const [popoverLeadsLoading, setPopoverLeadsLoading] = useState(false)
@@ -127,6 +127,8 @@ export default function KPIs() {
     api.get<{ reason: string; count: number; pct: number }[]>(
       `/api/v1/kpis/motivos-cancelamento?month=${month}`
     ).then(r => setMotivos(r.data)).catch(() => {})
+    api.get<{ total: number }>(`/api/v1/kpis/receita-potencial?month=${month}`)
+      .then(r => setReceitaPotencial(r.data.total)).catch(() => {})
   }, [month])
 
   const sdrRows      = data.filter(d => isSdr(d.fonte))
@@ -189,22 +191,15 @@ export default function KPIs() {
   const taxaConv = totalCap > 0 ? Math.round(totalVen / totalCap * 1000) / 10 : 0
   const pctCan   = totalCap > 0 ? Math.round(totalCan / totalCap * 1000) / 10 : 0
 
-  const principalFonte = combined.length > 0
-    ? combined.reduce((best, r) => r.captacoes > best.captacoes ? r : best)
-    : null
+  const melhorFonte = combined.filter(r => r.captacoes >= 3).length > 0
+    ? combined.filter(r => r.captacoes >= 3).reduce((best, r) => r.conversao > best.conversao ? r : best)
+    : combined.length > 0 ? combined[0] : null
 
-  // Charts use combined (SDR aggregated, orgSubs absorbed into Orgânico visually)
-  const combinedTotal = combined.reduce((s, r) => s + r.captacoes, 0)
+  function fmtBrl(v: number) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
+  }
 
-  // combined already has organicSubs merged into Orgânico — use directly
   const funnelRows = combined
-
-  const top4Pie = [...combined].sort((a, b) => b.captacoes - a.captacoes).slice(0, 4)
-  const outrosVal = combinedTotal - top4Pie.reduce((s, r) => s + r.captacoes, 0)
-  const pieData = [
-    ...top4Pie.map(r => ({ name: r.fonte, value: r.captacoes })),
-    ...(outrosVal > 0 ? [{ name: 'Outros', value: outrosVal }] : []),
-  ]
 
   const top5Sdr = [...sdrRows].sort((a, b) => b.captacoes - a.captacoes).slice(0, 5)
 
@@ -341,7 +336,7 @@ export default function KPIs() {
       {activeTab === 'Indicadores Chave' && <>
       {/* KPI Cards */}
       {!loading && data.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 20 }}>
           <div style={card('#EFF6FF', '#BFDBFE')}>
             <div style={{ fontSize: 11, color: '#3B82F6', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>📈 Captações Totais</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: '#1D4ED8', lineHeight: 1 }}>{totalCap}</div>
@@ -362,10 +357,16 @@ export default function KPIs() {
             <div style={{ fontSize: 11, color: '#FCA5A5', marginTop: 6 }}>Leads perdidos</div>
           </div>
 
+          <div style={card('#ECFDF5', '#A7F3D0')}>
+            <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>💰 Receita Potencial</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#065F46', lineHeight: 1.2 }}>{fmtBrl(receitaPotencial)}</div>
+            <div style={{ fontSize: 11, color: '#6EE7B7', marginTop: 6 }}>Valor total dos leads do mês</div>
+          </div>
+
           <div style={card('#FFF7ED', '#FED7AA')}>
-            <div style={{ fontSize: 11, color: '#F97316', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🎯 Principal Fonte</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#C2410C', lineHeight: 1.2 }}>{principalFonte?.fonte ?? '—'}</div>
-            <div style={{ fontSize: 11, color: '#FDBA74', marginTop: 6 }}>{principalFonte?.captacoes ?? 0} captações</div>
+            <div style={{ fontSize: 11, color: '#F97316', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🎯 Melhor Fonte</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#C2410C', lineHeight: 1.2 }}>{melhorFonte?.fonte ?? '—'}</div>
+            <div style={{ fontSize: 11, color: '#FDBA74', marginTop: 6 }}>{melhorFonte?.conversao ?? 0}% de conversão</div>
           </div>
         </div>
       )}
@@ -384,18 +385,32 @@ export default function KPIs() {
       {!loading && data.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
 
-          {/* Pie — Distribuição */}
-          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 16px' }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 14px 4px' }}>Distribuição por Origem</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={68}>
-                  {pieData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => [v, 'Captações']} />
-                <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+          {/* Ranking de Fontes */}
+          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px', overflowY: 'auto', maxHeight: 340 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 16px' }}>Ranking de Fontes</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 52px 52px', gap: 4, marginBottom: 8 }}>
+              {['Fonte', 'Cap.', '%', 'Conv.'].map(h => (
+                <span key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: h === 'Fonte' ? 'left' : 'right' }}>{h}</span>
+              ))}
+            </div>
+            {[...combined].sort((a, b) => b.captacoes - a.captacoes).map((r, i) => {
+              const pct = totalCap > 0 ? +((r.captacoes / totalCap) * 100).toFixed(1) : 0
+              const isOrg = r.fonte.toLowerCase().includes('orgân')
+              const isSdrRow = r.fonte === 'SDR'
+              const dotColor = isOrg ? '#10B981' : isSdrRow ? '#3B82F6' : CHART_COLORS[i % CHART_COLORS.length]
+              const convColor = r.conversao >= 10 ? '#059669' : r.conversao >= 5 ? '#F59E0B' : '#EF4444'
+              return (
+                <div key={r.fonte} style={{ display: 'grid', gridTemplateColumns: '1fr 44px 52px 52px', gap: 4, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border-lt)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: isOrg || isSdrRow ? 700 : 500, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.fonte}</span>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right' }}>{r.captacoes}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-subtle)', textAlign: 'right' }}>{pct}%</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: convColor, textAlign: 'right' }}>{r.conversao}%</span>
+                </div>
+              )
+            })}
           </div>
 
           {/* Funnel — custom with expandable detail */}

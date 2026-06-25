@@ -267,3 +267,28 @@ def motivos_cancelamento(
         }
         for r in rows
     ]
+
+
+@router.get("/receita-potencial")
+def receita_potencial(
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    total = (
+        db.query(func.coalesce(func.sum(Lead.value_potential), 0))
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to)
+        .scalar()
+    )
+    return {"total": float(total)}
