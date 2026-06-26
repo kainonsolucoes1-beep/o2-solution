@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react'
 import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X } from 'lucide-react'
-import {
-  Tooltip, ResponsiveContainer, Cell,
-} from 'recharts'
 import api from '../api'
 
 interface BreakdownItem {
@@ -86,8 +83,6 @@ export default function KPIs() {
   const [o2Open, setO2Open] = useState(false)
   const [expandedFontes, setExpandedFontes] = useState<Set<string>>(new Set())
   const toggleFonte = (f: string) => setExpandedFontes(prev => { const s = new Set(prev); s.has(f) ? s.delete(f) : s.add(f); return s })
-  const [funnelOpen, setFunnelOpen] = useState(false)
-  const [renutrucao, setRenutrucao] = useState({ captacoes: 0, vendas: 0, cancelados: 0, conversao: 0 })
   const [motivos, setMotivos] = useState<{ reason: string; count: number; pct: number }[]>([])
   const [receitaPotencial, setReceitaPotencial] = useState(0)
   const [popover, setPopover] = useState<PopoverData | null>(null)
@@ -121,9 +116,6 @@ export default function KPIs() {
       .then(r => setData(r.data))
       .catch(() => setData([]))
       .finally(() => setLoading(false))
-    api.get<{ captacoes: number; vendas: number; cancelados: number; conversao: number }>(
-      `/api/v1/kpis/renutrucao?month=${month}`
-    ).then(r => setRenutrucao(r.data)).catch(() => {})
     api.get<{ reason: string; count: number; pct: number }[]>(
       `/api/v1/kpis/motivos-cancelamento?month=${month}`
     ).then(r => setMotivos(r.data)).catch(() => {})
@@ -418,122 +410,71 @@ export default function KPIs() {
             })}
           </div>
 
-          {/* Funnel — custom with expandable detail */}
-          <div className="bg-white rounded-xl" style={{
-            boxShadow: funnelOpen ? '0 4px 24px rgba(124,58,237,0.18)' : '0 1px 3px rgba(0,0,0,0.08)',
+          {/* Funnel — dark, always visible */}
+          <div className="rounded-xl" style={{
+            background: 'linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             overflow: 'hidden',
-            transition: 'box-shadow 0.3s ease',
           }}>
-            <div style={{ padding: '20px 24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Funil de Conversão</p>
-                <button
-                  onClick={() => setFunnelOpen(o => !o)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    background: funnelOpen ? '#7C3AED' : 'transparent',
-                    border: '1px solid #7C3AED', borderRadius: 20,
-                    padding: '4px 11px', cursor: 'pointer',
-                    fontSize: 11, fontWeight: 600,
-                    color: funnelOpen ? '#fff' : '#7C3AED',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {funnelOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                  {funnelOpen ? 'Fechar' : 'Detalhar'}
-                </button>
-              </div>
-              {[
-                { label: 'Captações', value: String(totalCap), pct: 100, color: '#3B82F6' },
-                { label: 'Vendas', value: String(totalVen), pct: totalCap > 0 ? (totalVen / totalCap) * 100 : 0, color: '#F59E0B' },
-              ].map((stage, i) => (
-                <div key={i} style={{ marginBottom: 18 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{stage.label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: stage.color }}>{stage.value}</span>
-                  </div>
-                  <div style={{ background: 'var(--border)', borderRadius: 4, height: 20, overflow: 'hidden' }}>
-                    <div style={{
-                      width: `${Math.max(stage.pct, 1.5)}%`,
-                      height: '100%', background: stage.color,
-                      borderRadius: 4, transition: 'width 0.5s ease',
-                    }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <div style={{ padding: '20px 24px 24px' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: '#CBD5E1', margin: '0 0 20px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Funil de Conversão</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
 
-            {/* Expandable breakdown */}
-            <div style={{
-              maxHeight: funnelOpen ? '520px' : '0px',
-              overflow: 'hidden',
-              transition: 'max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}>
-              <div style={{
-                background: 'linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%)',
-                padding: '20px 24px 24px',
-                borderTop: '1px solid rgba(124,58,237,0.35)',
-              }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-
-                  {/* Captações por fonte */}
-                  <div>
-                    <p style={{ fontSize: 10, color: '#93C5FD', fontWeight: 700, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                      Captações por fonte
-                    </p>
-                    {funnelRows.map((r, i) => {
-                      const pct = totalCap > 0 ? (r.captacoes / totalCap) * 100 : 0
-                      const color = CHART_COLORS[i % CHART_COLORS.length]
-                      return (
-                        <div key={r.fonte} style={{ marginBottom: 11 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <span style={{ fontSize: 11, color: '#CBD5E1', maxWidth: '68%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.fonte}</span>
-                            <span style={{ fontSize: 11, color: '#93C5FD', fontWeight: 700 }}>{r.captacoes}</span>
-                          </div>
-                          <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 3, height: 5, overflow: 'hidden' }}>
-                            <div style={{
-                              width: `${pct}%`, height: '100%',
-                              background: `linear-gradient(90deg, ${color}, ${color}bb)`,
-                              borderRadius: 3,
-                              boxShadow: `0 0 8px ${color}55`,
-                              transition: 'width 0.7s ease',
-                            }} />
-                          </div>
+                {/* Captações por fonte */}
+                <div>
+                  <p style={{ fontSize: 10, color: '#93C5FD', fontWeight: 700, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                    Captações por fonte
+                  </p>
+                  {funnelRows.map((r, i) => {
+                    const pct = totalCap > 0 ? (r.captacoes / totalCap) * 100 : 0
+                    const color = CHART_COLORS[i % CHART_COLORS.length]
+                    return (
+                      <div key={r.fonte} style={{ marginBottom: 11 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 11, color: '#CBD5E1', maxWidth: '68%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.fonte}</span>
+                          <span style={{ fontSize: 11, color: '#93C5FD', fontWeight: 700 }}>{r.captacoes}</span>
                         </div>
-                      )
-                    })}
-                  </div>
-
-                  {/* Vendas por fonte */}
-                  <div>
-                    <p style={{ fontSize: 10, color: '#FCD34D', fontWeight: 700, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                      Vendas por fonte
-                    </p>
-                    {funnelRows.filter(r => r.vendas > 0).length === 0 ? (
-                      <p style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>Nenhuma venda no período</p>
-                    ) : funnelRows.filter(r => r.vendas > 0).map((r, i) => {
-                      const pct = totalVen > 0 ? (r.vendas / totalVen) * 100 : 0
-                      return (
-                        <div key={r.fonte} style={{ marginBottom: 11 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <span style={{ fontSize: 11, color: '#CBD5E1', maxWidth: '68%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.fonte}</span>
-                            <span style={{ fontSize: 11, color: '#FCD34D', fontWeight: 700 }}>{r.vendas}</span>
-                          </div>
-                          <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 3, height: 5, overflow: 'hidden' }}>
-                            <div style={{
-                              width: `${pct}%`, height: '100%',
-                              background: 'linear-gradient(90deg, #F59E0B, #FBBF24)',
-                              borderRadius: 3,
-                              boxShadow: '0 0 8px #F59E0B55',
-                              transition: 'width 0.7s ease',
-                            }} />
-                          </div>
+                        <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${pct}%`, height: '100%',
+                            background: `linear-gradient(90deg, ${color}, ${color}bb)`,
+                            borderRadius: 3, boxShadow: `0 0 8px ${color}55`,
+                            transition: 'width 0.7s ease',
+                          }} />
                         </div>
-                      )
-                    })}
-                  </div>
-
+                      </div>
+                    )
+                  })}
                 </div>
+
+                {/* Vendas por fonte */}
+                <div>
+                  <p style={{ fontSize: 10, color: '#FCD34D', fontWeight: 700, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                    Vendas por fonte
+                  </p>
+                  {funnelRows.filter(r => r.vendas > 0).length === 0 ? (
+                    <p style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>Nenhuma venda no período</p>
+                  ) : funnelRows.filter(r => r.vendas > 0).map((r) => {
+                    const pct = totalVen > 0 ? (r.vendas / totalVen) * 100 : 0
+                    return (
+                      <div key={r.fonte} style={{ marginBottom: 11 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 11, color: '#CBD5E1', maxWidth: '68%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.fonte}</span>
+                          <span style={{ fontSize: 11, color: '#FCD34D', fontWeight: 700 }}>{r.vendas}</span>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.07)', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${pct}%`, height: '100%',
+                            background: 'linear-gradient(90deg, #F59E0B, #FBBF24)',
+                            borderRadius: 3, boxShadow: '0 0 8px #F59E0B55',
+                            transition: 'width 0.7s ease',
+                          }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
               </div>
             </div>
           </div>
