@@ -201,3 +201,48 @@ def receita_potencial_drill(
         }
         for r in rows
     ]
+
+
+@router.get("/receita-contratos")
+def receita_contratos(
+    month: str = Query(None),
+    status: str = Query(None),
+    origens: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    year, mon = _parse_month(month)
+    dt_from, dt_to = _month_range(year, mon)
+
+    filters = [
+        Lead.created_at >= dt_from,
+        Lead.created_at <= dt_to,
+        Lead.value_potential.isnot(None),
+        Lead.value_potential > 0,
+        Lead.status != CANCELADO_STATUS,
+    ]
+    if status:
+        filters.append(Lead.status == status)
+    if origens:
+        parts = [s.strip() for s in origens.split(',') if s.strip()]
+        if len(parts) == 1:
+            filters.append(Lead.origin == parts[0])
+        elif parts:
+            filters.append(Lead.origin.in_(parts))
+
+    leads = (
+        db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential)
+        .filter(*filters)
+        .order_by(Lead.value_potential.desc())
+        .limit(100)
+        .all()
+    )
+    return [
+        {
+            "nome": l.name or "Sem nome",
+            "origem": l.origin or "Sem origem",
+            "status": l.status,
+            "valor": float(l.value_potential),
+        }
+        for l in leads
+    ]

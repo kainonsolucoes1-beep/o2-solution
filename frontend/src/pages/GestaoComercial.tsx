@@ -20,8 +20,9 @@ interface Kpis {
 interface DiarioItem  { dia: number; captacoes: number; vendas: number }
 interface OrigemItem  { origem: string; captacoes: number; pct: number }
 interface MensalItem  { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number }
-interface DrillRawRow { origem: string; status: string; total_value: number; count: number }
+interface DrillRawRow  { origem: string; status: string; total_value: number; count: number }
 interface DrillRow extends DrillRawRow { grupo: 'SDR' | 'Orgânico'; operador: string }
+interface ContractItem { nome: string; origem: string; status: string; valor: number }
 
 // ── Grouping constants ───────────────────────────────────────────────────────
 const O2_NAMES      = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
@@ -128,10 +129,13 @@ export default function GestaoComercial() {
   const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null)
 
   // drill modal
-  const [showDrill, setShowDrill]       = useState(false)
-  const [drillRows, setDrillRows]       = useState<DrillRow[]>([])
-  const [drillLoading, setDrillLoading] = useState(false)
-  const [drillPath, setDrillPath]       = useState<string[]>([])   // [] | ['SDR'] | ['SDR','Isaac']
+  const [showDrill, setShowDrill]           = useState(false)
+  const [drillRows, setDrillRows]           = useState<DrillRow[]>([])
+  const [drillLoading, setDrillLoading]     = useState(false)
+  const [drillPath, setDrillPath]           = useState<string[]>([])
+  const [selectedStage, setSelectedStage]   = useState<string | null>(null)
+  const [contracts, setContracts]           = useState<ContractItem[]>([])
+  const [contractsLoading, setContractsLoading] = useState(false)
 
   useEffect(() => {
     if (activeTab !== 'Visão Geral') return
@@ -157,8 +161,22 @@ export default function GestaoComercial() {
       .finally(() => setDrillLoading(false))
   }
 
-  // reset drill cache when month changes
-  useEffect(() => { setDrillRows([]) }, [month])
+  function openStage(status: string) {
+    setSelectedStage(status)
+    setContractsLoading(true)
+    const origins = [...new Set(filtered.map(r => r.origem))]
+    const params = new URLSearchParams({ month, status })
+    if (origins.length > 0) params.set('origens', origins.join(','))
+    api.get<ContractItem[]>(`/api/v1/gestao-comercial/receita-contratos?${params}`)
+      .then(r => setContracts(r.data))
+      .catch(() => setContracts([]))
+      .finally(() => setContractsLoading(false))
+  }
+
+  // reset drill cache and stage when month changes
+  useEffect(() => { setDrillRows([]); setSelectedStage(null) }, [month])
+  // reset stage when path changes
+  useEffect(() => { setSelectedStage(null) }, [drillPath])
 
   const grupos  = groupOrigens(origens)
   const maxCap  = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
@@ -192,7 +210,7 @@ export default function GestaoComercial() {
   const maxNav = navItems[0]?.total ?? 1
 
   // breadcrumb labels
-  const breadcrumb = ['Total', ...drillPath]
+  const breadcrumb = ['Total', ...drillPath, ...(selectedStage ? [stageLabel(selectedStage)] : [])]
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 1400, margin: '0 auto' }}>
@@ -473,40 +491,78 @@ export default function GestaoComercial() {
                   </div>
                 )}
 
-                {/* Por Etapa — always visible */}
-                <div>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>Por etapa</p>
-                  {stages.length === 0 ? (
-                    <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '16px 0' }}>Nenhum dado</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {stages.map(({ key, total }, i) => {
-                        const w   = Math.max((total / maxStage) * 100, 2)
-                        const pct = totalFiltered > 0 ? Math.round(total / totalFiltered * 100) : 0
-                        const col = STAGE_COLORS[i % STAGE_COLORS.length]
-                        return (
-                          <div key={key} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{stageLabel(key)}</span>
-                              <div style={{ display: 'flex', gap: 10 }}>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: col }}>{fmtBrl(total)}</span>
-                                <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 34, textAlign: 'right' }}>{pct}%</span>
-                              </div>
+                {/* Contracts view — shown when a stage is selected */}
+                {selectedStage ? (
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>
+                      Contratos — {stageLabel(selectedStage)}
+                    </p>
+                    {contractsLoading ? (
+                      <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '16px 0' }}>Carregando...</p>
+                    ) : contracts.length === 0 ? (
+                      <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '16px 0' }}>Nenhum contrato encontrado</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {contracts.map((c, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nome}</p>
+                              <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '2px 0 0' }}>{c.origem}</p>
                             </div>
-                            <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
-                              <div style={{ width: `${w}%`, height: '100%', background: col, borderRadius: 3, transition: 'width 400ms ease' }} />
-                            </div>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: '#059669', flexShrink: 0, marginLeft: 12 }}>{fmtBrl(c.valor)}</span>
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Por Etapa — shown when no stage selected */
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>Por etapa</p>
+                    {stages.length === 0 ? (
+                      <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '16px 0' }}>Nenhum dado</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {stages.map(({ key, total }, i) => {
+                          const w   = Math.max((total / maxStage) * 100, 2)
+                          const pct = totalFiltered > 0 ? Math.round(total / totalFiltered * 100) : 0
+                          const col = STAGE_COLORS[i % STAGE_COLORS.length]
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => openStage(key)}
+                              style={{ width: '100%', textAlign: 'left', padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 120ms' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = col + '10'; (e.currentTarget as HTMLElement).style.borderColor = col + '50' }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#F8FAFC'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{stageLabel(key)}</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: col }}>{fmtBrl(total)}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 34, textAlign: 'right' }}>{pct}%</span>
+                                  <ChevronRight size={13} color="#94A3B8" />
+                                </div>
+                              </div>
+                              <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                                <div style={{ width: `${w}%`, height: '100%', background: col, borderRadius: 3, transition: 'width 400ms ease' }} />
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                {/* Back button when drilled in */}
-                {drillPath.length > 0 && (
+                {/* Back button */}
+                {(drillPath.length > 0 || selectedStage) && (
                   <button
-                    onClick={() => setDrillPath(p => p.slice(0, -1))}
+                    onClick={() => {
+                      if (selectedStage) { setSelectedStage(null) }
+                      else { setDrillPath(p => p.slice(0, -1)) }
+                    }}
                     style={{
                       marginTop: 20, display: 'flex', alignItems: 'center', gap: 6,
                       background: 'none', border: '1px solid var(--border)', borderRadius: 8,
