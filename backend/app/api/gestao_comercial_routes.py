@@ -168,27 +168,39 @@ def comparativo_mensal(
 @router.get("/receita-potencial-drill")
 def receita_potencial_drill(
     month: str = Query(None),
+    tipo: str = Query("receita"),   # receita | vendas | perda
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     year, mon = _parse_month(month)
     dt_from, dt_to = _month_range(year, mon)
 
+    base = [
+        Lead.created_at >= dt_from,
+        Lead.created_at <= dt_to,
+        Lead.value_potential.isnot(None),
+        Lead.value_potential > 0,
+    ]
+
+    if tipo == "vendas":
+        base.append(Lead.status.in_(VENDA_STATUSES))
+        label_col = Lead.status
+    elif tipo == "perda":
+        base.append(Lead.status == CANCELADO_STATUS)
+        label_col = func.coalesce(Lead.lost_reason, "Não informado")
+    else:
+        base.append(Lead.status != CANCELADO_STATUS)
+        label_col = Lead.status
+
     rows = (
         db.query(
             Lead.origin,
-            Lead.status,
+            label_col.label("status"),
             func.coalesce(func.sum(Lead.value_potential), 0).label("total_value"),
             func.count(Lead.id).label("count"),
         )
-        .filter(
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
-            Lead.status != CANCELADO_STATUS,
-            Lead.value_potential.isnot(None),
-            Lead.value_potential > 0,
-        )
-        .group_by(Lead.origin, Lead.status)
+        .filter(*base)
+        .group_by(Lead.origin, label_col)
         .all()
     )
 
@@ -208,6 +220,7 @@ def receita_contratos(
     month: str = Query(None),
     status: str = Query(None),
     origens: str = Query(None),
+    tipo: str = Query("receita"),   # receita | vendas | perda
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -219,10 +232,24 @@ def receita_contratos(
         Lead.created_at <= dt_to,
         Lead.value_potential.isnot(None),
         Lead.value_potential > 0,
-        Lead.status != CANCELADO_STATUS,
     ]
-    if status:
-        filters.append(Lead.status == status)
+
+    if tipo == "vendas":
+        filters.append(Lead.status.in_(VENDA_STATUSES))
+        if status:
+            filters.append(Lead.status == status)
+    elif tipo == "perda":
+        filters.append(Lead.status == CANCELADO_STATUS)
+        if status:
+            if status == "Não informado":
+                filters.append(Lead.lost_reason.is_(None))
+            else:
+                filters.append(Lead.lost_reason == status)
+    else:
+        filters.append(Lead.status != CANCELADO_STATUS)
+        if status:
+            filters.append(Lead.status == status)
+
     if origens:
         parts = [s.strip() for s in origens.split(',') if s.strip()]
         if len(parts) == 1:
@@ -231,7 +258,7 @@ def receita_contratos(
             filters.append(Lead.origin.in_(parts))
 
     leads = (
-        db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential)
+        db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential, Lead.lost_reason)
         .filter(*filters)
         .order_by(Lead.value_potential.desc())
         .limit(100)
@@ -243,6 +270,7 @@ def receita_contratos(
             "origem": l.origin or "Sem origem",
             "status": l.status,
             "valor": float(l.value_potential),
+            "motivo": l.lost_reason,
         }
         for l in leads
     ]

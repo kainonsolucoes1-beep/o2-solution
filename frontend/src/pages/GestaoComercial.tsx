@@ -22,7 +22,8 @@ interface OrigemItem  { origem: string; captacoes: number; pct: number }
 interface MensalItem  { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number }
 interface DrillRawRow  { origem: string; status: string; total_value: number; count: number }
 interface DrillRow extends DrillRawRow { grupo: 'SDR' | 'Orgânico'; operador: string }
-interface ContractItem { nome: string; origem: string; status: string; valor: number }
+interface ContractItem { nome: string; origem: string; status: string; valor: number; motivo?: string | null }
+type DrillTipo = 'receita_potencial' | 'vendas' | 'perda'
 
 // ── Grouping constants ───────────────────────────────────────────────────────
 const O2_NAMES      = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
@@ -96,13 +97,23 @@ function sumByKey<T>(rows: T[], keyFn: (r: T) => string, valFn: (r: T) => number
 
 // ── Card config ──────────────────────────────────────────────────────────────
 const CARD_CFG = [
-  { key: 'captacoes',        label: 'Captações',          icon: Users,        color: '#3B82F6', bg: '#EFF6FF', sub: '#1E40AF', fmt: (v: number) => String(v),  clickable: false },
-  { key: 'vendas',           label: 'Vendas',              icon: ShoppingCart, color: '#10B981', bg: '#ECFDF5', sub: '#065F46', fmt: (v: number) => String(v),  clickable: false },
-  { key: 'conversao',        label: 'Conversão',           icon: TrendingUp,   color: '#7C3AED', bg: '#F5F3FF', sub: '#4C1D95', fmt: (v: number) => `${v}%`,    clickable: false },
-  { key: 'receita_potencial',label: 'Receita Potencial',   icon: DollarSign,   color: '#059669', bg: '#ECFDF5', sub: '#065F46', fmt: fmtBrl,                    clickable: true  },
-  { key: 'perda_financeira', label: 'Perda Financeira',    icon: TrendingDown, color: '#EF4444', bg: '#FEF2F2', sub: '#991B1B', fmt: fmtBrl,                    clickable: false },
-  { key: 'ticket_medio',     label: 'Ticket Médio',        icon: Tag,          color: '#F59E0B', bg: '#FFFBEB', sub: '#92400E', fmt: fmtBrl,                    clickable: false },
+  { key: 'captacoes',        label: 'Captações',        icon: Users,        color: '#3B82F6', bg: '#EFF6FF', sub: '#1E40AF', fmt: (v: number) => String(v), clickable: false },
+  { key: 'vendas',           label: 'Vendas',           icon: ShoppingCart, color: '#10B981', bg: '#ECFDF5', sub: '#065F46', fmt: (v: number) => String(v), clickable: true  },
+  { key: 'conversao',        label: 'Conversão',        icon: TrendingUp,   color: '#7C3AED', bg: '#F5F3FF', sub: '#4C1D95', fmt: (v: number) => `${v}%`,   clickable: false },
+  { key: 'receita_potencial',label: 'Receita Potencial',icon: DollarSign,   color: '#059669', bg: '#ECFDF5', sub: '#065F46', fmt: fmtBrl,                   clickable: true  },
+  { key: 'perda_financeira', label: 'Perda Financeira', icon: TrendingDown, color: '#EF4444', bg: '#FEF2F2', sub: '#991B1B', fmt: fmtBrl,                   clickable: true  },
+  { key: 'ticket_medio',     label: 'Ticket Médio',     icon: Tag,          color: '#F59E0B', bg: '#FFFBEB', sub: '#92400E', fmt: fmtBrl,                   clickable: false },
 ] as const
+
+const KEY_TO_TIPO: Record<string, DrillTipo> = {
+  vendas: 'vendas', receita_potencial: 'receita_potencial', perda_financeira: 'perda',
+}
+
+const DRILL_CFG: Record<DrillTipo, { title: string; desc: string; totalColor: string }> = {
+  receita_potencial: { title: 'Receita Potencial', desc: 'Todos os leads com valor, exceto Perdidos', totalColor: '#059669' },
+  vendas:            { title: 'Vendas',             desc: 'Leads com venda concluída',                totalColor: '#10B981' },
+  perda:             { title: 'Perda Financeira',   desc: 'Leads perdidos com valor potencial',       totalColor: '#EF4444' },
+}
 
 function fmtBrl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -129,12 +140,13 @@ export default function GestaoComercial() {
   const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null)
 
   // drill modal
-  const [showDrill, setShowDrill]           = useState(false)
-  const [drillRows, setDrillRows]           = useState<DrillRow[]>([])
-  const [drillLoading, setDrillLoading]     = useState(false)
-  const [drillPath, setDrillPath]           = useState<string[]>([])
-  const [selectedStage, setSelectedStage]   = useState<string | null>(null)
-  const [contracts, setContracts]           = useState<ContractItem[]>([])
+  const [showDrill, setShowDrill]               = useState(false)
+  const [drillTipo, setDrillTipo]               = useState<DrillTipo>('receita_potencial')
+  const [drillRows, setDrillRows]               = useState<DrillRow[]>([])
+  const [drillLoading, setDrillLoading]         = useState(false)
+  const [drillPath, setDrillPath]               = useState<string[]>([])
+  const [selectedStage, setSelectedStage]       = useState<string | null>(null)
+  const [contracts, setContracts]               = useState<ContractItem[]>([])
   const [contractsLoading, setContractsLoading] = useState(false)
 
   useEffect(() => {
@@ -150,12 +162,14 @@ export default function GestaoComercial() {
     }).catch(() => {}).finally(() => setLoading(false))
   }, [activeTab, month])
 
-  function openDrill() {
+  function openDrill(tipo: DrillTipo) {
+    setDrillTipo(tipo)
     setDrillPath([])
+    setSelectedStage(null)
     setShowDrill(true)
-    if (drillRows.length > 0) return
     setDrillLoading(true)
-    api.get<DrillRawRow[]>(`/api/v1/gestao-comercial/receita-potencial-drill?month=${month}`)
+    setDrillRows([])
+    api.get<DrillRawRow[]>(`/api/v1/gestao-comercial/receita-potencial-drill?month=${month}&tipo=${tipo}`)
       .then(r => setDrillRows(normalizeDrill(r.data)))
       .catch(() => {})
       .finally(() => setDrillLoading(false))
@@ -165,7 +179,7 @@ export default function GestaoComercial() {
     setSelectedStage(status)
     setContractsLoading(true)
     const origins = [...new Set(filtered.map(r => r.origem))]
-    const params = new URLSearchParams({ month, status })
+    const params = new URLSearchParams({ month, status, tipo: drillTipo })
     if (origins.length > 0) params.set('origens', origins.join(','))
     api.get<ContractItem[]>(`/api/v1/gestao-comercial/receita-contratos?${params}`)
       .then(r => setContracts(r.data))
@@ -254,7 +268,7 @@ export default function GestaoComercial() {
               return (
                 <div
                   key={key}
-                  onClick={clickable ? openDrill : undefined}
+                  onClick={clickable ? () => openDrill(KEY_TO_TIPO[key]) : undefined}
                   style={{
                     background: bg, borderRadius: 14, padding: '20px 22px',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.07)', borderLeft: `4px solid ${color}`,
@@ -405,8 +419,8 @@ export default function GestaoComercial() {
             {/* Modal header */}
             <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Receita Potencial</p>
-                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>Todos os leads com valor, exceto Perdidos</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{DRILL_CFG[drillTipo].title}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 2 }}>{DRILL_CFG[drillTipo].desc}</p>
               </div>
               <button onClick={() => setShowDrill(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4 }}>
                 <X size={18} />
@@ -444,7 +458,7 @@ export default function GestaoComercial() {
                   <span style={{ fontSize: 13, color: '#065F46', fontWeight: 600 }}>
                     {drillPath.length === 0 ? 'Total geral' : drillPath.join(' › ')}
                   </span>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: '#059669' }}>{fmtBrl(totalFiltered)}</span>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: DRILL_CFG[drillTipo].totalColor }}>{fmtBrl(totalFiltered)}</span>
                 </div>
 
                 {/* Navigation items (groups or operators) */}
@@ -507,9 +521,11 @@ export default function GestaoComercial() {
                           <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)' }}>
                             <div style={{ minWidth: 0 }}>
                               <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nome}</p>
-                              <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '2px 0 0' }}>{c.origem}</p>
+                              <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '2px 0 0' }}>
+                                {c.origem}{drillTipo === 'perda' && c.motivo ? ` · ${c.motivo}` : ''}
+                              </p>
                             </div>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: '#059669', flexShrink: 0, marginLeft: 12 }}>{fmtBrl(c.valor)}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: DRILL_CFG[drillTipo].totalColor, flexShrink: 0, marginLeft: 12 }}>{fmtBrl(c.valor)}</span>
                           </div>
                         ))}
                       </div>
