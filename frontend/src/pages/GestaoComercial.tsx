@@ -116,7 +116,7 @@ const DRILL_CFG: Record<DrillTipo, { title: string; desc: string; totalColor: st
 }
 
 function fmtBrl(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 function nowMonth() {
   const d = new Date()
