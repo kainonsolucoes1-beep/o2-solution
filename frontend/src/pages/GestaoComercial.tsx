@@ -58,12 +58,19 @@ function groupOrigens(origens: OrigemItem[]): GrupoOrigem[] {
 const STAGE_LABELS: Record<string, string> = {
   novo: 'Novo', new: 'Novo', em_atendimento: 'Em Atendimento', attending: 'Em Atendimento',
   qualificacao: 'Qualificação', primeiro_contato: '1º Contato', agendamento: 'Agendamento',
-  reuniao: 'Reunião', meeting: 'Reunião', proposta: 'Proposta', proposal: 'Proposta',
+  scheduled: 'Agendado',
+  reuniao: 'Reunião', meeting: 'Reunião',
+  proposta: 'Enviada', proposal: 'Enviada', proposal_sent: 'Enviada',
   negociacao: 'Negociação', negotiation: 'Negociação',
   waiting_billing: 'Aguard. Faturamento', sale_performed: 'Venda Realizada',
   fechado: 'Fechado', closed: 'Fechado', won: 'Ganho', convertido: 'Convertido',
 }
+const STAGE_ORDER: Record<string, number> = {
+  scheduled: 1, proposal_sent: 2, proposta: 2, waiting_billing: 3, sale_performed: 4,
+  fechado: 5, closed: 5, won: 5, convertido: 5,
+}
 const stageLabel = (s: string) => STAGE_LABELS[s?.toLowerCase()] ?? s
+const stageOrder = (s: string) => STAGE_ORDER[s?.toLowerCase()] ?? 99
 
 function normalizeDrill(raw: DrillRawRow[]): DrillRow[] {
   return raw.map(r => ({
@@ -159,7 +166,7 @@ export default function GestaoComercial() {
   // ── Drill modal derived data ─────────────────────────────────────────────
   const filtered       = filterDrill(drillRows, drillPath)
   const totalFiltered  = filtered.reduce((s, r) => s + r.total_value, 0)
-  const stages         = sumByKey(filtered, r => r.status, r => r.total_value)
+  const stages         = sumByKey(filtered, r => r.status, r => r.total_value).sort((a, b) => stageOrder(a.key) - stageOrder(b.key))
   const maxStage       = stages[0]?.total ?? 1
 
   // top navigation items (what to show in the clickable section)
