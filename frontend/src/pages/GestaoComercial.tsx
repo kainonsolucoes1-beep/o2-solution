@@ -28,8 +28,9 @@ interface GrupoOrigem {
 }
 
 // Names that belong to "o2 Solution" group within SDR
-const O2_NAMES = new Set(['clara', 'maria eduarda', 'kauany', 'o2 solution', 'o2solution'])
-const isOrganico = (o: string) => o.toLowerCase().includes('org')
+const O2_NAMES = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
+const ORGANICO_EXTRA = new Set(['site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp'])
+const isOrganico = (o: string) => o.toLowerCase().includes('org') || ORGANICO_EXTRA.has(o.toLowerCase())
 
 function groupOrigens(origens: OrigemItem[]): GrupoOrigem[] {
   const sdrSubs: Record<string, number> = {}
