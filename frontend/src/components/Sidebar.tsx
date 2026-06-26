@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, BarChart2, FileText, Users,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X, Sun, Moon, UserCog, ClipboardList, Phone, TrendingUp, DollarSign, Briefcase,
+  LayoutDashboard, FileText, Users,
+  Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase,
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
@@ -10,16 +10,13 @@ import { useTheme } from '../ThemeContext'
 interface UserInfo { username: string; first_name: string | null; role: string }
 
 const NAV = [
-  { to: '/dashboard',    label: 'Dashboard',     Icon: LayoutDashboard, adminOnly: false },
-  { to: '/pipeline',     label: 'Pipeline',      Icon: BarChart2,       adminOnly: false },
-  { to: '/leads-report', label: 'Relatório',     Icon: FileText,        adminOnly: false },
-  { to: '/users',        label: 'Usuários',      Icon: UserCog,         adminOnly: true  },
-  { to: '/forms',        label: 'Formulário',    Icon: ClipboardList,   adminOnly: true  },
-  { to: '/telefonia',   label: 'Telefonia',     Icon: Phone,           adminOnly: true  },
-  { to: '/gestao-comercial', label: 'Gestão Comercial', Icon: Briefcase, adminOnly: false },
-  { to: '/kpis',        label: 'KPIs',          Icon: TrendingUp,      adminOnly: false },
-  { to: '/financeiro',  label: 'Financeiro',    Icon: DollarSign,      adminOnly: true  },
-  { to: '/settings',     label: 'Configurações', Icon: Settings,        adminOnly: false },
+  { to: '/dashboard',        label: 'Dashboard',        Icon: LayoutDashboard, adminOnly: false },
+  { to: '/leads-report',     label: 'Relatório',        Icon: FileText,        adminOnly: false },
+  { to: '/gestao-comercial', label: 'Gestão Comercial', Icon: Briefcase,       adminOnly: false },
+  { to: '/kpis',             label: 'KPIs',             Icon: TrendingUp,      adminOnly: false },
+  { to: '/financeiro',       label: 'Financeiro',       Icon: DollarSign,      adminOnly: true  },
+  { to: '/telefonia',        label: 'Telefonia',        Icon: Phone,           adminOnly: true  },
+  { to: '/settings',         label: 'Configurações',    Icon: Settings,        adminOnly: false },
 ]
 
 export default function Sidebar() {
