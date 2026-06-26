@@ -10,6 +10,7 @@ import Forms from './pages/Forms'
 import Telefonia from './pages/Telefonia'
 import KPIs from './pages/KPIs'
 import Financeiro from './pages/Financeiro'
+import GestaoComercial from './pages/GestaoComercial'
 import Layout from './components/Layout'
 import { ThemeProvider } from './ThemeContext'
 
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/telefonia" element={<Telefonia />} />
           <Route path="/kpis" element={<KPIs />} />
           <Route path="/financeiro" element={<Financeiro />} />
+          <Route path="/gestao-comercial" element={<GestaoComercial />} />
         </Route>
       </Routes>
     </BrowserRouter>
