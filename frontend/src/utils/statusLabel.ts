@@ -6,6 +6,9 @@ export const STATUS_LABEL: Record<string, string> = {
   negociacao: 'Negociação', negociação: 'Negociação',
   fechado: 'Fechado', closed: 'Fechado',
   convertido: 'Convertido', converted: 'Convertido',
+  waiting_billing: 'Aguardando Faturamento', 'waiting billing': 'Aguardando Faturamento',
+  sale_performed: 'Venda Realizada', 'sale performed': 'Venda Realizada',
+  won: 'Ganho',
   sale_not_performed: 'Não realizada', 'sale not performed': 'Não realizada',
 }
 
