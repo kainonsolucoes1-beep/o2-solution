@@ -84,6 +84,23 @@ function KpiCard({
 const MEDALS = ['🥇', '🥈', '🥉']
 const BAR_COLORS = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6']
 
+const O2_NAMES = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
+
+type RankItem = { name: string; count: number; pct: number; bar_pct: number }
+function mergeO2Ranking(ranking: RankItem[]): RankItem[] {
+  const map: Record<string, number> = {}
+  for (const r of ranking) {
+    const key = O2_NAMES.has(r.name.toLowerCase()) ? 'o2 Solution' : r.name
+    map[key] = (map[key] ?? 0) + r.count
+  }
+  const total = Object.values(map).reduce((a, b) => a + b, 0) || 1
+  const sorted = Object.entries(map)
+    .map(([name, count]) => ({ name, count, pct: Math.round(count / total * 1000) / 10, bar_pct: 0 }))
+    .sort((a, b) => b.count - a.count)
+  const maxCount = sorted[0]?.count || 1
+  return sorted.map(r => ({ ...r, bar_pct: Math.round(r.count / maxCount * 100) }))
+}
+
 
 
 const todayStr = new Date().toISOString().slice(0, 10)
@@ -154,6 +171,7 @@ export default function Dashboard() {
   const dateFmtDisplay = selectedDate
     ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : null
+  const ranking = mergeO2Ranking(data.ranking)
 
   return (
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
@@ -293,11 +311,11 @@ export default function Dashboard() {
             <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
               Ranking de Operadores — {mesNome}
             </h2>
-            {data.ranking.length === 0 ? (
+            {ranking.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-subtle)', paddingBottom: 24 }}>Sem captações no período.</p>
             ) : (
               <div className="flex flex-col gap-4" style={{ paddingBottom: 20 }}>
-                {data.ranking.slice(0, 3).map((op, i) => (
+                {ranking.slice(0, 3).map((op, i) => (
                   <div
                     key={op.name}
                     style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity 150ms' }}
@@ -328,7 +346,7 @@ export default function Dashboard() {
           </div>
 
           {/* Expander — origens fora do top 3 */}
-          {data.ranking.length > 3 && (
+          {ranking.length > 3 && (
             <>
               <button
                 onClick={() => setRankMonthExpanded(o => !o)}
@@ -344,7 +362,7 @@ export default function Dashboard() {
                   Outras origens
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.1)', borderRadius: 99, padding: '1px 7px', marginLeft: 4 }}>
-                  {data.ranking.length - 3}
+                  {ranking.length - 3}
                 </span>
               </button>
               {rankMonthExpanded && (
@@ -354,12 +372,12 @@ export default function Dashboard() {
                       <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h === 'Origem' ? 'left' : 'right' }}>{h}</span>
                     ))}
                   </div>
-                  {data.ranking.slice(3).map((op, idx) => {
+                  {ranking.slice(3).map((op, idx) => {
                     const i = idx + 3
                     return (
                       <div
                         key={op.name}
-                        style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, alignItems: 'center', padding: '10px 4px', borderBottom: idx < data.ranking.length - 4 ? '1px solid var(--border-lt)' : 'none', borderRadius: 6, transition: 'background 150ms' }}
+                        style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, alignItems: 'center', padding: '10px 4px', borderBottom: idx < ranking.length - 4 ? '1px solid var(--border-lt)' : 'none', borderRadius: 6, transition: 'background 150ms' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
