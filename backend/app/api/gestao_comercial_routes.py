@@ -49,16 +49,17 @@ def visao_geral(
     venda_set = {s.lower() for s in VENDA_STATUSES}
     captacoes = len(leads)
     vendas = sum(1 for s, _ in leads if (s or "").lower() in venda_set)
-    receita = sum(float(v or 0) for s, v in leads if (s or "").lower() in venda_set)
+    receita_vendas = sum(float(v or 0) for s, v in leads if (s or "").lower() in venda_set)
+    receita_potencial = sum(float(v or 0) for s, v in leads if (s or "").lower() != CANCELADO_STATUS and v)
     perda_financeira = sum(float(v or 0) for s, v in leads if (s or "").lower() == CANCELADO_STATUS)
-    ticket_medio = receita / vendas if vendas > 0 else 0.0
+    ticket_medio = receita_vendas / vendas if vendas > 0 else 0.0
     conversao = round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0
 
     return {
         "captacoes": captacoes,
         "vendas": vendas,
         "conversao": conversao,
-        "receita": receita,
+        "receita_potencial": receita_potencial,
         "perda_financeira": perda_financeira,
         "ticket_medio": ticket_medio,
     }
@@ -162,3 +163,41 @@ def comparativo_mensal(
         })
 
     return result
+
+
+@router.get("/receita-potencial-drill")
+def receita_potencial_drill(
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    year, mon = _parse_month(month)
+    dt_from, dt_to = _month_range(year, mon)
+
+    rows = (
+        db.query(
+            Lead.origin,
+            Lead.status,
+            func.coalesce(func.sum(Lead.value_potential), 0).label("total_value"),
+            func.count(Lead.id).label("count"),
+        )
+        .filter(
+            Lead.created_at >= dt_from,
+            Lead.created_at <= dt_to,
+            Lead.status != CANCELADO_STATUS,
+            Lead.value_potential.isnot(None),
+            Lead.value_potential > 0,
+        )
+        .group_by(Lead.origin, Lead.status)
+        .all()
+    )
+
+    return [
+        {
+            "origem": r.origin or "Sem origem",
+            "status": r.status or "desconhecido",
+            "total_value": float(r.total_value),
+            "count": r.count,
+        }
+        for r in rows
+    ]
