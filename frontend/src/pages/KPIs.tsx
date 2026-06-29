@@ -73,6 +73,8 @@ function card(bg: string, border: string): React.CSSProperties {
   return { background: bg, borderRadius: 12, padding: '20px 24px', border: `1px solid ${border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
 }
 
+const UNDER_CONSTRUCTION: boolean = true
+
 export default function KPIs() {
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -291,7 +293,14 @@ export default function KPIs() {
     )
   }
 
-  return (
+  return UNDER_CONSTRUCTION ? (
+    <main style={{ padding: '24px 32px', maxWidth: 1100 }}>
+      <div>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>KPIs</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Em construção…</p>
+      </div>
+    </main>
+  ) : (
     <main style={{ padding: '24px 32px' }}>
 
       {/* Header */}
@@ -657,3 +666,4 @@ export default function KPIs() {
     </main>
   )
 }
+
