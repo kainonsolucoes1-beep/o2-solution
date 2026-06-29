@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import * as XLSX from 'xlsx'
 import api from '../api'
 import LeadDetailModal from '../components/LeadDetailModal'
 import { statusLabel } from '../utils/statusLabel'
@@ -174,6 +175,47 @@ export default function LeadsReport() {
     },
     [dateFrom, dateTo, origem, statusFilter, perceptionFilter, vencidosFilter, isAdmin, navigate],
   )
+
+  const [exporting, setExporting] = useState(false)
+
+  async function exportExcel() {
+    setExporting(true)
+    try {
+      const params: Record<string, string | number | boolean> = {
+        date_from: dateFrom,
+        date_to:   dateTo,
+        page:      1,
+        limit:     9999,
+      }
+      if (vencidosFilter) params.vencidos = true
+      if (isAdmin && origem) params.origem = origem
+      if (statusFilter) params.status = statusFilter
+      if (perceptionFilter) params.perception = perceptionFilter
+
+      const { data } = await api.get<ReportResponse>('/api/v1/leads/by-period', { params })
+      const rows = data.leads.map(l => ({
+        'Criado em':       fmtDate(l.created_at),
+        'Atualizado em':   l.updated_at ? fmtDate(l.updated_at) : '',
+        'Cliente':         l.name,
+        'Email':           l.email ?? '',
+        'Telefone':        l.phone ?? '',
+        'Origem':          l.origem ?? '',
+        'Status':          statusLabel(l.status),
+        'Motivo de perda': l.lost_reason ?? '',
+        'Valor (R$)':      l.value_potential ?? '',
+        'Renutrição':      l.is_renutrucao ? 'Sim' : 'Não',
+      }))
+      const ws   = XLSX.utils.json_to_sheet(rows)
+      const wb   = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Leads')
+      const filename = `leads_${dateFrom}_${dateTo}.xlsx`
+      XLSX.writeFile(wb, filename)
+    } catch {
+      // silently ignore export errors
+    } finally {
+      setExporting(false)
+    }
+  }
 
   function handleSearch() { fetchReport(1) }
 
@@ -354,12 +396,27 @@ export default function LeadsReport() {
 
         {searched && report && !loading && (
           <>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              Mostrando{' '}
-              <strong style={{ color: 'var(--text-2)' }}>{report.leads.length}</strong>{' '}
-              de{' '}
-              <strong style={{ color: 'var(--text-2)' }}>{report.total}</strong>{' '}
-              leads
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                Mostrando{' '}
+                <strong style={{ color: 'var(--text-2)' }}>{report.leads.length}</strong>{' '}
+                de{' '}
+                <strong style={{ color: 'var(--text-2)' }}>{report.total}</strong>{' '}
+                leads
+              </span>
+              <button
+                onClick={exportExcel}
+                disabled={exporting || report.total === 0}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  background: exporting ? '#D1FAE5' : '#059669', color: exporting ? '#065F46' : 'white',
+                  border: 'none', cursor: exporting || report.total === 0 ? 'not-allowed' : 'pointer',
+                  opacity: report.total === 0 ? 0.4 : 1, transition: 'background 150ms',
+                }}
+              >
+                {exporting ? '⏳ Exportando...' : '⬇ Exportar Excel'}
+              </button>
             </div>
 
             <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
