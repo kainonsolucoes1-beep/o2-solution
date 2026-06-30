@@ -502,7 +502,7 @@ export default function KPIs() {
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
                       >
-                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB', textTransform: 'capitalize' }}>{b.label}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{b.label}</td>
                         <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                           <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{b.captacoes}</span>
                         </td>
@@ -530,7 +530,7 @@ export default function KPIs() {
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
             <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
               <div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0, textTransform: 'capitalize' }}>{orgPopup}</p>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{orgPopup}</p>
                 <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Leads captados neste ponto de conversão · {month}</p>
               </div>
               <button onClick={() => setOrgPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
