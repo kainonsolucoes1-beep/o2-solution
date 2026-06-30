@@ -420,6 +420,116 @@ def bases_analytics(
     return result
 
 
+_AGE_BANDS = [
+    (0,  18, "0–18"),
+    (19, 23, "19–23"),
+    (24, 28, "24–28"),
+    (29, 33, "29–33"),
+    (34, 38, "34–38"),
+    (39, 43, "39–43"),
+    (44, 48, "44–48"),
+    (49, 53, "49–53"),
+    (54, 58, "54–58"),
+    (59, 999, "59+"),
+]
+
+_IDADE_RE   = re.compile(r'Idades?:?\*?\s*([\d][^|\n]{0,80})', re.IGNORECASE)
+_TITULAR_RE = re.compile(r'(\d{1,3})\s*\(titular\)', re.IGNORECASE)
+
+
+def _titular_age(ages_raw: str | None, notes: str | None) -> int | None:
+    if notes:
+        m = _TITULAR_RE.search(notes)
+        if m:
+            return int(m.group(1))
+    for src in [ages_raw, None]:
+        raw = src
+        if raw is None and notes:
+            m = _IDADE_RE.search(notes)
+            raw = m.group(1) if m else None
+        if raw:
+            nums = [int(x) for x in re.findall(r'\d+', raw) if int(x) <= 110]
+            adults = [n for n in nums if n >= 18]
+            if adults:
+                return adults[0]
+            if nums:
+                return nums[0]
+    return None
+
+
+def _age_band(age: int) -> str:
+    for lo, hi, label in _AGE_BANDS:
+        if lo <= age <= hi:
+            return label
+    return "59+"
+
+
+@router.get("/faixas-etarias")
+def faixas_etarias(
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    leads = (
+        db.query(Lead.ages_raw, Lead.notes, Lead.status)
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to)
+        .all()
+    )
+
+    venda_set     = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    band_data: dict = {label: {"captacoes": 0, "vendas": 0, "cancelados": 0}
+                       for _, _, label in _AGE_BANDS}
+    sem_idade = 0
+
+    for ages_raw, notes, status in leads:
+        age = _titular_age(ages_raw, notes)
+        if age is None:
+            sem_idade += 1
+            continue
+        band = _age_band(age)
+        s = (status or "").lower()
+        band_data[band]["captacoes"] += 1
+        if s in venda_set:
+            band_data[band]["vendas"] += 1
+        elif s in cancelado_set:
+            band_data[band]["cancelados"] += 1
+
+    result = []
+    for _, _, label in _AGE_BANDS:
+        d = band_data[label]
+        cap = d["captacoes"]
+        ven = d["vendas"]
+        can = d["cancelados"]
+        result.append({
+            "faixa":           label,
+            "captacoes":       cap,
+            "vendas":          ven,
+            "cancelados":      can,
+            "conversao":       round(ven / cap * 100, 1) if cap > 0 else 0.0,
+            "pct_cancelamento": round(can / cap * 100, 1) if cap > 0 else 0.0,
+        })
+
+    total_com_idade = sum(d["captacoes"] for d in result)
+    return {
+        "bands":         result,
+        "sem_idade":     sem_idade,
+        "com_idade":     total_com_idade,
+    }
+
+
 @router.get("/receita-potencial")
 def receita_potencial(
     month: str = Query(None),

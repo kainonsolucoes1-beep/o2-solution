@@ -26,6 +26,15 @@ interface FonteData {
   breakdown: BreakdownItem[]
 }
 
+interface AgeBand {
+  faixa: string
+  captacoes: number
+  vendas: number
+  cancelados: number
+  conversao: number
+  pct_cancelamento: number
+}
+
 interface BaseStat {
   base: string
   captacoes: number
@@ -115,6 +124,10 @@ export default function KPIs() {
   const [orgLeads, setOrgLeads] = useState<OrgLead[]>([])
   const [orgLeadsLoading, setOrgLeadsLoading] = useState(false)
   const [orgStatusFilter, setOrgStatusFilter] = useState<string | null>(null)
+  const [ageBands, setAgeBands] = useState<AgeBand[]>([])
+  const [ageBandsLoading, setAgeBandsLoading] = useState(true)
+  const [ageSemIdade, setAgeSemIdade] = useState(0)
+  const [ageComIdade, setAgeComIdade] = useState(0)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null) } }
@@ -152,6 +165,11 @@ export default function KPIs() {
       .then(r => setBasesData(r.data))
       .catch(() => setBasesData([]))
       .finally(() => setBasesLoading(false))
+    setAgeBandsLoading(true)
+    api.get<{ bands: AgeBand[]; sem_idade: number; com_idade: number }>(`/api/v1/kpis/faixas-etarias?month=${month}`)
+      .then(r => { setAgeBands(r.data.bands); setAgeSemIdade(r.data.sem_idade); setAgeComIdade(r.data.com_idade) })
+      .catch(() => setAgeBands([]))
+      .finally(() => setAgeBandsLoading(false))
   }, [month])
 
   const sdrRows      = data.filter(d => isSdr(d.fonte))
@@ -518,6 +536,86 @@ export default function KPIs() {
                     ))}
                   </tbody>
                 </table>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Accordion: Faixas Etárias ── */}
+      <div style={acWrap}>
+        <button style={acHd(openSection === 'idades')} onClick={() => setOpenSection(openSection === 'idades' ? null : 'idades')}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Faixas Etárias</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+              {ageBandsLoading ? 'Carregando…' : `${ageComIdade} leads com idade identificada · ${ageSemIdade} sem dados`}
+            </p>
+          </div>
+          {openSection === 'idades' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
+        </button>
+        {openSection === 'idades' && (
+          <div style={{ padding: '20px 24px 24px' }}>
+            {ageBandsLoading ? (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>Carregando…</p>
+            ) : (
+              <>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: '#F8FAFC' }}>
+                        {['Faixa etária', 'Captações', 'Vendas', 'Cancelamentos', '% Conversão', '% Cancelamento'].map(h => (
+                          <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Faixa etária' ? 'left' : 'center', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ageBands.map(b => {
+                        const maxCap = Math.max(...ageBands.map(x => x.captacoes), 1)
+                        const barW = Math.round(b.captacoes / maxCap * 100)
+                        return (
+                          <tr key={b.faixa} style={{ borderTop: '1px solid var(--border)' }}>
+                            <td style={{ padding: '11px 14px', fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap' }}>{b.faixa}</td>
+                            <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                                <div style={{ width: 60, height: 6, background: '#E5E7EB', borderRadius: 3, flexShrink: 0 }}>
+                                  <div style={{ width: `${barW}%`, height: '100%', background: '#3B82F6', borderRadius: 3 }} />
+                                </div>
+                                <span style={{ fontWeight: 600 }}>{b.captacoes}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '11px 14px', textAlign: 'center', fontWeight: 600, color: b.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{b.vendas}</td>
+                            <td style={{ padding: '11px 14px', textAlign: 'center', fontWeight: 600, color: b.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{b.cancelados}</td>
+                            <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                              <span style={{ fontWeight: 700, color: b.conversao >= 20 ? '#059669' : b.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{b.conversao}%</span>
+                            </td>
+                            <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                              <span style={{ fontWeight: 700, color: b.pct_cancelamento >= 30 ? '#EF4444' : b.pct_cancelamento >= 15 ? '#F59E0B' : '#6B7280' }}>{b.pct_cancelamento}%</span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ borderTop: '2px solid var(--border)', background: '#F8FAFC' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: 700, fontSize: 12, color: 'var(--text-muted)' }}>TOTAL</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700 }}>{ageComIdade}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: '#059669' }}>{ageBands.reduce((s, b) => s + b.vendas, 0)}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: '#EF4444' }}>{ageBands.reduce((s, b) => s + b.cancelados, 0)}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700 }}>
+                          {ageComIdade > 0 ? (ageBands.reduce((s, b) => s + b.vendas, 0) / ageComIdade * 100).toFixed(1) : 0}%
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700 }}>
+                          {ageComIdade > 0 ? (ageBands.reduce((s, b) => s + b.cancelados, 0) / ageComIdade * 100).toFixed(1) : 0}%
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                {ageSemIdade > 0 && (
+                  <p style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', textAlign: 'right' }}>
+                    {ageSemIdade} leads sem idade registrada não estão incluídos na tabela.
+                  </p>
+                )}
               </>
             )}
           </div>
