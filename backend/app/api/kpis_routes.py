@@ -1,4 +1,5 @@
 import calendar
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -276,6 +277,71 @@ def motivos_cancelamento(
         }
         for r in rows
     ]
+
+
+@router.get("/bases")
+def bases_analytics(
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    leads = (
+        db.query(Lead.notes, Lead.status)
+        .filter(
+            Lead.created_at >= dt_from,
+            Lead.created_at <= dt_to,
+            Lead.notes.isnot(None),
+            Lead.notes.ilike('%Base:%'),
+        )
+        .all()
+    )
+
+    base_re = re.compile(r'(?i)base:\s*([^\n]+)')
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})
+    for notes, status in leads:
+        m = base_re.search(notes or '')
+        if not m:
+            continue
+        base = m.group(1).strip()
+        if not base:
+            continue
+        s = (status or '').lower()
+        data[base]["captacoes"] += 1
+        if s in venda_set:
+            data[base]["vendas"] += 1
+        elif s in cancelado_set:
+            data[base]["cancelados"] += 1
+
+    result = []
+    for base, counts in data.items():
+        cap = counts["captacoes"]
+        ven = counts["vendas"]
+        can = counts["cancelados"]
+        result.append({
+            "base": base,
+            "captacoes": cap,
+            "vendas": ven,
+            "cancelados": can,
+            "conversao": round(ven / cap * 100, 1) if cap > 0 else 0.0,
+            "pct_cancelamento": round(can / cap * 100, 1) if cap > 0 else 0.0,
+        })
+
+    result.sort(key=lambda x: x["captacoes"], reverse=True)
+    return result
 
 
 @router.get("/receita-potencial")
