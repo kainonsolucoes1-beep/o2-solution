@@ -472,22 +472,149 @@ interface OperadorPerf {
 }
 
 const MEDALS = ['🥇', '🥈', '🥉']
-const META_KEY = (month: string) => `perf_meta_${month}`
+const RANK_BORDER = ['#F59E0B', '#94A3B8', '#CD7C2C']
+const RANK_GLOW   = ['rgba(245,158,11,0.18)', 'rgba(148,163,184,0.14)', 'rgba(205,124,44,0.14)']
+const META_KEY    = (month: string) => `perf_meta_${month}`
+
+function convColor(pct: number) {
+  return pct >= 30 ? '#059669' : pct >= 15 ? '#F59E0B' : '#3B82F6'
+}
+
+function GaugeArc({ pct }: { pct: number }) {
+  const W = 160, H = 90
+  const cx = W / 2, cy = H - 4
+  const r = 62
+  const strokeW = 11
+  const arcLen  = Math.PI * r
+  const fillLen = Math.min(pct / 100, 1) * arcLen
+  const d = `M ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy}`
+  const color = convColor(pct)
+
+  return (
+    <svg width={W} height={H} style={{ overflow: 'visible' }}>
+      {/* track */}
+      <path d={d} fill="none" stroke="#E2E8F0" strokeWidth={strokeW} strokeLinecap="round" />
+      {/* fill */}
+      {pct > 0 && (
+        <path
+          d={d} fill="none"
+          stroke={color} strokeWidth={strokeW} strokeLinecap="round"
+          strokeDasharray={`${fillLen} ${arcLen}`}
+          style={{ transition: 'stroke-dasharray 700ms ease' }}
+        />
+      )}
+      {/* glow dot at tip */}
+      {pct > 0 && pct < 100 && (() => {
+        const angle = Math.PI - (pct / 100) * Math.PI
+        const tx = cx + r * Math.cos(angle)
+        const ty = cy - r * Math.sin(angle)
+        return <circle cx={tx} cy={ty} r={6} fill={color} opacity={0.35} />
+      })()}
+      {/* value */}
+      <text x={cx} y={cy - 14} textAnchor="middle" fontSize={26} fontWeight={700} fill={color}
+        style={{ fontFamily: 'inherit' }}>{pct}%</text>
+      <text x={cx} y={cy + 2} textAnchor="middle" fontSize={10} fontWeight={600} fill="#94A3B8"
+        style={{ fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Conversão</text>
+    </svg>
+  )
+}
+
+function OperadorCard({
+  r, i, metaVendas, avg,
+}: { r: OperadorPerf; i: number; metaVendas: number; avg: { conversao: number } | null }) {
+  const isTop3    = i < 3
+  const metaPct   = metaVendas > 0 ? Math.min(100, Math.round(r.vendas / metaVendas * 100)) : 0
+  const metaClr   = metaPct >= 100 ? '#059669' : metaPct >= 50 ? '#F59E0B' : '#EF4444'
+  const vsConv    = avg ? +(r.conversao - avg.conversao).toFixed(1) : 0
+  const border    = isTop3 ? RANK_BORDER[i] : 'var(--border)'
+  const shadow    = isTop3 ? `0 6px 28px ${RANK_GLOW[i]}` : '0 2px 8px rgba(0,0,0,0.06)'
+
+  return (
+    <div style={{
+      background: 'var(--bg-card)', borderRadius: 18,
+      border: `2px solid ${border}`, boxShadow: shadow,
+      padding: '20px 18px 16px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
+      position: 'relative',
+    }}>
+      {/* rank badge */}
+      <div style={{
+        position: 'absolute', top: 12, right: 14,
+        fontSize: isTop3 ? 20 : 12, fontWeight: 700,
+        color: isTop3 ? RANK_BORDER[i] : '#CBD5E1',
+      }}>
+        {MEDALS[i] ?? `#${r.ranking}`}
+      </div>
+
+      {/* name */}
+      <p style={{
+        fontSize: 13, fontWeight: 700, color: 'var(--text-1)',
+        margin: '0 0 12px', textAlign: 'center',
+        width: '100%', paddingRight: 28,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{r.operador}</p>
+
+      {/* gauge */}
+      <GaugeArc pct={r.conversao} />
+
+      {/* stat grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', margin: '14px 0 12px' }}>
+        {([
+          { label: 'Captações',    value: r.captacoes,    color: '#3B82F6' },
+          { label: 'Agendamentos', value: r.agendamentos, color: '#8B5CF6' },
+          { label: 'Propostas',    value: r.propostas,    color: '#F59E0B' },
+          { label: 'Vendas',       value: r.vendas,       color: '#059669' },
+        ] as const).map(s => (
+          <div key={s.label} style={{
+            background: 'var(--bg-subtle)', borderRadius: 10,
+            padding: '8px 6px', textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 22, fontWeight: 700, color: s.color, margin: 0, lineHeight: 1 }}>{s.value}</p>
+            <p style={{ fontSize: 9, color: 'var(--text-muted)', margin: '3px 0 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* meta bar */}
+      <div style={{ width: '100%', marginBottom: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta vendas</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: metaClr }}>{r.vendas}/{metaVendas} ({metaPct}%)</span>
+        </div>
+        <div style={{ background: '#E5E7EB', borderRadius: 6, height: 6, overflow: 'hidden' }}>
+          <div style={{ width: `${metaPct}%`, height: '100%', background: metaClr, borderRadius: 6, transition: 'width 600ms ease' }} />
+        </div>
+      </div>
+
+      {/* vs média badge */}
+      <div style={{
+        background: vsConv >= 0 ? '#ECFDF5' : '#FEF2F2',
+        borderRadius: 20, padding: '3px 12px',
+        display: 'flex', alignItems: 'center', gap: 4,
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: vsConv >= 0 ? '#059669' : '#EF4444' }}>
+          {vsConv >= 0 ? '▲' : '▼'} {Math.abs(vsConv)}pp vs média
+        </span>
+      </div>
+    </div>
+  )
+}
 
 function PerformanceTab() {
-  const [month, setMonth]         = useState(nowMonth())
-  const [data, setData]           = useState<OperadorPerf[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [month, setMonth]                 = useState(nowMonth())
+  const [data, setData]                   = useState<OperadorPerf[]>([])
+  const [loading, setLoading]             = useState(true)
   const [metaVendas, setMetaVendas]       = useState(10)
   const [metaCaptacoes, setMetaCaptacoes] = useState(50)
 
-  // Persist metas por mês em localStorage
   useEffect(() => {
     const saved = localStorage.getItem(META_KEY(month))
     if (saved) {
-      const p = JSON.parse(saved)
-      setMetaVendas(p.vendas ?? 10)
-      setMetaCaptacoes(p.captacoes ?? 50)
+      try {
+        const p = JSON.parse(saved)
+        setMetaVendas(p.vendas ?? 10)
+        setMetaCaptacoes(p.captacoes ?? 50)
+      } catch {}
     }
   }, [month])
 
@@ -503,7 +630,7 @@ function PerformanceTab() {
       .finally(() => setLoading(false))
   }, [month])
 
-  const n = data.length
+  const n   = data.length
   const avg = n > 0 ? {
     captacoes:    Math.round(data.reduce((s, r) => s + r.captacoes, 0) / n),
     agendamentos: Math.round(data.reduce((s, r) => s + r.agendamentos, 0) / n),
@@ -512,21 +639,11 @@ function PerformanceTab() {
     conversao:    parseFloat((data.reduce((s, r) => s + r.conversao, 0) / n).toFixed(1)),
   } : null
 
-  const inputStyle: React.CSSProperties = {
+  const inputSt: React.CSSProperties = {
     background: 'var(--bg-input)', border: '1px solid var(--border-in)',
     borderRadius: 8, padding: '6px 10px', fontSize: 13,
     color: 'var(--text-2)', width: 72, textAlign: 'center',
   }
-  const thStyle: React.CSSProperties = {
-    padding: '11px 14px', fontSize: 11, fontWeight: 700,
-    color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em',
-    background: '#1E293B', borderBottom: '2px solid #334155', textAlign: 'left',
-  }
-  const tdStyle = (i: number): React.CSSProperties => ({
-    padding: '10px 14px', fontSize: 13, color: 'var(--text-2)',
-    borderBottom: '1px solid var(--border)',
-    background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
-  })
 
   return (
     <div>
@@ -534,116 +651,53 @@ function PerformanceTab() {
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 28, flexWrap: 'wrap' }}>
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mês</p>
-          <input
-            type="month" value={month} onChange={e => setMonth(e.target.value)}
-            style={{ ...inputStyle, width: 'auto' }}
-          />
+          <input type="month" value={month} onChange={e => setMonth(e.target.value)} style={{ ...inputSt, width: 'auto' }} />
         </div>
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta Captações</p>
-          <input type="number" min={0} value={metaCaptacoes} onChange={e => setMetaCaptacoes(Math.max(0, +e.target.value))} style={inputStyle} />
+          <input type="number" min={0} value={metaCaptacoes} onChange={e => setMetaCaptacoes(Math.max(0, +e.target.value))} style={inputSt} />
         </div>
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta Vendas</p>
-          <input type="number" min={0} value={metaVendas} onChange={e => setMetaVendas(Math.max(0, +e.target.value))} style={inputStyle} />
+          <input type="number" min={0} value={metaVendas} onChange={e => setMetaVendas(Math.max(0, +e.target.value))} style={inputSt} />
         </div>
       </div>
 
-      {/* Summary cards */}
+      {/* Team avg strip */}
       {!loading && avg && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 24 }}>
-          {[
-            { label: 'Captações (média)', value: avg.captacoes, color: '#3B82F6', bg: '#EFF6FF' },
-            { label: 'Agendamentos (média)', value: avg.agendamentos, color: '#8B5CF6', bg: '#F5F3FF' },
-            { label: 'Propostas (média)', value: avg.propostas, color: '#F59E0B', bg: '#FFFBEB' },
-            { label: 'Vendas (média)', value: avg.vendas, color: '#10B981', bg: '#ECFDF5' },
-            { label: 'Conversão (média)', value: `${avg.conversao}%`, color: '#059669', bg: '#ECFDF5' },
-          ].map(c => (
-            <div key={c.label} style={{ background: c.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${c.color}33` }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: c.color, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>{c.label}</p>
-              <p style={{ fontSize: 26, fontWeight: 700, color: c.color, margin: 0 }}>{c.value}</p>
+        <div style={{
+          display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap',
+          background: 'var(--bg-card)', borderRadius: 12,
+          padding: '14px 20px', border: '1px solid var(--border)',
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', alignSelf: 'center', marginRight: 4 }}>Média equipe</span>
+          {([
+            { label: 'Captações',    value: avg.captacoes,    color: '#3B82F6' },
+            { label: 'Agendamentos', value: avg.agendamentos, color: '#8B5CF6' },
+            { label: 'Propostas',    value: avg.propostas,    color: '#F59E0B' },
+            { label: 'Vendas',       value: avg.vendas,       color: '#059669' },
+            { label: 'Conversão',    value: `${avg.conversao}%`, color: convColor(avg.conversao) },
+          ] as const).map(c => (
+            <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', borderRadius: 8, padding: '5px 12px' }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: c.color }}>{c.value}</span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{c.label}</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* Table */}
-      <div style={{ background: 'var(--bg-card)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        {loading ? (
-          <p style={{ padding: '32px 24px', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
-        ) : data.length === 0 ? (
-          <p style={{ padding: '32px 24px', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum dado para o período.</p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ ...thStyle, width: 48 }}>#</th>
-                <th style={thStyle}>Operador</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Captações</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Agendamentos</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Propostas</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Vendas</th>
-                <th style={{ ...thStyle, width: 140 }}>Conversão</th>
-                <th style={{ ...thStyle, width: 160 }}>Meta Vendas</th>
-                <th style={{ ...thStyle, textAlign: 'right', width: 110 }}>vs Média</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((r, i) => {
-                const metaVPct   = metaVendas > 0 ? Math.min(100, Math.round(r.vendas / metaVendas * 100)) : 0
-                const metaBarClr = metaVPct >= 100 ? '#059669' : metaVPct >= 50 ? '#F59E0B' : '#EF4444'
-                const vsConv     = avg ? +(r.conversao - avg.conversao).toFixed(1) : 0
-                const td         = tdStyle(i)
-                const convBarClr = r.conversao >= 30 ? '#059669' : r.conversao >= 15 ? '#F59E0B' : '#3B82F6'
-                return (
-                  <tr key={r.operador}>
-                    <td style={{ ...td, textAlign: 'center', fontSize: 17 }}>{MEDALS[i] ?? r.ranking}</td>
-                    <td style={{ ...td, fontWeight: 600, color: 'var(--text-1)' }}>{r.operador}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 500 }}>{r.captacoes}</td>
-                    <td style={{ ...td, textAlign: 'right', color: '#8B5CF6' }}>{r.agendamentos}</td>
-                    <td style={{ ...td, textAlign: 'right', color: '#F59E0B' }}>{r.propostas}</td>
-                    <td style={{ ...td, textAlign: 'right', color: '#059669', fontWeight: 700 }}>{r.vendas}</td>
-                    <td style={td}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ flex: 1, height: 7, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
-                          <div style={{ width: `${Math.min(100, r.conversao / Math.max(...data.map(d => d.conversao), 1) * 100)}%`, height: '100%', background: convBarClr, borderRadius: 4, transition: 'width 400ms ease' }} />
-                        </div>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: convBarClr, minWidth: 38, textAlign: 'right' }}>{r.conversao}%</span>
-                      </div>
-                    </td>
-                    <td style={td}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ flex: 1, height: 7, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
-                          <div style={{ width: `${metaVPct}%`, height: '100%', background: metaBarClr, borderRadius: 4, transition: 'width 400ms ease' }} />
-                        </div>
-                        <span style={{ fontSize: 11, color: metaBarClr, fontWeight: 600, minWidth: 48, textAlign: 'right' }}>{r.vendas}/{metaVendas}</span>
-                      </div>
-                    </td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: vsConv >= 0 ? '#059669' : '#EF4444' }}>
-                      {vsConv >= 0 ? '+' : ''}{vsConv}pp
-                    </td>
-                  </tr>
-                )
-              })}
-
-              {/* Média row */}
-              {avg && (
-                <tr style={{ background: '#F8FAFC', borderTop: '2px solid var(--border)' }}>
-                  <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: '#64748B' }}>—</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: '#64748B' }}>Média da Equipe</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#64748B' }}>{avg.captacoes}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#8B5CF6' }}>{avg.agendamentos}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#F59E0B' }}>{avg.propostas}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#059669', fontWeight: 700 }}>{avg.vendas}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: '#64748B' }}>{avg.conversao}%</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, color: '#64748B' }}>—</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#64748B' }}>—</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {/* Cards grid */}
+      {loading ? (
+        <p style={{ fontSize: 13, color: 'var(--text-subtle)', padding: '40px 0', textAlign: 'center' }}>Carregando...</p>
+      ) : data.length === 0 ? (
+        <p style={{ fontSize: 13, color: 'var(--text-subtle)', padding: '40px 0', textAlign: 'center' }}>Nenhum dado para o período.</p>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 16 }}>
+          {data.map((r, i) => (
+            <OperadorCard key={r.operador} r={r} i={i} metaVendas={metaVendas} avg={avg} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
