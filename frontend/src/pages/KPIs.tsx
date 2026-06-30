@@ -59,7 +59,7 @@ const SDR_NAMES = new Set([
   'isaac', 'julia', 'leticia', 'maria eduarda', 'anny', 'emily', 'emilly',
   'pedro', 'lucas', 'guilherme', 'lucascardoso', 'lucas cardoso', 'rodolfo', 'discadora',
   'gabrieli', 'gabrielli', 'kauany', 'kauanny', 'clara', 'o2 solution',
-  'lucas carvalho', 'lucascarvalho',
+  'lucas carvalho', 'lucascarvalho', 'thaynara',
 ])
 
 const ORGANIC_SUB_NAMES = new Set(['chatgpt.com', 'site'])
@@ -128,6 +128,10 @@ export default function KPIs() {
   const [baseLeads, setBaseLeads] = useState<OrgLead[]>([])
   const [baseLeadsLoading, setBaseLeadsLoading] = useState(false)
   const [baseStatusFilter, setBaseStatusFilter] = useState<string | null>(null)
+  const [sdrPopup, setSdrPopup] = useState<string | null>(null)
+  const [sdrLeads, setSdrLeads] = useState<OrgLead[]>([])
+  const [sdrLeadsLoading, setSdrLeadsLoading] = useState(false)
+  const [sdrStatusFilter, setSdrStatusFilter] = useState<string | null>(null)
   const [ageBands, setAgeBands] = useState<AgeBand[]>([])
   const [ageBandsLoading, setAgeBandsLoading] = useState(true)
   const [ageSemIdade, setAgeSemIdade] = useState(0)
@@ -137,7 +141,7 @@ export default function KPIs() {
   const [ageLeadsLoading, setAgeLeadsLoading] = useState(false)
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null) } }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null); setSdrPopup(null) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
@@ -367,6 +371,15 @@ export default function KPIs() {
   const organicConv = organicTotal.captacoes > 0 ? +(organicTotal.vendas / organicTotal.captacoes * 100).toFixed(1) : 0
   const organicPerdaPct = organicTotal.captacoes > 0 ? +(organicTotal.cancelados / organicTotal.captacoes * 100).toFixed(1) : 0
 
+  const sdrFontes = data.filter(d => isSdr(d.fonte)).sort((a, b) => b.captacoes - a.captacoes)
+  const sdrTotal = {
+    captacoes:  sdrFontes.reduce((s, f) => s + f.captacoes, 0),
+    vendas:     sdrFontes.reduce((s, f) => s + f.vendas, 0),
+    cancelados: sdrFontes.reduce((s, f) => s + f.cancelados, 0),
+  }
+  const sdrConv      = sdrTotal.captacoes > 0 ? +(sdrTotal.vendas / sdrTotal.captacoes * 100).toFixed(1) : 0
+  const sdrPerdaPct  = sdrTotal.captacoes > 0 ? +(sdrTotal.cancelados / sdrTotal.captacoes * 100).toFixed(1) : 0
+
   const baseTopCapt: BaseStat | undefined = basesData.length > 0
     ? [...basesData].sort((a, b) => b.captacoes - a.captacoes)[0]
     : undefined
@@ -471,6 +484,84 @@ export default function KPIs() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Accordion: SDR ── */}
+      <div style={acWrap}>
+        <button style={acHd(openSection === 'sdr')} onClick={() => setOpenSection(openSection === 'sdr' ? null : 'sdr')}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>SDR</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+              {loading ? 'Carregando…' : `${sdrFontes.length} operadores · ${sdrTotal.captacoes} leads · ${sdrTotal.vendas} vendas · ${sdrConv}% conversão`}
+            </p>
+          </div>
+          {openSection === 'sdr' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
+        </button>
+        {openSection === 'sdr' && (
+          <div style={{ padding: '20px 24px 24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+              {([
+                { label: 'Captações', val: String(sdrTotal.captacoes), color: '#3B82F6', bg: '#EFF6FF' },
+                { label: 'Vendas',    val: String(sdrTotal.vendas),    color: '#10B981', bg: '#ECFDF5' },
+                { label: 'Conversão', val: `${sdrConv}%`,              color: '#7C3AED', bg: '#F5F3FF' },
+                { label: '% Perda',   val: `${sdrPerdaPct}%`,          color: '#EF4444', bg: '#FEF2F2' },
+              ] as const).map(({ label, val, color, bg }) => (
+                <div key={label} style={{ background: bg, borderRadius: 10, padding: '14px 16px', border: `1px solid ${color}25` }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>{label}</p>
+                  <p style={{ fontSize: 22, fontWeight: 800, color, margin: 0 }}>{val}</p>
+                </div>
+              ))}
+            </div>
+            {loading ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Carregando…</div>
+            ) : sdrFontes.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum dado SDR neste período</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-3, #f5f5f5)' }}>
+                    {['SDR', 'Captações', 'Vendas', 'Cancelamentos', 'Conversão', '% Perda'].map(h => (
+                      <th key={h} style={{ padding: '9px 14px', textAlign: h === 'SDR' ? 'left' : 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sdrFontes.map(f => {
+                    const pctPerda = f.captacoes > 0 ? +(f.cancelados / f.captacoes * 100).toFixed(1) : 0
+                    return (
+                      <tr key={f.fonte} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                        onClick={() => {
+                          setSdrPopup(f.fonte)
+                          setSdrStatusFilter(null)
+                          setSdrLeadsLoading(true)
+                          setSdrLeads([])
+                          api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?${new URLSearchParams({ month, origens: f.fonte })}`)
+                            .then(r => setSdrLeads(r.data)).catch(() => setSdrLeads([]))
+                            .finally(() => setSdrLeadsLoading(false))
+                        }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
+                      >
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{f.fonte}</td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                          <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{f.captacoes}</span>
+                        </td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: '#10B981', fontWeight: 700 }}>{f.vendas}</td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: f.cancelados > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: f.cancelados > 0 ? 700 : 400 }}>{f.cancelados}</td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: f.conversao >= 20 ? '#059669' : f.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{f.conversao}%</span>
+                        </td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: pctPerda >= 30 ? '#EF4444' : pctPerda >= 15 ? '#F59E0B' : '#6B7280' }}>{pctPerda}%</span>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
@@ -691,6 +782,69 @@ export default function KPIs() {
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Leads por SDR ── */}
+      {sdrPopup && (
+        <div onClick={() => setSdrPopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{sdrPopup}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Leads captados por este SDR · {month}</p>
+              </div>
+              <button onClick={() => setSdrPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 24px 24px' }}>
+              {sdrLeadsLoading ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
+              ) : sdrLeads.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
+              ) : (() => {
+                const statusList = [...new Set(sdrLeads.map(l => l.status))]
+                const filtered   = sdrStatusFilter ? sdrLeads.filter(l => l.status === sdrStatusFilter) : sdrLeads
+                return (
+                  <>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                      <button onClick={() => setSdrStatusFilter(null)}
+                        style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: sdrStatusFilter === null ? '#1D4ED8' : 'var(--bg-2)', color: sdrStatusFilter === null ? '#fff' : 'var(--text-muted)' }}>
+                        Todos ({sdrLeads.length})
+                      </button>
+                      {statusList.map(st => {
+                        const count = sdrLeads.filter(l => l.status === st).length
+                        const active = sdrStatusFilter === st
+                        const tipoCor = sdrLeads.find(l => l.status === st)?.tipo === 'venda' ? '#059669' : sdrLeads.find(l => l.status === st)?.tipo === 'perda' ? '#EF4444' : '#6B7280'
+                        return (
+                          <button key={st} onClick={() => setSdrStatusFilter(active ? null : st)}
+                            style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1px solid ${tipoCor}40`, cursor: 'pointer', background: active ? tipoCor : tipoCor + '15', color: active ? '#fff' : tipoCor }}>
+                            {st} ({count})
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {filtered.map((l, i) => {
+                        const tipoCor = l.tipo === 'venda' ? '#059669' : l.tipo === 'perda' ? '#EF4444' : '#6B7280'
+                        const tipoBg  = l.tipo === 'venda' ? '#ECFDF5' : l.tipo === 'perda' ? '#FEF2F2' : '#F1F5F9'
+                        return (
+                          <div key={i} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 10, background: tipoBg, color: tipoCor, borderRadius: 4, padding: '2px 7px', fontWeight: 700, flexShrink: 0 }}>{l.status}</span>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{l.nome}</p>
+                            </div>
+                            {l.valor ? <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', flexShrink: 0, marginLeft: 8 }}>R$ {l.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
         </div>
