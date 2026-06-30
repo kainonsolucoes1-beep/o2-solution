@@ -114,6 +114,7 @@ export default function KPIs() {
   const [orgPopup, setOrgPopup] = useState<string | null>(null)
   const [orgLeads, setOrgLeads] = useState<OrgLead[]>([])
   const [orgLeadsLoading, setOrgLeadsLoading] = useState(false)
+  const [orgStatusFilter, setOrgStatusFilter] = useState<string | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null) } }
@@ -486,6 +487,7 @@ export default function KPIs() {
                       <tr key={b.label} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                         onClick={() => {
                           setOrgPopup(b.label)
+                          setOrgStatusFilter(null)
                           setOrgLeadsLoading(true)
                           setOrgLeads([])
                           api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?month=${month}&conv_point=${encodeURIComponent(b.label)}`)
@@ -535,26 +537,46 @@ export default function KPIs() {
                 <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
               ) : orgLeads.length === 0 ? (
                 <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {orgLeads.map((l, i) => {
-                    const tipoCor = l.tipo === 'venda' ? '#059669' : l.tipo === 'perda' ? '#EF4444' : '#6B7280'
-                    const tipoBg  = l.tipo === 'venda' ? '#ECFDF5' : l.tipo === 'perda' ? '#FEF2F2' : '#F1F5F9'
-                    return (
-                      <div key={i} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{l.nome}</p>
-                          {l.valor ? <span style={{ fontSize: 13, fontWeight: 700, color: '#059669' }}>R$ {l.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> : null}
-                        </div>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.origem}</span>
-                          <span style={{ fontSize: 10, background: tipoBg, color: tipoCor, borderRadius: 4, padding: '2px 7px', fontWeight: 700 }}>{l.status}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+              ) : (() => {
+                const statusList = [...new Set(orgLeads.map(l => l.status))]
+                const filtered   = orgStatusFilter ? orgLeads.filter(l => l.status === orgStatusFilter) : orgLeads
+                return (
+                  <>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                      <button onClick={() => setOrgStatusFilter(null)}
+                        style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: orgStatusFilter === null ? '#1D4ED8' : 'var(--bg-2)', color: orgStatusFilter === null ? '#fff' : 'var(--text-muted)' }}>
+                        Todos ({orgLeads.length})
+                      </button>
+                      {statusList.map(st => {
+                        const count = orgLeads.filter(l => l.status === st).length
+                        const active = orgStatusFilter === st
+                        const tipoCor = orgLeads.find(l => l.status === st)?.tipo === 'venda' ? '#059669' : orgLeads.find(l => l.status === st)?.tipo === 'perda' ? '#EF4444' : '#6B7280'
+                        return (
+                          <button key={st} onClick={() => setOrgStatusFilter(active ? null : st)}
+                            style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1px solid ${tipoCor}40`, cursor: 'pointer', background: active ? tipoCor : tipoCor + '15', color: active ? '#fff' : tipoCor }}>
+                            {st} ({count})
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {filtered.map((l, i) => {
+                        const tipoCor = l.tipo === 'venda' ? '#059669' : l.tipo === 'perda' ? '#EF4444' : '#6B7280'
+                        const tipoBg  = l.tipo === 'venda' ? '#ECFDF5' : l.tipo === 'perda' ? '#FEF2F2' : '#F1F5F9'
+                        return (
+                          <div key={i} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 10, background: tipoBg, color: tipoCor, borderRadius: 4, padding: '2px 7px', fontWeight: 700, flexShrink: 0 }}>{l.status}</span>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{l.nome}</p>
+                            </div>
+                            {l.valor ? <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', flexShrink: 0, marginLeft: 8 }}>R$ {l.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
         </div>
