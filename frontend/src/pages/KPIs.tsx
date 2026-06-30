@@ -35,6 +35,14 @@ interface BaseStat {
   pct_cancelamento: number
 }
 
+interface OrgLead {
+  nome: string
+  origem: string
+  status: string
+  valor: number | null
+  tipo: 'venda' | 'perda' | 'ativo'
+}
+
 const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
 const MEDALS = ['🥇', '🥈', '🥉']
 
@@ -103,9 +111,12 @@ export default function KPIs() {
   const [basesData, setBasesData] = useState<BaseStat[]>([])
   const [basesLoading, setBasesLoading] = useState(true)
   const [openSection, setOpenSection] = useState<string | null>(null)
+  const [orgPopup, setOrgPopup] = useState<string | null>(null)
+  const [orgLeads, setOrgLeads] = useState<OrgLead[]>([])
+  const [orgLeadsLoading, setOrgLeadsLoading] = useState(false)
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPopover(null) }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
@@ -472,8 +483,19 @@ export default function KPIs() {
                   </thead>
                   <tbody>
                     {organicBp.map(b => (
-                      <tr key={b.label} style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'capitalize' }}>{b.label}</td>
+                      <tr key={b.label} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                        onClick={() => {
+                          setOrgPopup(b.label)
+                          setOrgLeadsLoading(true)
+                          setOrgLeads([])
+                          api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?month=${month}&conv_point=${encodeURIComponent(b.label)}`)
+                            .then(r => setOrgLeads(r.data)).catch(() => setOrgLeads([]))
+                            .finally(() => setOrgLeadsLoading(false))
+                        }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
+                      >
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB', textTransform: 'capitalize', textDecoration: 'underline', textDecorationStyle: 'dotted' }}>{b.label}</td>
                         <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                           <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{b.captacoes}</span>
                         </td>
@@ -494,6 +516,49 @@ export default function KPIs() {
           </div>
         )}
       </div>
+
+      {/* ── Modal: Leads por Ponto de Conversão ── */}
+      {orgPopup && (
+        <div onClick={() => setOrgPopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0, textTransform: 'capitalize' }}>{orgPopup}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Leads captados neste ponto de conversão · {month}</p>
+              </div>
+              <button onClick={() => setOrgPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 24px 24px' }}>
+              {orgLeadsLoading ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
+              ) : orgLeads.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {orgLeads.map((l, i) => {
+                    const tipoCor = l.tipo === 'venda' ? '#059669' : l.tipo === 'perda' ? '#EF4444' : '#6B7280'
+                    const tipoBg  = l.tipo === 'venda' ? '#ECFDF5' : l.tipo === 'perda' ? '#FEF2F2' : '#F1F5F9'
+                    return (
+                      <div key={i} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{l.nome}</p>
+                          {l.valor ? <span style={{ fontSize: 13, fontWeight: 700, color: '#059669' }}>R$ {l.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> : null}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.origem}</span>
+                          <span style={{ fontSize: 10, background: tipoBg, color: tipoCor, borderRadius: 4, padding: '2px 7px', fontWeight: 700 }}>{l.status}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   ) : (
     <main style={{ padding: '24px 32px' }}>

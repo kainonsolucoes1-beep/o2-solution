@@ -279,6 +279,60 @@ def motivos_cancelamento(
     ]
 
 
+@router.get("/leads-conv-point")
+def leads_conv_point(
+    month: str = Query(None),
+    conv_point: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    filters = [Lead.created_at >= dt_from, Lead.created_at <= dt_to]
+    if conv_point:
+        filters.append(Lead.conversion_point.ilike(conv_point))
+
+    rows = (
+        db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential)
+        .filter(*filters)
+        .order_by(Lead.created_at.desc())
+        .limit(50)
+        .all()
+    )
+
+    STATUS_PT = {
+        "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
+        "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
+        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
+        "scheduled": "Agendado", "proposta": "Proposta",
+        "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
+    }
+    venda_set    = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    result = []
+    for l in rows:
+        s = (l.status or "").lower()
+        tipo = "venda" if s in venda_set else "perda" if s in cancelado_set else "ativo"
+        result.append({
+            "nome":   l.name or "Sem nome",
+            "origem": l.origin or "—",
+            "status": STATUS_PT.get(s, l.status or "—"),
+            "valor":  float(l.value_potential) if l.value_potential else None,
+            "tipo":   tipo,
+        })
+    return result
+
+
 @router.get("/bases")
 def bases_analytics(
     month: str = Query(None),
