@@ -263,7 +263,7 @@ def _parse_lead_fields(raw: dict) -> dict:
 
     interests = raw.get("interests") or {}
     _i5_val = ((interests.get("interest_5") or {}).get("name") or "").strip()
-    ages_raw = _i5_val if _i5_val and re.match(r'^[\d,\s]+$', _i5_val) else None
+    ages_raw = _i5_val if _i5_val and re.match(r'^[\dm,\s]+$', _i5_val) else None
 
     return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw}
 

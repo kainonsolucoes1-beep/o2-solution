@@ -437,6 +437,20 @@ _IDADE_RE   = re.compile(r'Idades?:?\*?\s*([\d][^|\n]{0,80})', re.IGNORECASE)
 _TITULAR_RE = re.compile(r'(\d{1,3})\s*\(titular\)', re.IGNORECASE)
 
 
+def _parse_ages(raw: str) -> list[int]:
+    result = []
+    for part in raw.split(','):
+        part = part.strip()
+        if part.endswith('m'):
+            result.append(0)
+        elif part.isdigit() and int(part) <= 110:
+            result.append(int(part))
+        else:
+            nums = [int(x) for x in re.findall(r'\d+', part) if int(x) <= 110]
+            result.extend(nums)
+    return result
+
+
 def _titular_age(ages_raw: str | None, notes: str | None) -> int | None:
     if notes:
         m = _TITULAR_RE.search(notes)
@@ -448,7 +462,7 @@ def _titular_age(ages_raw: str | None, notes: str | None) -> int | None:
             m = _IDADE_RE.search(notes)
             raw = m.group(1) if m else None
         if raw:
-            nums = [int(x) for x in re.findall(r'\d+', raw) if int(x) <= 110]
+            nums = _parse_ages(raw)
             adults = [n for n in nums if n >= 18]
             if adults:
                 return adults[0]
