@@ -318,6 +318,7 @@ def bases_analytics(
         "mei sp (discadora)":                              "Clientes MEI em SP",
         "discadora sul américa":                           "SulAmerica",
         "discadora sul america":                           "SulAmerica",
+        "base sulamerica":                                 "SulAmerica",
     }
 
     base_re_emoji  = re.compile(r'🗂️\s*Base:\s*([^|\n]+)')
