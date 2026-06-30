@@ -502,7 +502,7 @@ export default function KPIs() {
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
                       >
-                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB', textTransform: 'capitalize', textDecoration: 'underline', textDecorationStyle: 'dotted' }}>{b.label}</td>
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB', textTransform: 'capitalize' }}>{b.label}</td>
                         <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                           <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{b.captacoes}</span>
                         </td>
