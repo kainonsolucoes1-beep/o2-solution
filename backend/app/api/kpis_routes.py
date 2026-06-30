@@ -302,18 +302,20 @@ def bases_analytics(
             Lead.created_at >= dt_from,
             Lead.created_at <= dt_to,
             Lead.notes.isnot(None),
-            Lead.notes.ilike('%Base:%'),
+            Lead.notes.ilike('%Base%'),
         )
         .all()
     )
 
-    base_re = re.compile(r'(?i)base:\s*([^\n]+)')
+    base_re_emoji  = re.compile(r'🗂️\s*Base:\s*([^|\n]+)')
+    base_re_simple = re.compile(r'(?im)^Base:\s*([^\n]+)')
     venda_set = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
 
     data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})
     for notes, status in leads:
-        m = base_re.search(notes or '')
+        text = notes or ''
+        m = base_re_emoji.search(text) or base_re_simple.search(text)
         if not m:
             continue
         base = m.group(1).strip()

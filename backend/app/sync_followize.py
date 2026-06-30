@@ -258,8 +258,9 @@ def _parse_lead_fields(raw: dict) -> dict:
     unrealized = finalization.get("unrealized_sale_reason") or {}
     lost_reason = unrealized.get("name") or None
     lost_message = finalization.get("message") or None
+    notes = raw.get("message") or None
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
@@ -303,6 +304,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
             or existing.attendant != fields["attendant"]
             or existing.value_potential != fields["value_potential"]
             or existing.perception != fields["perception"]
+            or existing.notes != fields["notes"]
         )
 
         existing.followize_id = followize_id
@@ -317,6 +319,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.perception = fields["perception"]
         existing.lost_reason = fields["lost_reason"]
         existing.lost_message = fields["lost_message"]
+        existing.notes = fields["notes"]
         if fields["created_at"]:
             existing.created_at = fields["created_at"]
         if changed:
@@ -340,6 +343,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         status=fields["status"], value_potential=fields["value_potential"],
         perception=fields["perception"],
         lost_reason=fields["lost_reason"], lost_message=fields["lost_message"],
+        notes=fields["notes"],
     )
     if fields["created_at"]:
         lead_kwargs["created_at"] = fields["created_at"]
