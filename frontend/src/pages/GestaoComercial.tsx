@@ -797,7 +797,10 @@ export default function GestaoComercial() {
   }
 
   useEffect(() => { setDrillRows([]); setSelectedStage(null) }, [month])
-  useEffect(() => { setSelectedStage(null) }, [drillPath])
+  useEffect(() => {
+    if (drillTipo === 'vendas' && drillPath.length === 2) return
+    setSelectedStage(null)
+  }, [drillPath, drillTipo])
 
   const navItems: { key: string; label: string; total: number; color: string }[] = (() => {
     if (drillPath.length === 0)
@@ -807,7 +810,7 @@ export default function GestaoComercial() {
     return []
   })()
   const maxNav      = navItems[0]?.total ?? 1
-  const breadcrumb  = ['Total', ...drillPath, ...(selectedStage ? [stageLabel(selectedStage)] : [])]
+  const breadcrumb  = ['Total', ...drillPath, ...(selectedStage && selectedStage !== '__ALL__' ? [stageLabel(selectedStage)] : [])]
   const grupos      = groupOrigens(origens)
   const maxCap      = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
 
@@ -1005,7 +1008,21 @@ export default function GestaoComercial() {
                         const w   = maxNav > 0 ? Math.max((item.total / maxNav) * 100, 2) : 0
                         const pct = totalFiltered > 0 ? Math.round(item.total / totalFiltered * 100) : 0
                         return (
-                          <button key={item.key} onClick={() => setDrillPath([...drillPath, item.key])}
+                          <button key={item.key} onClick={() => {
+                              const newPath = [...drillPath, item.key]
+                              setDrillPath(newPath)
+                              if (drillTipo === 'vendas' && newPath.length === 2) {
+                                const newFiltered = filterDrill(drillRows, newPath)
+                                const origins = [...new Set(newFiltered.map(r => r.origem))]
+                                setSelectedStage('__ALL__')
+                                setContractsLoading(true)
+                                const params = new URLSearchParams({ month, tipo: drillTipo })
+                                if (origins.length > 0) params.set('origens', origins.join(','))
+                                api.get<ContractItem[]>(`/api/v1/gestao-comercial/receita-contratos?${params}`)
+                                  .then(r => setContracts(r.data)).catch(() => setContracts([]))
+                                  .finally(() => setContractsLoading(false))
+                              }
+                            }}
                             style={{ width: '100%', textAlign: 'left', background: '#F8FAFC', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', cursor: 'pointer', transition: 'all 120ms' }}
                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = item.color + '10'; (e.currentTarget as HTMLElement).style.borderColor = item.color + '50' }}
                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#F8FAFC'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
@@ -1031,7 +1048,7 @@ export default function GestaoComercial() {
                 )}
                 {selectedStage ? (
                   <div>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>Contratos — {stageLabel(selectedStage)}</p>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>Contratos{selectedStage && selectedStage !== '__ALL__' ? ` — ${stageLabel(selectedStage)}` : ''}</p>
                     {contractsLoading ? (
                       <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '16px 0' }}>Carregando...</p>
                     ) : contracts.length === 0 ? (
