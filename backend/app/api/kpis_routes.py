@@ -307,6 +307,16 @@ def bases_analytics(
         .all()
     )
 
+    BASE_ALIASES: dict[str, str] = {
+        "empresas até 9 colaboradores":                    "Empresas SP capital LTDA - Até 9 colaboradores",
+        "discadora – empresas sp até 9 colaboradores":     "Empresas SP capital LTDA - Até 9 colaboradores",
+        "discadora - empresas sp até 9 colaboradores":     "Empresas SP capital LTDA - Até 9 colaboradores",
+        "empresas sp até 9 colaboradores":                 "Empresas SP capital LTDA - Até 9 colaboradores",
+        "empresas sp — até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
+        "empresas sp - até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
+        "não informado":                                   "Empresas SP capital LTDA - Até 9 colaboradores",
+    }
+
     base_re_emoji  = re.compile(r'🗂️\s*Base:\s*([^|\n]+)')
     base_re_simple = re.compile(r'(?im)^Base:\s*([^\n]+)')
     venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -321,6 +331,7 @@ def bases_analytics(
         base = m.group(1).strip()
         if not base:
             continue
+        base = BASE_ALIASES.get(base.lower(), base)
         s = (status or '').lower()
         data[base]["captacoes"] += 1
         if s in venda_set:
