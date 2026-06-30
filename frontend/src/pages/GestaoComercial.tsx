@@ -479,12 +479,47 @@ function prevMonthStr(month: string) {
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
 }
 
+const O2_PERF_NAMES = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
+function mergeO2Operadores(rows: OperadorPerf[]): OperadorPerf[] {
+  const map = new Map<string, OperadorPerf>()
+  for (const r of rows) {
+    const key = O2_PERF_NAMES.has(r.operador.toLowerCase()) ? 'o2 Solution' : r.operador
+    const acc = map.get(key)
+    if (acc) {
+      acc.captacoes    += r.captacoes
+      acc.agendamentos += r.agendamentos
+      acc.propostas    += r.propostas
+      acc.vendas       += r.vendas
+      acc.receita       += r.receita
+    } else {
+      map.set(key, { ...r, operador: key })
+    }
+  }
+  return [...map.values()].map(r => ({
+    ...r,
+    conversao: r.captacoes > 0 ? +(r.vendas / r.captacoes * 100).toFixed(1) : 0,
+  }))
+}
+
+const ExpandToggle = ({ expanded, hidden, onClick }: { expanded: boolean; hidden: number; onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', padding: 0 }}
+  >
+    <ChevronDown size={14} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
+    {expanded ? 'Ver menos' : `Ver mais (${hidden})`}
+  </button>
+)
+
 function PerformanceTab() {
   const [month, setMonth]           = useState(nowMonth())
   const [data, setData]             = useState<OperadorPerf[]>([])
   const [prevData, setPrevData]     = useState<OperadorPerf[]>([])
   const [loading, setLoading]       = useState(true)
   const [metaVendas, setMetaVendas] = useState(10)
+  const [expConv, setExpConv]       = useState(false)
+  const [expRec, setExpRec]         = useState(false)
+  const [expTable, setExpTable]     = useState(false)
 
   useEffect(() => {
     try { const p = JSON.parse(localStorage.getItem(META_KEY(month)) ?? '{}'); setMetaVendas(p.vendas ?? 10) } catch {}
@@ -499,7 +534,7 @@ function PerformanceTab() {
       api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${month}`),
       api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${prevMonthStr(month)}`),
     ])
-      .then(([cur, prv]) => { setData(cur.data); setPrevData(prv.data) })
+      .then(([cur, prv]) => { setData(mergeO2Operadores(cur.data)); setPrevData(mergeO2Operadores(prv.data)) })
       .catch(() => { setData([]); setPrevData([]) })
       .finally(() => setLoading(false))
   }, [month])
@@ -645,30 +680,48 @@ function PerformanceTab() {
 
           <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '20px 24px', border: '1px solid var(--border)' }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', margin: '0 0 18px' }}>Conversão por Operador</p>
-            {[...data].sort((a, b) => b.conversao - a.conversao).map(r => (
-              <div key={r.operador} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-                <span style={{ width: 86, fontSize: 12, color: 'var(--text-2)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.operador}</span>
-                <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 22, overflow: 'hidden' }}>
-                  <div style={{ width: `${maxConv > 0 ? r.conversao / maxConv * 100 : 0}%`, minWidth: r.conversao > 0 ? 40 : 0, height: '100%', borderRadius: 6, background: convColor(r.conversao), display: 'flex', alignItems: 'center', paddingLeft: 8, transition: 'width 600ms ease' }}>
-                    {r.conversao > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{r.conversao}%</span>}
-                  </div>
-                </div>
-              </div>
-            ))}
+            {(() => {
+              const sorted = [...data].sort((a, b) => b.conversao - a.conversao)
+              const rows = expConv ? sorted : sorted.slice(0, 3)
+              return (
+                <>
+                  {rows.map(r => (
+                    <div key={r.operador} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                      <span style={{ width: 86, fontSize: 12, color: 'var(--text-2)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.operador}</span>
+                      <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 22, overflow: 'hidden' }}>
+                        <div style={{ width: `${maxConv > 0 ? r.conversao / maxConv * 100 : 0}%`, minWidth: r.conversao > 0 ? 40 : 0, height: '100%', borderRadius: 6, background: convColor(r.conversao), display: 'flex', alignItems: 'center', paddingLeft: 8, transition: 'width 600ms ease' }}>
+                          {r.conversao > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{r.conversao}%</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {sorted.length > 3 && <ExpandToggle expanded={expConv} hidden={sorted.length - 3} onClick={() => setExpConv(v => !v)} />}
+                </>
+              )
+            })()}
           </div>
 
           <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '20px 24px', border: '1px solid var(--border)' }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', margin: '0 0 18px' }}>Receita por Operador</p>
-            {[...data].sort((a, b) => b.receita - a.receita).map(r => (
-              <div key={r.operador} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-                <span style={{ width: 86, fontSize: 12, color: 'var(--text-2)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.operador}</span>
-                <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 22, overflow: 'hidden' }}>
-                  <div style={{ width: `${maxRec > 0 ? r.receita / maxRec * 100 : 0}%`, minWidth: r.receita > 0 ? 40 : 0, height: '100%', borderRadius: 6, background: '#059669', display: 'flex', alignItems: 'center', paddingLeft: 8, transition: 'width 600ms ease' }}>
-                    {r.receita > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{fmtBrl(r.receita)}</span>}
-                  </div>
-                </div>
-              </div>
-            ))}
+            {(() => {
+              const sorted = [...data].sort((a, b) => b.receita - a.receita)
+              const rows = expRec ? sorted : sorted.slice(0, 3)
+              return (
+                <>
+                  {rows.map(r => (
+                    <div key={r.operador} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                      <span style={{ width: 86, fontSize: 12, color: 'var(--text-2)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.operador}</span>
+                      <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 22, overflow: 'hidden' }}>
+                        <div style={{ width: `${maxRec > 0 ? r.receita / maxRec * 100 : 0}%`, minWidth: r.receita > 0 ? 40 : 0, height: '100%', borderRadius: 6, background: '#059669', display: 'flex', alignItems: 'center', paddingLeft: 8, transition: 'width 600ms ease' }}>
+                          {r.receita > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{fmtBrl(r.receita)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {sorted.length > 3 && <ExpandToggle expanded={expRec} hidden={sorted.length - 3} onClick={() => setExpRec(v => !v)} />}
+                </>
+              )
+            })()}
           </div>
         </div>
       </div>
@@ -686,35 +739,44 @@ function PerformanceTab() {
               </tr>
             </thead>
             <tbody>
-              {[...data].sort((a, b) => b.vendas - a.vendas).map((r, i, arr) => {
-                const metaPct  = metaVendas > 0 ? Math.min(100, Math.round(r.vendas / metaVendas * 100)) : 0
-                const metaClr  = metaPct >= 100 ? '#059669' : metaPct >= 50 ? '#F59E0B' : '#EF4444'
-                const stTxt    = r.conversao >= avgConv * 1.1 ? 'Acima da média' : r.conversao >= avgConv * 0.9 ? 'Na média' : 'Abaixo da média'
-                const stClr    = r.conversao >= avgConv * 1.1 ? '#059669' : r.conversao >= avgConv * 0.9 ? '#D97706' : '#EF4444'
-                const stBg     = r.conversao >= avgConv * 1.1 ? '#ECFDF5' : r.conversao >= avgConv * 0.9 ? '#FFFBEB' : '#FEF2F2'
-                const td: React.CSSProperties = { padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent' }
-                return (
-                  <tr key={r.operador}>
-                    <td style={{ ...td, fontWeight: 600, color: 'var(--text-1)' }}>{r.operador}</td>
-                    <td style={{ ...td, textAlign: 'center', color: convColor(r.conversao), fontWeight: 700 }}>{r.conversao}%</td>
-                    <td style={{ ...td, textAlign: 'center' }}>{fmtBrl(r.receita)}</td>
-                    <td style={{ ...td, textAlign: 'center', color: '#059669', fontWeight: 700 }}>{r.vendas}</td>
-                    <td style={{ ...td, textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-                        <div style={{ width: 60, height: 6, background: '#E5E7EB', borderRadius: 4, overflow: 'hidden' }}>
-                          <div style={{ width: `${metaPct}%`, height: '100%', background: metaClr, borderRadius: 4 }} />
+              {(() => {
+                const sorted = [...data].sort((a, b) => b.vendas - a.vendas)
+                const rows = expTable ? sorted : sorted.slice(0, 3)
+                return rows.map((r, i, arr) => {
+                  const metaPct  = metaVendas > 0 ? Math.min(100, Math.round(r.vendas / metaVendas * 100)) : 0
+                  const metaClr  = metaPct >= 100 ? '#059669' : metaPct >= 50 ? '#F59E0B' : '#EF4444'
+                  const stTxt    = r.conversao >= avgConv * 1.1 ? 'Acima da média' : r.conversao >= avgConv * 0.9 ? 'Na média' : 'Abaixo da média'
+                  const stClr    = r.conversao >= avgConv * 1.1 ? '#059669' : r.conversao >= avgConv * 0.9 ? '#D97706' : '#EF4444'
+                  const stBg     = r.conversao >= avgConv * 1.1 ? '#ECFDF5' : r.conversao >= avgConv * 0.9 ? '#FFFBEB' : '#FEF2F2'
+                  const td: React.CSSProperties = { padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent' }
+                  return (
+                    <tr key={r.operador}>
+                      <td style={{ ...td, fontWeight: 600, color: 'var(--text-1)' }}>{r.operador}</td>
+                      <td style={{ ...td, textAlign: 'center', color: convColor(r.conversao), fontWeight: 700 }}>{r.conversao}%</td>
+                      <td style={{ ...td, textAlign: 'center' }}>{fmtBrl(r.receita)}</td>
+                      <td style={{ ...td, textAlign: 'center', color: '#059669', fontWeight: 700 }}>{r.vendas}</td>
+                      <td style={{ ...td, textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                          <div style={{ width: 60, height: 6, background: '#E5E7EB', borderRadius: 4, overflow: 'hidden' }}>
+                            <div style={{ width: `${metaPct}%`, height: '100%', background: metaClr, borderRadius: 4 }} />
+                          </div>
+                          <span style={{ fontSize: 11, color: metaClr, fontWeight: 600 }}>{r.vendas}/{metaVendas}</span>
                         </div>
-                        <span style={{ fontSize: 11, color: metaClr, fontWeight: 600 }}>{r.vendas}/{metaVendas}</span>
-                      </div>
-                    </td>
-                    <td style={{ ...td, textAlign: 'center' }}>
-                      <span style={{ background: stBg, color: stClr, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>{stTxt}</span>
-                    </td>
-                  </tr>
-                )
-              })}
+                      </td>
+                      <td style={{ ...td, textAlign: 'center' }}>
+                        <span style={{ background: stBg, color: stClr, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>{stTxt}</span>
+                      </td>
+                    </tr>
+                  )
+                })
+              })()}
             </tbody>
           </table>
+          {data.length > 3 && (
+            <div style={{ padding: '10px 16px' }}>
+              <ExpandToggle expanded={expTable} hidden={data.length - 3} onClick={() => setExpTable(v => !v)} />
+            </div>
+          )}
         </div>
       </div>
 
