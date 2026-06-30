@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, Cell,
@@ -467,237 +467,272 @@ interface OperadorPerf {
   agendamentos: number
   propostas: number
   vendas: number
+  receita: number
   conversao: number
   ranking: number
 }
 
-const MEDALS = ['🥇', '🥈', '🥉']
-const RANK_BORDER = ['#F59E0B', '#94A3B8', '#CD7C2C']
-const RANK_GLOW   = ['rgba(245,158,11,0.18)', 'rgba(148,163,184,0.14)', 'rgba(205,124,44,0.14)']
-const META_KEY    = (month: string) => `perf_meta_${month}`
-
-function convColor(pct: number) {
-  return pct >= 30 ? '#059669' : pct >= 15 ? '#F59E0B' : '#3B82F6'
-}
-
-function GaugeArc({ pct }: { pct: number }) {
-  const W = 160, H = 90
-  const cx = W / 2, cy = H - 4
-  const r = 62
-  const strokeW = 11
-  const arcLen  = Math.PI * r
-  const fillLen = Math.min(pct / 100, 1) * arcLen
-  const d = `M ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy}`
-  const color = convColor(pct)
-
-  return (
-    <svg width={W} height={H} style={{ overflow: 'visible' }}>
-      {/* track */}
-      <path d={d} fill="none" stroke="#E2E8F0" strokeWidth={strokeW} strokeLinecap="round" />
-      {/* fill */}
-      {pct > 0 && (
-        <path
-          d={d} fill="none"
-          stroke={color} strokeWidth={strokeW} strokeLinecap="round"
-          strokeDasharray={`${fillLen} ${arcLen}`}
-          style={{ transition: 'stroke-dasharray 700ms ease' }}
-        />
-      )}
-      {/* glow dot at tip */}
-      {pct > 0 && pct < 100 && (() => {
-        const angle = Math.PI - (pct / 100) * Math.PI
-        const tx = cx + r * Math.cos(angle)
-        const ty = cy - r * Math.sin(angle)
-        return <circle cx={tx} cy={ty} r={6} fill={color} opacity={0.35} />
-      })()}
-      {/* value */}
-      <text x={cx} y={cy - 14} textAnchor="middle" fontSize={26} fontWeight={700} fill={color}
-        style={{ fontFamily: 'inherit' }}>{pct}%</text>
-      <text x={cx} y={cy + 2} textAnchor="middle" fontSize={10} fontWeight={600} fill="#94A3B8"
-        style={{ fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Conversão</text>
-    </svg>
-  )
-}
-
-function OperadorCard({
-  r, i, metaVendas, avg,
-}: { r: OperadorPerf; i: number; metaVendas: number; avg: { conversao: number } | null }) {
-  const isTop3    = i < 3
-  const metaPct   = metaVendas > 0 ? Math.min(100, Math.round(r.vendas / metaVendas * 100)) : 0
-  const metaClr   = metaPct >= 100 ? '#059669' : metaPct >= 50 ? '#F59E0B' : '#EF4444'
-  const vsConv    = avg ? +(r.conversao - avg.conversao).toFixed(1) : 0
-  const border    = isTop3 ? RANK_BORDER[i] : 'var(--border)'
-  const shadow    = isTop3 ? `0 6px 28px ${RANK_GLOW[i]}` : '0 2px 8px rgba(0,0,0,0.06)'
-
-  return (
-    <div style={{
-      background: 'var(--bg-card)', borderRadius: 18,
-      border: `2px solid ${border}`, boxShadow: shadow,
-      padding: '20px 18px 16px',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
-      position: 'relative',
-    }}>
-      {/* rank badge */}
-      <div style={{
-        position: 'absolute', top: 12, right: 14,
-        fontSize: isTop3 ? 20 : 12, fontWeight: 700,
-        color: isTop3 ? RANK_BORDER[i] : '#CBD5E1',
-      }}>
-        {MEDALS[i] ?? `#${r.ranking}`}
-      </div>
-
-      {/* name */}
-      <p style={{
-        fontSize: 13, fontWeight: 700, color: 'var(--text-1)',
-        margin: '0 0 12px', textAlign: 'center',
-        width: '100%', paddingRight: 28,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>{r.operador}</p>
-
-      {/* gauge */}
-      <GaugeArc pct={r.conversao} />
-
-      {/* stat grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', margin: '14px 0 12px' }}>
-        {([
-          { label: 'Captações',    value: r.captacoes,    color: '#3B82F6' },
-          { label: 'Agendamentos', value: r.agendamentos, color: '#8B5CF6' },
-          { label: 'Propostas',    value: r.propostas,    color: '#F59E0B' },
-          { label: 'Vendas',       value: r.vendas,       color: '#059669' },
-        ] as const).map(s => (
-          <div key={s.label} style={{
-            background: 'var(--bg-subtle)', borderRadius: 10,
-            padding: '8px 6px', textAlign: 'center',
-          }}>
-            <p style={{ fontSize: 22, fontWeight: 700, color: s.color, margin: 0, lineHeight: 1 }}>{s.value}</p>
-            <p style={{ fontSize: 9, color: 'var(--text-muted)', margin: '3px 0 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* meta bar */}
-      <div style={{ width: '100%', marginBottom: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta vendas</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: metaClr }}>{r.vendas}/{metaVendas} ({metaPct}%)</span>
-        </div>
-        <div style={{ background: '#E5E7EB', borderRadius: 6, height: 6, overflow: 'hidden' }}>
-          <div style={{ width: `${metaPct}%`, height: '100%', background: metaClr, borderRadius: 6, transition: 'width 600ms ease' }} />
-        </div>
-      </div>
-
-      {/* vs média badge */}
-      <div style={{
-        background: vsConv >= 0 ? '#ECFDF5' : '#FEF2F2',
-        borderRadius: 20, padding: '3px 12px',
-        display: 'flex', alignItems: 'center', gap: 4,
-      }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: vsConv >= 0 ? '#059669' : '#EF4444' }}>
-          {vsConv >= 0 ? '▲' : '▼'} {Math.abs(vsConv)}pp vs média
-        </span>
-      </div>
-    </div>
-  )
+const META_KEY  = (month: string) => `perf_meta_${month}`
+const convColor = (pct: number) => pct >= 30 ? '#059669' : pct >= 15 ? '#F59E0B' : '#3B82F6'
+function prevMonthStr(month: string) {
+  const [y, m] = month.split('-').map(Number)
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
 }
 
 function PerformanceTab() {
-  const [month, setMonth]                 = useState(nowMonth())
-  const [data, setData]                   = useState<OperadorPerf[]>([])
-  const [loading, setLoading]             = useState(true)
-  const [metaVendas, setMetaVendas]       = useState(10)
-  const [metaCaptacoes, setMetaCaptacoes] = useState(50)
+  const [month, setMonth]           = useState(nowMonth())
+  const [data, setData]             = useState<OperadorPerf[]>([])
+  const [prevData, setPrevData]     = useState<OperadorPerf[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [metaVendas, setMetaVendas] = useState(10)
 
   useEffect(() => {
-    const saved = localStorage.getItem(META_KEY(month))
-    if (saved) {
-      try {
-        const p = JSON.parse(saved)
-        setMetaVendas(p.vendas ?? 10)
-        setMetaCaptacoes(p.captacoes ?? 50)
-      } catch {}
-    }
+    try { const p = JSON.parse(localStorage.getItem(META_KEY(month)) ?? '{}'); setMetaVendas(p.vendas ?? 10) } catch {}
   }, [month])
-
   useEffect(() => {
-    localStorage.setItem(META_KEY(month), JSON.stringify({ vendas: metaVendas, captacoes: metaCaptacoes }))
-  }, [month, metaVendas, metaCaptacoes])
+    localStorage.setItem(META_KEY(month), JSON.stringify({ vendas: metaVendas }))
+  }, [month, metaVendas])
 
   useEffect(() => {
     setLoading(true)
-    api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${month}`)
-      .then(r => setData(r.data))
-      .catch(() => setData([]))
+    Promise.all([
+      api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${month}`),
+      api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${prevMonthStr(month)}`),
+    ])
+      .then(([cur, prv]) => { setData(cur.data); setPrevData(prv.data) })
+      .catch(() => { setData([]); setPrevData([]) })
       .finally(() => setLoading(false))
   }, [month])
 
-  const n   = data.length
-  const avg = n > 0 ? {
-    captacoes:    Math.round(data.reduce((s, r) => s + r.captacoes, 0) / n),
-    agendamentos: Math.round(data.reduce((s, r) => s + r.agendamentos, 0) / n),
-    propostas:    Math.round(data.reduce((s, r) => s + r.propostas, 0) / n),
-    vendas:       parseFloat((data.reduce((s, r) => s + r.vendas, 0) / n).toFixed(1)),
-    conversao:    parseFloat((data.reduce((s, r) => s + r.conversao, 0) / n).toFixed(1)),
-  } : null
+  // ── derivados ──────────────────────────────────────────────────────────
+  const totalCap      = data.reduce((s, r) => s + r.captacoes, 0)
+  const totalVendas   = data.reduce((s, r) => s + r.vendas, 0)
+  const totalRec      = data.reduce((s, r) => s + r.receita, 0)
+  const avgConv       = totalCap > 0 ? +(totalVendas / totalCap * 100).toFixed(1) : 0
+  const metaAtingidos = data.filter(r => r.vendas >= metaVendas).length
+  const prevVendas    = prevData.reduce((s, r) => s + r.vendas, 0)
+  const avgTicket     = totalVendas > 0 ? totalRec / totalVendas : 0
 
+  const qualified  = data.filter(r => r.captacoes >= 3)
+  const byReceita  = [...data].sort((a, b) => b.receita - a.receita)
+  const byConv     = [...qualified].sort((a, b) => b.conversao - a.conversao)
+  const byVendas   = [...data].sort((a, b) => b.vendas - a.vendas)
+  const atencao    = [...qualified].sort((a, b) => a.conversao - b.conversao)[0] ?? null
+  const maxConv    = Math.max(...data.map(r => r.conversao), 1)
+  const maxRec     = Math.max(...data.map(r => r.receita), 1)
+
+  // ── insights ──────────────────────────────────────────────────────────
+  const insights = useMemo(() => {
+    if (!data.length) return []
+    const list: { type: 'ok' | 'warn'; text: string }[] = []
+    if (byVendas[0] && totalVendas > 0) {
+      const pct = Math.round(byVendas[0].vendas / totalVendas * 100)
+      list.push({ type: 'ok', text: `${byVendas[0].operador} fechou ${pct}% das vendas da equipe neste mês.` })
+    }
+    if (atencao && avgConv > 0 && atencao.conversao < avgConv * 0.85)
+      list.push({ type: 'warn', text: `${atencao.operador} tem conversão de ${atencao.conversao}%, abaixo da média da equipe (${avgConv}%).` })
+    const hclt = [...byConv].find(r => r.vendas > 0 && r.conversao > avgConv && (r.receita / r.vendas) < avgTicket * 0.75)
+    if (hclt)
+      list.push({ type: 'warn', text: `${hclt.operador} tem boa conversão (${hclt.conversao}%), mas ticket médio abaixo da equipe (${fmtBrl(Math.round(hclt.receita / hclt.vendas))}).` })
+    if (prevVendas > 0) {
+      const diff = Math.round((totalVendas - prevVendas) / prevVendas * 100)
+      list.push({ type: diff >= 0 ? 'ok' : 'warn', text: `Equipe está ${Math.abs(diff)}% ${diff >= 0 ? 'acima' : 'abaixo'} do mês anterior em vendas (${prevVendas} → ${totalVendas}).` })
+    }
+    if (byConv[0]?.conversao >= 30)
+      list.push({ type: 'ok', text: `${byConv[0].operador} lidera a conversão com ${byConv[0].conversao}%, acima do benchmark de 30%.` })
+    return list
+  }, [data, byVendas, atencao, avgConv, avgTicket, byConv, prevVendas, totalVendas])
+
+  const secLabel = (txt: string) => (
+    <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 14px' }}>{txt}</p>
+  )
   const inputSt: React.CSSProperties = {
     background: 'var(--bg-input)', border: '1px solid var(--border-in)',
-    borderRadius: 8, padding: '6px 10px', fontSize: 13,
-    color: 'var(--text-2)', width: 72, textAlign: 'center',
+    borderRadius: 8, padding: '6px 10px', fontSize: 13, color: 'var(--text-2)',
   }
 
+  if (loading) return <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
+  if (!data.length) return <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum dado para o período.</p>
+
   return (
-    <div>
-      {/* Controls */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 28, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+
+      {/* controles */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }}>
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mês</p>
           <input type="month" value={month} onChange={e => setMonth(e.target.value)} style={{ ...inputSt, width: 'auto' }} />
         </div>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta Captações</p>
-          <input type="number" min={0} value={metaCaptacoes} onChange={e => setMetaCaptacoes(Math.max(0, +e.target.value))} style={inputSt} />
-        </div>
-        <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta Vendas</p>
-          <input type="number" min={0} value={metaVendas} onChange={e => setMetaVendas(Math.max(0, +e.target.value))} style={inputSt} />
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta Vendas / operador</p>
+          <input type="number" min={0} value={metaVendas} onChange={e => setMetaVendas(Math.max(0, +e.target.value))} style={{ ...inputSt, width: 72, textAlign: 'center' }} />
         </div>
       </div>
 
-      {/* Team avg strip */}
-      {!loading && avg && (
-        <div style={{
-          display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap',
-          background: 'var(--bg-card)', borderRadius: 12,
-          padding: '14px 20px', border: '1px solid var(--border)',
-        }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', alignSelf: 'center', marginRight: 4 }}>Média equipe</span>
+      {/* ── LINHA 1: Resumo da equipe ── */}
+      <div>
+        {secLabel('Resumo da Equipe')}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
           {([
-            { label: 'Captações',    value: avg.captacoes,    color: '#3B82F6' },
-            { label: 'Agendamentos', value: avg.agendamentos, color: '#8B5CF6' },
-            { label: 'Propostas',    value: avg.propostas,    color: '#F59E0B' },
-            { label: 'Vendas',       value: avg.vendas,       color: '#059669' },
-            { label: 'Conversão',    value: `${avg.conversao}%`, color: convColor(avg.conversao) },
+            { label: 'Captações', val: String(totalCap),      color: '#3B82F6', bg: '#EFF6FF', sub: null },
+            { label: 'Vendas',    val: String(totalVendas),   color: '#10B981', bg: '#ECFDF5', sub: null },
+            { label: 'Conversão', val: `${avgConv}%`,         color: '#7C3AED', bg: '#F5F3FF', sub: 'captações → vendas' },
+            { label: 'Receita',   val: fmtBrl(totalRec),      color: '#059669', bg: '#ECFDF5', sub: null },
+            {
+              label: 'Meta',
+              val: `${metaAtingidos}/${data.length}`,
+              color: metaAtingidos === data.length ? '#059669' : metaAtingidos > 0 ? '#D97706' : '#EF4444',
+              bg:    metaAtingidos === data.length ? '#ECFDF5' : metaAtingidos > 0 ? '#FFFBEB' : '#FEF2F2',
+              sub: 'operadores atingiram',
+            },
           ] as const).map(c => (
-            <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-subtle)', borderRadius: 8, padding: '5px 12px' }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: c.color }}>{c.value}</span>
-              <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{c.label}</span>
+            <div key={c.label} style={{ background: c.bg, borderRadius: 14, padding: '20px', border: `1px solid ${c.color}22` }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: c.color, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>{c.label}</p>
+              <p style={{ fontSize: c.label === 'Receita' ? 16 : 28, fontWeight: 800, color: c.color, margin: 0, lineHeight: 1 }}>{c.val}</p>
+              {c.sub && <p style={{ fontSize: 10, color: c.color, opacity: 0.75, marginTop: 5 }}>{c.sub}</p>}
             </div>
           ))}
         </div>
-      )}
+      </div>
 
-      {/* Cards grid */}
-      {loading ? (
-        <p style={{ fontSize: 13, color: 'var(--text-subtle)', padding: '40px 0', textAlign: 'center' }}>Carregando...</p>
-      ) : data.length === 0 ? (
-        <p style={{ fontSize: 13, color: 'var(--text-subtle)', padding: '40px 0', textAlign: 'center' }}>Nenhum dado para o período.</p>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 16 }}>
-          {data.map((r, i) => (
-            <OperadorCard key={r.operador} r={r} i={i} metaVendas={metaVendas} avg={avg} />
-          ))}
+      {/* ── LINHA 2: Destaques ── */}
+      <div>
+        {secLabel('Quem Está se Destacando')}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          {byReceita[0] && (
+            <div style={{ background: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', borderRadius: 14, padding: 20, border: '1px solid #6EE7B7' }}>
+              <p style={{ fontSize: 11, color: '#059669', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>🏆 Maior Receita</p>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#065F46', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byReceita[0].operador}</p>
+              <p style={{ fontSize: 20, fontWeight: 800, color: '#059669', margin: '0 0 4px' }}>{fmtBrl(byReceita[0].receita)}</p>
+              <p style={{ fontSize: 11, color: '#047857' }}>{byReceita[0].vendas} vendas · {byReceita[0].conversao}% conv.</p>
+            </div>
+          )}
+          {byConv[0] && (
+            <div style={{ background: 'linear-gradient(135deg,#F5F3FF,#EDE9FE)', borderRadius: 14, padding: 20, border: '1px solid #C4B5FD' }}>
+              <p style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>🎯 Maior Conversão</p>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#4C1D95', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byConv[0].operador}</p>
+              <p style={{ fontSize: 36, fontWeight: 800, color: '#7C3AED', margin: '0 0 4px', lineHeight: 1 }}>{byConv[0].conversao}%</p>
+              <p style={{ fontSize: 11, color: '#6D28D9' }}>{byConv[0].captacoes} captações · {byConv[0].vendas} vendas</p>
+            </div>
+          )}
+          {byVendas[0] && (
+            <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', borderRadius: 14, padding: 20, border: '1px solid #93C5FD' }}>
+              <p style={{ fontSize: 11, color: '#2563EB', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>💼 Mais Vendas</p>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#1E3A8A', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byVendas[0].operador}</p>
+              <p style={{ fontSize: 36, fontWeight: 800, color: '#2563EB', margin: '0 0 4px', lineHeight: 1 }}>{byVendas[0].vendas}</p>
+              <p style={{ fontSize: 11, color: '#1D4ED8' }}>{fmtBrl(byVendas[0].receita)} em receita</p>
+            </div>
+          )}
+          {atencao ? (
+            <div style={{ background: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', borderRadius: 14, padding: 20, border: '1px solid #FCD34D' }}>
+              <p style={{ fontSize: 11, color: '#D97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>⚠️ Precisa de Atenção</p>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#78350F', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{atencao.operador}</p>
+              <p style={{ fontSize: 36, fontWeight: 800, color: '#D97706', margin: '0 0 4px', lineHeight: 1 }}>{atencao.conversao}%</p>
+              <p style={{ fontSize: 11, color: '#92400E' }}>{atencao.captacoes} captações · {atencao.vendas} vendas</p>
+            </div>
+          ) : (
+            <div style={{ background: '#F0FDF4', borderRadius: 14, padding: 20, border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <p style={{ fontSize: 13, color: '#166534', textAlign: 'center', fontWeight: 600 }}>✅ Todos acima da média</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── LINHA 3: Comparativo ── */}
+      <div>
+        {secLabel('Comparativo da Equipe')}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+          <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '20px 24px', border: '1px solid var(--border)' }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', margin: '0 0 18px' }}>Conversão por Operador</p>
+            {[...data].sort((a, b) => b.conversao - a.conversao).map(r => (
+              <div key={r.operador} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                <span style={{ width: 86, fontSize: 12, color: 'var(--text-2)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.operador}</span>
+                <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 22, overflow: 'hidden' }}>
+                  <div style={{ width: `${maxConv > 0 ? r.conversao / maxConv * 100 : 0}%`, minWidth: r.conversao > 0 ? 40 : 0, height: '100%', borderRadius: 6, background: convColor(r.conversao), display: 'flex', alignItems: 'center', paddingLeft: 8, transition: 'width 600ms ease' }}>
+                    {r.conversao > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{r.conversao}%</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '20px 24px', border: '1px solid var(--border)' }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', margin: '0 0 18px' }}>Receita por Operador</p>
+            {[...data].sort((a, b) => b.receita - a.receita).map(r => (
+              <div key={r.operador} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                <span style={{ width: 86, fontSize: 12, color: 'var(--text-2)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.operador}</span>
+                <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 22, overflow: 'hidden' }}>
+                  <div style={{ width: `${maxRec > 0 ? r.receita / maxRec * 100 : 0}%`, minWidth: r.receita > 0 ? 40 : 0, height: '100%', borderRadius: 6, background: '#059669', display: 'flex', alignItems: 'center', paddingLeft: 8, transition: 'width 600ms ease' }}>
+                    {r.receita > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{fmtBrl(r.receita)}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── LINHA 4: Tabela ── */}
+      <div>
+        {secLabel('Detalhamento por Operador')}
+        <div style={{ background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {(['Operador', 'Conv.', 'Receita', 'Vendas', 'Meta', 'Status'] as const).map((h, i) => (
+                  <th key={h} style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', background: '#1E293B', borderBottom: '2px solid #334155', textAlign: i === 0 ? 'left' : 'center' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...data].sort((a, b) => b.vendas - a.vendas).map((r, i, arr) => {
+                const metaPct  = metaVendas > 0 ? Math.min(100, Math.round(r.vendas / metaVendas * 100)) : 0
+                const metaClr  = metaPct >= 100 ? '#059669' : metaPct >= 50 ? '#F59E0B' : '#EF4444'
+                const stTxt    = r.conversao >= avgConv * 1.1 ? 'Acima da média' : r.conversao >= avgConv * 0.9 ? 'Na média' : 'Abaixo da média'
+                const stClr    = r.conversao >= avgConv * 1.1 ? '#059669' : r.conversao >= avgConv * 0.9 ? '#D97706' : '#EF4444'
+                const stBg     = r.conversao >= avgConv * 1.1 ? '#ECFDF5' : r.conversao >= avgConv * 0.9 ? '#FFFBEB' : '#FEF2F2'
+                const td: React.CSSProperties = { padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent' }
+                return (
+                  <tr key={r.operador}>
+                    <td style={{ ...td, fontWeight: 600, color: 'var(--text-1)' }}>{r.operador}</td>
+                    <td style={{ ...td, textAlign: 'center', color: convColor(r.conversao), fontWeight: 700 }}>{r.conversao}%</td>
+                    <td style={{ ...td, textAlign: 'center' }}>{fmtBrl(r.receita)}</td>
+                    <td style={{ ...td, textAlign: 'center', color: '#059669', fontWeight: 700 }}>{r.vendas}</td>
+                    <td style={{ ...td, textAlign: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                        <div style={{ width: 60, height: 6, background: '#E5E7EB', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ width: `${metaPct}%`, height: '100%', background: metaClr, borderRadius: 4 }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: metaClr, fontWeight: 600 }}>{r.vendas}/{metaVendas}</span>
+                      </div>
+                    </td>
+                    <td style={{ ...td, textAlign: 'center' }}>
+                      <span style={{ background: stBg, color: stClr, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>{stTxt}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── LINHA 5: Insights ── */}
+      {insights.length > 0 && (
+        <div>
+          {secLabel('Insights')}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {insights.map((ins, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, background: ins.type === 'ok' ? '#F0FDF4' : '#FFFBEB', border: `1px solid ${ins.type === 'ok' ? '#BBF7D0' : '#FDE68A'}`, borderRadius: 10, padding: '12px 16px' }}>
+                <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>{ins.type === 'ok' ? '✅' : '⚠️'}</span>
+                <span style={{ fontSize: 13, color: ins.type === 'ok' ? '#166534' : '#92400E', lineHeight: 1.5 }}>{ins.text}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
     </div>
   )
 }

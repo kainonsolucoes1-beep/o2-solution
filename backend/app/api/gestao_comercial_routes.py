@@ -288,7 +288,7 @@ def performance_operadores(
     dt_from, dt_to = _month_range(year, mon)
 
     leads = (
-        db.query(Lead.origin, Lead.status)
+        db.query(Lead.origin, Lead.status, Lead.value_potential)
         .filter(
             Lead.created_at >= dt_from,
             Lead.created_at <= dt_to,
@@ -302,8 +302,8 @@ def performance_operadores(
     agenda_set   = {s.lower() for s in AGENDAMENTO_STATUSES}
     proposta_set = {s.lower() for s in PROPOSTA_STATUSES}
 
-    data: dict = defaultdict(lambda: {"captacoes": 0, "agendamentos": 0, "propostas": 0, "vendas": 0})
-    for origin, status in leads:
+    data: dict = defaultdict(lambda: {"captacoes": 0, "agendamentos": 0, "propostas": 0, "vendas": 0, "receita": 0.0})
+    for origin, status, value in leads:
         op = (origin or "").strip()
         if not op:
             continue
@@ -311,6 +311,7 @@ def performance_operadores(
         data[op]["captacoes"] += 1
         if s in venda_set:
             data[op]["vendas"] += 1
+            data[op]["receita"] += float(value or 0)
         elif s in proposta_set:
             data[op]["propostas"] += 1
         elif s in agenda_set:
@@ -326,6 +327,7 @@ def performance_operadores(
             "agendamentos": counts["agendamentos"],
             "propostas": counts["propostas"],
             "vendas": ven,
+            "receita": counts["receita"],
             "conversao": round(ven / cap * 100, 1) if cap > 0 else 0.0,
         })
 
