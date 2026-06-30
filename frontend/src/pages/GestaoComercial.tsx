@@ -459,6 +459,196 @@ function PipelineTab() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// Performance sub-tab component
+// ════════════════════════════════════════════════════════════════════════════
+interface OperadorPerf {
+  operador: string
+  captacoes: number
+  agendamentos: number
+  propostas: number
+  vendas: number
+  conversao: number
+  ranking: number
+}
+
+const MEDALS = ['🥇', '🥈', '🥉']
+const META_KEY = (month: string) => `perf_meta_${month}`
+
+function PerformanceTab() {
+  const [month, setMonth]         = useState(nowMonth())
+  const [data, setData]           = useState<OperadorPerf[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [metaVendas, setMetaVendas]       = useState(10)
+  const [metaCaptacoes, setMetaCaptacoes] = useState(50)
+
+  // Persist metas por mês em localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(META_KEY(month))
+    if (saved) {
+      const p = JSON.parse(saved)
+      setMetaVendas(p.vendas ?? 10)
+      setMetaCaptacoes(p.captacoes ?? 50)
+    }
+  }, [month])
+
+  useEffect(() => {
+    localStorage.setItem(META_KEY(month), JSON.stringify({ vendas: metaVendas, captacoes: metaCaptacoes }))
+  }, [month, metaVendas, metaCaptacoes])
+
+  useEffect(() => {
+    setLoading(true)
+    api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${month}`)
+      .then(r => setData(r.data))
+      .catch(() => setData([]))
+      .finally(() => setLoading(false))
+  }, [month])
+
+  const n = data.length
+  const avg = n > 0 ? {
+    captacoes:    Math.round(data.reduce((s, r) => s + r.captacoes, 0) / n),
+    agendamentos: Math.round(data.reduce((s, r) => s + r.agendamentos, 0) / n),
+    propostas:    Math.round(data.reduce((s, r) => s + r.propostas, 0) / n),
+    vendas:       parseFloat((data.reduce((s, r) => s + r.vendas, 0) / n).toFixed(1)),
+    conversao:    parseFloat((data.reduce((s, r) => s + r.conversao, 0) / n).toFixed(1)),
+  } : null
+
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--bg-input)', border: '1px solid var(--border-in)',
+    borderRadius: 8, padding: '6px 10px', fontSize: 13,
+    color: 'var(--text-2)', width: 72, textAlign: 'center',
+  }
+  const thStyle: React.CSSProperties = {
+    padding: '11px 14px', fontSize: 11, fontWeight: 700,
+    color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em',
+    background: '#1E293B', borderBottom: '2px solid #334155', textAlign: 'left',
+  }
+  const tdStyle = (i: number): React.CSSProperties => ({
+    padding: '10px 14px', fontSize: 13, color: 'var(--text-2)',
+    borderBottom: '1px solid var(--border)',
+    background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent',
+  })
+
+  return (
+    <div>
+      {/* Controls */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 28, flexWrap: 'wrap' }}>
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mês</p>
+          <input
+            type="month" value={month} onChange={e => setMonth(e.target.value)}
+            style={{ ...inputStyle, width: 'auto' }}
+          />
+        </div>
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta Captações</p>
+          <input type="number" min={0} value={metaCaptacoes} onChange={e => setMetaCaptacoes(Math.max(0, +e.target.value))} style={inputStyle} />
+        </div>
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta Vendas</p>
+          <input type="number" min={0} value={metaVendas} onChange={e => setMetaVendas(Math.max(0, +e.target.value))} style={inputStyle} />
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      {!loading && avg && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 24 }}>
+          {[
+            { label: 'Captações (média)', value: avg.captacoes, color: '#3B82F6', bg: '#EFF6FF' },
+            { label: 'Agendamentos (média)', value: avg.agendamentos, color: '#8B5CF6', bg: '#F5F3FF' },
+            { label: 'Propostas (média)', value: avg.propostas, color: '#F59E0B', bg: '#FFFBEB' },
+            { label: 'Vendas (média)', value: avg.vendas, color: '#10B981', bg: '#ECFDF5' },
+            { label: 'Conversão (média)', value: `${avg.conversao}%`, color: '#059669', bg: '#ECFDF5' },
+          ].map(c => (
+            <div key={c.label} style={{ background: c.bg, borderRadius: 12, padding: '16px 18px', border: `1px solid ${c.color}33` }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: c.color, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>{c.label}</p>
+              <p style={{ fontSize: 26, fontWeight: 700, color: c.color, margin: 0 }}>{c.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Table */}
+      <div style={{ background: 'var(--bg-card)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        {loading ? (
+          <p style={{ padding: '32px 24px', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
+        ) : data.length === 0 ? (
+          <p style={{ padding: '32px 24px', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum dado para o período.</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ ...thStyle, width: 48 }}>#</th>
+                <th style={thStyle}>Operador</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Captações</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Agendamentos</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Propostas</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Vendas</th>
+                <th style={{ ...thStyle, width: 140 }}>Conversão</th>
+                <th style={{ ...thStyle, width: 160 }}>Meta Vendas</th>
+                <th style={{ ...thStyle, textAlign: 'right', width: 110 }}>vs Média</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((r, i) => {
+                const metaVPct   = metaVendas > 0 ? Math.min(100, Math.round(r.vendas / metaVendas * 100)) : 0
+                const metaBarClr = metaVPct >= 100 ? '#059669' : metaVPct >= 50 ? '#F59E0B' : '#EF4444'
+                const vsConv     = avg ? +(r.conversao - avg.conversao).toFixed(1) : 0
+                const td         = tdStyle(i)
+                const convBarClr = r.conversao >= 30 ? '#059669' : r.conversao >= 15 ? '#F59E0B' : '#3B82F6'
+                return (
+                  <tr key={r.operador}>
+                    <td style={{ ...td, textAlign: 'center', fontSize: 17 }}>{MEDALS[i] ?? r.ranking}</td>
+                    <td style={{ ...td, fontWeight: 600, color: 'var(--text-1)' }}>{r.operador}</td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 500 }}>{r.captacoes}</td>
+                    <td style={{ ...td, textAlign: 'right', color: '#8B5CF6' }}>{r.agendamentos}</td>
+                    <td style={{ ...td, textAlign: 'right', color: '#F59E0B' }}>{r.propostas}</td>
+                    <td style={{ ...td, textAlign: 'right', color: '#059669', fontWeight: 700 }}>{r.vendas}</td>
+                    <td style={td}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ flex: 1, height: 7, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.min(100, r.conversao / Math.max(...data.map(d => d.conversao), 1) * 100)}%`, height: '100%', background: convBarClr, borderRadius: 4, transition: 'width 400ms ease' }} />
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: convBarClr, minWidth: 38, textAlign: 'right' }}>{r.conversao}%</span>
+                      </div>
+                    </td>
+                    <td style={td}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ flex: 1, height: 7, background: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ width: `${metaVPct}%`, height: '100%', background: metaBarClr, borderRadius: 4, transition: 'width 400ms ease' }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: metaBarClr, fontWeight: 600, minWidth: 48, textAlign: 'right' }}>{r.vendas}/{metaVendas}</span>
+                      </div>
+                    </td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: vsConv >= 0 ? '#059669' : '#EF4444' }}>
+                      {vsConv >= 0 ? '+' : ''}{vsConv}pp
+                    </td>
+                  </tr>
+                )
+              })}
+
+              {/* Média row */}
+              {avg && (
+                <tr style={{ background: '#F8FAFC', borderTop: '2px solid var(--border)' }}>
+                  <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: '#64748B' }}>—</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: '#64748B' }}>Média da Equipe</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#64748B' }}>{avg.captacoes}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#8B5CF6' }}>{avg.agendamentos}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#F59E0B' }}>{avg.propostas}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#059669', fontWeight: 700 }}>{avg.vendas}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: '#64748B' }}>{avg.conversao}%</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, color: '#64748B' }}>—</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: '#64748B' }}>—</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // Main component
 // ════════════════════════════════════════════════════════════════════════════
 export default function GestaoComercial() {
@@ -681,7 +871,7 @@ export default function GestaoComercial() {
       {/* ── PIPELINE ── */}
       {activeTab === 'Pipeline' && <PipelineTab />}
 
-      {activeTab === 'Performance' && <div />}
+      {activeTab === 'Performance' && <PerformanceTab />}
 
       {/* ── DRILL MODAL ── */}
       {showDrill && (

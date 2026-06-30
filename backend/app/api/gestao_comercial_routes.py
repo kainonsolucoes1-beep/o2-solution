@@ -13,8 +13,10 @@ from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
 
-VENDA_STATUSES = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
-CANCELADO_STATUS = "sale_not_performed"
+VENDA_STATUSES      = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
+CANCELADO_STATUS    = "sale_not_performed"
+AGENDAMENTO_STATUSES = ("qualificado", "scheduled")
+PROPOSTA_STATUSES   = ("proposta", "proposal_sent", "negociacao")
 
 
 def _parse_month(month: str | None):
@@ -274,3 +276,61 @@ def receita_contratos(
         }
         for l in leads
     ]
+
+
+@router.get("/performance-operadores")
+def performance_operadores(
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    year, mon = _parse_month(month)
+    dt_from, dt_to = _month_range(year, mon)
+
+    leads = (
+        db.query(Lead.origin, Lead.status)
+        .filter(
+            Lead.created_at >= dt_from,
+            Lead.created_at <= dt_to,
+            Lead.origin.isnot(None),
+            Lead.origin != "",
+        )
+        .all()
+    )
+
+    venda_set    = {s.lower() for s in VENDA_STATUSES}
+    agenda_set   = {s.lower() for s in AGENDAMENTO_STATUSES}
+    proposta_set = {s.lower() for s in PROPOSTA_STATUSES}
+
+    data: dict = defaultdict(lambda: {"captacoes": 0, "agendamentos": 0, "propostas": 0, "vendas": 0})
+    for origin, status in leads:
+        op = (origin or "").strip()
+        if not op:
+            continue
+        s = (status or "").lower()
+        data[op]["captacoes"] += 1
+        if s in venda_set:
+            data[op]["vendas"] += 1
+        elif s in proposta_set:
+            data[op]["propostas"] += 1
+        elif s in agenda_set:
+            data[op]["agendamentos"] += 1
+
+    result = []
+    for op, counts in data.items():
+        cap = counts["captacoes"]
+        ven = counts["vendas"]
+        result.append({
+            "operador": op,
+            "captacoes": cap,
+            "agendamentos": counts["agendamentos"],
+            "propostas": counts["propostas"],
+            "vendas": ven,
+            "conversao": round(ven / cap * 100, 1) if cap > 0 else 0.0,
+        })
+
+    result.sort(key=lambda x: (x["vendas"], x["captacoes"]), reverse=True)
+    for i, r in enumerate(result):
+        r["ranking"] = i + 1
+
+    return result
