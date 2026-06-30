@@ -380,6 +380,26 @@ export default function KPIs() {
   const sdrConv      = sdrTotal.captacoes > 0 ? +(sdrTotal.vendas / sdrTotal.captacoes * 100).toFixed(1) : 0
   const sdrPerdaPct  = sdrTotal.captacoes > 0 ? +(sdrTotal.cancelados / sdrTotal.captacoes * 100).toFixed(1) : 0
 
+  // Agrupa Clara, Maria Eduarda, Gabrieli, Kauany (+ o2 solution) em "o2 Solution" para exibição
+  const sdrDisplayFontes = (() => {
+    const o2Members = sdrFontes.filter(f => isO2Member(f.fonte) || isO2Self(f.fonte))
+    const others    = sdrFontes.filter(f => !isO2Member(f.fonte) && !isO2Self(f.fonte))
+    const rows = [...others]
+    if (o2Members.length > 0) {
+      const cap = o2Members.reduce((s, f) => s + f.captacoes, 0)
+      const ven = o2Members.reduce((s, f) => s + f.vendas, 0)
+      const can = o2Members.reduce((s, f) => s + f.cancelados, 0)
+      rows.push({
+        fonte: 'o2 Solution',
+        captacoes: cap, vendas: ven, cancelados: can,
+        conversao: cap > 0 ? +(ven / cap * 100).toFixed(1) : 0,
+        breakdown: [],
+        _o2Origens: o2Members.map(f => f.fonte),
+      } as FonteData & { _o2Origens?: string[] })
+    }
+    return rows.sort((a, b) => b.captacoes - a.captacoes)
+  })()
+
   const baseTopCapt: BaseStat | undefined = basesData.length > 0
     ? [...basesData].sort((a, b) => b.captacoes - a.captacoes)[0]
     : undefined
@@ -531,7 +551,9 @@ export default function KPIs() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sdrFontes.map(f => {
+                  {sdrDisplayFontes.map(f => {
+                    const fd = f as FonteData & { _o2Origens?: string[] }
+                    const origens = fd._o2Origens ? fd._o2Origens.join(',') : f.fonte
                     const pctPerda = f.captacoes > 0 ? +(f.cancelados / f.captacoes * 100).toFixed(1) : 0
                     return (
                       <tr key={f.fonte} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
@@ -540,7 +562,7 @@ export default function KPIs() {
                           setSdrStatusFilter(null)
                           setSdrLeadsLoading(true)
                           setSdrLeads([])
-                          api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?${new URLSearchParams({ month, origens: f.fonte })}`)
+                          api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?${new URLSearchParams({ month, origens })}`)
                             .then(r => setSdrLeads(r.data)).catch(() => setSdrLeads([]))
                             .finally(() => setSdrLeadsLoading(false))
                         }}
