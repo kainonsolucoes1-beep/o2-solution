@@ -128,9 +128,12 @@ export default function KPIs() {
   const [ageBandsLoading, setAgeBandsLoading] = useState(true)
   const [ageSemIdade, setAgeSemIdade] = useState(0)
   const [ageComIdade, setAgeComIdade] = useState(0)
+  const [agePopup, setAgePopup] = useState<string | null>(null)
+  const [ageLeads, setAgeLeads] = useState<{ nome: string; idade: number; status: string; tipo: 'venda' | 'perda' | 'ativo'; valor: number | null }[]>([])
+  const [ageLeadsLoading, setAgeLeadsLoading] = useState(false)
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null) } }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
@@ -573,8 +576,20 @@ export default function KPIs() {
                         const maxCap = Math.max(...ageBands.map(x => x.captacoes), 1)
                         const barW = Math.round(b.captacoes / maxCap * 100)
                         return (
-                          <tr key={b.faixa} style={{ borderTop: '1px solid var(--border)' }}>
-                            <td style={{ padding: '11px 14px', fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap' }}>{b.faixa}</td>
+                          <tr key={b.faixa} style={{ borderTop: '1px solid var(--border)', cursor: b.captacoes > 0 ? 'pointer' : 'default' }}
+                            onClick={() => {
+                              if (b.captacoes === 0) return
+                              setAgePopup(b.faixa)
+                              setAgeLeads([])
+                              setAgeLeadsLoading(true)
+                              api.get<typeof ageLeads>(`/api/v1/kpis/leads-faixa-etaria?month=${month}&faixa=${encodeURIComponent(b.faixa)}`)
+                                .then(r => setAgeLeads(r.data)).catch(() => setAgeLeads([]))
+                                .finally(() => setAgeLeadsLoading(false))
+                            }}
+                            onMouseEnter={e => { if (b.captacoes > 0) (e.currentTarget as HTMLElement).style.background = '#F0F9FF' }}
+                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
+                          >
+                            <td style={{ padding: '11px 14px', fontWeight: 700, color: b.captacoes > 0 ? '#2563EB' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>{b.faixa}</td>
                             <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
                                 <div style={{ width: 60, height: 6, background: '#E5E7EB', borderRadius: 3, flexShrink: 0 }}>
@@ -621,6 +636,49 @@ export default function KPIs() {
           </div>
         )}
       </div>
+
+      {/* ── Modal: Leads por Faixa Etária ── */}
+      {agePopup && (
+        <div onClick={() => setAgePopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Faixa {agePopup} anos</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{month} · {ageLeads.length} lead{ageLeads.length !== 1 ? 's' : ''} com idade identificada</p>
+              </div>
+              <button onClick={() => setAgePopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 24px 24px' }}>
+              {ageLeadsLoading ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
+              ) : ageLeads.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {ageLeads.map((l, i) => {
+                    const tipoCor = l.tipo === 'venda' ? '#059669' : l.tipo === 'perda' ? '#EF4444' : '#6B7280'
+                    const tipoBg  = l.tipo === 'venda' ? '#ECFDF5' : l.tipo === 'perda' ? '#FEF2F2' : '#F1F5F9'
+                    return (
+                      <div key={i} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: '#1D4ED8', background: '#EFF6FF', borderRadius: 6, padding: '3px 9px', flexShrink: 0 }}>{l.idade} anos</span>
+                          <div>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{l.nome}</p>
+                            <span style={{ fontSize: 10, background: tipoBg, color: tipoCor, borderRadius: 4, padding: '2px 7px', fontWeight: 700 }}>{l.status}</span>
+                          </div>
+                        </div>
+                        {l.valor ? <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', flexShrink: 0, marginLeft: 8 }}>R$ {l.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> : null}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal: Leads por Ponto de Conversão ── */}
       {orgPopup && (

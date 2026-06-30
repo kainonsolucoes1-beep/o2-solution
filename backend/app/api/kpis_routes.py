@@ -530,6 +530,61 @@ def faixas_etarias(
     }
 
 
+@router.get("/leads-faixa-etaria")
+def leads_faixa_etaria(
+    month: str = Query(None),
+    faixa: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    leads = (
+        db.query(Lead.name, Lead.ages_raw, Lead.notes, Lead.status, Lead.value_potential)
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to)
+        .all()
+    )
+
+    STATUS_PT = {
+        "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
+        "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
+        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
+        "scheduled": "Agendado", "proposta": "Proposta",
+        "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
+    }
+    venda_set     = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    result = []
+    for name, ages_raw, notes, status, value_potential in leads:
+        age = _titular_age(ages_raw, notes)
+        if age is None:
+            continue
+        if faixa and _age_band(age) != faixa:
+            continue
+        s = (status or "").lower()
+        tipo = "venda" if s in venda_set else "perda" if s in cancelado_set else "ativo"
+        result.append({
+            "nome":   name or "Sem nome",
+            "idade":  age,
+            "status": STATUS_PT.get(s, status or "—"),
+            "tipo":   tipo,
+            "valor":  float(value_potential) if value_potential else None,
+        })
+
+    result.sort(key=lambda x: x["idade"])
+    return result
+
+
 @router.get("/receita-potencial")
 def receita_potencial(
     month: str = Query(None),
