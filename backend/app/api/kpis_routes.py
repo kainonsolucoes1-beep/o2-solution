@@ -17,6 +17,34 @@ router = APIRouter(prefix="/api/v1/kpis", tags=["kpis"])
 VENDA_STATUSES    = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 CANCELADO_STATUSES = ("sale_not_performed",)
 
+BASE_ALIASES: dict[str, str] = {
+    "empresas até 9 colaboradores":                    "Empresas SP capital LTDA - Até 9 colaboradores",
+    "discadora – empresas sp até 9 colaboradores":     "Empresas SP capital LTDA - Até 9 colaboradores",
+    "discadora - empresas sp até 9 colaboradores":     "Empresas SP capital LTDA - Até 9 colaboradores",
+    "empresas sp até 9 colaboradores":                 "Empresas SP capital LTDA - Até 9 colaboradores",
+    "empresas sp — até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
+    "empresas sp - até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
+    "não informado":                                   "Empresas SP capital LTDA - Até 9 colaboradores",
+    "empresas em sp ltda - ate 9 colaboradores":       "Empresas SP capital LTDA - Até 9 colaboradores",
+    "mei sp (discadora)":                              "Clientes MEI em SP",
+    "discadora sul américa":                           "SulAmerica",
+    "discadora sul america":                           "SulAmerica",
+    "base sulamerica":                                 "SulAmerica",
+}
+_BASE_RE_EMOJI  = re.compile(r'🗂️\s*Base:\s*([^|\n]+)')
+_BASE_RE_SIMPLE = re.compile(r'(?im)^Base:\s*([^\n]+)')
+
+
+def _extract_base(notes: str | None) -> str | None:
+    text = notes or ''
+    m = _BASE_RE_EMOJI.search(text) or _BASE_RE_SIMPLE.search(text)
+    if not m:
+        return None
+    base = m.group(1).strip()
+    if not base:
+        return None
+    return BASE_ALIASES.get(base.lower(), base)
+
 
 @router.get("/conversao-fonte")
 def conversao_por_fonte(
@@ -366,36 +394,14 @@ def bases_analytics(
         .all()
     )
 
-    BASE_ALIASES: dict[str, str] = {
-        "empresas até 9 colaboradores":                    "Empresas SP capital LTDA - Até 9 colaboradores",
-        "discadora – empresas sp até 9 colaboradores":     "Empresas SP capital LTDA - Até 9 colaboradores",
-        "discadora - empresas sp até 9 colaboradores":     "Empresas SP capital LTDA - Até 9 colaboradores",
-        "empresas sp até 9 colaboradores":                 "Empresas SP capital LTDA - Até 9 colaboradores",
-        "empresas sp — até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
-        "empresas sp - até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
-        "não informado":                                   "Empresas SP capital LTDA - Até 9 colaboradores",
-        "empresas em sp ltda - ate 9 colaboradores":       "Empresas SP capital LTDA - Até 9 colaboradores",
-        "mei sp (discadora)":                              "Clientes MEI em SP",
-        "discadora sul américa":                           "SulAmerica",
-        "discadora sul america":                           "SulAmerica",
-        "base sulamerica":                                 "SulAmerica",
-    }
-
-    base_re_emoji  = re.compile(r'🗂️\s*Base:\s*([^|\n]+)')
-    base_re_simple = re.compile(r'(?im)^Base:\s*([^\n]+)')
     venda_set = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
 
     data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})
     for notes, status in leads:
-        text = notes or ''
-        m = base_re_emoji.search(text) or base_re_simple.search(text)
-        if not m:
-            continue
-        base = m.group(1).strip()
+        base = _extract_base(notes)
         if not base:
             continue
-        base = BASE_ALIASES.get(base.lower(), base)
         s = (status or '').lower()
         data[base]["captacoes"] += 1
         if s in venda_set:
@@ -418,6 +424,62 @@ def bases_analytics(
         })
 
     result.sort(key=lambda x: x["captacoes"], reverse=True)
+    return result
+
+
+@router.get("/leads-base")
+def leads_base(
+    month: str = Query(None),
+    base: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    leads = (
+        db.query(Lead.name, Lead.notes, Lead.status, Lead.value_potential)
+        .filter(
+            Lead.created_at >= dt_from,
+            Lead.created_at <= dt_to,
+            Lead.notes.isnot(None),
+            Lead.notes.ilike('%Base%'),
+        )
+        .all()
+    )
+
+    STATUS_PT = {
+        "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
+        "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
+        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
+        "scheduled": "Agendado", "proposta": "Proposta",
+        "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
+    }
+    venda_set     = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+    target = (base or '').strip().lower()
+
+    result = []
+    for name, notes, status, value in leads:
+        b = _extract_base(notes)
+        if not b or b.lower() != target:
+            continue
+        s = (status or '').lower()
+        tipo = "venda" if s in venda_set else "perda" if s in cancelado_set else "ativo"
+        result.append({
+            "nome":   name or "Sem nome",
+            "status": STATUS_PT.get(s, status or "—"),
+            "valor":  float(value) if value else None,
+            "tipo":   tipo,
+        })
     return result
 
 

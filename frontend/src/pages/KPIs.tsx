@@ -46,7 +46,7 @@ interface BaseStat {
 
 interface OrgLead {
   nome: string
-  origem: string
+  origem?: string
   status: string
   valor: number | null
   tipo: 'venda' | 'perda' | 'ativo'
@@ -124,6 +124,10 @@ export default function KPIs() {
   const [orgLeads, setOrgLeads] = useState<OrgLead[]>([])
   const [orgLeadsLoading, setOrgLeadsLoading] = useState(false)
   const [orgStatusFilter, setOrgStatusFilter] = useState<string | null>(null)
+  const [basePopup, setBasePopup] = useState<string | null>(null)
+  const [baseLeads, setBaseLeads] = useState<OrgLead[]>([])
+  const [baseLeadsLoading, setBaseLeadsLoading] = useState(false)
+  const [baseStatusFilter, setBaseStatusFilter] = useState<string | null>(null)
   const [ageBands, setAgeBands] = useState<AgeBand[]>([])
   const [ageBandsLoading, setAgeBandsLoading] = useState(true)
   const [ageSemIdade, setAgeSemIdade] = useState(0)
@@ -133,7 +137,7 @@ export default function KPIs() {
   const [ageLeadsLoading, setAgeLeadsLoading] = useState(false)
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null) } }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
@@ -440,8 +444,20 @@ export default function KPIs() {
                 </thead>
                 <tbody>
                   {basesData.map(b => (
-                    <tr key={b.base} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{b.base}</td>
+                    <tr key={b.base} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                      onClick={() => {
+                        setBasePopup(b.base)
+                        setBaseStatusFilter(null)
+                        setBaseLeadsLoading(true)
+                        setBaseLeads([])
+                        api.get<OrgLead[]>(`/api/v1/kpis/leads-base?${new URLSearchParams({ month, base: b.base })}`)
+                          .then(r => setBaseLeads(r.data)).catch(() => setBaseLeads([]))
+                          .finally(() => setBaseLeadsLoading(false))
+                      }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
+                    >
+                      <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{b.base}</td>
                       <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                         <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{b.captacoes}</span>
                       </td>
@@ -675,6 +691,69 @@ export default function KPIs() {
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Leads por Base ── */}
+      {basePopup && (
+        <div onClick={() => setBasePopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{basePopup}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Leads captados nesta base · {month}</p>
+              </div>
+              <button onClick={() => setBasePopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 24px 24px' }}>
+              {baseLeadsLoading ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
+              ) : baseLeads.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
+              ) : (() => {
+                const statusList = [...new Set(baseLeads.map(l => l.status))]
+                const filtered   = baseStatusFilter ? baseLeads.filter(l => l.status === baseStatusFilter) : baseLeads
+                return (
+                  <>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                      <button onClick={() => setBaseStatusFilter(null)}
+                        style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: baseStatusFilter === null ? '#1D4ED8' : 'var(--bg-2)', color: baseStatusFilter === null ? '#fff' : 'var(--text-muted)' }}>
+                        Todos ({baseLeads.length})
+                      </button>
+                      {statusList.map(st => {
+                        const count = baseLeads.filter(l => l.status === st).length
+                        const active = baseStatusFilter === st
+                        const tipoCor = baseLeads.find(l => l.status === st)?.tipo === 'venda' ? '#059669' : baseLeads.find(l => l.status === st)?.tipo === 'perda' ? '#EF4444' : '#6B7280'
+                        return (
+                          <button key={st} onClick={() => setBaseStatusFilter(active ? null : st)}
+                            style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1px solid ${tipoCor}40`, cursor: 'pointer', background: active ? tipoCor : tipoCor + '15', color: active ? '#fff' : tipoCor }}>
+                            {st} ({count})
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {filtered.map((l, i) => {
+                        const tipoCor = l.tipo === 'venda' ? '#059669' : l.tipo === 'perda' ? '#EF4444' : '#6B7280'
+                        const tipoBg  = l.tipo === 'venda' ? '#ECFDF5' : l.tipo === 'perda' ? '#FEF2F2' : '#F1F5F9'
+                        return (
+                          <div key={i} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 10, background: tipoBg, color: tipoCor, borderRadius: 4, padding: '2px 7px', fontWeight: 700, flexShrink: 0 }}>{l.status}</span>
+                              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{l.nome}</p>
+                            </div>
+                            {l.valor ? <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', flexShrink: 0, marginLeft: 8 }}>R$ {l.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
         </div>
