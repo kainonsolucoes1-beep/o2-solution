@@ -346,7 +346,7 @@ def leads_conv_point(
         "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
         "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
         "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
-        "scheduled": "Agendado", "proposta": "Proposta",
+        "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
     }
     venda_set    = {s.lower() for s in VENDA_STATUSES}
@@ -460,7 +460,7 @@ def leads_base(
         "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
         "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
         "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
-        "scheduled": "Agendado", "proposta": "Proposta",
+        "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
     }
     venda_set     = {s.lower() for s in VENDA_STATUSES}
@@ -635,7 +635,7 @@ def leads_faixa_etaria(
         "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
         "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
         "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
-        "scheduled": "Agendado", "proposta": "Proposta",
+        "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
     }
     venda_set     = {s.lower() for s in VENDA_STATUSES}
