@@ -102,6 +102,7 @@ export default function KPIs() {
   const [activeTab, setActiveTab] = useState('Indicadores Chave')
   const [basesData, setBasesData] = useState<BaseStat[]>([])
   const [basesLoading, setBasesLoading] = useState(true)
+  const [openSection, setOpenSection] = useState<string | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPopover(null) }
@@ -309,6 +310,26 @@ export default function KPIs() {
     )
   }
 
+  const organicFontes = data.filter(d => !isSdr(d.fonte))
+  const organicTotal = {
+    captacoes: organicFontes.reduce((s, f) => s + f.captacoes, 0),
+    vendas:    organicFontes.reduce((s, f) => s + f.vendas, 0),
+    cancelados: organicFontes.reduce((s, f) => s + f.cancelados, 0),
+  }
+  const _allBp = organicFontes.flatMap(f => f.breakdown)
+  const _bpLabels = [...new Set(_allBp.map(b => b.label))]
+  const organicBp = _bpLabels
+    .map(label => {
+      const rows = _allBp.filter(b => b.label === label)
+      const cap  = rows.reduce((s, b) => s + b.captacoes, 0)
+      const ven  = rows.reduce((s, b) => s + b.vendas, 0)
+      const can  = rows.reduce((s, b) => s + b.cancelados, 0)
+      return { label, captacoes: cap, vendas: ven, cancelados: can, conversao: cap > 0 ? +(ven / cap * 100).toFixed(1) : 0, pct_perda: cap > 0 ? +(can / cap * 100).toFixed(1) : 0 }
+    })
+    .sort((a, b) => b.captacoes - a.captacoes)
+  const organicConv = organicTotal.captacoes > 0 ? +(organicTotal.vendas / organicTotal.captacoes * 100).toFixed(1) : 0
+  const organicPerdaPct = organicTotal.captacoes > 0 ? +(organicTotal.cancelados / organicTotal.captacoes * 100).toFixed(1) : 0
+
   const baseTopCapt: BaseStat | undefined = basesData.length > 0
     ? [...basesData].sort((a, b) => b.captacoes - a.captacoes)[0]
     : undefined
@@ -324,12 +345,22 @@ export default function KPIs() {
     { label: 'Mais Cancelamentos', color: '#EF4444', bg: '#FEF2F2', item: baseTopCanc, value: d => `${d.pct_cancelamento}% (${d.cancelados})` },
   ]
 
+  const acHd = (open: boolean): React.CSSProperties => ({
+    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '16px 24px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+    borderBottom: open ? '1px solid var(--border)' : 'none',
+  })
+  const acWrap: React.CSSProperties = {
+    marginBottom: 12, border: '1px solid var(--border)', borderRadius: 12,
+    overflow: 'hidden', background: 'var(--bg-2)',
+  }
+
   return UNDER_CONSTRUCTION ? (
     <main style={{ padding: '24px 32px', maxWidth: 1100 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>KPIs</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Performance por Base</p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Indicadores de performance</p>
         </div>
         <input
           type="month" value={month} onChange={e => setMonth(e.target.value)}
@@ -337,54 +368,130 @@ export default function KPIs() {
         />
       </div>
 
-      {!basesLoading && basesData.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-          {baseHighlights.map(({ label, color, bg, item, value }) => item ? (
-            <div key={label} style={{ background: 'var(--bg-2)', border: `1px solid ${color}40`, borderRadius: 12, padding: '20px 24px' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{label}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', marginBottom: 10 }}>{item.base}</div>
-              <div style={{ display: 'inline-block', background: bg, color, borderRadius: 8, padding: '4px 14px', fontSize: 20, fontWeight: 800 }}>{value(item)}</div>
-            </div>
-          ) : null)}
-        </div>
-      )}
+      {/* ── Accordion: Performance por Base ── */}
+      <div style={acWrap}>
+        <button style={acHd(openSection === 'bases')} onClick={() => setOpenSection(openSection === 'bases' ? null : 'bases')}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Performance por Base</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+              {basesLoading ? 'Carregando…' : `${basesData.length} bases · destaque: ${baseTopCapt?.base ?? '—'}`}
+            </p>
+          </div>
+          {openSection === 'bases' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
+        </button>
+        {openSection === 'bases' && (
+          <div style={{ padding: '20px 24px 24px' }}>
+            {!basesLoading && basesData.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
+                {baseHighlights.map(({ label, color, bg, item, value }) => item ? (
+                  <div key={label} style={{ background: bg, border: `1px solid ${color}30`, borderRadius: 10, padding: '16px 20px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>{item.base}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color }}>{value(item)}</div>
+                  </div>
+                ) : null)}
+              </div>
+            )}
+            {basesLoading ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Carregando…</div>
+            ) : basesData.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhuma base com campo "Base:" encontrada neste período</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-3, #f5f5f5)' }}>
+                    {['Base', 'Captações', 'Vendas', 'Cancelamentos', 'Conversão', '% Cancelamento'].map(h => (
+                      <th key={h} style={{ padding: '9px 14px', textAlign: h === 'Base' ? 'left' : 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {basesData.map(b => (
+                    <tr key={b.base} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{b.base}</td>
+                      <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                        <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{b.captacoes}</span>
+                      </td>
+                      <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: '#10B981', fontWeight: 700 }}>{b.vendas}</td>
+                      <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: b.cancelados > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: b.cancelados > 0 ? 700 : 400 }}>{b.cancelados}</td>
+                      <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: b.conversao >= 20 ? '#059669' : b.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{b.conversao}%</span>
+                      </td>
+                      <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: b.pct_cancelamento >= 30 ? '#EF4444' : b.pct_cancelamento >= 15 ? '#F59E0B' : '#6B7280' }}>{b.pct_cancelamento}%</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
 
-      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Todas as Bases</h2>
-        </div>
-        {basesLoading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Carregando…</div>
-        ) : basesData.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhuma base com campo "Base:" encontrada neste período</div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-3, #f5f5f5)' }}>
-                {['Base', 'Captações', 'Vendas', 'Cancelamentos', 'Conversão', '% Cancelamento'].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', textAlign: h === 'Base' ? 'left' : 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {basesData.map(b => (
-                <tr key={b.base} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{b.base}</td>
-                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                    <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 10px', fontWeight: 700, fontSize: 13 }}>{b.captacoes}</span>
-                  </td>
-                  <td style={{ padding: '12px 16px', textAlign: 'center', fontSize: 13, color: '#10B981', fontWeight: 700 }}>{b.vendas}</td>
-                  <td style={{ padding: '12px 16px', textAlign: 'center', fontSize: 13, color: b.cancelados > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: b.cancelados > 0 ? 700 : 400 }}>{b.cancelados}</td>
-                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: b.conversao >= 20 ? '#059669' : b.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{b.conversao}%</span>
-                  </td>
-                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: b.pct_cancelamento >= 30 ? '#EF4444' : b.pct_cancelamento >= 15 ? '#F59E0B' : '#6B7280' }}>{b.pct_cancelamento}%</span>
-                  </td>
-                </tr>
+      {/* ── Accordion: Orgânico ── */}
+      <div style={acWrap}>
+        <button style={acHd(openSection === 'organico')} onClick={() => setOpenSection(openSection === 'organico' ? null : 'organico')}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Orgânico</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+              {loading ? 'Carregando…' : `Site · ChatGPT · Orgânico — ${organicTotal.captacoes} leads · ${organicTotal.vendas} vendas · ${organicConv}% conversão`}
+            </p>
+          </div>
+          {openSection === 'organico' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
+        </button>
+        {openSection === 'organico' && (
+          <div style={{ padding: '20px 24px 24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+              {([
+                { label: 'Captações', val: String(organicTotal.captacoes), color: '#3B82F6', bg: '#EFF6FF' },
+                { label: 'Vendas',    val: String(organicTotal.vendas),    color: '#10B981', bg: '#ECFDF5' },
+                { label: 'Conversão', val: `${organicConv}%`,              color: '#7C3AED', bg: '#F5F3FF' },
+                { label: '% Perda',   val: `${organicPerdaPct}%`,          color: '#EF4444', bg: '#FEF2F2' },
+              ] as const).map(({ label, val, color, bg }) => (
+                <div key={label} style={{ background: bg, borderRadius: 10, padding: '14px 16px', border: `1px solid ${color}25` }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>{label}</p>
+                  <p style={{ fontSize: 22, fontWeight: 800, color, margin: 0 }}>{val}</p>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+            {loading ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Carregando…</div>
+            ) : organicBp.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum dado orgânico neste período</div>
+            ) : (
+              <>
+                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 10px' }}>Por Ponto de Conversão</p>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-3, #f5f5f5)' }}>
+                      {['Ponto de Conversão', 'Captações', 'Vendas', 'Cancelamentos', 'Conversão', '% Perda'].map(h => (
+                        <th key={h} style={{ padding: '9px 14px', textAlign: h === 'Ponto de Conversão' ? 'left' : 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {organicBp.map(b => (
+                      <tr key={b.label} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text-1)', textTransform: 'capitalize' }}>{b.label}</td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                          <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{b.captacoes}</span>
+                        </td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: '#10B981', fontWeight: 700 }}>{b.vendas}</td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: b.cancelados > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: b.cancelados > 0 ? 700 : 400 }}>{b.cancelados}</td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: b.conversao >= 20 ? '#059669' : b.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{b.conversao}%</span>
+                        </td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: b.pct_perda >= 30 ? '#EF4444' : b.pct_perda >= 15 ? '#F59E0B' : '#6B7280' }}>{b.pct_perda}%</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
         )}
       </div>
     </main>
