@@ -316,6 +316,8 @@ def bases_analytics(
         "empresas sp - até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
         "não informado":                                   "Empresas SP capital LTDA - Até 9 colaboradores",
         "mei sp (discadora)":                              "Clientes MEI em SP",
+        "discadora sul américa":                           "SulAmerica",
+        "discadora sul america":                           "SulAmerica",
     }
 
     base_re_emoji  = re.compile(r'🗂️\s*Base:\s*([^|\n]+)')
