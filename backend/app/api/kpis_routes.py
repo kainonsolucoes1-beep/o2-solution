@@ -283,6 +283,7 @@ def motivos_cancelamento(
 def leads_conv_point(
     month: str = Query(None),
     conv_point: str = Query(None),
+    origens: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -300,6 +301,10 @@ def leads_conv_point(
     filters = [Lead.created_at >= dt_from, Lead.created_at <= dt_to]
     if conv_point:
         filters.append(Lead.conversion_point.ilike(conv_point))
+    if origens:
+        parts = [s.strip() for s in origens.split(',') if s.strip()]
+        if parts:
+            filters.append(Lead.origin.in_(parts))
 
     rows = (
         db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential)

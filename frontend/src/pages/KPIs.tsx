@@ -490,7 +490,12 @@ export default function KPIs() {
                           setOrgStatusFilter(null)
                           setOrgLeadsLoading(true)
                           setOrgLeads([])
-                          api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?month=${month}&conv_point=${encodeURIComponent(b.label)}`)
+                          const relevantFontes = organicFontes
+                            .filter(f => f.breakdown.some(bd => bd.label === b.label))
+                            .map(f => f.fonte)
+                          const qp = new URLSearchParams({ month, conv_point: b.label })
+                          if (relevantFontes.length > 0) qp.set('origens', relevantFontes.join(','))
+                          api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?${qp}`)
                             .then(r => setOrgLeads(r.data)).catch(() => setOrgLeads([]))
                             .finally(() => setOrgLeadsLoading(false))
                         }}
