@@ -608,6 +608,7 @@ function PerformanceTab({ month }: { month: string }) {
   if (!data.length) return <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum dado para o período.</p>
 
   return (
+    <>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
 
       {/* controles */}
@@ -821,7 +822,7 @@ function PerformanceTab({ month }: { month: string }) {
 
     </div>
 
-      {/* ── Modal: Leads Performance ── */}
+      {/* Modal: Leads Performance */}
       {perfPopup && (
         <div onClick={() => setPerfPopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card,#fff)', borderRadius: 18, width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
@@ -876,6 +877,7 @@ function PerformanceTab({ month }: { month: string }) {
           </div>
         </div>
       )}
+    </>
   )
 }
 
