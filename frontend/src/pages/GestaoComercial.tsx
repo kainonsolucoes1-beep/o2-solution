@@ -250,6 +250,19 @@ function PipelineTab() {
           <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Até</span>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
             style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }} />
+          <button
+            onClick={() => {
+              const prevEnd = new Date(_now.getFullYear(), _now.getMonth(), 0)
+              const y = prevEnd.getFullYear()
+              const m = String(prevEnd.getMonth() + 1).padStart(2, '0')
+              const d = String(prevEnd.getDate()).padStart(2, '0')
+              setDateFrom(`${y}-${m}-01`)
+              setDateTo(`${y}-${m}-${d}`)
+            }}
+            style={{ fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-muted)', background: 'var(--bg-input)', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}
+          >
+            Mês anterior
+          </button>
           <div style={{ position: 'relative' }}>
             <button onClick={() => setSourcesOpen(o => !o)}
               style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: selectedSources.length > 0 ? 'var(--text-3)' : 'var(--text-subtle)', background: 'var(--bg-input)', cursor: 'pointer', minWidth: 160, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
