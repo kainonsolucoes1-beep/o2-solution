@@ -7,7 +7,7 @@ import {
 import {
   Users, ShoppingCart, TrendingUp, DollarSign, TrendingDown, Tag,
   ChevronDown, ChevronRight, X, ChevronLeft,
-  Clock, CheckSquare, FileText, Handshake, Timer, XCircle,
+  Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter, Calendar,
 } from 'lucide-react'
 import api from '../api'
 
@@ -794,10 +794,38 @@ function PerformanceTab({ month }: { month: string }) {
 // Main component
 // ════════════════════════════════════════════════════════════════════════════
 export default function GestaoComercial() {
-  const [activeTab, setActiveTab] = useState<Tab>('Visão Geral')
-  const [dateFrom, setDateFrom]   = useState(_gcMonthStart)
-  const [dateTo, setDateTo]       = useState(_gcToday)
+  const [activeTab, setActiveTab]     = useState<Tab>('Visão Geral')
+  const [dateFrom, setDateFrom]       = useState(_gcMonthStart)
+  const [dateTo, setDateTo]           = useState(_gcToday)
+  const [filterOpen, setFilterOpen]   = useState(false)
+  const [filterMode, setFilterMode]   = useState<'range' | 'month'>('range')
   const month = dateFrom.slice(0, 7)
+
+  function applyPrevMonth() {
+    const prevEnd = new Date(_gcNow.getFullYear(), _gcNow.getMonth(), 0)
+    const y = prevEnd.getFullYear()
+    const m = String(prevEnd.getMonth() + 1).padStart(2, '0')
+    const d = String(prevEnd.getDate()).padStart(2, '0')
+    setDateFrom(`${y}-${m}-01`)
+    setDateTo(`${y}-${m}-${d}`)
+    setFilterOpen(false)
+  }
+
+  function applyMonth(val: string) {
+    const [y, m] = val.split('-').map(Number)
+    const lastDay = new Date(y, m, 0).getDate()
+    setDateFrom(`${val}-01`)
+    setDateTo(`${val}-${String(lastDay).padStart(2, '0')}`)
+  }
+
+  const filterLabel = (() => {
+    const fmt = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    if (dateFrom === _gcMonthStart && dateTo === _gcToday) return 'Este mês'
+    if (dateFrom.slice(0, 7) === dateTo.slice(0, 7) && dateFrom.endsWith('-01')) {
+      return new Date(dateFrom + 'T12:00:00').toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+    }
+    return `${fmt(dateFrom)} – ${fmt(dateTo)}`
+  })()
 
   const [kpis, setKpis]       = useState<Kpis | null>(null)
   const [diario, setDiario]   = useState<DiarioItem[]>([])
@@ -892,28 +920,65 @@ export default function GestaoComercial() {
       </div>
 
       {/* ── FILTRO GLOBAL ── */}
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Filtro</span>
-        <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px' }} />
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>De</span>
-        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-          style={{ fontSize: 13, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }} />
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Até</span>
-        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-          style={{ fontSize: 13, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, position: 'relative' }}>
         <button
-          onClick={() => {
-            const prevEnd = new Date(_gcNow.getFullYear(), _gcNow.getMonth(), 0)
-            const y = prevEnd.getFullYear()
-            const m = String(prevEnd.getMonth() + 1).padStart(2, '0')
-            const d = String(prevEnd.getDate()).padStart(2, '0')
-            setDateFrom(`${y}-${m}-01`)
-            setDateTo(`${y}-${m}-${d}`)
-          }}
-          style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-muted)', background: 'var(--bg-input)', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}
+          onClick={() => setFilterOpen(o => !o)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
         >
-          Mês anterior
+          <Filter size={14} />
+          {filterLabel}
+          <ChevronDown size={13} style={{ transform: filterOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
         </button>
+
+        {filterOpen && (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setFilterOpen(false)} />
+            <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 280 }}>
+
+              {/* Atalho mês anterior */}
+              <button
+                onClick={applyPrevMonth}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, fontWeight: 600, marginBottom: 14 }}
+              >
+                <Calendar size={13} />
+                Mês anterior inteiro
+              </button>
+
+              {/* Seletores de modo */}
+              <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: 'var(--bg-input)', borderRadius: 8, padding: 3 }}>
+                {(['range', 'month'] as const).map(mode => (
+                  <button key={mode} onClick={() => setFilterMode(mode)} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', background: filterMode === mode ? 'var(--bg-card)' : 'transparent', color: filterMode === mode ? 'var(--text-1)' : 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontWeight: filterMode === mode ? 600 : 400, boxShadow: filterMode === mode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 150ms' }}>
+                    {mode === 'range' ? 'Entre datas' : 'Por mês'}
+                  </button>
+                ))}
+              </div>
+
+              {filterMode === 'range' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>De</p>
+                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                      style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Até</p>
+                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                      style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer', boxSizing: 'border-box' }} />
+                  </div>
+                </div>
+              )}
+
+              {filterMode === 'month' && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mês</p>
+                  <input type="month" value={month} onChange={e => applyMonth(e.target.value)}
+                    style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer', boxSizing: 'border-box' }} />
+                </div>
+              )}
+
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── VISÃO GERAL ── */}
