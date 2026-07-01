@@ -926,14 +926,7 @@ export default function GestaoComercial() {
 
   const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null)
 
-  const [origensPopup, setOrigensPopup]               = useState<string | null>(null)
-  const [origensLeads, setOrigensLeads]               = useState<PerfLead[]>([])
-  const [origensLoading, setOrigensLoading]           = useState(false)
-  const [origensStatusFilter, setOrigensStatusFilter] = useState<string | null>(null)
-
-  const [organicoStages, setOrganicoStages]               = useState<{status: string, leads: PerfLead[]}[]>([])
-  const [organicoStagesLoading, setOrganicoStagesLoading] = useState(false)
-  const [stagePopup, setStagePopup]                       = useState<{stage: string, leads: PerfLead[], x: number, y: number} | null>(null)
+  const [stagePopup, setStagePopup] = useState<{stage: string, leads: PerfLead[], loading: boolean, x: number, y: number} | null>(null)
 
   const [showDrill, setShowDrill]               = useState(false)
   const [drillTipo, setDrillTipo]               = useState<DrillTipo>('receita_potencial')
@@ -964,37 +957,17 @@ export default function GestaoComercial() {
       .then(r => setDrillRows(normalizeDrill(r.data))).catch(() => {}).finally(() => setDrillLoading(false))
   }
 
-  function openOrigensModal(origemNome: string) {
-    setOrigensPopup(origemNome); setOrigensLeads([]); setOrigensLoading(true); setOrigensStatusFilter(null)
+  function openStagePopup(nome: string, e: React.MouseEvent) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const x = rect.right + 290 < window.innerWidth ? rect.right + 10 : rect.left - 290
+    const y = Math.min(rect.top, window.innerHeight - 320)
+    setStagePopup({ stage: nome, leads: [], loading: true, x, y })
     const p = new URLSearchParams({ month })
-    const origens = origemNome === 'o2 Solution' ? [...O2_NAMES].join(',') : origemNome
+    const origens = nome === 'o2 Solution' ? [...O2_NAMES].join(',') : nome
     p.set('origens', origens)
     api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
-      .then(r => setOrigensLeads(r.data)).catch(() => setOrigensLeads([]))
-      .finally(() => setOrigensLoading(false))
-  }
-
-  function handleGroupClick(g: GrupoOrigem) {
-    const isOpening = expandedGrupo !== g.nome
-    setExpandedGrupo(isOpening ? g.nome : null)
-    setStagePopup(null)
-    if (isOpening && g.nome === 'Orgânico') {
-      setOrganicoStages([]); setOrganicoStagesLoading(true)
-      const origens = g.subs.map(s => s.nome).join(',')
-      const p = new URLSearchParams({ month })
-      if (origens) p.set('origens', origens)
-      api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
-        .then(r => {
-          const byStatus = new Map<string, PerfLead[]>()
-          for (const lead of r.data) {
-            if (!byStatus.has(lead.status)) byStatus.set(lead.status, [])
-            byStatus.get(lead.status)!.push(lead)
-          }
-          setOrganicoStages([...byStatus.entries()].map(([status, leads]) => ({ status, leads })).sort((a, b) => b.leads.length - a.leads.length))
-        })
-        .catch(() => {})
-        .finally(() => setOrganicoStagesLoading(false))
-    }
+      .then(r => setStagePopup(prev => prev ? { ...prev, leads: r.data, loading: false } : null))
+      .catch(() => setStagePopup(prev => prev ? { ...prev, leads: [], loading: false } : null))
   }
 
   const filtered      = filterDrill(drillRows, drillPath)
@@ -1170,7 +1143,7 @@ export default function GestaoComercial() {
                 const subMax = g.subs.reduce((m, s) => Math.max(m, s.captacoes), 1)
                 return (
                   <div key={g.nome} style={{ marginBottom: 10 }}>
-                    <button onClick={() => handleGroupClick(g)} style={{ width: '100%', background: open ? g.color + '10' : 'transparent', border: `1px solid ${open ? g.color + '40' : 'var(--border)'}`, borderRadius: 10, padding: '10px 14px', cursor: 'pointer', transition: 'all 150ms' }}>
+                    <button onClick={() => { setExpandedGrupo(open ? null : g.nome); setStagePopup(null) }} style={{ width: '100%', background: open ? g.color + '10' : 'transparent', border: `1px solid ${open ? g.color + '40' : 'var(--border)'}`, borderRadius: 10, padding: '10px 14px', cursor: 'pointer', transition: 'all 150ms' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ width: 10, height: 10, borderRadius: '50%', background: g.color }} />
@@ -1188,64 +1161,27 @@ export default function GestaoComercial() {
                     </button>
                     {open && (
                       <div style={{ marginTop: 6, padding: '12px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)' }}>
-                        {g.nome === 'Orgânico' ? (
-                          organicoStagesLoading ? (
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Carregando...</p>
-                          ) : organicoStages.length === 0 ? (
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Nenhum lead encontrado</p>
-                          ) : (() => {
-                            const maxSt = organicoStages[0]?.leads.length ?? 1
-                            return organicoStages.map(({ status, leads }) => {
-                              const sw  = Math.max((leads.length / maxSt) * 100, 2)
-                              const pct = g.captacoes > 0 ? Math.round(leads.length / g.captacoes * 100) : 0
-                              return (
-                                <div key={status} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
-                                  onClick={e => {
-                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                                    const x = rect.right + 290 < window.innerWidth ? rect.right + 10 : rect.left - 290
-                                    const y = Math.min(rect.top, window.innerHeight - 320)
-                                    setStagePopup({ stage: status, leads, x, y })
-                                  }}
-                                  onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
-                                  onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                    <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{status}</span>
-                                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                      <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{leads.length}</span>
-                                      <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{pct}%</span>
-                                      <ChevronRight size={12} color={g.color} />
-                                    </div>
-                                  </div>
-                                  <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
-                                    <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
-                                  </div>
-                                </div>
-                              )
-                            })
-                          })()
-                        ) : (
-                          g.subs.map(s => {
-                            const sw = Math.max((s.captacoes / subMax) * 100, 2)
-                            return (
-                              <div key={s.nome} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
-                                onClick={() => openOrigensModal(s.nome)}
-                                onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
-                                onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                  <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{s.nome}</span>
-                                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                    <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{s.captacoes}</span>
-                                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{s.pct}%</span>
-                                    <ChevronRight size={12} color={g.color} />
-                                  </div>
-                                </div>
-                                <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
-                                  <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
+                        {g.subs.map(s => {
+                          const sw = Math.max((s.captacoes / subMax) * 100, 2)
+                          return (
+                            <div key={s.nome} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
+                              onClick={e => openStagePopup(s.nome, e)}
+                              onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
+                              onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{s.nome}</span>
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{s.captacoes}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{s.pct}%</span>
+                                  <ChevronRight size={12} color={g.color} />
                                 </div>
                               </div>
-                            )
-                          })
-                        )}
+                              <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                                <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -1433,74 +1369,25 @@ export default function GestaoComercial() {
           <div style={{ position: 'fixed', left: stagePopup.x, top: stagePopup.y, zIndex: 300, background: 'var(--bg-card,#fff)', borderRadius: 14, padding: '16px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', border: '1px solid var(--border)', minWidth: 240, maxWidth: 300, maxHeight: 340, overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{stagePopup.stage}</p>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 99 }}>{stagePopup.leads.length} lead{stagePopup.leads.length !== 1 ? 's' : ''}</span>
+              {!stagePopup.loading && <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 99 }}>{stagePopup.leads.length} lead{stagePopup.leads.length !== 1 ? 's' : ''}</span>}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {stagePopup.leads.map((l, i) => (
-                <div key={i} style={{ padding: '8px 12px', background: 'var(--bg-subtle,#F8FAFC)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--text-1)' }}>{l.nome}</p>
-                  {l.valor != null && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#059669', fontWeight: 600 }}>{l.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 })}</p>}
-                </div>
-              ))}
-            </div>
+            {stagePopup.loading ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Carregando...</p>
+            ) : stagePopup.leads.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Nenhum lead encontrado</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {stagePopup.leads.map((l, i) => (
+                  <div key={i} style={{ padding: '8px 12px', background: 'var(--bg-subtle,#F8FAFC)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--text-1)' }}>{l.nome}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>{l.status}</p>
+                    {l.valor != null && <p style={{ margin: '2px 0 0', fontSize: 11, color: '#059669', fontWeight: 600 }}>{l.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 })}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
-      )}
-
-      {/* ── ORIGENS MODAL ── */}
-      {origensPopup && (
-        <div onClick={() => setOrigensPopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card,#fff)', borderRadius: 18, width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-            <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Leads — {origensPopup}</p>
-              <button onClick={() => setOrigensPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4 }}><X size={18} /></button>
-            </div>
-            <div style={{ padding: '16px 24px 24px' }}>
-              {origensLoading ? (
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
-              ) : origensLeads.length === 0 ? (
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
-              ) : (() => {
-                const statusList = [...new Set(origensLeads.map(l => l.status))]
-                const filtered   = origensStatusFilter ? origensLeads.filter(l => l.status === origensStatusFilter) : origensLeads
-                const tipoCor    = (tipo: string) => tipo === 'venda' ? '#059669' : tipo === 'perda' ? '#EF4444' : '#6B7280'
-                return (
-                  <>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-                      <button onClick={() => setOrigensStatusFilter(null)} style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: origensStatusFilter === null ? '#1D4ED8' : 'var(--bg-2)', color: origensStatusFilter === null ? '#fff' : 'var(--text-muted)' }}>
-                        Todos ({origensLeads.length})
-                      </button>
-                      {statusList.map(st => {
-                        const count = origensLeads.filter(l => l.status === st).length
-                        const active = origensStatusFilter === st
-                        const cor = tipoCor(origensLeads.find(l => l.status === st)?.tipo ?? '')
-                        return (
-                          <button key={st} onClick={() => setOrigensStatusFilter(active ? null : st)} style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1px solid ${cor}40`, cursor: 'pointer', background: active ? cor : cor + '15', color: active ? '#fff' : cor }}>
-                            {st} ({count})
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {filtered.map((l, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-subtle,#F8FAFC)', border: '1px solid var(--border)' }}>
-                          <div>
-                            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{l.nome}</p>
-                            {l.origem && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>{l.origem}</p>}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            {l.valor != null && <span style={{ fontSize: 12, fontWeight: 600, color: '#059669' }}>{l.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 })}</span>}
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: tipoCor(l.tipo) + '18', color: tipoCor(l.tipo) }}>{l.status}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )
-              })()}
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )
