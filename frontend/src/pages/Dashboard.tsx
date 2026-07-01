@@ -104,6 +104,8 @@ function mergeO2Ranking(ranking: RankItem[]): RankItem[] {
 
 
 const todayStr = new Date().toISOString().slice(0, 10)
+const prevMonthLastDay = (() => { const d = new Date(); d.setDate(0); return d.toISOString().slice(0, 10) })()
+const prevMonthLabel = (() => { const d = new Date(); d.setDate(0); return d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }) })()
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -112,6 +114,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(false)
+  const [prevMonthMode, setPrevMonthMode] = useState(false)
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [feedOpen, setFeedOpen] = useState(false)
   const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
@@ -149,12 +152,20 @@ export default function Dashboard() {
   }, [])
 
   function handleDateChange(d: string) {
+    setPrevMonthMode(false)
     setShowPicker(false)
     setSelectedDate(d === todayStr ? null : d)
   }
 
+  function selectPrevMonth() {
+    setPrevMonthMode(true)
+    setSelectedDate(prevMonthLastDay)
+    setShowPicker(false)
+  }
+
   function resetDate() {
     setSelectedDate(null)
+    setPrevMonthMode(false)
     setShowPicker(false)
   }
 
@@ -171,6 +182,7 @@ export default function Dashboard() {
   const dateFmtDisplay = selectedDate
     ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : null
+  const dateDisplayStr = prevMonthMode ? prevMonthLabel : dateFmtDisplay
   const ranking = mergeO2Ranking(data.ranking)
 
   return (
@@ -185,7 +197,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
           {selectedDate && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563EB' }}>{dateFmtDisplay}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563EB' }}>{dateDisplayStr}</span>
               <button onClick={resetDate} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center', padding: 0 }}>
                 <X size={13} />
               </button>
@@ -210,6 +222,12 @@ export default function Dashboard() {
                   onChange={e => handleDateChange(e.target.value)}
                   style={{ fontSize: 13, padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border-in)', color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}
                 />
+                <button
+                  onClick={selectPrevMonth}
+                  style={{ marginTop: 8, width: '100%', padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, fontWeight: 500, textAlign: 'left' }}
+                >
+                  Mês anterior inteiro
+                </button>
               </div>
             )}
           </div>
@@ -219,7 +237,7 @@ export default function Dashboard() {
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 xl:gap-6">
         <KpiCard
-          label={selectedDate ? `Captação — ${dateFmtDisplay}` : 'Captação Hoje'}
+          label={selectedDate ? `Captação — ${dateDisplayStr}` : 'Captação Hoje'}
           value={String(data.captacao_hoje)}
           trend={data.vs_ontem}
           trendLabel="vs ontem"
@@ -263,7 +281,7 @@ export default function Dashboard() {
         {/* Ranking Hoje — ligações + captação + conversão */}
         <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Ranking de Operadores — {selectedDate ? dateFmtDisplay : 'Hoje'}
+            Ranking de Operadores — {selectedDate ? dateDisplayStr : 'Hoje'}
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 72px 72px 82px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
             {['Operador', 'Captação', 'Ligações', 'Conversão'].map(h => (
