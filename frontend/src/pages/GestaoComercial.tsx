@@ -116,6 +116,9 @@ function nowMonth() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
+const _gcNow        = new Date()
+const _gcToday      = `${_gcNow.getFullYear()}-${String(_gcNow.getMonth() + 1).padStart(2, '0')}-${String(_gcNow.getDate()).padStart(2, '0')}`
+const _gcMonthStart = `${_gcNow.getFullYear()}-${String(_gcNow.getMonth() + 1).padStart(2, '0')}-01`
 
 // ── Card config ──────────────────────────────────────────────────────────────
 const CARD_CFG = [
@@ -143,14 +146,9 @@ const CONV_COLORS  = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
 // ════════════════════════════════════════════════════════════════════════════
 // Pipeline sub-tab component
 // ════════════════════════════════════════════════════════════════════════════
-function PipelineTab() {
+function PipelineTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
   const navigate = useNavigate()
-  const _now = new Date()
-  const todayStr   = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`
-  const monthStart = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-01`
 
-  const [dateFrom, setDateFrom]               = useState(monthStart)
-  const [dateTo, setDateTo]                   = useState(todayStr)
   const [selectedSources, setSelectedSources] = useState<string[]>([])
   const [sourcesOpen, setSourcesOpen]         = useState(false)
   const [sources, setSources]                 = useState<string[]>([])
@@ -242,27 +240,8 @@ function PipelineTab() {
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Filtros */}
+        {/* Filtro de origens */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>De</span>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }} />
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Até</span>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }} />
-          <button
-            onClick={() => {
-              const prevEnd = new Date(_now.getFullYear(), _now.getMonth(), 0)
-              const y = prevEnd.getFullYear()
-              const m = String(prevEnd.getMonth() + 1).padStart(2, '0')
-              const d = String(prevEnd.getDate()).padStart(2, '0')
-              setDateFrom(`${y}-${m}-01`)
-              setDateTo(`${y}-${m}-${d}`)
-            }}
-            style={{ fontSize: 12, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-muted)', background: 'var(--bg-input)', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}
-          >
-            Mês anterior
-          </button>
           <div style={{ position: 'relative' }}>
             <button onClick={() => setSourcesOpen(o => !o)}
               style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: selectedSources.length > 0 ? 'var(--text-3)' : 'var(--text-subtle)', background: 'var(--bg-input)', cursor: 'pointer', minWidth: 160, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -524,8 +503,7 @@ const ExpandToggle = ({ expanded, hidden, onClick }: { expanded: boolean; hidden
   </button>
 )
 
-function PerformanceTab() {
-  const [month, setMonth]           = useState(nowMonth())
+function PerformanceTab({ month }: { month: string }) {
   const [data, setData]             = useState<OperadorPerf[]>([])
   const [prevData, setPrevData]     = useState<OperadorPerf[]>([])
   const [loading, setLoading]       = useState(true)
@@ -611,10 +589,6 @@ function PerformanceTab() {
 
       {/* controles */}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }}>
-        <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mês</p>
-          <input type="month" value={month} onChange={e => setMonth(e.target.value)} style={{ ...inputSt, width: 'auto' }} />
-        </div>
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta Vendas / operador</p>
           <input type="number" min={0} value={metaVendas} onChange={e => setMetaVendas(Math.max(0, +e.target.value))} style={{ ...inputSt, width: 72, textAlign: 'center' }} />
@@ -821,7 +795,9 @@ function PerformanceTab() {
 // ════════════════════════════════════════════════════════════════════════════
 export default function GestaoComercial() {
   const [activeTab, setActiveTab] = useState<Tab>('Visão Geral')
-  const [month, setMonth]         = useState(nowMonth())
+  const [dateFrom, setDateFrom]   = useState(_gcMonthStart)
+  const [dateTo, setDateTo]       = useState(_gcToday)
+  const month = dateFrom.slice(0, 7)
 
   const [kpis, setKpis]       = useState<Kpis | null>(null)
   const [diario, setDiario]   = useState<DiarioItem[]>([])
@@ -915,15 +891,34 @@ export default function GestaoComercial() {
         })}
       </div>
 
+      {/* ── FILTRO GLOBAL ── */}
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Filtro</span>
+        <div style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px' }} />
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>De</span>
+        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+          style={{ fontSize: 13, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }} />
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Até</span>
+        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+          style={{ fontSize: 13, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer' }} />
+        <button
+          onClick={() => {
+            const prevEnd = new Date(_gcNow.getFullYear(), _gcNow.getMonth(), 0)
+            const y = prevEnd.getFullYear()
+            const m = String(prevEnd.getMonth() + 1).padStart(2, '0')
+            const d = String(prevEnd.getDate()).padStart(2, '0')
+            setDateFrom(`${y}-${m}-01`)
+            setDateTo(`${y}-${m}-${d}`)
+          }}
+          style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-muted)', background: 'var(--bg-input)', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}
+        >
+          Mês anterior
+        </button>
+      </div>
+
       {/* ── VISÃO GERAL ── */}
       {activeTab === 'Visão Geral' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
-            <input type="month" value={month} onChange={e => setMonth(e.target.value)} style={{
-              padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
-              fontSize: 13, color: 'var(--text-1)', background: 'var(--bg-card)', cursor: 'pointer',
-            }} />
-          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
             {CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt, clickable }) => {
@@ -1040,9 +1035,9 @@ export default function GestaoComercial() {
       )}
 
       {/* ── PIPELINE ── */}
-      {activeTab === 'Pipeline' && <PipelineTab />}
+      {activeTab === 'Pipeline' && <PipelineTab dateFrom={dateFrom} dateTo={dateTo} />}
 
-      {activeTab === 'Performance' && <PerformanceTab />}
+      {activeTab === 'Performance' && <PerformanceTab month={month} />}
 
       {/* ── DRILL MODAL ── */}
       {showDrill && (
