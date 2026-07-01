@@ -926,7 +926,9 @@ export default function GestaoComercial() {
 
   const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null)
 
-  const [stagePopup, setStagePopup] = useState<{stage: string, leads: PerfLead[], loading: boolean, x: number, y: number} | null>(null)
+  const [stagePopup, setStagePopup]               = useState<{stage: string, leads: PerfLead[], loading: boolean, x: number, y: number} | null>(null)
+  const [orgConvPoints, setOrgConvPoints]         = useState<{conversion_point: string, count: number, pct: number}[]>([])
+  const [orgConvPointsLoading, setOrgConvPointsLoading] = useState(false)
 
   const [showDrill, setShowDrill]               = useState(false)
   const [drillTipo, setDrillTipo]               = useState<DrillTipo>('receita_potencial')
@@ -957,14 +959,18 @@ export default function GestaoComercial() {
       .then(r => setDrillRows(normalizeDrill(r.data))).catch(() => {}).finally(() => setDrillLoading(false))
   }
 
-  function openStagePopup(nome: string, e: React.MouseEvent) {
+  function openStagePopup(label: string, e: React.MouseEvent, convPoint?: string) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const x = rect.right + 290 < window.innerWidth ? rect.right + 10 : rect.left - 290
     const y = Math.min(rect.top, window.innerHeight - 320)
-    setStagePopup({ stage: nome, leads: [], loading: true, x, y })
+    setStagePopup({ stage: label, leads: [], loading: true, x, y })
     const p = new URLSearchParams({ month })
-    const origens = nome === 'o2 Solution' ? [...O2_NAMES].join(',') : nome
-    p.set('origens', origens)
+    if (convPoint) {
+      p.set('conv_point', convPoint)
+    } else {
+      const origens = label === 'o2 Solution' ? [...O2_NAMES].join(',') : label
+      p.set('origens', origens)
+    }
     api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
       .then(r => setStagePopup(prev => prev ? { ...prev, leads: r.data, loading: false } : null))
       .catch(() => setStagePopup(prev => prev ? { ...prev, leads: [], loading: false } : null))
@@ -1143,7 +1149,19 @@ export default function GestaoComercial() {
                 const subMax = g.subs.reduce((m, s) => Math.max(m, s.captacoes), 1)
                 return (
                   <div key={g.nome} style={{ marginBottom: 10 }}>
-                    <button onClick={() => { setExpandedGrupo(open ? null : g.nome); setStagePopup(null) }} style={{ width: '100%', background: open ? g.color + '10' : 'transparent', border: `1px solid ${open ? g.color + '40' : 'var(--border)'}`, borderRadius: 10, padding: '10px 14px', cursor: 'pointer', transition: 'all 150ms' }}>
+                    <button onClick={() => {
+                      const isOpening = expandedGrupo !== g.nome
+                      setExpandedGrupo(isOpening ? g.nome : null); setStagePopup(null)
+                      if (isOpening && g.nome === 'Orgânico') {
+                        setOrgConvPoints([]); setOrgConvPointsLoading(true)
+                        const origens = g.subs.map(s => s.nome).join(',')
+                        const p = new URLSearchParams({ month })
+                        if (origens) p.set('origens', origens)
+                        api.get<{conversion_point: string, count: number, pct: number}[]>(`/api/v1/gestao-comercial/conversion-points?${p}`)
+                          .then(r => setOrgConvPoints(r.data)).catch(() => setOrgConvPoints([]))
+                          .finally(() => setOrgConvPointsLoading(false))
+                      }
+                    }} style={{ width: '100%', background: open ? g.color + '10' : 'transparent', border: `1px solid ${open ? g.color + '40' : 'var(--border)'}`, borderRadius: 10, padding: '10px 14px', cursor: 'pointer', transition: 'all 150ms' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ width: 10, height: 10, borderRadius: '50%', background: g.color }} />
@@ -1161,27 +1179,56 @@ export default function GestaoComercial() {
                     </button>
                     {open && (
                       <div style={{ marginTop: 6, padding: '12px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)' }}>
-                        {g.subs.map(s => {
-                          const sw = Math.max((s.captacoes / subMax) * 100, 2)
-                          return (
-                            <div key={s.nome} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
-                              onClick={e => openStagePopup(s.nome, e)}
-                              onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
-                              onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{s.nome}</span>
-                                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                  <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{s.captacoes}</span>
-                                  <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{s.pct}%</span>
-                                  <ChevronRight size={12} color={g.color} />
+                        {g.nome === 'Orgânico' ? (
+                          orgConvPointsLoading ? (
+                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Carregando...</p>
+                          ) : orgConvPoints.length === 0 ? (
+                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Nenhum ponto de conversão registrado</p>
+                          ) : orgConvPoints.map(cp => {
+                            const maxCount = orgConvPoints[0].count
+                            const sw = Math.max((cp.count / maxCount) * 100, 2)
+                            return (
+                              <div key={cp.conversion_point} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
+                                onClick={e => openStagePopup(cp.conversion_point, e, cp.conversion_point)}
+                                onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
+                                onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{cp.conversion_point}</span>
+                                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{cp.count}</span>
+                                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{cp.pct}%</span>
+                                    <ChevronRight size={12} color={g.color} />
+                                  </div>
+                                </div>
+                                <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                                  <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
                                 </div>
                               </div>
-                              <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
-                                <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
+                            )
+                          })
+                        ) : (
+                          g.subs.map(s => {
+                            const sw = Math.max((s.captacoes / subMax) * 100, 2)
+                            return (
+                              <div key={s.nome} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
+                                onClick={e => openStagePopup(s.nome, e)}
+                                onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
+                                onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{s.nome}</span>
+                                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{s.captacoes}</span>
+                                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{s.pct}%</span>
+                                    <ChevronRight size={12} color={g.color} />
+                                  </div>
+                                </div>
+                                <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                                  <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
+                                </div>
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })
+                        )}
                       </div>
                     )}
                   </div>

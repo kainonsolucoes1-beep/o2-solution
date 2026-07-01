@@ -336,3 +336,42 @@ def performance_operadores(
         r["ranking"] = i + 1
 
     return result
+
+
+@router.get("/conversion-points")
+def conversion_points_by_group(
+    month: str = Query(None),
+    origens: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    year, mon = _parse_month(month)
+    dt_from, dt_to = _month_range(year, mon)
+
+    filters = [
+        Lead.created_at >= dt_from,
+        Lead.created_at <= dt_to,
+        Lead.conversion_point.isnot(None),
+        Lead.conversion_point != "",
+    ]
+    if origens:
+        parts = [s.strip() for s in origens.split(',') if s.strip()]
+        if parts:
+            filters.append(Lead.origin.in_(parts))
+
+    rows = (
+        db.query(Lead.conversion_point, func.count(Lead.id).label("cnt"))
+        .filter(*filters)
+        .group_by(Lead.conversion_point)
+        .order_by(func.count(Lead.id).desc())
+        .all()
+    )
+    total = sum(r.cnt for r in rows)
+    return [
+        {
+            "conversion_point": r.conversion_point,
+            "count": r.cnt,
+            "pct": round(r.cnt / total * 100, 1) if total else 0.0,
+        }
+        for r in rows
+    ]
