@@ -560,9 +560,15 @@ function PerformanceTab() {
   const insights = useMemo(() => {
     if (!data.length) return []
     const list: { type: 'ok' | 'warn'; text: string }[] = []
-    if (byVendas[0] && totalVendas > 0) {
+    // top vendedor — só quando há primeiro lugar isolado (sem empate)
+    if (byVendas[0] && totalVendas > 0 && byVendas[0].vendas > (byVendas[1]?.vendas ?? 0)) {
       const pct = Math.round(byVendas[0].vendas / totalVendas * 100)
       list.push({ type: 'ok', text: `${byVendas[0].operador} fechou ${pct}% das vendas da equipe neste mês.` })
+    }
+    // melhor conversão (somente quem tem ≥1 venda, primeiro lugar isolado)
+    const byConvVendas = [...data].filter(r => r.vendas > 0).sort((a, b) => b.conversao - a.conversao)
+    if (byConvVendas[0] && byConvVendas[0].conversao > (byConvVendas[1]?.conversao ?? 0)) {
+      list.push({ type: 'ok', text: `${byConvVendas[0].operador} lidera a conversão com ${byConvVendas[0].conversao}%, acima da média da equipe (${avgConv}%).` })
     }
     if (atencao && avgConv > 0 && atencao.conversao < avgConv * 0.85)
       list.push({ type: 'warn', text: `${atencao.operador} tem conversão de ${atencao.conversao}%, abaixo da média da equipe (${avgConv}%).` })
@@ -573,8 +579,6 @@ function PerformanceTab() {
       const diff = Math.round((totalVendas - prevVendas) / prevVendas * 100)
       list.push({ type: diff >= 0 ? 'ok' : 'warn', text: `Equipe está ${Math.abs(diff)}% ${diff >= 0 ? 'acima' : 'abaixo'} do mês anterior em vendas (${prevVendas} → ${totalVendas}).` })
     }
-    if (byConv[0]?.conversao >= 30)
-      list.push({ type: 'ok', text: `${byConv[0].operador} lidera a conversão com ${byConv[0].conversao}%, acima do benchmark de 30%.` })
     return list
   }, [data, byVendas, atencao, avgConv, avgTicket, byConv, prevVendas, totalVendas])
 
