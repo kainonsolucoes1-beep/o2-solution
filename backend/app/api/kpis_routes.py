@@ -312,6 +312,7 @@ def leads_conv_point(
     month: str = Query(None),
     conv_point: str = Query(None),
     origens: str = Query(None),
+    status_group: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -333,6 +334,8 @@ def leads_conv_point(
         parts = [s.strip() for s in origens.split(',') if s.strip()]
         if parts:
             filters.append(Lead.origin.in_(parts))
+    if status_group == 'venda':
+        filters.append(Lead.status.in_(VENDA_STATUSES))
 
     rows = (
         db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential)

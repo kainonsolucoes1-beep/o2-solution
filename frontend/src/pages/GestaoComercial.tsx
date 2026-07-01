@@ -503,12 +503,35 @@ const ExpandToggle = ({ expanded, hidden, onClick }: { expanded: boolean; hidden
   </button>
 )
 
+interface PerfLead { nome: string; origem?: string; status: string; valor: number | null; tipo: string }
+
 function PerformanceTab({ month }: { month: string }) {
   const [data, setData]             = useState<OperadorPerf[]>([])
   const [prevData, setPrevData]     = useState<OperadorPerf[]>([])
   const [loading, setLoading]       = useState(true)
   const [metaVendas, setMetaVendas] = useState(10)
   const [expConv, setExpConv]       = useState(false)
+  const [perfPopup, setPerfPopup]           = useState<string | null>(null)
+  const [perfLeads, setPerfLeads]           = useState<PerfLead[]>([])
+  const [perfLoading, setPerfLoading]       = useState(false)
+  const [perfStatusFilter, setPerfStatusFilter] = useState<string | null>(null)
+
+  function openPerfModal(title: string, origens?: string, statusGroup?: string) {
+    setPerfPopup(title); setPerfLeads([]); setPerfLoading(true); setPerfStatusFilter(null)
+    const p = new URLSearchParams({ month })
+    if (origens) p.set('origens', origens)
+    if (statusGroup) p.set('status_group', statusGroup)
+    api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
+      .then(r => setPerfLeads(r.data)).catch(() => setPerfLeads([]))
+      .finally(() => setPerfLoading(false))
+  }
+
+  useEffect(() => {
+    if (!perfPopup) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setPerfPopup(null) }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [perfPopup])
   const [expRec, setExpRec]         = useState(false)
   const [expTable, setExpTable]     = useState(false)
 
@@ -611,13 +634,23 @@ function PerformanceTab({ month }: { month: string }) {
               bg:    metaAtingidos === data.length ? '#ECFDF5' : metaAtingidos > 0 ? '#FFFBEB' : '#FEF2F2',
               sub: 'operadores atingiram',
             },
-          ] as const).map(c => (
-            <div key={c.label} style={{ background: c.bg, borderRadius: 14, padding: '20px', border: `1px solid ${c.color}22` }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: c.color, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>{c.label}</p>
-              <p style={{ fontSize: c.label === 'Receita' ? 16 : 28, fontWeight: 800, color: c.color, margin: 0, lineHeight: 1 }}>{c.val}</p>
-              {c.sub && <p style={{ fontSize: 10, color: c.color, opacity: 0.75, marginTop: 5 }}>{c.sub}</p>}
-            </div>
-          ))}
+          ] as const).map(c => {
+            const clickable = c.label === 'Captações' || c.label === 'Vendas' || c.label === 'Receita'
+            const sg = c.label === 'Vendas' || c.label === 'Receita' ? 'venda' : undefined
+            return (
+              <div key={c.label}
+                onClick={clickable ? () => openPerfModal(c.label, undefined, sg) : undefined}
+                style={{ background: c.bg, borderRadius: 14, padding: '20px', border: `1px solid ${c.color}22`, cursor: clickable ? 'pointer' : 'default', transition: clickable ? 'transform 120ms, box-shadow 120ms' : undefined }}
+                onMouseEnter={e => { if (clickable) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 14px ${c.color}33` } }}
+                onMouseLeave={e => { if (clickable) { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' } }}
+              >
+                <p style={{ fontSize: 10, fontWeight: 700, color: c.color, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>{c.label}</p>
+                <p style={{ fontSize: 28, fontWeight: 800, color: c.color, margin: 0, lineHeight: 1 }}>{c.val}</p>
+                {c.sub && <p style={{ fontSize: 10, color: c.color, opacity: 0.75, marginTop: 5 }}>{c.sub}</p>}
+                {clickable && <p style={{ fontSize: 10, color: c.color, opacity: 0.6, marginTop: 6, fontWeight: 600 }}>Ver leads →</p>}
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -626,15 +659,15 @@ function PerformanceTab({ month }: { month: string }) {
         {secLabel('Quem Está se Destacando')}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
           {byReceita[0] && (
-            <div style={{ background: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', borderRadius: 14, padding: 20, border: '1px solid #6EE7B7' }}>
+            <div onClick={() => openPerfModal(`Leads de ${byReceita[0].operador}`, byReceita[0].operador)} style={{ background: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', borderRadius: 14, padding: 20, border: '1px solid #6EE7B7', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #6EE7B755' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
               <p style={{ fontSize: 11, color: '#059669', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>🏆 Maior Receita</p>
               <p style={{ fontSize: 16, fontWeight: 700, color: '#065F46', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byReceita[0].operador}</p>
-              <p style={{ fontSize: 20, fontWeight: 800, color: '#059669', margin: '0 0 4px' }}>{fmtBrl(byReceita[0].receita)}</p>
+              <p style={{ fontSize: 28, fontWeight: 800, color: '#059669', margin: '0 0 4px', lineHeight: 1 }}>{fmtBrl(byReceita[0].receita)}</p>
               <p style={{ fontSize: 11, color: '#047857' }}>{byReceita[0].vendas} vendas · {byReceita[0].conversao}% conv.</p>
             </div>
           )}
           {byConv[0] && (
-            <div style={{ background: 'linear-gradient(135deg,#F5F3FF,#EDE9FE)', borderRadius: 14, padding: 20, border: '1px solid #C4B5FD' }}>
+            <div onClick={() => openPerfModal(`Leads de ${byConv[0].operador}`, byConv[0].operador)} style={{ background: 'linear-gradient(135deg,#F5F3FF,#EDE9FE)', borderRadius: 14, padding: 20, border: '1px solid #C4B5FD', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #C4B5FD55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
               <p style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>🎯 Maior Conversão</p>
               <p style={{ fontSize: 16, fontWeight: 700, color: '#4C1D95', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byConv[0].operador}</p>
               <p style={{ fontSize: 36, fontWeight: 800, color: '#7C3AED', margin: '0 0 4px', lineHeight: 1 }}>{byConv[0].conversao}%</p>
@@ -642,7 +675,7 @@ function PerformanceTab({ month }: { month: string }) {
             </div>
           )}
           {byVendas[0] && (
-            <div style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', borderRadius: 14, padding: 20, border: '1px solid #93C5FD' }}>
+            <div onClick={() => openPerfModal(`Leads de ${byVendas[0].operador}`, byVendas[0].operador)} style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', borderRadius: 14, padding: 20, border: '1px solid #93C5FD', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #93C5FD55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
               <p style={{ fontSize: 11, color: '#2563EB', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>💼 Mais Vendas</p>
               <p style={{ fontSize: 16, fontWeight: 700, color: '#1E3A8A', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byVendas[0].operador}</p>
               <p style={{ fontSize: 36, fontWeight: 800, color: '#2563EB', margin: '0 0 4px', lineHeight: 1 }}>{byVendas[0].vendas}</p>
@@ -650,7 +683,7 @@ function PerformanceTab({ month }: { month: string }) {
             </div>
           )}
           {atencao ? (
-            <div style={{ background: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', borderRadius: 14, padding: 20, border: '1px solid #FCD34D' }}>
+            <div onClick={() => openPerfModal(`Leads de ${atencao.operador}`, atencao.operador)} style={{ background: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', borderRadius: 14, padding: 20, border: '1px solid #FCD34D', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #FCD34D55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
               <p style={{ fontSize: 11, color: '#D97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>⚠️ Precisa de Atenção</p>
               <p style={{ fontSize: 16, fontWeight: 700, color: '#78350F', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{atencao.operador}</p>
               <p style={{ fontSize: 36, fontWeight: 800, color: '#D97706', margin: '0 0 4px', lineHeight: 1 }}>{atencao.conversao}%</p>
@@ -787,6 +820,62 @@ function PerformanceTab({ month }: { month: string }) {
       )}
 
     </div>
+
+      {/* ── Modal: Leads Performance ── */}
+      {perfPopup && (
+        <div onClick={() => setPerfPopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card,#fff)', borderRadius: 18, width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{perfPopup}</p>
+              <button onClick={() => setPerfPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4 }}><X size={18} /></button>
+            </div>
+            <div style={{ padding: '16px 24px 24px' }}>
+              {perfLoading ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
+              ) : perfLeads.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
+              ) : (() => {
+                const statusList = [...new Set(perfLeads.map(l => l.status))]
+                const filtered   = perfStatusFilter ? perfLeads.filter(l => l.status === perfStatusFilter) : perfLeads
+                const tipoCor    = (tipo: string) => tipo === 'venda' ? '#059669' : tipo === 'perda' ? '#EF4444' : '#6B7280'
+                return (
+                  <>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                      <button onClick={() => setPerfStatusFilter(null)} style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: perfStatusFilter === null ? '#1D4ED8' : 'var(--bg-2)', color: perfStatusFilter === null ? '#fff' : 'var(--text-muted)' }}>
+                        Todos ({perfLeads.length})
+                      </button>
+                      {statusList.map(st => {
+                        const count = perfLeads.filter(l => l.status === st).length
+                        const active = perfStatusFilter === st
+                        const cor = tipoCor(perfLeads.find(l => l.status === st)?.tipo ?? '')
+                        return (
+                          <button key={st} onClick={() => setPerfStatusFilter(active ? null : st)} style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1px solid ${cor}40`, cursor: 'pointer', background: active ? cor : cor + '15', color: active ? '#fff' : cor }}>
+                            {st} ({count})
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {filtered.map((l, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-subtle,#F8FAFC)', border: '1px solid var(--border)' }}>
+                          <div>
+                            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{l.nome}</p>
+                            {l.origem && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>{l.origem}</p>}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {l.valor != null && <span style={{ fontSize: 12, fontWeight: 600, color: '#059669' }}>{l.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 })}</span>}
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: tipoCor(l.tipo) + '18', color: tipoCor(l.tipo) }}>{l.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
   )
 }
 
