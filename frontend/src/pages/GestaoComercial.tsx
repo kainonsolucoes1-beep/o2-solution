@@ -7,7 +7,7 @@ import {
 import {
   Users, ShoppingCart, TrendingUp, DollarSign, TrendingDown, Tag,
   ChevronDown, ChevronRight, X, ChevronLeft,
-  Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter,
+  Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter, ArrowLeftRight,
 } from 'lucide-react'
 import api from '../api'
 
@@ -881,6 +881,166 @@ function PerformanceTab({ month }: { month: string }) {
   )
 }
 
+// ── Comparação entre meses ───────────────────────────────────────────────────
+function MonthPanel({ month }: { month: string }) {
+  const [kpis, setKpis]       = useState<Kpis | null>(null)
+  const [diario, setDiario]   = useState<DiarioItem[]>([])
+  const [origens, setOrigens] = useState<OrigemItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null)
+  const [orgConvPoints, setOrgConvPoints] = useState<{conversion_point: string, count: number, pct: number}[]>([])
+  const [orgConvPointsLoading, setOrgConvPointsLoading] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    Promise.all([
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${month}`),
+      api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?month=${month}`),
+      api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}`),
+    ]).then(([k, d, o]) => { setKpis(k.data); setDiario(d.data); setOrigens(o.data) })
+      .catch(() => {}).finally(() => setLoading(false))
+  }, [month])
+
+  const grupos = groupOrigens(origens)
+  const maxCap = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
+  const monthLabel = new Date(month + '-01T12:00:00').toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+
+  return (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', textTransform: 'capitalize', margin: '0 0 12px' }}>{monthLabel}</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
+        {CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt }) => {
+          const value = kpis ? (kpis as Record<string, number>)[key] : 0
+          return (
+            <div key={key} style={{ background: bg, borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${color}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: sub, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
+                <Icon size={13} color={color} />
+              </div>
+              <p style={{ fontSize: 17, fontWeight: 800, color, margin: 0 }}>{loading ? '—' : fmt(value)}</p>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '14px 14px 8px', marginBottom: 16 }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 10px' }}>Evolução Diária</p>
+        <ResponsiveContainer width="100%" height={160}>
+          <LineChart data={diario} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+            <XAxis dataKey="dia" tick={{ fontSize: 9, fill: '#94A3B8' }} interval={4} />
+            <YAxis tick={{ fontSize: 9, fill: '#94A3B8' }} />
+            <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #E2E8F0' }}
+              formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']}
+              labelFormatter={(l: number) => `Dia ${l}`} />
+            <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '14px 14px 12px' }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 10px' }}>Origens de Captação</p>
+        {grupos.map(g => {
+          const open = expandedGrupo === g.nome
+          const barW = maxCap > 0 ? Math.max((g.captacoes / maxCap) * 100, 2) : 0
+          return (
+            <div key={g.nome} style={{ marginBottom: 8 }}>
+              <button onClick={() => {
+                const isOpening = expandedGrupo !== g.nome
+                setExpandedGrupo(isOpening ? g.nome : null)
+                if (isOpening && g.nome === 'Orgânico') {
+                  setOrgConvPoints([]); setOrgConvPointsLoading(true)
+                  const origensStr = g.subs.map(s => s.nome).join(',')
+                  const p = new URLSearchParams({ month })
+                  if (origensStr) p.set('origens', origensStr)
+                  api.get<{conversion_point: string, count: number, pct: number}[]>(`/api/v1/gestao-comercial/conversion-points?${p}`)
+                    .then(r => setOrgConvPoints(r.data)).catch(() => setOrgConvPoints([]))
+                    .finally(() => setOrgConvPointsLoading(false))
+                }
+              }} style={{ width: '100%', background: open ? g.color + '10' : 'transparent', border: `1px solid ${open ? g.color + '40' : 'var(--border)'}`, borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: g.color }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>{g.nome}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-subtle)' }}>{g.pct}%</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: g.color }}>{g.captacoes}</span>
+                    {open ? <ChevronDown size={12} color={g.color} /> : <ChevronRight size={12} color="#94A3B8" />}
+                  </div>
+                </div>
+                <div style={{ background: '#F1F5F9', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                  <div style={{ width: `${barW}%`, height: '100%', background: g.color, borderRadius: 4 }} />
+                </div>
+              </button>
+              {open && (
+                <div style={{ marginTop: 5, padding: '8px 10px', background: '#F8FAFC', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  {g.nome === 'Orgânico' ? (
+                    orgConvPointsLoading ? (
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0', textAlign: 'center' }}>Carregando...</p>
+                    ) : orgConvPoints.length === 0 ? (
+                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0', textAlign: 'center' }}>Nenhum ponto de conversão registrado</p>
+                    ) : orgConvPoints.map(cp => (
+                      <div key={cp.conversion_point} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '3px 0', color: 'var(--text-2)' }}>
+                        <span>{cp.conversion_point}</span>
+                        <span style={{ fontWeight: 700, color: g.color }}>{cp.count} ({cp.pct}%)</span>
+                      </div>
+                    ))
+                  ) : (
+                    g.subs.map(s => (
+                      <div key={s.nome} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '3px 0', color: 'var(--text-2)' }}>
+                        <span>{s.nome}</span>
+                        <span style={{ fontWeight: 700, color: g.color }}>{s.captacoes} ({s.pct}%)</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function ComparisonModal({ onClose }: { onClose: () => void }) {
+  const [monthA, setMonthA] = useState(nowMonth())
+  const [monthB, setMonthB] = useState(prevMonthStr(nowMonth()))
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 1100, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg-card, #fff)', zIndex: 1 }}>
+          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Comparação entre meses</p>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
+            <X size={20} />
+          </button>
+        </div>
+        <div style={{ padding: '16px 24px', display: 'flex', gap: 16, borderBottom: '1px solid var(--border)' }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mês A</p>
+            <input type="month" value={monthA} onChange={e => setMonthA(e.target.value)}
+              style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', boxSizing: 'border-box' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mês B</p>
+            <input type="month" value={monthB} onChange={e => setMonthB(e.target.value)}
+              style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', boxSizing: 'border-box' }} />
+          </div>
+        </div>
+        <div style={{ padding: 24, display: 'flex', gap: 20 }}>
+          <MonthPanel month={monthA} />
+          <div style={{ width: 1, background: 'var(--border)', flexShrink: 0 }} />
+          <MonthPanel month={monthB} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // Main component
 // ════════════════════════════════════════════════════════════════════════════
@@ -890,6 +1050,7 @@ export default function GestaoComercial() {
   const [dateTo, setDateTo]           = useState(_gcToday)
   const [filterOpen, setFilterOpen]   = useState(false)
   const [filterMode, setFilterMode]   = useState<'range' | 'month'>('range')
+  const [showComparison, setShowComparison] = useState(false)
   const month = dateFrom.slice(0, 7)
 
 
@@ -1023,7 +1184,16 @@ export default function GestaoComercial() {
       </div>
 
       {/* ── FILTRO GLOBAL ── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, position: 'relative' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8, position: 'relative' }}>
+        {activeTab === 'Visão Geral' && (
+          <button
+            onClick={() => setShowComparison(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+          >
+            <ArrowLeftRight size={14} />
+            Ver comparação
+          </button>
+        )}
         <button
           onClick={() => setFilterOpen(o => !o)}
           style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
@@ -1418,6 +1588,8 @@ export default function GestaoComercial() {
           </div>
         </>
       )}
+
+      {showComparison && <ComparisonModal onClose={() => setShowComparison(false)} />}
     </div>
   )
 }
