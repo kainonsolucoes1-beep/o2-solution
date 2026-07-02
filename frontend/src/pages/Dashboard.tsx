@@ -121,28 +121,23 @@ export default function Dashboard() {
   const [telefonia, setTelefonia] = useState<{ tma: string; ligacoes: Record<string, number> }>({ tma: '—', ligacoes: {} })
   const [atendimentos, setAtendimentos] = useState<{ hoje: number; ontem: number | null; diff: number | null }>({ hoje: 0, ontem: null, diff: null })
 
-  const fetchAll = useCallback((date?: string | null) => {
+  const fetchAll = useCallback((date?: string | null, silent = false) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
-    setLoading(true)
+    if (!silent) setLoading(true)
     const params = date ? { date } : {}
     api.get<PerformanceData>('/api/v1/dashboard/performance', { params })
       .then(r => setData(r.data))
       .catch(err => {
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
-        else setError('Erro ao carregar dashboard.')
+        else if (!silent) setError('Erro ao carregar dashboard.')
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!silent) setLoading(false) })
   }, [navigate])
 
-  useEffect(() => { fetchAll(selectedDate) }, [fetchAll, selectedDate])
-
-  useEffect(() => {
+  const fetchSide = useCallback(() => {
     api.get<FeedItem[]>('/api/v1/dashboard/activity-feed')
       .then(r => setFeed(r.data))
       .catch(() => {})
-  }, [])
-
-  useEffect(() => {
     api.get<{ tma: string; ligacoes: Record<string, number> }>('/api/v1/telefonia/settings')
       .then(r => setTelefonia({ tma: r.data.tma || '—', ligacoes: r.data.ligacoes }))
       .catch(() => {})
@@ -150,6 +145,14 @@ export default function Dashboard() {
       .then(r => setAtendimentos(r.data))
       .catch(() => {})
   }, [])
+
+  useEffect(() => { fetchAll(selectedDate) }, [fetchAll, selectedDate])
+  useEffect(() => { fetchSide() }, [fetchSide])
+
+  useEffect(() => {
+    const id = setInterval(() => { fetchAll(selectedDate, true); fetchSide() }, 45000)
+    return () => clearInterval(id)
+  }, [fetchAll, fetchSide, selectedDate])
 
   function handleDateChange(d: string) {
     setPrevMonthMode(false)
