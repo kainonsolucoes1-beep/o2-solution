@@ -104,8 +104,6 @@ function mergeO2Ranking(ranking: RankItem[]): RankItem[] {
 
 
 const todayStr = new Date().toISOString().slice(0, 10)
-const prevMonthLastDay = (() => { const d = new Date(); d.setDate(0); return d.toISOString().slice(0, 10) })()
-const prevMonthLabel = (() => { const d = new Date(); d.setDate(0); return d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }) })()
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -114,7 +112,6 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(false)
-  const [prevMonthMode, setPrevMonthMode] = useState(false)
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [feedOpen, setFeedOpen] = useState(false)
   const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
@@ -155,20 +152,12 @@ export default function Dashboard() {
   }, [fetchAll, fetchSide, selectedDate])
 
   function handleDateChange(d: string) {
-    setPrevMonthMode(false)
     setShowPicker(false)
     setSelectedDate(d === todayStr ? null : d)
   }
 
-  function selectPrevMonth() {
-    setPrevMonthMode(true)
-    setSelectedDate(prevMonthLastDay)
-    setShowPicker(false)
-  }
-
   function resetDate() {
     setSelectedDate(null)
-    setPrevMonthMode(false)
     setShowPicker(false)
   }
 
@@ -185,7 +174,7 @@ export default function Dashboard() {
   const dateFmtDisplay = selectedDate
     ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : null
-  const dateDisplayStr = prevMonthMode ? prevMonthLabel : dateFmtDisplay
+  const dateDisplayStr = dateFmtDisplay
   const ranking = mergeO2Ranking(data.ranking)
 
   return (
@@ -225,12 +214,6 @@ export default function Dashboard() {
                   onChange={e => handleDateChange(e.target.value)}
                   style={{ fontSize: 13, padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border-in)', color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}
                 />
-                <button
-                  onClick={selectPrevMonth}
-                  style={{ marginTop: 8, width: '100%', padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, fontWeight: 500, textAlign: 'left' }}
-                >
-                  Mês anterior inteiro
-                </button>
               </div>
             )}
           </div>

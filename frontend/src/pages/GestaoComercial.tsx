@@ -7,7 +7,7 @@ import {
 import {
   Users, ShoppingCart, TrendingUp, DollarSign, TrendingDown, Tag,
   ChevronDown, ChevronRight, X, ChevronLeft,
-  Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter, Calendar,
+  Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter,
 } from 'lucide-react'
 import api from '../api'
 
@@ -892,15 +892,6 @@ export default function GestaoComercial() {
   const [filterMode, setFilterMode]   = useState<'range' | 'month'>('range')
   const month = dateFrom.slice(0, 7)
 
-  function applyPrevMonth() {
-    const prevEnd = new Date(_gcNow.getFullYear(), _gcNow.getMonth(), 0)
-    const y = prevEnd.getFullYear()
-    const m = String(prevEnd.getMonth() + 1).padStart(2, '0')
-    const d = String(prevEnd.getDate()).padStart(2, '0')
-    setDateFrom(`${y}-${m}-01`)
-    setDateTo(`${y}-${m}-${d}`)
-    setFilterOpen(false)
-  }
 
   function applyMonth(val: string) {
     const [y, m] = val.split('-').map(Number)
@@ -1046,15 +1037,6 @@ export default function GestaoComercial() {
           <>
             <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setFilterOpen(false)} />
             <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 280 }}>
-
-              {/* Atalho mês anterior */}
-              <button
-                onClick={applyPrevMonth}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, fontWeight: 600, marginBottom: 14 }}
-              >
-                <Calendar size={13} />
-                Mês anterior inteiro
-              </button>
 
               {/* Seletores de modo */}
               <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: 'var(--bg-input)', borderRadius: 8, padding: 3 }}>
