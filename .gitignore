@@ -1,6 +1,8 @@
 # Environment — nunca commitar secrets
 .env
 .env.production
+Google Tec.txt
+logo o2.png
 
 # Python
 __pycache__/
