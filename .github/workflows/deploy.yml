@@ -24,7 +24,7 @@ jobs:
             git pull origin main
 
             echo ">>> Build e subir containers"
-            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            docker-compose -f docker-compose.prod.yml up -d --build --remove-orphans
 
             echo ">>> Aguardar backend ficar healthy"
             sleep 10
