@@ -426,7 +426,7 @@ export default function KPIs() {
   }
 
   return UNDER_CONSTRUCTION ? (
-    <main className="px-4 md:px-8 xl:px-12 py-6">
+    <main className="px-4 md:px-8 xl:px-12 py-6" style={{ maxWidth: 1100 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>KPIs</h1>
