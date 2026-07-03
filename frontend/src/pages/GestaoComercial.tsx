@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import api from '../api'
 
-const TABS = ['Visão Geral', 'Pipeline', 'Performance'] as const
+const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção'] as const
 type Tab = typeof TABS[number]
 
 // ── Visão Geral types ────────────────────────────────────────────────────────
@@ -502,6 +502,14 @@ const ExpandToggle = ({ expanded, hidden, onClick }: { expanded: boolean; hidden
     {expanded ? 'Ver menos' : `Ver mais (${hidden})`}
   </button>
 )
+
+function ProjecaoTab() {
+  return (
+    <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+      <p style={{ fontSize: 14 }}>Aba em construção.</p>
+    </div>
+  )
+}
 
 interface PerfLead { nome: string; origem?: string; status: string; valor: number | null; tipo: string }
 
@@ -1412,6 +1420,8 @@ export default function GestaoComercial() {
       {activeTab === 'Pipeline' && <PipelineTab dateFrom={dateFrom} dateTo={dateTo} />}
 
       {activeTab === 'Performance' && <PerformanceTab month={month} />}
+
+      {activeTab === 'Projeção' && <ProjecaoTab />}
 
       {/* ── DRILL MODAL ── */}
       {showDrill && (
