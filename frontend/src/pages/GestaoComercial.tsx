@@ -1185,7 +1185,7 @@ export default function GestaoComercial() {
 
       {/* ── FILTRO GLOBAL ── */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8, position: 'relative' }}>
-        {activeTab === 'Visão Geral' && (
+        {(activeTab === 'Visão Geral' || activeTab === 'Pipeline' || activeTab === 'Performance') && (
           <button
             onClick={() => setShowComparison(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
@@ -1568,7 +1568,7 @@ export default function GestaoComercial() {
           <div style={{ position: 'fixed', left: stagePopup.x, top: stagePopup.y, zIndex: 300, background: 'var(--bg-card,#fff)', borderRadius: 14, padding: '16px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', border: '1px solid var(--border)', minWidth: 240, maxWidth: 300, maxHeight: 340, overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{stagePopup.stage}</p>
-              {!stagePopup.loading && <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 99 }}>{stagePopup.leads.length} lead{stagePopup.leads.length !== 1 ? 's' : ''}</span>}
+              {!stagePopup.loading && <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 99, whiteSpace: 'nowrap', flexShrink: 0 }}>{stagePopup.leads.length} lead{stagePopup.leads.length !== 1 ? 's' : ''}</span>}
             </div>
             {stagePopup.loading ? (
               <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Carregando...</p>
