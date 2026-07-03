@@ -106,6 +106,7 @@ async def startup_event():
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS is_renutrucao BOOLEAN NOT NULL DEFAULT false"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS lost_reason VARCHAR(255)"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS lost_message TEXT"))
+        conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS modalidade VARCHAR(255)"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS atendimentos_json TEXT NOT NULL DEFAULT '{}'"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS pausas_json TEXT NOT NULL DEFAULT '{}'"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS tma TEXT NOT NULL DEFAULT '—'"))
