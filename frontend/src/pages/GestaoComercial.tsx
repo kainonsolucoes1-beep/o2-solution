@@ -21,6 +21,7 @@ interface Kpis {
 }
 interface DiarioItem  { dia: number; captacoes: number; vendas: number }
 interface OrigemItem  { origem: string; captacoes: number; pct: number }
+interface ModalidadeItem { modalidade: string; captacoes: number; vendas: number; conversao: number; pct: number }
 interface MensalItem  { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number }
 interface DrillRawRow { origem: string; status: string; total_value: number; count: number }
 interface DrillRow extends DrillRawRow { grupo: 'SDR' | 'Orgânico'; operador: string }
@@ -1082,6 +1083,7 @@ export default function GestaoComercial() {
   const [diario, setDiario]   = useState<DiarioItem[]>([])
   const [origens, setOrigens] = useState<OrigemItem[]>([])
   const [mensal, setMensal]   = useState<MensalItem[]>([])
+  const [modalidades, setModalidades] = useState<ModalidadeItem[]>([])
   const [loading, setLoading] = useState(false)
 
   const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null)
@@ -1107,8 +1109,9 @@ export default function GestaoComercial() {
       api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?month=${month}`),
       api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}`),
       api.get<MensalItem[]>('/api/v1/gestao-comercial/comparativo-mensal'),
-    ]).then(([k, d, o, m]) => {
-      setKpis(k.data); setDiario(d.data); setOrigens(o.data); setMensal(m.data)
+      api.get<ModalidadeItem[]>(`/api/v1/gestao-comercial/modalidades-captacao?month=${month}`),
+    ]).then(([k, d, o, m, mod]) => {
+      setKpis(k.data); setDiario(d.data); setOrigens(o.data); setMensal(m.data); setModalidades(mod.data)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [activeTab, month])
 
@@ -1395,6 +1398,36 @@ export default function GestaoComercial() {
                 )
               })}
             </div>
+          </div>
+
+          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px 16px', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px' }}>Modalidade</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Captações, vendas e conversão por tipo de plano</p>
+            {modalidades.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>Nenhum dado de modalidade neste período</p>
+            ) : (
+              (() => {
+                const maxModCap = modalidades.reduce((m, x) => Math.max(m, x.captacoes), 1)
+                return modalidades.map(m => {
+                  const barW = Math.max((m.captacoes / maxModCap) * 100, 2)
+                  return (
+                    <div key={m.modalidade} style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)' }}>{m.modalidade}</span>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{m.captacoes} captações</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981' }}>{m.vendas} vendas</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 34, textAlign: 'right' }}>{m.conversao}%</span>
+                        </div>
+                      </div>
+                      <div style={{ background: '#F1F5F9', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                        <div style={{ width: `${barW}%`, height: '100%', background: '#3B82F6', borderRadius: 4, transition: 'width 400ms ease' }} />
+                      </div>
+                    </div>
+                  )
+                })
+              })()
+            )}
           </div>
 
           <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px 12px' }}>

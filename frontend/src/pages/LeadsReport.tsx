@@ -30,6 +30,7 @@ interface LeadItem {
   lost_message: string | null
   created_at: string
   updated_at: string | null
+  modalidade: string | null
 }
 
 interface ReportResponse {
@@ -96,6 +97,7 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'email',          label: 'Email' },
   { key: 'phone',          label: 'Telefone' },
   { key: 'origem',         label: 'Origem' },
+  { key: 'modalidade',     label: 'Modalidade' },
   { key: 'status',         label: 'Status' },
   { key: 'value_potential', label: 'Valor' },
 ]
@@ -106,9 +108,11 @@ export default function LeadsReport() {
 
   const [me, setMe]               = useState<Me | null>(null)
   const [operators, setOperators] = useState<Operator[]>([])
+  const [modalidades, setModalidades] = useState<string[]>([])
   const [dateFrom, setDateFrom]   = useState(() => searchParams.get('date_from') ?? monthStart)
   const [dateTo, setDateTo]       = useState(() => searchParams.get('date_to') ?? today)
   const [origem, setOrigem]       = useState(() => searchParams.get('origem') ?? '')
+  const [modalidadeFilter, setModalidadeFilter] = useState(() => searchParams.get('modalidade') ?? '')
   const [page, setPage]           = useState(1)
   const [report, setReport]       = useState<ReportResponse | null>(null)
   const [loading, setLoading]     = useState(false)
@@ -128,13 +132,14 @@ export default function LeadsReport() {
         setMe(r.data)
         if (r.data.role === 'admin' || r.data.username === 'lucas@o2solution.com.br') {
           api.get<string[]>('/api/v1/leads/origins').then(u => setOperators(u.data))
+          api.get<string[]>('/api/v1/leads/modalidades').then(u => setModalidades(u.data))
         }
       })
       .catch(() => navigate('/login'))
   }, [navigate])
 
   useEffect(() => {
-    if (me && (searchParams.get('status') || searchParams.get('perception') || vencidosFilter || searchParams.get('date_from') || searchParams.get('origem'))) fetchReport(1)
+    if (me && (searchParams.get('status') || searchParams.get('perception') || vencidosFilter || searchParams.get('date_from') || searchParams.get('origem') || searchParams.get('modalidade'))) fetchReport(1)
   }, [me]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -158,6 +163,7 @@ export default function LeadsReport() {
       if (isAdmin && origem) params.origem = origem
       if (statusFilter) params.status = statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
+      if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
 
       api
         .get<ReportResponse>('/api/v1/leads/by-period', { params })
@@ -173,7 +179,7 @@ export default function LeadsReport() {
         })
         .finally(() => setLoading(false))
     },
-    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, vencidosFilter, isAdmin, navigate],
+    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, vencidosFilter, isAdmin, navigate],
   )
 
   const [exporting, setExporting] = useState(false)
@@ -191,6 +197,7 @@ export default function LeadsReport() {
       if (isAdmin && origem) params.origem = origem
       if (statusFilter) params.status = statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
+      if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
 
       const { data } = await api.get<ReportResponse>('/api/v1/leads/by-period', { params })
       const rows = data.leads.map(l => ({
@@ -200,6 +207,7 @@ export default function LeadsReport() {
         'Email':           l.email ?? '',
         'Telefone':        l.phone ?? '',
         'Origem':          l.origem ?? '',
+        'Modalidade':      l.modalidade ?? '',
         'Status':          statusLabel(l.status),
         'Motivo de perda': l.lost_reason ?? '',
         'Valor (R$)':      l.value_potential ?? '',
@@ -314,6 +322,23 @@ export default function LeadsReport() {
                 />
               )}
             </div>
+
+            {isAdmin && (
+              <div className="flex flex-col gap-1">
+                <label style={labelStyle}>Modalidade</label>
+                <select
+                  value={modalidadeFilter}
+                  onChange={e => setModalidadeFilter(e.target.value)}
+                  className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ color: 'var(--text-2)', minWidth: 170 }}
+                >
+                  <option value="">Todas</option>
+                  {modalidades.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="flex flex-col gap-1">
               <label style={labelStyle}>Status</label>
@@ -493,6 +518,9 @@ export default function LeadsReport() {
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
                             {lead.origem ?? '—'}
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+                            {lead.modalidade ?? '—'}
                           </td>
                           <td style={{ padding: '12px 16px' }}>
                             <StatusBadge status={lead.status} />

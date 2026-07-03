@@ -131,6 +131,46 @@ def origens_captacao(
     ]
 
 
+@router.get("/modalidades-captacao")
+def modalidades_captacao(
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    year, mon = _parse_month(month)
+    dt_from, dt_to = _month_range(year, mon)
+
+    leads = (
+        db.query(Lead.modalidade, Lead.status)
+        .filter(
+            Lead.created_at >= dt_from, Lead.created_at <= dt_to,
+            Lead.modalidade.isnot(None), Lead.modalidade != "",
+        )
+        .all()
+    )
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
+    for modalidade, status in leads:
+        data[modalidade]["captacoes"] += 1
+        if (status or "").lower() in venda_set:
+            data[modalidade]["vendas"] += 1
+
+    total = sum(c["captacoes"] for c in data.values())
+    result = [
+        {
+            "modalidade": modalidade,
+            "captacoes": counts["captacoes"],
+            "vendas": counts["vendas"],
+            "conversao": round(counts["vendas"] / counts["captacoes"] * 100, 1) if counts["captacoes"] > 0 else 0.0,
+            "pct": round(counts["captacoes"] / total * 100, 1) if total > 0 else 0.0,
+        }
+        for modalidade, counts in data.items()
+    ]
+    result.sort(key=lambda x: x["captacoes"], reverse=True)
+    return result
+
+
 @router.get("/comparativo-mensal")
 def comparativo_mensal(
     current_user: User = Depends(get_current_user),

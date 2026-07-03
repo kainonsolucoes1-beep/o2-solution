@@ -64,6 +64,7 @@ def leads_by_period(
     origem: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     perception: Optional[str] = Query(None),
+    modalidade: Optional[str] = Query(None),
     vencidos: bool = Query(False),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
@@ -104,6 +105,12 @@ def leads_by_period(
         if perception:
             percs = [p.strip() for p in perception.split(',')]
             q = q.filter(Lead.perception.in_(percs))
+        if modalidade:
+            parts = [s.strip() for s in modalidade.split(',') if s.strip()]
+            if len(parts) == 1:
+                q = q.filter(Lead.modalidade == parts[0])
+            else:
+                q = q.filter(Lead.modalidade.in_(parts))
         return q
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
@@ -115,7 +122,7 @@ def leads_by_period(
                 Lead.company, Lead.attendant,
                 Lead.status, Lead.perception, Lead.value_potential,
                 Lead.created_at, Lead.updated_at, Lead.origin, Lead.is_renutrucao,
-                Lead.lost_reason, Lead.lost_message,
+                Lead.lost_reason, Lead.lost_message, Lead.modalidade,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -136,6 +143,7 @@ def leads_by_period(
             is_renutrucao=bool(r.is_renutrucao),
             lost_reason=r.lost_reason,
             lost_message=r.lost_message,
+            modalidade=r.modalidade,
         )
         for r in rows
     ]
@@ -169,6 +177,23 @@ def list_origins(
         .all()
     )
     return [r.origin for r in rows]
+
+
+@router.get("/leads/modalidades", response_model=List[str])
+def list_modalidades(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    rows = (
+        db.query(Lead.modalidade)
+        .filter(Lead.modalidade.isnot(None), Lead.modalidade != "")
+        .distinct()
+        .order_by(Lead.modalidade)
+        .all()
+    )
+    return [r.modalidade for r in rows]
 
 
 @router.post("/leads/{lead_id}/status", response_model=StatusUpdateResponse)

@@ -39,6 +39,7 @@ class LeadReportItem(BaseModel):
     is_renutrucao: bool = False
     lost_reason: Optional[str] = None
     lost_message: Optional[str] = None
+    modalidade: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
