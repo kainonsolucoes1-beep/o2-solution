@@ -6,7 +6,7 @@ import os
 
 SECRET_KEY = os.getenv("SECRET_KEY", "sua-chave-super-secreta-123456")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 480))
 
 def hash_password(password: str) -> str:
     return generate_password_hash(password, method="pbkdf2:sha256")
