@@ -136,8 +136,8 @@ async def startup_event():
             _db.add(_AS(key="conversion_point_backfill_done", value="1"))
             _db.commit()
             asyncio.create_task(sync_leads_backfill(days=365))
-        if not _db.query(_AS).filter(_AS.key == "modalidade_backfill_done").first():
-            _db.add(_AS(key="modalidade_backfill_done", value="1"))
+        if not _db.query(_AS).filter(_AS.key == "modalidade_id_backfill_done").first():
+            _db.add(_AS(key="modalidade_id_backfill_done", value="1"))
             _db.commit()
             asyncio.create_task(sync_leads_backfill(days=365))
     finally:

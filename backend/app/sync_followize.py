@@ -14,6 +14,15 @@ logger = logging.getLogger(__name__)
 
 FOLLOWIZE_API_URL = os.getenv("FOLLOWIZE_API_URL", "https://api.followize.com.br")
 
+MODALIDADE_MAP = {
+    54823: "Adesão",
+    40366: "Clube Saúde",
+    54824: "Empresarial",
+    40367: "Nosso Plano",
+    54822: "PF",
+    40368: "PME",
+}
+
 # In-memory tokens — refreshed in-place on 401
 _tokens: dict[str, str | None] = {
     "access": os.getenv("FOLLOWIZE_ACCESS_TOKEN"),
@@ -264,9 +273,8 @@ def _parse_lead_fields(raw: dict) -> dict:
     interests = raw.get("interests") or {}
     _i5_val = ((interests.get("interest_5") or {}).get("name") or "").strip()
     ages_raw = _i5_val if _i5_val and re.match(r'^[\dm,\s]+$', _i5_val) else None
-    modalidade = ((interests.get("interest_3") or {}).get("name") or "").strip() or None
-    if modalidade and re.search(r'coparticipa', modalidade, re.IGNORECASE):
-        modalidade = None
+    _interest_3_id = (interests.get("interest_3") or {}).get("id")
+    modalidade = MODALIDADE_MAP.get(int(_interest_3_id)) if _interest_3_id else None
 
     return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade}
 
