@@ -11,6 +11,7 @@ interface LeadItem {
   company: string | null
   attendant: string | null
   origem: string | null
+  conversion_point: string | null
   status: string | null
   perception: string | null
   value_potential: number | null
@@ -229,6 +230,7 @@ export default function LeadDetailModal({
               <Field label="Email"           value={lead.email ?? '—'} />
               <Field label="Telefone"        value={lead.phone ?? '—'} />
               <Field label="Origem"          value={lead.origem ?? '—'} />
+              <Field label="Ponto de Conversão" value={lead.conversion_point ?? '—'} />
               <Field label="Atendente"       value={lead.attendant ?? '—'} />
               <Field label="Valor Potencial" value={fmtBRL(lead.value_potential)} />
               <Field label="Data Criação"    value={fmtDate(lead.created_at)} />
