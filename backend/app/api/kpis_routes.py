@@ -26,6 +26,7 @@ BASE_ALIASES: dict[str, str] = {
     "empresas sp - até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
     "não informado":                                   "Empresas SP capital LTDA - Até 9 colaboradores",
     "empresas em sp ltda - ate 9 colaboradores":       "Empresas SP capital LTDA - Até 9 colaboradores",
+    "ate 9 colaboradores":                             "Empresas SP capital LTDA - Até 9 colaboradores",
     "mei sp (discadora)":                              "Clientes MEI em SP",
     "clientes mei em sp":                              "Clientes MEI em SP",
     "mei em sp":                                        "Clientes MEI em SP",
