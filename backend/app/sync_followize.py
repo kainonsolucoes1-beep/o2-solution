@@ -23,6 +23,22 @@ MODALIDADE_MAP = {
     40368: "PME",
 }
 
+CURRENT_PLAN_MAP = {
+    40362: "Amil",
+    40361: "Bradesco",
+    54813: "GNDI",
+    40359: "HapVida",
+    54821: "MedSenior",
+    55413: "Não possui plano",
+    55383: "Outras",
+    54903: "Plena",
+    54814: "Porto Seguro",
+    54817: "Prevent Senior",
+    54820: "São Cristovão",
+    40360: "Sulamerica",
+    54819: "Transmontano",
+}
+
 # In-memory tokens — refreshed in-place on 401
 _tokens: dict[str, str | None] = {
     "access": os.getenv("FOLLOWIZE_ACCESS_TOKEN"),
@@ -275,7 +291,8 @@ def _parse_lead_fields(raw: dict) -> dict:
     ages_raw = _i5_val if _i5_val and re.match(r'^[\dm,\s]+$', _i5_val) else None
     _interest_3_id = (interests.get("interest_3") or {}).get("id")
     modalidade = MODALIDADE_MAP.get(int(_interest_3_id)) if _interest_3_id else None
-    current_plan = ((interests.get("interest_1") or {}).get("name") or "").strip() or None
+    _interest_1_id = (interests.get("interest_1") or {}).get("id")
+    current_plan = CURRENT_PLAN_MAP.get(int(_interest_1_id)) if _interest_1_id else None
 
     return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "current_plan": current_plan}
 
