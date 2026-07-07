@@ -131,7 +131,7 @@ export default function Agenda() {
                   <div
                     key={di}
                     style={{
-                      minHeight: 110, padding: 6,
+                      minHeight: 190, padding: 6,
                       borderRight: di < 6 ? '1px solid var(--border-lt)' : 'none',
                       borderBottom: '1px solid var(--border-lt)',
                     }}
@@ -149,9 +149,9 @@ export default function Agenda() {
                             textAlign: 'left', fontSize: 11, lineHeight: 1.4,
                             borderLeft: `3px solid ${colorFor(it.attendant)}`,
                             background: 'var(--bg-hover)', color: 'var(--text-2)',
-                            padding: '3px 6px', borderRadius: 4, cursor: 'pointer', border: 'none',
+                            padding: '4px 6px', borderRadius: 4, cursor: 'pointer', border: 'none',
                             borderLeftWidth: 3, borderLeftStyle: 'solid',
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            whiteSpace: 'normal', wordBreak: 'break-word',
                           }}
                         >
                           {fmtTime(it.scheduled_at)} · {it.followize_id ?? '—'} · {it.name}
