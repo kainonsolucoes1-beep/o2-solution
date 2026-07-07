@@ -44,6 +44,24 @@ interface BaseStat {
   pct_cancelamento: number
 }
 
+interface PlanoStat {
+  nome: string
+  captacoes: number
+  vendas: number
+  cancelados: number
+  conversao: number
+}
+
+interface PlanoSaudeData {
+  com_informacao: number
+  sem_informacao: number
+  possui_plano: number
+  nao_possui_plano: number
+  pct_possui: number
+  pct_nao_possui: number
+  operadoras: PlanoStat[]
+}
+
 interface OrgLead {
   nome: string
   origem?: string
@@ -139,9 +157,14 @@ export default function KPIs() {
   const [agePopup, setAgePopup] = useState<string | null>(null)
   const [ageLeads, setAgeLeads] = useState<{ nome: string; idade: number; status: string; tipo: 'venda' | 'perda' | 'ativo'; valor: number | null }[]>([])
   const [ageLeadsLoading, setAgeLeadsLoading] = useState(false)
+  const [planoSaude, setPlanoSaude] = useState<PlanoSaudeData | null>(null)
+  const [planoSaudeLoading, setPlanoSaudeLoading] = useState(true)
+  const [planoPopup, setPlanoPopup] = useState<string | null>(null)
+  const [planoLeads, setPlanoLeads] = useState<OrgLead[]>([])
+  const [planoLeadsLoading, setPlanoLeadsLoading] = useState(false)
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null); setSdrPopup(null) } }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null); setSdrPopup(null); setPlanoPopup(null) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
@@ -181,6 +204,11 @@ export default function KPIs() {
       .then(r => { setAgeBands(r.data.bands); setAgeSemIdade(r.data.sem_idade); setAgeComIdade(r.data.com_idade) })
       .catch(() => setAgeBands([]))
       .finally(() => setAgeBandsLoading(false))
+    setPlanoSaudeLoading(true)
+    api.get<PlanoSaudeData>(`/api/v1/kpis/plano-saude?month=${month}`)
+      .then(r => setPlanoSaude(r.data))
+      .catch(() => setPlanoSaude(null))
+      .finally(() => setPlanoSaudeLoading(false))
   }, [month])
 
   const sdrRows      = data.filter(d => isSdr(d.fonte))
@@ -765,6 +793,137 @@ export default function KPIs() {
           </div>
         )}
       </div>
+
+      {/* ── Accordion: Plano de Saúde ── */}
+      <div style={acWrap}>
+        <button style={acHd(openSection === 'plano_saude')} onClick={() => setOpenSection(openSection === 'plano_saude' ? null : 'plano_saude')}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Plano de Saúde</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+              {planoSaudeLoading ? 'Carregando…' : `${planoSaude?.com_informacao ?? 0} leads com informação · ${planoSaude?.sem_informacao ?? 0} sem dados`}
+            </p>
+          </div>
+          {openSection === 'plano_saude' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
+        </button>
+        {openSection === 'plano_saude' && (
+          <div style={{ padding: '20px 24px 24px' }}>
+            {planoSaudeLoading ? (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>Carregando…</p>
+            ) : !planoSaude || planoSaude.com_informacao === 0 ? (
+              <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>Nenhum lead com essa informação neste período</p>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 20 }}>
+                  <div style={{ background: '#ECFDF5', border: '1px solid #05966930', borderRadius: 10, padding: '16px 20px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: '#059669', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Possui Plano</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: '#059669' }}>{planoSaude.possui_plano}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{planoSaude.pct_possui}% dos informados</div>
+                  </div>
+                  <div style={{ background: '#FEF2F2', border: '1px solid #DC262630', borderRadius: 10, padding: '16px 20px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: '#DC2626', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Não Possui Plano</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: '#DC2626' }}>{planoSaude.nao_possui_plano}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{planoSaude.pct_nao_possui}% dos informados</div>
+                  </div>
+                </div>
+
+                {planoSaude.operadoras.length > 0 && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#F8FAFC' }}>
+                          {['Operadora atual', 'Captações', 'Vendas', 'Cancelamentos', '% Conversão'].map(h => (
+                            <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Operadora atual' ? 'left' : 'center', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {planoSaude.operadoras.map(o => {
+                          const maxCap = Math.max(...planoSaude.operadoras.map(x => x.captacoes), 1)
+                          const barW = Math.round(o.captacoes / maxCap * 100)
+                          return (
+                            <tr key={o.nome} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                              onClick={() => {
+                                setPlanoPopup(o.nome)
+                                setPlanoLeads([])
+                                setPlanoLeadsLoading(true)
+                                api.get<OrgLead[]>(`/api/v1/kpis/leads-plano-saude?${new URLSearchParams({ month, plano: o.nome })}`)
+                                  .then(r => setPlanoLeads(r.data)).catch(() => setPlanoLeads([]))
+                                  .finally(() => setPlanoLeadsLoading(false))
+                              }}
+                              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
+                              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
+                            >
+                              <td style={{ padding: '11px 14px', fontWeight: 700, color: '#2563EB', whiteSpace: 'nowrap' }}>{o.nome}</td>
+                              <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                                  <div style={{ width: 60, height: 6, background: '#E5E7EB', borderRadius: 3, flexShrink: 0 }}>
+                                    <div style={{ width: `${barW}%`, height: '100%', background: '#3B82F6', borderRadius: 3 }} />
+                                  </div>
+                                  <span style={{ fontWeight: 600 }}>{o.captacoes}</span>
+                                </div>
+                              </td>
+                              <td style={{ padding: '11px 14px', textAlign: 'center', fontWeight: 600, color: o.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{o.vendas}</td>
+                              <td style={{ padding: '11px 14px', textAlign: 'center', fontWeight: 600, color: o.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{o.cancelados}</td>
+                              <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                                <span style={{ fontWeight: 700, color: o.conversao >= 20 ? '#059669' : o.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{o.conversao}%</span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {planoSaude.sem_informacao > 0 && (
+                  <p style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', textAlign: 'right' }}>
+                    {planoSaude.sem_informacao} leads sem essa informação (vieram de canais que não perguntam) não estão incluídos acima.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Modal: Leads por Operadora Atual ── */}
+      {planoPopup && (
+        <div onClick={() => setPlanoPopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{planoPopup}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{month} · {planoLeads.length} lead{planoLeads.length !== 1 ? 's' : ''}</p>
+              </div>
+              <button onClick={() => setPlanoPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '16px 24px 24px' }}>
+              {planoLeadsLoading ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
+              ) : planoLeads.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {planoLeads.map((l, i) => {
+                    const tipoCor = l.tipo === 'venda' ? '#059669' : l.tipo === 'perda' ? '#EF4444' : '#6B7280'
+                    const tipoBg  = l.tipo === 'venda' ? '#ECFDF5' : l.tipo === 'perda' ? '#FEF2F2' : '#F1F5F9'
+                    return (
+                      <div key={i} style={{ padding: '10px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{l.nome}</p>
+                          <span style={{ fontSize: 10, background: tipoBg, color: tipoCor, borderRadius: 4, padding: '2px 7px', fontWeight: 700 }}>{l.status}</span>
+                        </div>
+                        {l.valor ? <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', flexShrink: 0, marginLeft: 8 }}>R$ {l.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> : null}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal: Leads por Faixa Etária ── */}
       {agePopup && (

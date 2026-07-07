@@ -668,6 +668,128 @@ def leads_faixa_etaria(
     return result
 
 
+@router.get("/plano-saude")
+def plano_saude(
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    leads = (
+        db.query(Lead.current_plan, Lead.status)
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to)
+        .all()
+    )
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    sem_informacao = 0
+    nao_possui = 0
+    data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})
+
+    for current_plan, status in leads:
+        plano = (current_plan or "").strip()
+        if not plano:
+            sem_informacao += 1
+            continue
+        s = (status or "").lower()
+        if plano.lower() == "não possui plano":
+            nao_possui += 1
+            continue
+        data[plano]["captacoes"] += 1
+        if s in venda_set:
+            data[plano]["vendas"] += 1
+        elif s in cancelado_set:
+            data[plano]["cancelados"] += 1
+
+    operadoras = []
+    for nome, counts in data.items():
+        cap = counts["captacoes"]
+        operadoras.append({
+            "nome": nome,
+            "captacoes": cap,
+            "vendas": counts["vendas"],
+            "cancelados": counts["cancelados"],
+            "conversao": round(counts["vendas"] / cap * 100, 1) if cap > 0 else 0.0,
+        })
+    operadoras.sort(key=lambda x: x["captacoes"], reverse=True)
+
+    possui_plano = sum(o["captacoes"] for o in operadoras)
+    com_informacao = possui_plano + nao_possui
+
+    return {
+        "com_informacao": com_informacao,
+        "sem_informacao": sem_informacao,
+        "possui_plano": possui_plano,
+        "nao_possui_plano": nao_possui,
+        "pct_possui": round(possui_plano / com_informacao * 100, 1) if com_informacao > 0 else 0.0,
+        "pct_nao_possui": round(nao_possui / com_informacao * 100, 1) if com_informacao > 0 else 0.0,
+        "operadoras": operadoras,
+    }
+
+
+@router.get("/leads-plano-saude")
+def leads_plano_saude(
+    month: str = Query(None),
+    plano: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    leads = (
+        db.query(Lead.name, Lead.status, Lead.value_potential)
+        .filter(
+            Lead.created_at >= dt_from,
+            Lead.created_at <= dt_to,
+            func.lower(Lead.current_plan) == plano.strip().lower(),
+        )
+        .all()
+    )
+
+    STATUS_PT = {
+        "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
+        "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
+        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
+        "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo",
+        "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
+    }
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    result = []
+    for name, status, value in leads:
+        s = (status or "").lower()
+        tipo = "venda" if s in venda_set else "perda" if s in cancelado_set else "ativo"
+        result.append({
+            "nome": name or "Sem nome",
+            "status": STATUS_PT.get(s, status or "—"),
+            "valor": float(value) if value else None,
+            "tipo": tipo,
+        })
+    return result
+
+
 @router.get("/receita-potencial")
 def receita_potencial(
     month: str = Query(None),
