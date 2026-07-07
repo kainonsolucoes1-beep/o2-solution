@@ -36,6 +36,9 @@ from app.sync_followize import start_sync_scheduler, start_token_refresh_schedul
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
+with engine.connect() as _conn:
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS current_plan VARCHAR(255)"))
+    _conn.commit()
 
 app = FastAPI(
     title="O2 Solution API",
