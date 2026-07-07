@@ -33,6 +33,14 @@ interface StatusHistoryItem {
   changed_by: string | null
 }
 
+interface ScheduleItem {
+  id: string
+  scheduled_at: string
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+}
+
 const PERCEPTION_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   'Quente': { bg: 'rgba(220,38,38,0.12)',  color: '#DC2626', label: 'Quente' },
   'Morno':  { bg: 'rgba(217,119,6,0.12)',  color: '#D97706', label: 'Morno' },
@@ -117,6 +125,10 @@ export default function LeadDetailModal({
   const [deleting, setDeleting]           = useState(false)
   const [history, setHistory]             = useState<StatusHistoryItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
+  const [schedules, setSchedules]         = useState<ScheduleItem[]>([])
+  const [loadingSchedules, setLoadingSchedules] = useState(true)
+  const [scheduleInput, setScheduleInput] = useState('')
+  const [savingSchedule, setSavingSchedule] = useState(false)
 
   useEffect(() => {
     api.get<{ notes: Note[] }>(`/api/v1/leads/${lead.id}/notes`)
@@ -125,6 +137,9 @@ export default function LeadDetailModal({
     api.get<{ history: StatusHistoryItem[] }>(`/api/v1/leads/${lead.id}/status-history`)
       .then(r => setHistory(r.data.history))
       .finally(() => setLoadingHistory(false))
+    api.get<{ schedules: ScheduleItem[] }>(`/api/v1/leads/${lead.id}/schedule-history`)
+      .then(r => setSchedules(r.data.schedules))
+      .finally(() => setLoadingSchedules(false))
   }, [lead.id])
 
   useEffect(() => {
@@ -164,6 +179,20 @@ export default function LeadDetailModal({
       .then(r => setNotes(r.data.notes))
       .catch(() => setToast({ msg: 'Erro ao salvar nota', ok: false }))
       .finally(() => setSavingNote(false))
+  }
+
+  function handleSchedule() {
+    if (!scheduleInput) return
+    setSavingSchedule(true)
+    api.post(`/api/v1/leads/${lead.id}/schedule`, { scheduled_at: new Date(scheduleInput).toISOString() })
+      .then(() => {
+        setScheduleInput('')
+        setToast({ msg: 'Agendamento salvo com sucesso', ok: true })
+        return api.get<{ schedules: ScheduleItem[] }>(`/api/v1/leads/${lead.id}/schedule-history`)
+      })
+      .then(r => setSchedules(r.data.schedules))
+      .catch(() => setToast({ msg: 'Erro ao salvar agendamento', ok: false }))
+      .finally(() => setSavingSchedule(false))
   }
 
   function handleDelete() {
@@ -303,6 +332,58 @@ export default function LeadDetailModal({
                     Editar
                   </button>
                 </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Agendamento
+              </span>
+              {loadingSchedules ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
+              ) : (
+                <>
+                  {(() => {
+                    const active = schedules.find(s => s.is_active)
+                    return active ? (
+                      <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'rgba(37,99,235,0.12)', color: '#2563EB', padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
+                        Agendado para {fmtDate(active.scheduled_at)}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum agendamento ativo.</span>
+                    )
+                  })()}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      type="datetime-local"
+                      value={scheduleInput}
+                      onChange={e => setScheduleInput(e.target.value)}
+                      style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)' }}
+                    />
+                    <button
+                      onClick={handleSchedule}
+                      disabled={savingSchedule || !scheduleInput}
+                      style={{
+                        background: savingSchedule || !scheduleInput ? 'var(--bg-subtle)' : '#2563EB',
+                        color: savingSchedule || !scheduleInput ? 'var(--text-subtle)' : 'white',
+                        border: 'none', borderRadius: 8,
+                        padding: '7px 16px', fontSize: 13, fontWeight: 500,
+                        cursor: savingSchedule || !scheduleInput ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {savingSchedule ? 'Salvando…' : schedules.some(s => s.is_active) ? 'Reagendar' : 'Agendar'}
+                    </button>
+                  </div>
+                  {schedules.length > 1 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
+                      {schedules.filter(s => !s.is_active).map(s => (
+                        <span key={s.id} style={{ fontSize: 11, color: 'var(--text-subtle)', textDecoration: 'line-through' }}>
+                          {fmtDate(s.scheduled_at)}{s.created_by ? ` · ${s.created_by}` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

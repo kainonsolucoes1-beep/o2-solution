@@ -7,13 +7,15 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.models import Lead, LeadNote, LeadStatusHistory, User
+from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, User
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
     StatusUpdateRequest, StatusUpdateResponse,
     NoteCreateRequest, NoteCreateResponse,
     NoteResponse, NotesListResponse,
     StatusHistoryItem, StatusHistoryResponse,
+    ScheduleCreateRequest, ScheduleItem, ScheduleHistoryResponse,
+    AgendaItem, AgendaResponse,
 )
 from app.schemas.user import OperatorInfo
 
@@ -261,6 +263,86 @@ def get_lead_notes(
         for note, user in rows
     ]
     return NotesListResponse(notes=notes)
+
+
+@router.post("/leads/{lead_id}/schedule", response_model=ScheduleItem)
+def create_schedule(
+    lead_id: str,
+    body: ScheduleCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    db.query(LeadSchedule).filter(
+        LeadSchedule.lead_id == lead_id, LeadSchedule.is_active.is_(True)
+    ).update({"is_active": False})
+    schedule = LeadSchedule(
+        lead_id=lead.id,
+        scheduled_at=body.scheduled_at,
+        created_by=current_user.first_name or current_user.username,
+    )
+    db.add(schedule)
+    db.commit()
+    db.refresh(schedule)
+    return schedule
+
+
+@router.get("/leads/{lead_id}/schedule-history", response_model=ScheduleHistoryResponse)
+def get_schedule_history(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(LeadSchedule)
+        .filter(LeadSchedule.lead_id == lead_id)
+        .order_by(LeadSchedule.created_at.desc())
+        .all()
+    )
+    return ScheduleHistoryResponse(schedules=rows)
+
+
+@router.get("/agenda", response_model=AgendaResponse)
+def get_agenda(
+    date_from: str = Query(..., description="YYYY-MM-DD"),
+    date_to: str = Query(..., description="YYYY-MM-DD"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    try:
+        start = datetime.strptime(date_from, "%Y-%m-%d")
+        end = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
+
+    rows = (
+        db.query(LeadSchedule, Lead)
+        .join(Lead, LeadSchedule.lead_id == Lead.id)
+        .filter(
+            LeadSchedule.is_active.is_(True),
+            LeadSchedule.scheduled_at >= start,
+            LeadSchedule.scheduled_at < end,
+        )
+        .order_by(LeadSchedule.scheduled_at.asc())
+        .all()
+    )
+    items = [
+        AgendaItem(
+            id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
+            company=lead.company, attendant=lead.attendant, origem=lead.origin,
+            conversion_point=lead.conversion_point, status=lead.status,
+            perception=lead.perception,
+            value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
+            created_at=lead.created_at, followize_id=lead.followize_id,
+            scheduled_at=sched.scheduled_at, schedule_id=sched.id,
+        )
+        for sched, lead in rows
+    ]
+    return AgendaResponse(items=items)
 
 
 @router.post("/leads/{lead_id}/notes", response_model=NoteCreateResponse)

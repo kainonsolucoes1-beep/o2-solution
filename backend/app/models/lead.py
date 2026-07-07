@@ -49,3 +49,14 @@ class LeadStatusHistory(Base):
     to_status = Column(String(50), nullable=False)
     changed_at = Column(TIMESTAMP, server_default=func.now())
     changed_by = Column(String(255), nullable=True)
+
+
+class LeadSchedule(Base):
+    __tablename__ = "lead_schedules"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False)
+    scheduled_at = Column(TIMESTAMP, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False, server_default='true')
+    created_by = Column(String(255), nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())

@@ -99,3 +99,44 @@ class StatusHistoryItem(BaseModel):
 
 class StatusHistoryResponse(BaseModel):
     history: List[StatusHistoryItem]
+
+
+class ScheduleCreateRequest(BaseModel):
+    scheduled_at: datetime
+
+
+class ScheduleItem(BaseModel):
+    id: UUID
+    scheduled_at: datetime
+    is_active: bool
+    created_by: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ScheduleHistoryResponse(BaseModel):
+    schedules: List[ScheduleItem]
+
+
+class AgendaItem(BaseModel):
+    id: UUID
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    attendant: Optional[str] = None
+    origem: Optional[str] = None
+    conversion_point: Optional[str] = None
+    status: Optional[str] = None
+    perception: Optional[str] = None
+    value_potential: Optional[float] = None
+    created_at: datetime
+    followize_id: Optional[int] = None
+    scheduled_at: datetime
+    schedule_id: UUID
+
+
+class AgendaResponse(BaseModel):
+    items: List[AgendaItem]
