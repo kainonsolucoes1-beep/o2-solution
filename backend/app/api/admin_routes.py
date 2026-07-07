@@ -8,7 +8,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models import User
 from app.models.app_settings import AppSettings
-from app.sync_followize import update_tokens_in_memory, _fetch_all_leads, _upsert_lead, _date_from_lookback, _load_tokens_from_db, _save_sync_status
+from app.sync_followize import update_tokens_in_memory, _fetch_all_leads, _upsert_lead, _date_from_lookback, _load_tokens_from_db, _save_sync_status, _tokens
 from app.models import Lead
 from app.schemas.user import UserAdminCreate, UserAdminUpdate, UserAdminResponse
 from app.security import hash_password
@@ -112,6 +112,44 @@ def sync_status(
         "last_sync_counts": rows.get("last_sync_counts", ""),
         "last_sync_error": rows.get("last_sync_error", ""),
         "tokens_configured": bool(rows.get("followize_access_token") and rows.get("followize_refresh_token")),
+    }
+
+
+@router.get("/trace-plano-saude")
+def trace_plano_saude(
+    days: int = Query(90, ge=1, le=730),
+    current_user: User = Depends(get_current_user),
+):
+    """Rastreio temporário: soma leads por operadora (interest_1) direto na API Followize, sem gravar nada."""
+    _require_admin(current_user)
+    from collections import Counter
+
+    _load_tokens_from_db()
+    if not _tokens.get("access"):
+        raise HTTPException(status_code=503, detail="Token Followize não configurado")
+
+    date_from = _date_from_lookback(days=days)
+    raw_leads = _fetch_all_leads(date_from, "creation")
+
+    counts: Counter = Counter()
+    sem_resposta = 0
+    for raw in raw_leads:
+        interests = raw.get("interests") or {}
+        nome = ((interests.get("interest_1") or {}).get("name") or "").strip()
+        if not nome:
+            sem_resposta += 1
+            continue
+        counts[nome] += 1
+
+    nao_possui = counts.get("Não possui plano", 0)
+    possui = sum(v for k, v in counts.items() if k != "Não possui plano")
+
+    return {
+        "total_leads": len(raw_leads),
+        "sem_resposta": sem_resposta,
+        "possui_plano": possui,
+        "nao_possui_plano": nao_possui,
+        "detalhe_operadoras": dict(counts),
     }
 
 
