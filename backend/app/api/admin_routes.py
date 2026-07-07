@@ -86,6 +86,16 @@ def get_form_credentials_key(
     return {"value": row.value if row else ""}
 
 
+@router.get("/public-leads-api-key")
+def get_public_leads_api_key(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    row = db.query(AppSettings).filter(AppSettings.key == "public_leads_api_key").first()
+    return {"value": row.value if row else ""}
+
+
 @router.get("/sync-status")
 def sync_status(
     current_user: User = Depends(get_current_user),

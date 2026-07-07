@@ -1,4 +1,5 @@
 import logging
+import secrets
 
 from app.api import login_routes
 from app.api import me_routes
@@ -28,6 +29,7 @@ from app.api import forms_routes
 from app.api import telefonia_routes
 from app.api import kpis_routes
 from app.api import gestao_comercial_routes
+from app.api import public_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler, sync_leads_backfill
@@ -43,7 +45,16 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:5173", "http://localhost:3000", "http://localhost", "http://127.0.0.1:3000",
+        "https://cotacaodeplanossaude.com.br", "https://www.cotacaodeplanossaude.com.br",
+        "https://empresarialsulamericasaude.com.br", "https://www.empresarialsulamericasaude.com.br",
+        "https://planoalicesaude.com.br", "https://www.planoalicesaude.com.br",
+        "https://planoodontosemcarencia.net.br", "https://www.planoodontosemcarencia.net.br",
+        "https://planosmedseniorrecife.com.br", "https://www.planosmedseniorrecife.com.br",
+        "https://portobairroriodejaneiro.com.br", "https://www.portobairroriodejaneiro.com.br",
+        "https://portosaudelinhabairro.com.br", "https://www.portosaudelinhabairro.com.br",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,6 +73,7 @@ app.include_router(forms_routes.router)
 app.include_router(telefonia_routes.router)
 app.include_router(kpis_routes.router)
 app.include_router(gestao_comercial_routes.router)
+app.include_router(public_routes.router)
 
 _FORM_USERS_SEED = [
     ("isaac",        "Isaac",        "",           "isaac@equipe.com",         "$2b$12$nNCX6xqvp1CPBWT2VmQQxeRymHfesflUbRrRt5CTo5Je0TKnKnOTS"),
@@ -140,6 +152,9 @@ async def startup_event():
             _db.add(_AS(key="modalidade_id_backfill_done", value="1"))
             _db.commit()
             asyncio.create_task(sync_leads_backfill(days=365))
+        if not _db.query(_AS).filter(_AS.key == "public_leads_api_key").first():
+            _db.add(_AS(key="public_leads_api_key", value=secrets.token_urlsafe(32)))
+            _db.commit()
     finally:
         _db.close()
 
