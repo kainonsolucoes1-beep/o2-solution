@@ -115,23 +115,6 @@ def sync_status(
     }
 
 
-@router.get("/debug-raw-lead")
-def debug_raw_lead(
-    name: str = Query(...),
-    days: int = Query(30, ge=1, le=730),
-    current_user: User = Depends(get_current_user),
-):
-    """Diagnóstico temporário: retorna o payload bruto do Followize pra um lead por nome."""
-    _require_admin(current_user)
-    from app.sync_followize import _load_tokens_from_db as _lt, _date_from_lookback as _dfl, _fetch_all_leads as _fal
-
-    _lt()
-    date_from = _dfl(days=days)
-    raw_leads = _fal(date_from, "creation")
-    matches = [r for r in raw_leads if name.lower() in (r.get("name") or "").lower()]
-    return {"matches_found": len(matches), "raw": matches[:3]}
-
-
 @router.post("/deduplicate-leads")
 def deduplicate_leads(
     dry_run: bool = Query(True, description="True = apenas conta, False = remove os duplicados"),
