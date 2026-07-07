@@ -35,6 +35,13 @@ function colorFor(key: string | null) {
   return PALETTE[hash % PALETTE.length]
 }
 
+function densityFor(count: number) {
+  if (count <= 3) return { fontSize: 11, padding: '4px 6px', gap: 4, lineHeight: 1.4 }
+  if (count <= 6) return { fontSize: 10, padding: '3px 5px', gap: 3, lineHeight: 1.3 }
+  if (count <= 10) return { fontSize: 9, padding: '2px 4px', gap: 2, lineHeight: 1.25 }
+  return { fontSize: 8, padding: '1px 3px', gap: 2, lineHeight: 1.2 }
+}
+
 function dateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -127,6 +134,7 @@ export default function Agenda() {
             <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {week.map((day, di) => {
                 const dayItems = day ? (byDay[dateKey(day)] ?? []) : []
+                const density = densityFor(dayItems.length)
                 return (
                   <div
                     key={di}
@@ -139,17 +147,17 @@ export default function Agenda() {
                     {day && (
                       <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{day.getDate()}</span>
                     )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: density.gap, marginTop: 4 }}>
                       {dayItems.map(it => (
                         <button
                           key={it.schedule_id}
                           onClick={() => setSelectedLead(it)}
                           title={it.name}
                           style={{
-                            textAlign: 'left', fontSize: 11, lineHeight: 1.4,
+                            textAlign: 'left', fontSize: density.fontSize, lineHeight: density.lineHeight,
                             borderLeft: `3px solid ${colorFor(it.attendant)}`,
                             background: 'var(--bg-hover)', color: 'var(--text-2)',
-                            padding: '4px 6px', borderRadius: 4, cursor: 'pointer', border: 'none',
+                            padding: density.padding, borderRadius: 4, cursor: 'pointer', border: 'none',
                             borderLeftWidth: 3, borderLeftStyle: 'solid',
                             whiteSpace: 'normal', wordBreak: 'break-word',
                           }}
