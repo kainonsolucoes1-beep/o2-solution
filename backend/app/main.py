@@ -38,6 +38,8 @@ load_dotenv()
 Base.metadata.create_all(bind=engine)
 with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS current_plan VARCHAR(255)"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS document VARCHAR(20)"))
+    _conn.execute(text("CREATE INDEX IF NOT EXISTS idx_leads_document ON leads(document)"))
     _conn.commit()
 
 app = FastAPI(
@@ -160,6 +162,10 @@ async def startup_event():
             _db.commit()
         if not _db.query(_AS).filter(_AS.key == "current_plan_backfill_done_v3").first():
             _db.add(_AS(key="current_plan_backfill_done_v3", value="1"))
+            _db.commit()
+            asyncio.create_task(sync_leads_backfill(days=365))
+        if not _db.query(_AS).filter(_AS.key == "document_backfill_done").first():
+            _db.add(_AS(key="document_backfill_done", value="1"))
             _db.commit()
             asyncio.create_task(sync_leads_backfill(days=365))
     finally:

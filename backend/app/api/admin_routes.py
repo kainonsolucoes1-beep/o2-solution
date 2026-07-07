@@ -115,38 +115,6 @@ def sync_status(
     }
 
 
-@router.get("/debug-id-number")
-def debug_id_number(
-    days: int = Query(30, ge=1, le=730),
-    current_user: User = Depends(get_current_user),
-):
-    """Diagnóstico temporário: verifica se o Followize envia contact.id_number / company.id_number preenchido."""
-    _require_admin(current_user)
-    from app.sync_followize import _load_tokens_from_db as _lt, _date_from_lookback as _dfl, _fetch_all_leads as _fal
-
-    _lt()
-    date_from = _dfl(days=days)
-    raw_leads = _fal(date_from, "creation")
-
-    with_contact_id = []
-    with_company_id = []
-    for r in raw_leads:
-        contact = r.get("contact") or {}
-        company = contact.get("company") or {}
-        if contact.get("id_number"):
-            with_contact_id.append({"name": r.get("name"), "id_number": contact.get("id_number")})
-        if company.get("id_number"):
-            with_company_id.append({"name": r.get("name"), "id_number": company.get("id_number")})
-
-    return {
-        "total_leads": len(raw_leads),
-        "com_contact_id_number": len(with_contact_id),
-        "com_company_id_number": len(with_company_id),
-        "amostra_contact": with_contact_id[:5],
-        "amostra_company": with_company_id[:5],
-    }
-
-
 @router.post("/deduplicate-leads")
 def deduplicate_leads(
     dry_run: bool = Query(True, description="True = apenas conta, False = remove os duplicados"),

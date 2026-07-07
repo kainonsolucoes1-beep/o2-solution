@@ -115,6 +115,7 @@ export default function LeadsReport() {
   const [dateTo, setDateTo]       = useState(() => searchParams.get('date_to') ?? today)
   const [origem, setOrigem]       = useState(() => searchParams.get('origem') ?? '')
   const [modalidadeFilter, setModalidadeFilter] = useState(() => searchParams.get('modalidade') ?? '')
+  const [search, setSearch]       = useState(() => searchParams.get('search') ?? '')
   const [page, setPage]           = useState(1)
   const [report, setReport]       = useState<ReportResponse | null>(null)
   const [loading, setLoading]     = useState(false)
@@ -141,7 +142,7 @@ export default function LeadsReport() {
   }, [navigate])
 
   useEffect(() => {
-    if (me && (searchParams.get('status') || searchParams.get('perception') || vencidosFilter || searchParams.get('date_from') || searchParams.get('origem') || searchParams.get('modalidade'))) fetchReport(1)
+    if (me && (searchParams.get('status') || searchParams.get('perception') || vencidosFilter || searchParams.get('date_from') || searchParams.get('origem') || searchParams.get('modalidade') || searchParams.get('search'))) fetchReport(1)
   }, [me]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -166,6 +167,7 @@ export default function LeadsReport() {
       if (statusFilter) params.status = statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
+      if (search.trim()) params.search = search.trim()
 
       api
         .get<ReportResponse>('/api/v1/leads/by-period', { params })
@@ -181,7 +183,7 @@ export default function LeadsReport() {
         })
         .finally(() => setLoading(false))
     },
-    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, vencidosFilter, isAdmin, navigate],
+    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, search, vencidosFilter, isAdmin, navigate],
   )
 
   const [exporting, setExporting] = useState(false)
@@ -200,6 +202,7 @@ export default function LeadsReport() {
       if (statusFilter) params.status = statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
+      if (search.trim()) params.search = search.trim()
 
       const { data } = await api.get<ReportResponse>('/api/v1/leads/by-period', { params })
       const rows = data.leads.map(l => ({
@@ -357,6 +360,19 @@ export default function LeadsReport() {
                 <option value="waiting_billing,sale_performed,fechado,closed,won,convertido">Fechado</option>
                 <option value="sale_not_performed">Perdido</option>
               </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label style={labelStyle}>Buscar</label>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
+                placeholder="Nome, CPF/CNPJ, telefone ou email"
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ color: 'var(--text-2)', minWidth: 220 }}
+              />
             </div>
 
             <button

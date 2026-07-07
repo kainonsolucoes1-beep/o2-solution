@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -67,6 +68,7 @@ def leads_by_period(
     status: Optional[str] = Query(None),
     perception: Optional[str] = Query(None),
     modalidade: Optional[str] = Query(None),
+    search: Optional[str] = Query(None, description="Busca por nome, CPF/CNPJ, telefone ou email"),
     vencidos: bool = Query(False),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
@@ -113,6 +115,14 @@ def leads_by_period(
                 q = q.filter(Lead.modalidade == parts[0])
             else:
                 q = q.filter(Lead.modalidade.in_(parts))
+        if search:
+            term = search.strip()
+            digits = re.sub(r"\D", "", term)
+            conditions = [Lead.name.ilike(f"%{term}%"), Lead.email.ilike(f"%{term}%")]
+            if digits:
+                conditions.append(func.regexp_replace(Lead.phone, r'\D', '', 'g').ilike(f"%{digits}%"))
+                conditions.append(Lead.document.ilike(f"%{digits}%"))
+            q = q.filter(or_(*conditions))
         return q
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
@@ -125,7 +135,7 @@ def leads_by_period(
                 Lead.status, Lead.perception, Lead.value_potential,
                 Lead.created_at, Lead.updated_at, Lead.origin, Lead.is_renutrucao,
                 Lead.lost_reason, Lead.lost_message, Lead.modalidade,
-                Lead.conversion_point, Lead.current_plan,
+                Lead.conversion_point, Lead.current_plan, Lead.document,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -149,6 +159,7 @@ def leads_by_period(
             lost_message=r.lost_message,
             modalidade=r.modalidade,
             current_plan=r.current_plan,
+            document=r.document,
         )
         for r in rows
     ]

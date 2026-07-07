@@ -42,6 +42,7 @@ class LeadReportItem(BaseModel):
     lost_message: Optional[str] = None
     modalidade: Optional[str] = None
     current_plan: Optional[str] = None
+    document: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

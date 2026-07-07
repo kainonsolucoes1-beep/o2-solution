@@ -264,6 +264,8 @@ def _parse_lead_fields(raw: dict) -> dict:
     email = contact.get("email") or raw.get("email")
     phone = contact.get("cellphone") or contact.get("phone") or raw.get("phone")
     company = company_obj.get("name") or contact.get("company_name") or raw.get("company")
+    _raw_document = contact.get("id_number") or company_obj.get("id_number") or ""
+    document = re.sub(r"\D", "", _raw_document) or None
     status = raw.get("status") or "novo"
     attendant = (
         ((contact.get("attendant") or {}).get("name"))
@@ -294,7 +296,7 @@ def _parse_lead_fields(raw: dict) -> dict:
     _interest_1_id = (interests.get("interest_1") or {}).get("id")
     current_plan = CURRENT_PLAN_MAP.get(int(_interest_1_id)) if _interest_1_id else None
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "current_plan": current_plan}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "current_plan": current_plan, "document": document}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
@@ -342,6 +344,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
             or existing.ages_raw != fields["ages_raw"]
             or existing.modalidade != fields["modalidade"]
             or existing.current_plan != fields["current_plan"]
+            or (fields["document"] and existing.document != fields["document"])
         )
 
         existing.followize_id = followize_id
@@ -360,6 +363,8 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.ages_raw = fields["ages_raw"]
         existing.modalidade = fields["modalidade"]
         existing.current_plan = fields["current_plan"]
+        if fields["document"]:
+            existing.document = fields["document"]
         if fields["created_at"]:
             existing.created_at = fields["created_at"]
         if changed:
@@ -384,7 +389,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         perception=fields["perception"],
         lost_reason=fields["lost_reason"], lost_message=fields["lost_message"],
         notes=fields["notes"], ages_raw=fields["ages_raw"], modalidade=fields["modalidade"],
-        current_plan=fields["current_plan"],
+        current_plan=fields["current_plan"], document=fields["document"],
     )
     if fields["created_at"]:
         lead_kwargs["created_at"] = fields["created_at"]
