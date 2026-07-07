@@ -125,7 +125,7 @@ def leads_by_period(
                 Lead.status, Lead.perception, Lead.value_potential,
                 Lead.created_at, Lead.updated_at, Lead.origin, Lead.is_renutrucao,
                 Lead.lost_reason, Lead.lost_message, Lead.modalidade,
-                Lead.conversion_point,
+                Lead.conversion_point, Lead.current_plan,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -148,6 +148,7 @@ def leads_by_period(
             lost_reason=r.lost_reason,
             lost_message=r.lost_message,
             modalidade=r.modalidade,
+            current_plan=r.current_plan,
         )
         for r in rows
     ]
@@ -337,6 +338,7 @@ def get_agenda(
             conversion_point=lead.conversion_point, status=lead.status,
             perception=lead.perception,
             value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
+            current_plan=lead.current_plan,
             created_at=lead.created_at, followize_id=lead.followize_id,
             scheduled_at=sched.scheduled_at, schedule_id=sched.id,
         )

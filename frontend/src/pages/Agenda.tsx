@@ -15,6 +15,7 @@ interface AgendaItem {
   status: string | null
   perception: string | null
   value_potential: number | null
+  current_plan: string | null
   created_at: string
   followize_id: number | null
   scheduled_at: string

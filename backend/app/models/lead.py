@@ -24,6 +24,7 @@ class Lead(Base):
     is_renutrucao = Column(Boolean, default=False, nullable=False, server_default='false')
     ages_raw = Column(String(100), nullable=True)
     modalidade = Column(String(255), nullable=True)
+    current_plan = Column(String(255), nullable=True)
     lost_reason = Column(String(255), nullable=True)
     lost_message = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())

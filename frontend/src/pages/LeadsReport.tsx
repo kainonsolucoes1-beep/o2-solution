@@ -23,6 +23,7 @@ interface LeadItem {
   attendant: string | null
   origem: string | null
   conversion_point: string | null
+  current_plan: string | null
   status: string | null
   perception: string | null
   value_potential: number | null

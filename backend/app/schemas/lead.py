@@ -41,6 +41,7 @@ class LeadReportItem(BaseModel):
     lost_reason: Optional[str] = None
     lost_message: Optional[str] = None
     modalidade: Optional[str] = None
+    current_plan: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -132,6 +133,7 @@ class AgendaItem(BaseModel):
     status: Optional[str] = None
     perception: Optional[str] = None
     value_potential: Optional[float] = None
+    current_plan: Optional[str] = None
     created_at: datetime
     followize_id: Optional[int] = None
     scheduled_at: datetime

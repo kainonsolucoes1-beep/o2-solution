@@ -155,6 +155,10 @@ async def startup_event():
         if not _db.query(_AS).filter(_AS.key == "public_leads_api_key").first():
             _db.add(_AS(key="public_leads_api_key", value=secrets.token_urlsafe(32)))
             _db.commit()
+        if not _db.query(_AS).filter(_AS.key == "current_plan_backfill_done").first():
+            _db.add(_AS(key="current_plan_backfill_done", value="1"))
+            _db.commit()
+            asyncio.create_task(sync_leads_backfill(days=365))
     finally:
         _db.close()
 
