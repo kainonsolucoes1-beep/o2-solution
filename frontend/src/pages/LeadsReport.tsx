@@ -223,8 +223,9 @@ export default function LeadsReport() {
       XLSX.utils.book_append_sheet(wb, ws, 'Leads')
       const filename = `leads_${dateFrom}_${dateTo}.xlsx`
       XLSX.writeFile(wb, filename)
-    } catch {
-      // silently ignore export errors
+    } catch (err) {
+      if ((err as { response?: { status?: number } }).response?.status === 401) navigate('/login')
+      else setError('Erro ao exportar. Tente novamente.')
     } finally {
       setExporting(false)
     }

@@ -71,7 +71,7 @@ def leads_by_period(
     search: Optional[str] = Query(None, description="Busca por nome, CPF/CNPJ, telefone ou email"),
     vencidos: bool = Query(False),
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=10000),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
