@@ -1026,8 +1026,8 @@ function daysElapsed(month: string) {
 }
 
 function ComparisonModal({ onClose }: { onClose: () => void }) {
-  const [monthA, setMonthA] = useState(nowMonth())
-  const [monthB, setMonthB] = useState(prevMonthStr(nowMonth()))
+  const [monthA, setMonthA] = useState(prevMonthStr(nowMonth()))
+  const [monthB, setMonthB] = useState(nowMonth())
   const [exactMode, setExactMode] = useState(false)
 
   const dayLimit = exactMode ? Math.min(daysElapsed(monthA), daysElapsed(monthB)) : undefined
