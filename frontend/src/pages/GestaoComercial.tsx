@@ -891,7 +891,7 @@ function PerformanceTab({ month }: { month: string }) {
 }
 
 // ── Comparação entre meses ───────────────────────────────────────────────────
-function MonthPanel({ month }: { month: string }) {
+function MonthPanel({ month, untilDay }: { month: string; untilDay?: number }) {
   const [kpis, setKpis]       = useState<Kpis | null>(null)
   const [diario, setDiario]   = useState<DiarioItem[]>([])
   const [origens, setOrigens] = useState<OrigemItem[]>([])
@@ -902,17 +902,19 @@ function MonthPanel({ month }: { month: string }) {
 
   useEffect(() => {
     setLoading(true)
+    const suffix = untilDay ? `&until_day=${untilDay}` : ''
     Promise.all([
-      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${month}`),
-      api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?month=${month}`),
-      api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}`),
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${month}${suffix}`),
+      api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?month=${month}${suffix}`),
+      api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}${suffix}`),
     ]).then(([k, d, o]) => { setKpis(k.data); setDiario(d.data); setOrigens(o.data) })
       .catch(() => {}).finally(() => setLoading(false))
-  }, [month])
+  }, [month, untilDay])
 
   const grupos = groupOrigens(origens)
   const maxCap = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
   const monthLabel = new Date(month + '-01T12:00:00').toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+    + (untilDay ? ` (dias 1–${untilDay})` : '')
 
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1015,18 +1017,43 @@ function MonthPanel({ month }: { month: string }) {
   )
 }
 
+function daysInMonth(month: string) {
+  const [y, m] = month.split('-').map(Number)
+  return new Date(y, m, 0).getDate()
+}
+function daysElapsed(month: string) {
+  return month === nowMonth() ? _gcNow.getDate() : daysInMonth(month)
+}
+
 function ComparisonModal({ onClose }: { onClose: () => void }) {
   const [monthA, setMonthA] = useState(nowMonth())
   const [monthB, setMonthB] = useState(prevMonthStr(nowMonth()))
+  const [exactMode, setExactMode] = useState(false)
+
+  const dayLimit = exactMode ? Math.min(daysElapsed(monthA), daysElapsed(monthB)) : undefined
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 1100, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
         <div style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg-card, #fff)', zIndex: 1 }}>
           <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Comparação entre meses</p>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
-            <X size={20} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button
+              onClick={() => setExactMode(v => !v)}
+              title="Compara o mesmo número de dias em ambos os meses, evitando comparar um mês inteiro com um mês parcial"
+              style={{
+                fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
+                border: `1px solid ${exactMode ? '#3B82F6' : 'var(--border-in)'}`,
+                background: exactMode ? '#3B82F6' : 'transparent',
+                color: exactMode ? '#fff' : 'var(--text-2)',
+              }}
+            >
+              Comparar períodos exatos{dayLimit ? ` (1–${dayLimit})` : ''}
+            </button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
+              <X size={20} />
+            </button>
+          </div>
         </div>
         <div style={{ padding: '16px 24px', display: 'flex', gap: 16, borderBottom: '1px solid var(--border)' }}>
           <div style={{ flex: 1 }}>
@@ -1041,9 +1068,9 @@ function ComparisonModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div style={{ padding: 24, display: 'flex', gap: 20 }}>
-          <MonthPanel month={monthA} />
+          <MonthPanel month={monthA} untilDay={dayLimit} />
           <div style={{ width: 1, background: 'var(--border)', flexShrink: 0 }} />
-          <MonthPanel month={monthB} />
+          <MonthPanel month={monthB} untilDay={dayLimit} />
         </div>
       </div>
     </div>

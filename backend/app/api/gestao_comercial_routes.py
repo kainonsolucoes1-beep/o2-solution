@@ -29,20 +29,23 @@ def _parse_month(month: str | None):
     return now.year, now.month
 
 
-def _month_range(year: int, mon: int):
+def _month_range(year: int, mon: int, until_day: int | None = None):
     dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    last_day = calendar.monthrange(year, mon)[1]
+    end_day = min(until_day, last_day) if until_day else last_day
+    dt_to = datetime(year, mon, end_day, 23, 59, 59)
     return dt_from, dt_to
 
 
 @router.get("/visao-geral")
 def visao_geral(
     month: str = Query(None),
+    until_day: int = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     year, mon = _parse_month(month)
-    dt_from, dt_to = _month_range(year, mon)
+    dt_from, dt_to = _month_range(year, mon, until_day)
 
     leads = db.query(Lead.status, Lead.value_potential).filter(
         Lead.created_at >= dt_from, Lead.created_at <= dt_to,
@@ -70,11 +73,12 @@ def visao_geral(
 @router.get("/evolucao-diaria")
 def evolucao_diaria(
     month: str = Query(None),
+    until_day: int = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     year, mon = _parse_month(month)
-    dt_from, dt_to = _month_range(year, mon)
+    dt_from, dt_to = _month_range(year, mon, until_day)
 
     rows = db.query(
         func.date(Lead.created_at).label("day"),
@@ -90,6 +94,8 @@ def evolucao_diaria(
             daily[key]["vendas"] += 1
 
     days_in_month = calendar.monthrange(year, mon)[1]
+    if until_day:
+        days_in_month = min(days_in_month, until_day)
     return [
         {
             "dia": d,
@@ -103,11 +109,12 @@ def evolucao_diaria(
 @router.get("/origens-captacao")
 def origens_captacao(
     month: str = Query(None),
+    until_day: int = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     year, mon = _parse_month(month)
-    dt_from, dt_to = _month_range(year, mon)
+    dt_from, dt_to = _month_range(year, mon, until_day)
 
     rows = (
         db.query(Lead.origin, func.count(Lead.id).label("captacoes"))
