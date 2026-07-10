@@ -12,6 +12,7 @@ import Telefonia from './pages/Telefonia'
 import KPIs from './pages/KPIs'
 import Financeiro from './pages/Financeiro'
 import GestaoComercial from './pages/GestaoComercial'
+import RelatorioProducao from './pages/RelatorioProducao'
 import Agenda from './pages/Agenda'
 import Layout from './components/Layout'
 import { ThemeProvider } from './ThemeContext'
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/kpis" element={<KPIs />} />
           <Route path="/financeiro" element={<Financeiro />} />
           <Route path="/gestao-comercial" element={<GestaoComercial />} />
+          <Route path="/relatorio-producao" element={<RelatorioProducao />} />
           <Route path="/agenda" element={<Agenda />} />
         </Route>
       </Routes>
