@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarClock, StickyNote, History, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 
@@ -122,13 +122,24 @@ function _normalizePlan(v: string) {
   return v.trim().toLowerCase()
 }
 
-function SectionCard({ title, children }: { title?: string; children: ReactNode }) {
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+function SectionCard({ title, icon: Icon, accent = '#2563EB', children }: { title?: string; icon?: LucideIcon; accent?: string; children: ReactNode }) {
   return (
-    <div style={{ border: '1px solid var(--border-lt)', borderRadius: 12, padding: '16px 18px', background: 'var(--bg-card)' }}>
+    <div style={{ position: 'relative', border: '1px solid var(--border-lt)', borderRadius: 12, padding: '16px 18px 16px 20px', background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+      {title && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: accent }} />}
       {title && (
-        <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 14px' }}>
-          {title}
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '0 0 14px' }}>
+          {Icon && <Icon size={14} color={accent} strokeWidth={2.5} />}
+          <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+            {title}
+          </p>
+        </div>
       )}
       {children}
     </div>
@@ -138,7 +149,7 @@ function SectionCard({ title, children }: { title?: string; children: ReactNode 
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         {label}
       </span>
       <span style={{ fontSize: 14, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500 }}>
@@ -152,7 +163,7 @@ function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         Plano Atual
       </span>
       {!value ? (
@@ -354,27 +365,38 @@ export default function LeadDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Informações">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
-              <Field label="Nome"     value={lead.name} />
-              <Field label="Empresa"  value={lead.company ?? '—'} />
-              <Field label="Email"    value={lead.email ?? '—'} />
-              <Field label="Telefone" value={lead.phone ?? '—'} />
-              <Field label="Atendente" value={lead.attendant ?? '—'} />
-              {lead.perception && PERCEPTION_STYLE[lead.perception] && (
-                <div className="flex flex-col gap-1">
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Percepção
-                  </span>
-                  <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: PERCEPTION_STYLE[lead.perception].bg, color: PERCEPTION_STYLE[lead.perception].color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
-                    {PERCEPTION_STYLE[lead.perception].label}
-                  </span>
-                </div>
-              )}
+          <SectionCard title="Informações" icon={User} accent="#2563EB">
+            <div style={{ display: 'flex', gap: 18 }}>
+              <div style={{
+                flexShrink: 0, width: 52, height: 52, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #60A5FA, #2563EB)',
+                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 18, fontWeight: 700, letterSpacing: '0.02em',
+                boxShadow: '0 2px 8px rgba(37,99,235,0.35)',
+              }}>
+                {initials(lead.name)}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px', flex: 1 }}>
+                <Field label="Nome"     value={lead.name} />
+                <Field label="Empresa"  value={lead.company ?? '—'} />
+                <Field label="Email"    value={lead.email ?? '—'} />
+                <Field label="Telefone" value={lead.phone ?? '—'} />
+                <Field label="Atendente" value={lead.attendant ?? '—'} />
+                {lead.perception && PERCEPTION_STYLE[lead.perception] && (
+                  <div className="flex flex-col gap-1">
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+                      Percepção
+                    </span>
+                    <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: PERCEPTION_STYLE[lead.perception].bg, color: PERCEPTION_STYLE[lead.perception].color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
+                      {PERCEPTION_STYLE[lead.perception].label}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </SectionCard>
 
-          <SectionCard title="Status">
+          <SectionCard title="Status" icon={Activity} accent={sStyle.color}>
             {editingStatus ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {STATUS_OPTIONS.map(opt => {
@@ -421,7 +443,7 @@ export default function LeadDetailPage() {
             )}
           </SectionCard>
 
-          <SectionCard title="Agendamento">
+          <SectionCard title="Agendamento" icon={CalendarClock} accent="#7C3AED">
             <div className="flex flex-col gap-2">
               {loadingSchedules ? (
                 <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
@@ -472,7 +494,7 @@ export default function LeadDetailPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Notas">
+          <SectionCard title="Notas" icon={StickyNote} accent="#D97706">
             <div className="flex flex-col gap-3">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <textarea
@@ -535,7 +557,7 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Detalhes do Lead">
+          <SectionCard title="Detalhes do Lead" icon={Tag} accent="#4F46E5">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
               <Field label="Origem"             value={lead.origem ?? '—'} />
               <Field label="Ponto de Conversão" value={lead.conversion_point ?? '—'} />
@@ -546,7 +568,7 @@ export default function LeadDetailPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Linha do Tempo · tempo por etapa">
+          <SectionCard title="Linha do Tempo · tempo por etapa" icon={History} accent="#059669">
             {loadingHistory ? (
               <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
             ) : timeline.length === 0 ? (
