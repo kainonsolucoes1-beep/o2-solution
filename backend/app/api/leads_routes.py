@@ -212,6 +212,28 @@ def list_modalidades(
     return [r.modalidade for r in rows]
 
 
+@router.get("/leads/{lead_id}", response_model=LeadReportItem)
+def get_lead(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    return LeadReportItem(
+        id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
+        company=lead.company, attendant=lead.attendant,
+        origem=lead.origin, conversion_point=lead.conversion_point,
+        status=lead.status, perception=lead.perception,
+        value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
+        is_renutrucao=bool(lead.is_renutrucao),
+        lost_reason=lead.lost_reason, lost_message=lead.lost_message,
+        modalidade=lead.modalidade, current_plan=lead.current_plan, document=lead.document,
+        created_at=lead.created_at, updated_at=lead.updated_at,
+    )
+
+
 @router.post("/leads/{lead_id}/status", response_model=StatusUpdateResponse)
 def update_lead_status(
     lead_id: str,

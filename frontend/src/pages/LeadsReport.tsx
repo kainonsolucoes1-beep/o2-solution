@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import api from '../api'
-import LeadDetailModal from '../components/LeadDetailModal'
 import { statusLabel } from '../utils/statusLabel'
 
 interface Me {
@@ -126,7 +125,6 @@ export default function LeadsReport() {
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
   const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc')
-  const [selectedLead, setSelectedLead] = useState<LeadItem | null>(null)
 
   useEffect(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -498,7 +496,7 @@ export default function LeadsReport() {
                       {sortedLeads.map((lead, i) => (
                         <tr
                           key={lead.id}
-                          onClick={() => setSelectedLead(lead)}
+                          onClick={() => navigate(`/leads/${lead.id}`)}
                           style={{
                             borderBottom: i < sortedLeads.length - 1 ? '1px solid var(--border-lt)' : 'none',
                             background: 'var(--bg-card)',
@@ -615,28 +613,6 @@ export default function LeadsReport() {
           </>
         )}
       </main>
-
-      {selectedLead && (
-        <LeadDetailModal
-          lead={selectedLead}
-          onClose={() => setSelectedLead(null)}
-          isAdmin={isAdmin}
-          onStatusChange={(id, newStatus) => {
-            setReport(prev =>
-              prev
-                ? { ...prev, leads: prev.leads.map(l => l.id === id ? { ...l, status: newStatus } : l) }
-                : prev
-            )
-            setSelectedLead(prev => prev ? { ...prev, status: newStatus } : null)
-          }}
-          onDelete={(id) => {
-            setReport(prev =>
-              prev ? { ...prev, leads: prev.leads.filter(l => l.id !== id), total: prev.total - 1 } : prev
-            )
-            setSelectedLead(null)
-          }}
-        />
-      )}
     </>
   )
 }

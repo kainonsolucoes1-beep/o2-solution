@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import api from '../api'
-import LeadDetailModal from '../components/LeadDetailModal'
 
 interface AgendaItem {
   id: string
@@ -48,10 +48,10 @@ function dateKey(d: Date) {
 }
 
 export default function Agenda() {
+  const navigate = useNavigate()
   const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); return d })
   const [items, setItems] = useState<AgendaItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedLead, setSelectedLead] = useState<AgendaItem | null>(null)
 
   useEffect(() => {
     const year = cursor.getFullYear()
@@ -152,7 +152,7 @@ export default function Agenda() {
                       {dayItems.map(it => (
                         <button
                           key={it.schedule_id}
-                          onClick={() => setSelectedLead(it)}
+                          onClick={() => navigate(`/leads/${it.id}`)}
                           title={it.name}
                           style={{
                             textAlign: 'left', fontSize: density.fontSize, lineHeight: density.lineHeight,
@@ -175,14 +175,6 @@ export default function Agenda() {
         )}
       </div>
     </main>
-
-    {selectedLead && (
-      <LeadDetailModal
-        lead={selectedLead}
-        onClose={() => setSelectedLead(null)}
-        isAdmin
-      />
-    )}
     </>
   )
 }

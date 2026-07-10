@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import LeadsReport from './pages/LeadsReport'
+import LeadDetailPage from './pages/LeadDetailPage'
 import Pipeline from './pages/Pipeline'
 import Settings from './pages/Settings'
 import Users from './pages/Users'
@@ -26,6 +27,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/leads-report" element={<LeadsReport />} />
+          <Route path="/leads/:id" element={<LeadDetailPage />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/users" element={<Users />} />
