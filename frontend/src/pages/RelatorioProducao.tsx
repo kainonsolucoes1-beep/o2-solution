@@ -144,8 +144,6 @@ export default function RelatorioProducao() {
     setFilterOpen(false)
   }
 
-  const isCurrentWeek = start === defaultRange.start && end === defaultRange.end
-  const rangeLabel = isCurrentWeek ? 'Semana Atual' : `${fmtDateLabel(start)} – ${fmtDateLabel(end)}`
   const grupos = origens.length > 0 ? groupOrigens(origens) : []
   const maxCap = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
   const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -164,7 +162,7 @@ export default function RelatorioProducao() {
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
           >
             <Calendar size={14} />
-            {rangeLabel}
+            Data
           </button>
           {filterOpen && (
             <>
