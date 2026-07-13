@@ -1,6 +1,6 @@
 import calendar
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
@@ -37,15 +37,25 @@ def _month_range(year: int, mon: int, until_day: int | None = None):
     return dt_from, dt_to
 
 
+def _resolve_range(month: str | None, until_day: int | None, start: str | None, end: str | None):
+    if start and end:
+        dt_from = datetime.strptime(start, "%Y-%m-%d")
+        dt_to = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+        return dt_from, dt_to
+    year, mon = _parse_month(month)
+    return _month_range(year, mon, until_day)
+
+
 @router.get("/visao-geral")
 def visao_geral(
     month: str = Query(None),
     until_day: int = Query(None),
+    start: str = Query(None),
+    end: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    year, mon = _parse_month(month)
-    dt_from, dt_to = _month_range(year, mon, until_day)
+    dt_from, dt_to = _resolve_range(month, until_day, start, end)
 
     leads = db.query(Lead.status, Lead.value_potential).filter(
         Lead.created_at >= dt_from, Lead.created_at <= dt_to,
@@ -74,11 +84,12 @@ def visao_geral(
 def evolucao_diaria(
     month: str = Query(None),
     until_day: int = Query(None),
+    start: str = Query(None),
+    end: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    year, mon = _parse_month(month)
-    dt_from, dt_to = _month_range(year, mon, until_day)
+    dt_from, dt_to = _resolve_range(month, until_day, start, end)
 
     rows = db.query(
         func.date(Lead.created_at).label("day"),
@@ -93,28 +104,31 @@ def evolucao_diaria(
         if (status or "").lower() in venda_set:
             daily[key]["vendas"] += 1
 
-    days_in_month = calendar.monthrange(year, mon)[1]
-    if until_day:
-        days_in_month = min(days_in_month, until_day)
-    return [
-        {
-            "dia": d,
-            "captacoes": daily[f"{year}-{mon:02d}-{d:02d}"]["captacoes"],
-            "vendas": daily[f"{year}-{mon:02d}-{d:02d}"]["vendas"],
-        }
-        for d in range(1, days_in_month + 1)
-    ]
+    result = []
+    cur = dt_from.date()
+    last = dt_to.date()
+    while cur <= last:
+        key = cur.isoformat()
+        result.append({
+            "dia": cur.day,
+            "data": cur.strftime("%d/%m"),
+            "captacoes": daily[key]["captacoes"],
+            "vendas": daily[key]["vendas"],
+        })
+        cur += timedelta(days=1)
+    return result
 
 
 @router.get("/origens-captacao")
 def origens_captacao(
     month: str = Query(None),
     until_day: int = Query(None),
+    start: str = Query(None),
+    end: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    year, mon = _parse_month(month)
-    dt_from, dt_to = _month_range(year, mon, until_day)
+    dt_from, dt_to = _resolve_range(month, until_day, start, end)
 
     rows = (
         db.query(Lead.origin, func.count(Lead.id).label("captacoes"))
