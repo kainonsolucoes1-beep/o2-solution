@@ -385,7 +385,7 @@ def performance_operadores(
     agenda_set   = {s.lower() for s in AGENDAMENTO_STATUSES}
     proposta_set = {s.lower() for s in PROPOSTA_STATUSES}
 
-    data: dict = defaultdict(lambda: {"captacoes": 0, "agendamentos": 0, "propostas": 0, "vendas": 0, "receita": 0.0})
+    data: dict = defaultdict(lambda: {"captacoes": 0, "agendamentos": 0, "propostas": 0, "vendas": 0, "cancelados": 0, "receita": 0.0})
     for origin, status, value in leads:
         op = (origin or "").strip()
         if not op:
@@ -395,6 +395,8 @@ def performance_operadores(
         if s in venda_set:
             data[op]["vendas"] += 1
             data[op]["receita"] += float(value or 0)
+        elif s == CANCELADO_STATUS:
+            data[op]["cancelados"] += 1
         elif s in proposta_set:
             data[op]["propostas"] += 1
         elif s in agenda_set:
@@ -410,6 +412,7 @@ def performance_operadores(
             "agendamentos": counts["agendamentos"],
             "propostas": counts["propostas"],
             "vendas": ven,
+            "cancelados": counts["cancelados"],
             "receita": counts["receita"],
             "conversao": round(ven / cap * 100, 1) if cap > 0 else 0.0,
         })
@@ -419,6 +422,87 @@ def performance_operadores(
         r["ranking"] = i + 1
 
     return result
+
+
+@router.get("/performance-historico")
+def performance_historico(
+    origens: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Historico vitalicio por operador (sem filtro de mes) + tendencia mensal desde o primeiro lead."""
+    filters = [Lead.origin.isnot(None), Lead.origin != ""]
+    if origens:
+        parts = [s.strip() for s in origens.split(",") if s.strip()]
+        if len(parts) == 1:
+            filters.append(Lead.origin == parts[0])
+        elif parts:
+            filters.append(Lead.origin.in_(parts))
+
+    leads = (
+        db.query(Lead.origin, Lead.status, Lead.value_potential, Lead.created_at)
+        .filter(*filters)
+        .all()
+    )
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+
+    data: dict = defaultdict(lambda: {"captacoes": 0, "cancelados": 0, "vendas": 0, "receita": 0.0})
+    for origin, status, value, _ in leads:
+        op = (origin or "").strip()
+        if not op:
+            continue
+        s = (status or "").lower()
+        data[op]["captacoes"] += 1
+        if s in venda_set:
+            data[op]["vendas"] += 1
+            data[op]["receita"] += float(value or 0)
+        elif s == CANCELADO_STATUS:
+            data[op]["cancelados"] += 1
+
+    operadores = []
+    for op, counts in data.items():
+        cap = counts["captacoes"]
+        ven = counts["vendas"]
+        operadores.append({
+            "operador": op,
+            "captacoes": cap,
+            "cancelados": counts["cancelados"],
+            "vendas": ven,
+            "receita": counts["receita"],
+            "conversao": round(ven / cap * 100, 1) if cap > 0 else 0.0,
+        })
+    operadores.sort(key=lambda x: x["receita"], reverse=True)
+
+    if not leads:
+        return {"operadores": operadores, "trend": []}
+
+    monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
+    for _, status, _, created_at in leads:
+        key = f"{created_at.year}-{created_at.month:02d}"
+        monthly[key]["captacoes"] += 1
+        if (status or "").lower() in venda_set:
+            monthly[key]["vendas"] += 1
+
+    earliest = min(l.created_at for l in leads)
+    now = datetime.utcnow()
+    trend = []
+    year, mon = earliest.year, earliest.month
+    while (year, mon) <= (now.year, now.month):
+        key = f"{year}-{mon:02d}"
+        m = monthly.get(key, {"captacoes": 0, "vendas": 0})
+        trend.append({
+            "mes": key,
+            "mes_label": f"{calendar.month_abbr[mon]}/{str(year)[2:]}",
+            "captacoes": m["captacoes"],
+            "vendas": m["vendas"],
+        })
+        mon += 1
+        if mon > 12:
+            mon = 1
+            year += 1
+
+    return {"operadores": operadores, "trend": trend}
 
 
 @router.get("/conversion-points")

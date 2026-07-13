@@ -457,15 +457,13 @@ function PipelineTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
 interface OperadorPerf {
   operador: string
   captacoes: number
-  agendamentos: number
-  propostas: number
+  cancelados: number
   vendas: number
   receita: number
   conversao: number
-  ranking: number
 }
+interface PerformanceHistorico { operadores: OperadorPerf[]; trend: MensalItem[] }
 
-const META_KEY  = (month: string) => `perf_meta_${month}`
 const convColor = (pct: number) => pct >= 30 ? '#059669' : pct >= 15 ? '#F59E0B' : '#3B82F6'
 function prevMonthStr(month: string) {
   const [y, m] = month.split('-').map(Number)
@@ -479,11 +477,10 @@ function mergeO2Operadores(rows: OperadorPerf[]): OperadorPerf[] {
     const key = O2_PERF_NAMES.has(r.operador.toLowerCase()) ? 'o2 Solution' : r.operador
     const acc = map.get(key)
     if (acc) {
-      acc.captacoes    += r.captacoes
-      acc.agendamentos += r.agendamentos
-      acc.propostas    += r.propostas
-      acc.vendas       += r.vendas
-      acc.receita       += r.receita
+      acc.captacoes  += r.captacoes
+      acc.cancelados += r.cancelados
+      acc.vendas     += r.vendas
+      acc.receita    += r.receita
     } else {
       map.set(key, { ...r, operador: key })
     }
@@ -515,24 +512,37 @@ function ProjecaoTab() {
 interface PerfLead { nome: string; origem?: string; status: string; valor: number | null; tipo: string }
 
 function PerformanceTab({ month }: { month: string }) {
-  const [data, setData]             = useState<OperadorPerf[]>([])
+  const [useMonth, setUseMonth]     = useState(false)
+  const [lifetimeData, setLifetimeData] = useState<OperadorPerf[]>([])
+  const [trend, setTrend]           = useState<MensalItem[]>([])
+  const [loadingLifetime, setLoadingLifetime] = useState(true)
+  const [monthData, setMonthData]   = useState<OperadorPerf[]>([])
   const [prevData, setPrevData]     = useState<OperadorPerf[]>([])
-  const [loading, setLoading]       = useState(true)
-  const [metaVendas, setMetaVendas] = useState(10)
+  const [loadingMonth, setLoadingMonth] = useState(false)
+  const [sortBy, setSortBy]         = useState<'receita' | 'captacoes' | 'vendas' | 'cancelados'>('receita')
   const [expConv, setExpConv]       = useState(false)
+  const [expRec, setExpRec]         = useState(false)
   const [perfPopup, setPerfPopup]           = useState<string | null>(null)
   const [perfLeads, setPerfLeads]           = useState<PerfLead[]>([])
   const [perfLoading, setPerfLoading]       = useState(false)
   const [perfStatusFilter, setPerfStatusFilter] = useState<string | null>(null)
+  const [perfTrend, setPerfTrend]           = useState<MensalItem[] | null>(null)
 
-  function openPerfModal(title: string, origens?: string, statusGroup?: string) {
-    setPerfPopup(title); setPerfLeads([]); setPerfLoading(true); setPerfStatusFilter(null)
+  const data    = useMonth ? monthData : lifetimeData
+  const loading = useMonth ? loadingMonth : loadingLifetime
+
+  function openPerfModal(title: string, origens?: string, statusGroup?: string, withTrend?: boolean) {
+    setPerfPopup(title); setPerfLeads([]); setPerfLoading(true); setPerfStatusFilter(null); setPerfTrend(null)
     const p = new URLSearchParams({ month })
     if (origens) p.set('origens', origens)
     if (statusGroup) p.set('status_group', statusGroup)
     api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
       .then(r => setPerfLeads(r.data)).catch(() => setPerfLeads([]))
       .finally(() => setPerfLoading(false))
+    if (withTrend && origens) {
+      api.get<PerformanceHistorico>(`/api/v1/gestao-comercial/performance-historico?origens=${encodeURIComponent(origens)}`)
+        .then(r => setPerfTrend(r.data.trend)).catch(() => setPerfTrend([]))
+    }
   }
 
   useEffect(() => {
@@ -541,33 +551,34 @@ function PerformanceTab({ month }: { month: string }) {
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [perfPopup])
-  const [expRec, setExpRec]         = useState(false)
-  const [expTable, setExpTable]     = useState(false)
 
+  // histórico vitalício (padrão) + tendência da equipe desde o primeiro lead — busca única
   useEffect(() => {
-    try { const p = JSON.parse(localStorage.getItem(META_KEY(month)) ?? '{}'); setMetaVendas(p.vendas ?? 10) } catch {}
-  }, [month])
-  useEffect(() => {
-    localStorage.setItem(META_KEY(month), JSON.stringify({ vendas: metaVendas }))
-  }, [month, metaVendas])
+    setLoadingLifetime(true)
+    api.get<PerformanceHistorico>('/api/v1/gestao-comercial/performance-historico')
+      .then(r => { setLifetimeData(mergeO2Operadores(r.data.operadores)); setTrend(r.data.trend) })
+      .catch(() => { setLifetimeData([]); setTrend([]) })
+      .finally(() => setLoadingLifetime(false))
+  }, [])
 
+  // recorte por mês — só busca quando o usuário liga o filtro
   useEffect(() => {
-    setLoading(true)
+    if (!useMonth) return
+    setLoadingMonth(true)
     Promise.all([
       api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${month}`),
       api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${prevMonthStr(month)}`),
     ])
-      .then(([cur, prv]) => { setData(mergeO2Operadores(cur.data)); setPrevData(mergeO2Operadores(prv.data)) })
-      .catch(() => { setData([]); setPrevData([]) })
-      .finally(() => setLoading(false))
-  }, [month])
+      .then(([cur, prv]) => { setMonthData(mergeO2Operadores(cur.data)); setPrevData(mergeO2Operadores(prv.data)) })
+      .catch(() => { setMonthData([]); setPrevData([]) })
+      .finally(() => setLoadingMonth(false))
+  }, [useMonth, month])
 
   // ── derivados ──────────────────────────────────────────────────────────
   const totalCap      = data.reduce((s, r) => s + r.captacoes, 0)
   const totalVendas   = data.reduce((s, r) => s + r.vendas, 0)
   const totalRec      = data.reduce((s, r) => s + r.receita, 0)
   const avgConv       = totalCap > 0 ? +(totalVendas / totalCap * 100).toFixed(1) : 0
-  const metaAtingidos = data.filter(r => r.vendas >= metaVendas).length
   const prevVendas    = prevData.reduce((s, r) => s + r.vendas, 0)
   const avgTicket     = totalVendas > 0 ? totalRec / totalVendas : 0
 
@@ -579,15 +590,17 @@ function PerformanceTab({ month }: { month: string }) {
   const atencao    = [...qualified].sort((a, b) => a.conversao - b.conversao)[0] ?? null
   const maxConv    = Math.max(...data.map(r => r.conversao), 1)
   const maxRec     = Math.max(...data.map(r => r.receita), 1)
+  const sorted     = useMemo(() => [...data].sort((a, b) => b[sortBy] - a[sortBy]), [data, sortBy])
 
   // ── insights ──────────────────────────────────────────────────────────
   const insights = useMemo(() => {
     if (!data.length) return []
     const list: { type: 'ok' | 'warn'; text: string }[] = []
+    const periodo = useMonth ? 'neste mês' : 'no período'
     // top vendedor — só quando há primeiro lugar isolado (sem empate)
     if (byVendas[0] && totalVendas > 0 && byVendas[0].vendas > (byVendas[1]?.vendas ?? 0)) {
       const pct = Math.round(byVendas[0].vendas / totalVendas * 100)
-      list.push({ type: 'ok', text: `${byVendas[0].operador} fechou ${pct}% das vendas da equipe neste mês.` })
+      list.push({ type: 'ok', text: `${byVendas[0].operador} fechou ${pct}% das vendas da equipe ${periodo}.` })
     }
     // melhor conversão (somente quem tem ≥1 venda, primeiro lugar isolado)
     const byConvVendas = [...data].filter(r => r.vendas > 0).sort((a, b) => b.conversao - a.conversao)
@@ -599,20 +612,16 @@ function PerformanceTab({ month }: { month: string }) {
     const hclt = [...byConv].find(r => r.vendas > 0 && r.conversao > avgConv && (r.receita / r.vendas) < avgTicket * 0.75)
     if (hclt)
       list.push({ type: 'warn', text: `${hclt.operador} tem boa conversão (${hclt.conversao}%), mas ticket médio abaixo da equipe (${fmtBrl(Math.round(hclt.receita / hclt.vendas))}).` })
-    if (prevVendas > 0) {
+    if (useMonth && prevVendas > 0) {
       const diff = Math.round((totalVendas - prevVendas) / prevVendas * 100)
       list.push({ type: diff >= 0 ? 'ok' : 'warn', text: `Equipe está ${Math.abs(diff)}% ${diff >= 0 ? 'acima' : 'abaixo'} do mês anterior em vendas (${prevVendas} → ${totalVendas}).` })
     }
     return list
-  }, [data, byVendas, atencao, avgConv, avgTicket, byConv, prevVendas, totalVendas])
+  }, [data, byVendas, atencao, avgConv, avgTicket, byConv, prevVendas, totalVendas, useMonth])
 
   const secLabel = (txt: string) => (
     <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 14px' }}>{txt}</p>
   )
-  const inputSt: React.CSSProperties = {
-    background: 'var(--bg-input)', border: '1px solid var(--border-in)',
-    borderRadius: 8, padding: '6px 10px', fontSize: 13, color: 'var(--text-2)',
-  }
 
   if (loading) return <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
   if (!data.length) return <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum dado para o período.</p>
@@ -622,46 +631,39 @@ function PerformanceTab({ month }: { month: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
 
       {/* controles */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }}>
-        <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Meta Vendas / operador</p>
-          <input type="number" min={0} value={metaVendas} onChange={e => setMetaVendas(Math.max(0, +e.target.value))} style={{ ...inputSt, width: 72, textAlign: 'center' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 4, background: 'var(--bg-input)', borderRadius: 8, padding: 3 }}>
+          {([{ v: false, label: 'Todo o período' }, { v: true, label: 'Mês selecionado' }] as const).map(o => (
+            <button key={String(o.v)} onClick={() => { if (o.v) setLoadingMonth(true); setUseMonth(o.v) }} style={{
+              padding: '6px 14px', borderRadius: 6, border: 'none',
+              background: useMonth === o.v ? 'var(--bg-card)' : 'transparent',
+              color: useMonth === o.v ? 'var(--text-1)' : 'var(--text-muted)',
+              cursor: 'pointer', fontSize: 12, fontWeight: useMonth === o.v ? 700 : 500,
+              boxShadow: useMonth === o.v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 150ms',
+            }}>
+              {o.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ── LINHA 1: Resumo da equipe ── */}
+      {/* ── Evolução Geral ── */}
       <div>
-        {secLabel('Resumo da Equipe')}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
-          {([
-            { label: 'Captações', val: String(totalCap),      color: '#3B82F6', bg: '#EFF6FF', sub: null },
-            { label: 'Vendas',    val: String(totalVendas),   color: '#10B981', bg: '#ECFDF5', sub: null },
-            { label: 'Conversão', val: `${avgConv}%`,         color: '#7C3AED', bg: '#F5F3FF', sub: 'captações → vendas' },
-            { label: 'Receita',   val: fmtBrl(totalRec),      color: '#059669', bg: '#ECFDF5', sub: null },
-            {
-              label: 'Meta',
-              val: `${metaAtingidos}/${data.length}`,
-              color: metaAtingidos === data.length ? '#059669' : metaAtingidos > 0 ? '#D97706' : '#EF4444',
-              bg:    metaAtingidos === data.length ? '#ECFDF5' : metaAtingidos > 0 ? '#FFFBEB' : '#FEF2F2',
-              sub: 'operadores atingiram',
-            },
-          ] as const).map(c => {
-            const clickable = c.label === 'Captações' || c.label === 'Vendas' || c.label === 'Receita'
-            const sg = c.label === 'Vendas' || c.label === 'Receita' ? 'venda' : undefined
-            return (
-              <div key={c.label}
-                onClick={clickable ? () => openPerfModal(c.label, undefined, sg) : undefined}
-                style={{ background: c.bg, borderRadius: 14, padding: '20px', border: `1px solid ${c.color}22`, cursor: clickable ? 'pointer' : 'default', transition: clickable ? 'transform 120ms, box-shadow 120ms' : undefined }}
-                onMouseEnter={e => { if (clickable) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 14px ${c.color}33` } }}
-                onMouseLeave={e => { if (clickable) { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' } }}
-              >
-                <p style={{ fontSize: 10, fontWeight: 700, color: c.color, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>{c.label}</p>
-                <p style={{ fontSize: 28, fontWeight: 800, color: c.color, margin: 0, lineHeight: 1 }}>{c.val}</p>
-                {c.sub && <p style={{ fontSize: 10, color: c.color, opacity: 0.75, marginTop: 5 }}>{c.sub}</p>}
-                {clickable && <p style={{ fontSize: 10, color: c.color, opacity: 0.6, marginTop: 6, fontWeight: 600 }}>Ver leads →</p>}
-              </div>
-            )
-          })}
+        {secLabel('Evolução Geral')}
+        <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '20px 24px', border: '1px solid var(--border)' }}>
+          <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Captações e vendas por mês, desde o primeiro lead registrado</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={trend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(trend.length / 12) - 1)} />
+              <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
+              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']} />
+              <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -765,57 +767,58 @@ function PerformanceTab({ month }: { month: string }) {
         </div>
       </div>
 
-      {/* ── LINHA 4: Tabela ── */}
+      {/* ── LINHA 4: Ranking ── */}
       <div>
-        {secLabel('Detalhamento por Operador')}
+        {secLabel('Ranking de Operadores')}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          {([
+            { key: 'receita', label: 'Receita' },
+            { key: 'captacoes', label: 'Captações' },
+            { key: 'vendas', label: 'Vendas' },
+            { key: 'cancelados', label: 'Cancelamentos' },
+          ] as const).map(o => (
+            <button key={o.key} onClick={() => setSortBy(o.key)} style={{
+              fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 20,
+              border: `1px solid ${sortBy === o.key ? '#2563EB' : 'var(--border)'}`,
+              background: sortBy === o.key ? '#2563EB' : 'var(--bg-card)',
+              color: sortBy === o.key ? '#fff' : 'var(--text-muted)', cursor: 'pointer',
+            }}>
+              Por {o.label}
+            </button>
+          ))}
+        </div>
         <div style={{ background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>
-                {(['Operador', 'Conv.', 'Receita', 'Vendas', 'Meta', 'Status'] as const).map((h, i) => (
-                  <th key={h} style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.07em', background: '#1E293B', borderBottom: '2px solid #334155', textAlign: i === 0 ? 'left' : 'center' }}>{h}</th>
+              <tr style={{ background: 'var(--bg-hover)' }}>
+                {(['Operador', 'Captações', 'Cancelados', 'Vendas', 'Receita', 'Conversão'] as const).map((h, i) => (
+                  <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i === 0 ? 'left' : 'center', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {(() => {
-                const sorted = [...data].sort((a, b) => b.vendas - a.vendas)
-                const rows = expTable ? sorted : sorted.slice(0, 3)
-                return rows.map((r, i, arr) => {
-                  const metaPct  = metaVendas > 0 ? Math.min(100, Math.round(r.vendas / metaVendas * 100)) : 0
-                  const metaClr  = metaPct >= 100 ? '#059669' : metaPct >= 50 ? '#F59E0B' : '#EF4444'
-                  const stTxt    = r.conversao >= avgConv * 1.1 ? 'Acima da média' : r.conversao >= avgConv * 0.9 ? 'Na média' : 'Abaixo da média'
-                  const stClr    = r.conversao >= avgConv * 1.1 ? '#059669' : r.conversao >= avgConv * 0.9 ? '#D97706' : '#EF4444'
-                  const stBg     = r.conversao >= avgConv * 1.1 ? '#ECFDF5' : r.conversao >= avgConv * 0.9 ? '#FFFBEB' : '#FEF2F2'
-                  const td: React.CSSProperties = { padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', background: i % 2 === 1 ? 'var(--bg-subtle)' : 'transparent' }
-                  return (
-                    <tr key={r.operador}>
-                      <td style={{ ...td, fontWeight: 600, color: 'var(--text-1)' }}>{r.operador}</td>
-                      <td style={{ ...td, textAlign: 'center', color: convColor(r.conversao), fontWeight: 700 }}>{r.conversao}%</td>
-                      <td style={{ ...td, textAlign: 'center' }}>{fmtBrl(r.receita)}</td>
-                      <td style={{ ...td, textAlign: 'center', color: '#059669', fontWeight: 700 }}>{r.vendas}</td>
-                      <td style={{ ...td, textAlign: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-                          <div style={{ width: 60, height: 6, background: '#E5E7EB', borderRadius: 4, overflow: 'hidden' }}>
-                            <div style={{ width: `${metaPct}%`, height: '100%', background: metaClr, borderRadius: 4 }} />
-                          </div>
-                          <span style={{ fontSize: 11, color: metaClr, fontWeight: 600 }}>{r.vendas}/{metaVendas}</span>
-                        </div>
-                      </td>
-                      <td style={{ ...td, textAlign: 'center' }}>
-                        <span style={{ background: stBg, color: stClr, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>{stTxt}</span>
-                      </td>
-                    </tr>
-                  )
-                })
-              })()}
+              {sorted.map((r, i) => (
+                <tr key={r.operador}
+                  onClick={() => openPerfModal(`Histórico de ${r.operador}`, r.operador, undefined, true)}
+                  style={{
+                    borderTop: '1px solid var(--border)', cursor: 'pointer',
+                    background: i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent',
+                  }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent'}
+                >
+                  <td style={{ padding: '11px 16px', fontSize: 13, fontWeight: 700, color: '#2563EB' }}>{r.operador}</td>
+                  <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.captacoes}</td>
+                  <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: r.cancelados > 0 ? 700 : 400, color: r.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{r.cancelados}</td>
+                  <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: r.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{r.vendas}</td>
+                  <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontWeight: 700, color: 'var(--text-1)' }}>{fmtBrl(r.receita)}</td>
+                  <td style={{ padding: '11px 16px', textAlign: 'center' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 99, color: convColor(r.conversao), background: convColor(r.conversao) + '15' }}>{r.conversao}%</span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-          {data.length > 3 && (
-            <div style={{ padding: '10px 16px' }}>
-              <ExpandToggle expanded={expTable} hidden={data.length - 3} onClick={() => setExpTable(v => !v)} />
-            </div>
-          )}
         </div>
       </div>
 
@@ -845,6 +848,21 @@ function PerformanceTab({ month }: { month: string }) {
               <button onClick={() => setPerfPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4 }}><X size={18} /></button>
             </div>
             <div style={{ padding: '16px 24px 24px' }}>
+              {perfTrend && perfTrend.length > 0 && (
+                <div style={{ marginBottom: 18 }}>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <LineChart data={perfTrend} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                      <XAxis dataKey="mes_label" tick={{ fontSize: 9, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(perfTrend.length / 6) - 1)} />
+                      <YAxis tick={{ fontSize: 9, fill: '#94A3B8' }} />
+                      <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                        formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']} />
+                      <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
               {perfLoading ? (
                 <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
               ) : perfLeads.length === 0 ? (
