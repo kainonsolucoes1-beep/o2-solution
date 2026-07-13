@@ -69,11 +69,13 @@ def visao_geral(
     perda_financeira = sum(float(v or 0) for s, v in leads if (s or "").lower() == CANCELADO_STATUS)
     ticket_medio = receita_vendas / vendas if vendas > 0 else 0.0
     conversao = round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0
+    qualificados = sum(1 for s, _ in leads if (s or "").lower() == "qualificado")
 
     return {
         "captacoes": captacoes,
         "vendas": vendas,
         "conversao": conversao,
+        "qualificados": qualificados,
         "receita_potencial": receita_potencial,
         "perda_financeira": perda_financeira,
         "ticket_medio": ticket_medio,
