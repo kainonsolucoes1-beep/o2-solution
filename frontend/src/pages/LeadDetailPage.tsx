@@ -512,8 +512,7 @@ export default function LeadDetailPage() {
                   onFocus={e => (e.currentTarget.style.borderColor = '#3B82F6')}
                   onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{noteText.length} caracteres</span>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                   <button
                     onClick={handleSaveNote}
                     disabled={savingNote || !noteText.trim()}
