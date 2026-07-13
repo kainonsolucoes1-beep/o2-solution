@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X } from 'lucide-react'
+import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX } from 'lucide-react'
 import api from '../api'
 
 interface BreakdownItem {
@@ -813,35 +813,61 @@ export default function KPIs() {
               <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>Nenhum lead com essa informação neste período</p>
             ) : (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 20 }}>
-                  <div style={{ background: '#ECFDF5', border: '1px solid #05966930', borderRadius: 10, padding: '16px 20px' }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: '#059669', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Possui Plano</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#059669' }}>{planoSaude.possui_plano}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{planoSaude.pct_possui}% dos informados</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 10 }}>
+                  <div style={{ background: '#ECFDF5', border: '1px solid #05966930', borderRadius: 10, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: '#05966918', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <ShieldCheck size={19} color="#059669" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#059669', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Possui Plano</div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                        <span style={{ fontSize: 24, fontWeight: 800, color: '#059669' }}>{planoSaude.possui_plano}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>· {planoSaude.pct_possui}%</span>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ background: '#FEF2F2', border: '1px solid #DC262630', borderRadius: 10, padding: '16px 20px' }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: '#DC2626', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Não Possui Plano</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#DC2626' }}>{planoSaude.nao_possui_plano}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{planoSaude.pct_nao_possui}% dos informados</div>
+                  <div style={{ background: '#FEF2F2', border: '1px solid #DC262630', borderRadius: 10, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: '#DC262618', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <ShieldX size={19} color="#DC2626" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#DC2626', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Não Possui Plano</div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                        <span style={{ fontSize: 24, fontWeight: 800, color: '#DC2626' }}>{planoSaude.nao_possui_plano}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>· {planoSaude.pct_nao_possui}%</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
+                <div
+                  title={`Possui plano: ${planoSaude.possui_plano} (${planoSaude.pct_possui}%) · Não possui: ${planoSaude.nao_possui_plano} (${planoSaude.pct_nao_possui}%)`}
+                  style={{ display: 'flex', width: '100%', height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 20 }}
+                >
+                  <div style={{ width: `${planoSaude.pct_possui}%`, background: '#059669' }} />
+                  <div style={{ width: 2, background: 'var(--bg-card, #fff)', flexShrink: 0 }} />
+                  <div style={{ width: `${planoSaude.pct_nao_possui}%`, background: '#DC2626' }} />
+                </div>
+
                 {planoSaude.operadoras.length > 0 && (
-                  <div style={{ overflowX: 'auto' }}>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
-                        <tr style={{ background: '#F8FAFC' }}>
+                        <tr style={{ background: 'var(--bg-hover)' }}>
                           {['Operadora atual', 'Captações', 'Vendas', 'Cancelamentos', '% Conversão'].map(h => (
                             <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Operadora atual' ? 'left' : 'center', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {planoSaude.operadoras.map(o => {
+                        {planoSaude.operadoras.map((o, i) => {
                           const maxCap = Math.max(...planoSaude.operadoras.map(x => x.captacoes), 1)
                           const barW = Math.round(o.captacoes / maxCap * 100)
                           return (
-                            <tr key={o.nome} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                            <tr key={o.nome} style={{
+                              borderTop: '1px solid var(--border)', cursor: 'pointer',
+                              background: i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent',
+                            }}
                               onClick={() => {
                                 setPlanoPopup(o.nome)
                                 setPlanoLeads([])
@@ -851,21 +877,25 @@ export default function KPIs() {
                                   .finally(() => setPlanoLeadsLoading(false))
                               }}
                               onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
-                              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
+                              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent'}
                             >
                               <td style={{ padding: '11px 14px', fontWeight: 700, color: '#2563EB', whiteSpace: 'nowrap' }}>{o.nome}</td>
                               <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-                                  <div style={{ width: 60, height: 6, background: '#E5E7EB', borderRadius: 3, flexShrink: 0 }}>
-                                    <div style={{ width: `${barW}%`, height: '100%', background: '#3B82F6', borderRadius: 3 }} />
+                                  <div style={{ width: 60, height: 6, background: 'var(--border)', borderRadius: 4, flexShrink: 0 }}>
+                                    <div style={{ width: `${barW}%`, height: '100%', background: '#3B82F6', borderRadius: 4 }} />
                                   </div>
-                                  <span style={{ fontWeight: 600 }}>{o.captacoes}</span>
+                                  <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{o.captacoes}</span>
                                 </div>
                               </td>
-                              <td style={{ padding: '11px 14px', textAlign: 'center', fontWeight: 600, color: o.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{o.vendas}</td>
-                              <td style={{ padding: '11px 14px', textAlign: 'center', fontWeight: 600, color: o.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{o.cancelados}</td>
+                              <td style={{ padding: '11px 14px', textAlign: 'center', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: o.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{o.vendas}</td>
+                              <td style={{ padding: '11px 14px', textAlign: 'center', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: o.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{o.cancelados}</td>
                               <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                                <span style={{ fontWeight: 700, color: o.conversao >= 20 ? '#059669' : o.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{o.conversao}%</span>
+                                <span style={{
+                                  fontWeight: 700, fontVariantNumeric: 'tabular-nums', padding: '2px 8px', borderRadius: 99,
+                                  color: o.conversao >= 20 ? '#059669' : o.conversao >= 10 ? '#F59E0B' : 'var(--text-muted)',
+                                  background: o.conversao >= 20 ? '#05966915' : o.conversao >= 10 ? '#F59E0B15' : 'transparent',
+                                }}>{o.conversao}%</span>
                               </td>
                             </tr>
                           )
