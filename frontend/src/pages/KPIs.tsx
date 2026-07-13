@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX } from 'lucide-react'
+import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, Trophy, type LucideIcon } from 'lucide-react'
 import api from '../api'
 
 interface BreakdownItem {
@@ -437,10 +437,10 @@ export default function KPIs() {
     ? [...basesData].sort((a, b) => b.cancelados - a.cancelados)[0]
     : undefined
 
-  const baseHighlights: { label: string; color: string; bg: string; item: BaseStat | undefined; value: (d: BaseStat) => string }[] = [
-    { label: 'Mais Captações',    color: '#3B82F6', bg: '#EFF6FF', item: baseTopCapt, value: d => `${d.captacoes} leads` },
-    { label: 'Melhor Conversão',  color: '#10B981', bg: '#ECFDF5', item: baseTopConv, value: d => `${d.conversao}%` },
-    { label: 'Mais Cancelamentos', color: '#EF4444', bg: '#FEF2F2', item: baseTopCanc, value: d => `${d.pct_cancelamento}% (${d.cancelados})` },
+  const baseHighlights: { label: string; color: string; bg: string; icon: LucideIcon; item: BaseStat | undefined; value: (d: BaseStat) => string }[] = [
+    { label: 'Mais Captações',    color: '#3B82F6', bg: '#EFF6FF', icon: Users,          item: baseTopCapt, value: d => `${d.captacoes} leads` },
+    { label: 'Melhor Conversão',  color: '#10B981', bg: '#ECFDF5', icon: Trophy,         item: baseTopConv, value: d => `${d.conversao}%` },
+    { label: 'Mais Cancelamentos', color: '#EF4444', bg: '#FEF2F2', icon: AlertTriangle, item: baseTopCanc, value: d => `${d.pct_cancelamento}% (${d.cancelados})` },
   ]
 
   const acHd = (open: boolean): React.CSSProperties => ({
@@ -481,11 +481,16 @@ export default function KPIs() {
           <div style={{ padding: '20px 24px 24px' }}>
             {!basesLoading && basesData.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
-                {baseHighlights.map(({ label, color, bg, item, value }) => item ? (
-                  <div key={label} style={{ background: bg, border: `1px solid ${color}30`, borderRadius: 10, padding: '16px 20px' }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{label}</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>{item.base}</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color }}>{value(item)}</div>
+                {baseHighlights.map(({ label, color, bg, icon: Icon, item, value }) => item ? (
+                  <div key={label} style={{ background: bg, border: `1px solid ${color}30`, borderRadius: 10, padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon size={18} color={color} />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{label}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.base}</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color, fontVariantNumeric: 'tabular-nums' }}>{value(item)}</div>
+                    </div>
                   </div>
                 ) : null)}
               </div>
@@ -497,15 +502,18 @@ export default function KPIs() {
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
                 <thead>
-                  <tr style={{ background: 'var(--bg-3, #f5f5f5)' }}>
+                  <tr style={{ background: 'var(--bg-hover)' }}>
                     {['Base', 'Captações', 'Vendas', 'Cancelamentos', 'Conversão', '% Cancelamento'].map(h => (
                       <th key={h} style={{ padding: '9px 14px', textAlign: h === 'Base' ? 'left' : 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {basesData.map(b => (
-                    <tr key={b.base} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                  {basesData.map((b, i) => (
+                    <tr key={b.base} style={{
+                      borderTop: '1px solid var(--border)', cursor: 'pointer',
+                      background: i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent',
+                    }}
                       onClick={() => {
                         setBasePopup(b.base)
                         setBaseStatusFilter(null)
@@ -516,19 +524,27 @@ export default function KPIs() {
                           .finally(() => setBaseLeadsLoading(false))
                       }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent'}
                     >
                       <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{b.base}</td>
                       <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                        <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{b.captacoes}</span>
+                        <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{b.captacoes}</span>
                       </td>
-                      <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: '#10B981', fontWeight: 700 }}>{b.vendas}</td>
-                      <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: b.cancelados > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: b.cancelados > 0 ? 700 : 400 }}>{b.cancelados}</td>
+                      <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: '#10B981', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{b.vendas}</td>
+                      <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: b.cancelados > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: b.cancelados > 0 ? 700 : 400, fontVariantNumeric: 'tabular-nums' }}>{b.cancelados}</td>
                       <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: b.conversao >= 20 ? '#059669' : b.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{b.conversao}%</span>
+                        <span style={{
+                          fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', padding: '2px 8px', borderRadius: 99,
+                          color: b.conversao >= 20 ? '#059669' : b.conversao >= 10 ? '#F59E0B' : 'var(--text-muted)',
+                          background: b.conversao >= 20 ? '#05966915' : b.conversao >= 10 ? '#F59E0B15' : 'transparent',
+                        }}>{b.conversao}%</span>
                       </td>
                       <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: b.pct_cancelamento >= 30 ? '#EF4444' : b.pct_cancelamento >= 15 ? '#F59E0B' : '#6B7280' }}>{b.pct_cancelamento}%</span>
+                        <span style={{
+                          fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', padding: '2px 8px', borderRadius: 99,
+                          color: b.pct_cancelamento >= 30 ? '#EF4444' : b.pct_cancelamento >= 15 ? '#F59E0B' : 'var(--text-muted)',
+                          background: b.pct_cancelamento >= 30 ? '#EF444415' : b.pct_cancelamento >= 15 ? '#F59E0B15' : 'transparent',
+                        }}>{b.pct_cancelamento}%</span>
                       </td>
                     </tr>
                   ))}
