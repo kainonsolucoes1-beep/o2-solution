@@ -76,9 +76,19 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   scheduled:            { bg: 'rgba(22,163,74,0.12)',   color: '#16A34A' },
   proposta:             { bg: 'rgba(217,119,6,0.12)',   color: '#D97706' },
   proposal_sent:        { bg: 'rgba(217,119,6,0.12)',   color: '#D97706' },
-  fechado:              { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
+  'proposal sent':      { bg: 'rgba(217,119,6,0.12)',   color: '#D97706' },
+  negociacao:           { bg: 'rgba(124,58,237,0.12)',  color: '#7C3AED' },
+  'negociação':         { bg: 'rgba(124,58,237,0.12)',  color: '#7C3AED' },
+  waiting_billing:      { bg: 'rgba(13,148,136,0.12)',  color: '#0D9488' },
+  'waiting billing':    { bg: 'rgba(13,148,136,0.12)',  color: '#0D9488' },
+  fechado:              { bg: 'rgba(5,150,105,0.12)',   color: '#059669' },
+  closed:               { bg: 'rgba(5,150,105,0.12)',   color: '#059669' },
+  won:                  { bg: 'rgba(5,150,105,0.12)',   color: '#059669' },
   convertido:           { bg: 'rgba(5,150,105,0.12)',   color: '#059669' },
+  sale_performed:       { bg: 'rgba(5,150,105,0.12)',   color: '#059669' },
+  'sale performed':     { bg: 'rgba(5,150,105,0.12)',   color: '#059669' },
   sale_not_performed:   { bg: 'rgba(220,38,38,0.12)',   color: '#DC2626' },
+  'sale not performed': { bg: 'rgba(220,38,38,0.12)',   color: '#DC2626' },
 }
 
 function statusColor(s: string | null) {
@@ -355,7 +365,7 @@ export default function LeadDetailPage() {
           <span style={{ background: sStyle.bg, color: sStyle.color, padding: '5px 16px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
             {statusLabel(status)}
           </span>
-          {history.length > 0 && (
+          {history.length > 0 && statusLabel(status) !== 'Venda Realizada' && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums' }}>
               ⏱ {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
             </span>
@@ -578,6 +588,7 @@ export default function LeadDetailPage() {
                 <div style={{ position: 'absolute', left: 6, top: 8, bottom: 8, width: 2, background: 'var(--border)', borderRadius: 2 }} />
                 {timeline.map((item, i) => {
                   const c = statusColor(item.status)
+                  const isVendaRealizada = statusLabel(item.status) === 'Venda Realizada'
                   return (
                     <div key={i} style={{ position: 'relative', marginBottom: i < timeline.length - 1 ? 18 : 0 }}>
                       <div style={{
@@ -590,12 +601,14 @@ export default function LeadDetailPage() {
                         <span style={{ fontSize: 12, fontWeight: 600, background: c.bg, color: c.color, padding: '2px 10px', borderRadius: 99 }}>
                           {item.isCreation ? `Criado como ${statusLabel(item.status)}` : statusLabel(item.status)}
                         </span>
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, color: item.ongoing ? c.color : 'var(--text-subtle)',
-                          background: item.ongoing ? c.bg : 'var(--bg-hover)', padding: '2px 8px', borderRadius: 99,
-                        }}>
-                          {item.ongoing ? `em andamento · ${fmtDuration(item.durationMs)}` : fmtDuration(item.durationMs)}
-                        </span>
+                        {!(item.ongoing && isVendaRealizada) && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, color: item.ongoing ? c.color : 'var(--text-subtle)',
+                            background: item.ongoing ? c.bg : 'var(--bg-hover)', padding: '2px 8px', borderRadius: 99,
+                          }}>
+                            {item.ongoing ? `em andamento · ${fmtDuration(item.durationMs)}` : fmtDuration(item.durationMs)}
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>
                         {fmtDate(item.at)}{item.by ? ` · ${item.by}` : ''}
