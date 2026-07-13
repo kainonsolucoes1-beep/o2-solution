@@ -14,9 +14,16 @@ interface SyncHealth {
   last_sync_at: string | null; last_sync_ok: boolean
   last_sync_counts: string; last_sync_error: string; tokens_configured: boolean
 }
+function parseUTC(iso: string) {
+  // backend grava os timestamps em UTC mas sem sufixo 'Z'; sem isso o navegador
+  // interpreta a string como horario local e a diferenca fica errada por horas
+  const hasTZ = /Z$/.test(iso) || /[+-]\d{2}:?\d{2}$/.test(iso)
+  return new Date(hasTZ ? iso : iso + 'Z').getTime()
+}
+
 function formatAgo(iso: string | null): string {
   if (!iso) return '—'
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  const diff = Math.floor((Date.now() - parseUTC(iso)) / 1000)
   if (diff < 60) return `${diff}s atrás`
   if (diff < 3600) return `${Math.floor(diff / 60)}min atrás`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`
