@@ -97,6 +97,13 @@ function fmtBRL(n: number | null) {
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function parseUTC(iso: string) {
+  // backend grava os timestamps em UTC mas sem sufixo 'Z'; sem isso o navegador
+  // interpreta a string como horario local e a diferenca fica errada por horas
+  const hasTZ = /Z$/.test(iso) || /[+-]\d{2}:?\d{2}$/.test(iso)
+  return new Date(hasTZ ? iso : iso + 'Z').getTime()
+}
+
 function fmtDuration(ms: number) {
   if (ms < 0) ms = 0
   const totalMin = Math.floor(ms / 60000)
@@ -313,8 +320,8 @@ export default function LeadDetailPage() {
     const base = firstHistoryAt === lead.created_at ? points.slice(1) : points
     return base.map((p, i) => {
       const nextAt = i < base.length - 1 ? base[i + 1].at : null
-      const start = new Date(p.at).getTime()
-      const end = nextAt ? new Date(nextAt).getTime() : Date.now()
+      const start = parseUTC(p.at)
+      const end = nextAt ? parseUTC(nextAt) : Date.now()
       return { ...p, durationMs: end - start, ongoing: nextAt === null }
     })
   })()
@@ -356,7 +363,7 @@ export default function LeadDetailPage() {
           </span>
           {history.length > 0 && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums' }}>
-              ⏱ {fmtClock(Date.now() - new Date(history[history.length - 1].changed_at).getTime())}
+              ⏱ {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
             </span>
           )}
         </div>
