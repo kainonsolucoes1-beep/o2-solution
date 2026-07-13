@@ -499,7 +499,7 @@ export default function LeadDetailPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <textarea
                   value={noteText}
-                  onChange={e => setNoteText(e.target.value.slice(0, 500))}
+                  onChange={e => setNoteText(e.target.value)}
                   placeholder="Adicione uma nota..."
                   rows={3}
                   style={{
@@ -513,7 +513,7 @@ export default function LeadDetailPage() {
                   onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{noteText.length}/500</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{noteText.length} caracteres</span>
                   <button
                     onClick={handleSaveNote}
                     disabled={savingNote || !noteText.trim()}
