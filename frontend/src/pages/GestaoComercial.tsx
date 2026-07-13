@@ -522,6 +522,7 @@ function PerformanceTab({ month }: { month: string }) {
   const [sortBy, setSortBy]         = useState<'receita' | 'captacoes' | 'vendas' | 'cancelados'>('receita')
   const [expConv, setExpConv]       = useState(false)
   const [expRec, setExpRec]         = useState(false)
+  const [expRanking, setExpRanking] = useState(false)
   const [perfPopup, setPerfPopup]           = useState<string | null>(null)
   const [perfLeads, setPerfLeads]           = useState<PerfLead[]>([])
   const [perfLoading, setPerfLoading]       = useState(false)
@@ -797,7 +798,7 @@ function PerformanceTab({ month }: { month: string }) {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((r, i) => (
+              {(expRanking ? sorted : sorted.slice(0, 3)).map((r, i) => (
                 <tr key={r.operador}
                   onClick={() => openPerfModal(`Histórico de ${r.operador}`, r.operador, undefined, true)}
                   style={{
@@ -819,6 +820,11 @@ function PerformanceTab({ month }: { month: string }) {
               ))}
             </tbody>
           </table>
+          {sorted.length > 3 && (
+            <div style={{ padding: '10px 16px' }}>
+              <ExpandToggle expanded={expRanking} hidden={sorted.length - 3} onClick={() => setExpRanking(v => !v)} />
+            </div>
+          )}
         </div>
       </div>
 
