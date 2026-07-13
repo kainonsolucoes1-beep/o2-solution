@@ -574,6 +574,7 @@ function PerformanceTab({ month }: { month: string }) {
   const qualified  = data.filter(r => r.captacoes >= 3)
   const byReceita  = [...data].sort((a, b) => b.receita - a.receita)
   const byConv     = [...qualified].sort((a, b) => b.conversao - a.conversao)
+  const topConv    = byConv.filter(r => r.vendas > 0)[0] ?? null
   const byVendas   = [...data].sort((a, b) => b.vendas - a.vendas)
   const atencao    = [...qualified].sort((a, b) => a.conversao - b.conversao)[0] ?? null
   const maxConv    = Math.max(...data.map(r => r.conversao), 1)
@@ -676,12 +677,16 @@ function PerformanceTab({ month }: { month: string }) {
               <p style={{ fontSize: 11, color: '#047857' }}>{byReceita[0].vendas} vendas · {byReceita[0].conversao}% conv.</p>
             </div>
           )}
-          {byConv[0] && (
-            <div onClick={() => openPerfModal(`Leads de ${byConv[0].operador}`, byConv[0].operador)} style={{ background: 'linear-gradient(135deg,#F5F3FF,#EDE9FE)', borderRadius: 14, padding: 20, border: '1px solid #C4B5FD', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #C4B5FD55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
+          {topConv ? (
+            <div onClick={() => openPerfModal(`Leads de ${topConv.operador}`, topConv.operador)} style={{ background: 'linear-gradient(135deg,#F5F3FF,#EDE9FE)', borderRadius: 14, padding: 20, border: '1px solid #C4B5FD', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #C4B5FD55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
               <p style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>🎯 Maior Conversão</p>
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#4C1D95', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byConv[0].operador}</p>
-              <p style={{ fontSize: 36, fontWeight: 800, color: '#7C3AED', margin: '0 0 4px', lineHeight: 1 }}>{byConv[0].conversao}%</p>
-              <p style={{ fontSize: 11, color: '#6D28D9' }}>{byConv[0].captacoes} captações · {byConv[0].vendas} vendas</p>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#4C1D95', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{topConv.operador}</p>
+              <p style={{ fontSize: 36, fontWeight: 800, color: '#7C3AED', margin: '0 0 4px', lineHeight: 1 }}>{topConv.conversao}%</p>
+              <p style={{ fontSize: 11, color: '#6D28D9' }}>{topConv.captacoes} captações · {topConv.vendas} vendas</p>
+            </div>
+          ) : (
+            <div style={{ background: '#FAFAF9', borderRadius: 14, padding: 20, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 600 }}>🎯 Ninguém converteu ainda</p>
             </div>
           )}
           {byVendas[0] && (
