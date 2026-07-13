@@ -96,12 +96,9 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'created_at',     label: 'Criado em' },
   { key: 'updated_at',     label: 'Atualizado em' },
   { key: 'name',           label: 'Cliente' },
-  { key: 'email',          label: 'Email' },
-  { key: 'phone',          label: 'Telefone' },
   { key: 'origem',         label: 'Origem' },
   { key: 'modalidade',     label: 'Modalidade' },
   { key: 'status',         label: 'Status' },
-  { key: 'value_potential', label: 'Valor' },
 ]
 
 export default function LeadsReport() {
@@ -529,12 +526,6 @@ export default function LeadsReport() {
                             </div>
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
-                            {lead.email ?? '—'}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                            {lead.phone ?? '—'}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
                             {lead.origem ?? '—'}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
@@ -547,9 +538,6 @@ export default function LeadsReport() {
                                 {lead.lost_reason}
                               </div>
                             )}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                            {fmtBRL(lead.value_potential)}
                           </td>
                         </tr>
                       ))}
