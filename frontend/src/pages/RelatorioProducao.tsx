@@ -114,8 +114,8 @@ export default function RelatorioProducao() {
     const prev = previousPeriod(start, end)
     setLoading(true)
     Promise.all([
-      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?start=${start}&end=${end}`),
-      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?start=${prev.start}&end=${prev.end}`),
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?start=${start}&end=${end}&vendas_por_fechamento=true`),
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?start=${prev.start}&end=${prev.end}&vendas_por_fechamento=true`),
       api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?start=${start}&end=${end}`),
       api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?start=${start}&end=${end}`),
     ]).then(([k, pk, d, o]) => {

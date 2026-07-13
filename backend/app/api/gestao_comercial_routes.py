@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.models.lead import Lead
+from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
@@ -52,6 +52,7 @@ def visao_geral(
     until_day: int = Query(None),
     start: str = Query(None),
     end: str = Query(None),
+    vendas_por_fechamento: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -63,13 +64,32 @@ def visao_geral(
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
     captacoes = len(leads)
-    vendas = sum(1 for s, _ in leads if (s or "").lower() in venda_set)
-    receita_vendas = sum(float(v or 0) for s, v in leads if (s or "").lower() in venda_set)
+    qualificados = sum(1 for s, _ in leads if (s or "").lower() == "qualificado")
+
+    if vendas_por_fechamento:
+        # conta vendas pela data em que o status virou venda, nao pela data de captacao
+        # (ciclo de fechamento longo faz vendas de leads captados fora do periodo)
+        rows = (
+            db.query(LeadStatusHistory.lead_id, Lead.value_potential)
+            .join(Lead, Lead.id == LeadStatusHistory.lead_id)
+            .filter(
+                LeadStatusHistory.changed_at >= dt_from,
+                LeadStatusHistory.changed_at <= dt_to,
+                func.lower(LeadStatusHistory.to_status).in_(venda_set),
+            )
+            .all()
+        )
+        venda_leads = {lead_id: float(value or 0) for lead_id, value in rows}
+        vendas = len(venda_leads)
+        receita_vendas = sum(venda_leads.values())
+    else:
+        vendas = sum(1 for s, _ in leads if (s or "").lower() in venda_set)
+        receita_vendas = sum(float(v or 0) for s, v in leads if (s or "").lower() in venda_set)
+
     receita_potencial = sum(float(v or 0) for s, v in leads if (s or "").lower() != CANCELADO_STATUS and v)
     perda_financeira = sum(float(v or 0) for s, v in leads if (s or "").lower() == CANCELADO_STATUS)
     ticket_medio = receita_vendas / vendas if vendas > 0 else 0.0
     conversao = round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0
-    qualificados = sum(1 for s, _ in leads if (s or "").lower() == "qualificado")
 
     return {
         "captacoes": captacoes,
