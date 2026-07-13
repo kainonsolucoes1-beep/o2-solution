@@ -85,8 +85,15 @@ function statusColor(s: string | null) {
   return STATUS_STYLE[s.toLowerCase()] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
 }
 
+function parseUTC(iso: string) {
+  // backend grava os timestamps em UTC mas sem sufixo 'Z'; sem isso o navegador
+  // interpreta a string como horario local e a diferenca fica errada por horas
+  const hasTZ = /Z$/.test(iso) || /[+-]\d{2}:?\d{2}$/.test(iso)
+  return new Date(hasTZ ? iso : iso + 'Z').getTime()
+}
+
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
+  return new Date(parseUTC(iso)).toLocaleDateString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -95,13 +102,6 @@ function fmtDate(iso: string) {
 function fmtBRL(n: number | null) {
   if (n == null || n === 0) return '—'
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function parseUTC(iso: string) {
-  // backend grava os timestamps em UTC mas sem sufixo 'Z'; sem isso o navegador
-  // interpreta a string como horario local e a diferenca fica errada por horas
-  const hasTZ = /Z$/.test(iso) || /[+-]\d{2}:?\d{2}$/.test(iso)
-  return new Date(hasTZ ? iso : iso + 'Z').getTime()
 }
 
 function fmtDuration(ms: number) {
