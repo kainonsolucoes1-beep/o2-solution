@@ -482,7 +482,7 @@ export default function KPIs() {
             {!basesLoading && basesData.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
                 {baseHighlights.map(({ label, color, bg, icon: Icon, item, value }) => item ? (
-                  <div key={label} style={{ background: bg, border: `1px solid ${color}30`, borderRadius: 10, padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                  <div key={label} style={{ background: bg, borderLeft: `4px solid ${color}`, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                     <div style={{ width: 38, height: 38, borderRadius: 10, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Icon size={18} color={color} />
                     </div>
