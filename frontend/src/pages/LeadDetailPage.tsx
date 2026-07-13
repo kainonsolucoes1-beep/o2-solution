@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, User, Tag, Activity, CalendarClock, StickyNote, History, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
+import { parseUTC } from '../utils/date'
 
 interface LeadItem {
   id: string
@@ -83,13 +84,6 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 function statusColor(s: string | null) {
   if (!s) return { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
   return STATUS_STYLE[s.toLowerCase()] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
-}
-
-function parseUTC(iso: string) {
-  // backend grava os timestamps em UTC mas sem sufixo 'Z'; sem isso o navegador
-  // interpreta a string como horario local e a diferenca fica errada por horas
-  const hasTZ = /Z$/.test(iso) || /[+-]\d{2}:?\d{2}$/.test(iso)
-  return new Date(hasTZ ? iso : iso + 'Z').getTime()
 }
 
 function fmtDate(iso: string) {

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Phone, Mail, FileText, Calendar } from 'lucide-react'
 import api from '../api'
+import { parseUTC } from '../utils/date'
 
 interface NextActions { call_today: number; send_email: number; follow_proposal: number; meetings: number }
 interface ActivityLead {
@@ -53,7 +54,7 @@ export default function Activities() {
 
   function fmtDate(iso: string | null) {
     if (!iso) return '—'
-    const d = new Date(iso)
+    const d = new Date(parseUTC(iso))
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
   }
 

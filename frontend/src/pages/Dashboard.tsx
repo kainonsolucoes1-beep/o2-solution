@@ -6,6 +6,7 @@ import {
 import { TrendingUp, TrendingDown, Users, Zap, PhoneCall, Clock, Calendar, X, ChevronDown, ChevronRight } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
+import { parseUTC } from '../utils/date'
 
 interface FeedItem {
   id: string
@@ -530,7 +531,7 @@ export default function Dashboard() {
               <p style={{ fontSize: 13, color: 'var(--text-subtle)', paddingTop: 8 }}>Nenhuma atividade registrada.</p>
             ) : (
               feed.map((item, i) => {
-                const dt = new Date(item.changed_at)
+                const dt = new Date(parseUTC(item.changed_at))
                 const dtStr = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
                   + ' ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                 return (

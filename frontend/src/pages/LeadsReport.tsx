@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
+import { parseUTC } from '../utils/date'
 
 interface Me {
   id: string
@@ -59,7 +60,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR')
+  return new Date(parseUTC(iso)).toLocaleDateString('pt-BR')
 }
 
 function fmtBRL(n: number | null) {

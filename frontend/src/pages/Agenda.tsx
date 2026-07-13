@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import api from '../api'
+import { parseUTC } from '../utils/date'
 
 interface AgendaItem {
   id: string
@@ -67,7 +68,7 @@ export default function Agenda() {
   const byDay = useMemo(() => {
     const map: Record<string, AgendaItem[]> = {}
     for (const it of items) {
-      const day = it.scheduled_at.slice(0, 10)
+      const day = dateKey(new Date(parseUTC(it.scheduled_at)))
       if (!map[day]) map[day] = []
       map[day].push(it)
     }
@@ -88,7 +89,7 @@ export default function Agenda() {
   }, [cursor])
 
   function fmtTime(iso: string) {
-    return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    return new Date(parseUTC(iso)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   }
 
   return (

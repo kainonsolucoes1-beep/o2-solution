@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { UserPlus, X, Pencil } from 'lucide-react'
 import api from '../api'
+import { parseUTC } from '../utils/date'
 
 interface UserItem {
   id: string
@@ -17,7 +18,7 @@ const EMPTY_FORM = { email: '', username: '', first_name: '', password: '', role
 const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '' }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR')
+  return new Date(parseUTC(iso)).toLocaleDateString('pt-BR')
 }
 
 export default function Users() {

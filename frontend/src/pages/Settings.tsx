@@ -5,6 +5,7 @@ import {
   KeyRound, ToggleLeft, ToggleRight, Copy, Check, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import api from '../api'
+import { parseUTC } from '../utils/date'
 
 const TABS = ['Configurações', 'Usuários', 'Formulário'] as const
 type Tab = typeof TABS[number]
@@ -14,13 +15,6 @@ interface SyncHealth {
   last_sync_at: string | null; last_sync_ok: boolean
   last_sync_counts: string; last_sync_error: string; tokens_configured: boolean
 }
-function parseUTC(iso: string) {
-  // backend grava os timestamps em UTC mas sem sufixo 'Z'; sem isso o navegador
-  // interpreta a string como horario local e a diferenca fica errada por horas
-  const hasTZ = /Z$/.test(iso) || /[+-]\d{2}:?\d{2}$/.test(iso)
-  return new Date(hasTZ ? iso : iso + 'Z').getTime()
-}
-
 function formatAgo(iso: string | null): string {
   if (!iso) return '—'
   const diff = Math.floor((Date.now() - parseUTC(iso)) / 1000)
@@ -154,7 +148,7 @@ function ConfiguracoesTab() {
 interface UserItem { id: string; email: string; username: string; first_name: string | null; role: string; is_active: boolean; created_at: string }
 const EMPTY_FORM = { email: '', username: '', first_name: '', password: '', role: 'user' }
 const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '' }
-function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('pt-BR') }
+function fmtDate(iso: string) { return new Date(parseUTC(iso)).toLocaleDateString('pt-BR') }
 
 function UsuariosTab() {
   const navigate = useNavigate()
