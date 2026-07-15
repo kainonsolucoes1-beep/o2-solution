@@ -214,6 +214,7 @@ export default function LeadDetailPage() {
   const [loadingSchedules, setLoadingSchedules] = useState(true)
   const [scheduleInput, setScheduleInput] = useState('')
   const [savingSchedule, setSavingSchedule] = useState(false)
+  const [cancelingSchedule, setCancelingSchedule] = useState(false)
   const [, setTick]                       = useState(0)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
@@ -287,6 +288,19 @@ export default function LeadDetailPage() {
       .then(r => setSchedules(r.data.schedules))
       .catch(() => setToast({ msg: 'Erro ao salvar agendamento', ok: false }))
       .finally(() => setSavingSchedule(false))
+  }
+
+  function handleCancelSchedule() {
+    if (!id) return
+    setCancelingSchedule(true)
+    api.delete(`/api/v1/leads/${id}/schedule`)
+      .then(() => {
+        setToast({ msg: 'Agendamento removido', ok: true })
+        return api.get<{ schedules: ScheduleItem[] }>(`/api/v1/leads/${id}/schedule-history`)
+      })
+      .then(r => setSchedules(r.data.schedules))
+      .catch(() => setToast({ msg: 'Erro ao remover agendamento', ok: false }))
+      .finally(() => setCancelingSchedule(false))
   }
 
   function handleDelete() {
@@ -464,9 +478,18 @@ export default function LeadDetailPage() {
                   {(() => {
                     const active = schedules.find(s => s.is_active)
                     return active ? (
-                      <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'rgba(37,99,235,0.12)', color: '#2563EB', padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
-                        Agendado para {fmtDate(active.scheduled_at)}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'rgba(37,99,235,0.12)', color: '#2563EB', padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
+                          Agendado para {fmtDate(active.scheduled_at)}
+                        </span>
+                        <button
+                          onClick={handleCancelSchedule}
+                          disabled={cancelingSchedule}
+                          style={{ fontSize: 12, color: '#DC2626', background: 'none', border: 'none', cursor: cancelingSchedule ? 'not-allowed' : 'pointer', fontWeight: 500 }}
+                        >
+                          {cancelingSchedule ? 'Removendo…' : 'Remover'}
+                        </button>
+                      </div>
                     ) : (
                       <span style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum agendamento ativo.</span>
                     )

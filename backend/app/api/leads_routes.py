@@ -323,6 +323,18 @@ def create_schedule(
     return schedule
 
 
+@router.delete("/leads/{lead_id}/schedule", status_code=204)
+def cancel_schedule(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db.query(LeadSchedule).filter(
+        LeadSchedule.lead_id == lead_id, LeadSchedule.is_active.is_(True)
+    ).update({"is_active": False})
+    db.commit()
+
+
 @router.get("/leads/{lead_id}/schedule-history", response_model=ScheduleHistoryResponse)
 def get_schedule_history(
     lead_id: str,
