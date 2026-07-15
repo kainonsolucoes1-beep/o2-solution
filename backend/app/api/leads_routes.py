@@ -16,7 +16,7 @@ from app.schemas.lead import (
     NoteResponse, NotesListResponse,
     StatusHistoryItem, StatusHistoryResponse,
     ScheduleCreateRequest, ScheduleItem, ScheduleHistoryResponse,
-    AgendaItem, AgendaResponse,
+    AgendaItem, AgendaResponse, AgendaAlertsResponse,
 )
 from app.schemas.user import OperatorInfo
 
@@ -378,6 +378,34 @@ def get_agenda(
         for sched, lead in rows
     ]
     return AgendaResponse(items=items)
+
+
+@router.get("/agenda/alerts/count", response_model=AgendaAlertsResponse)
+def get_agenda_alerts_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    end_of_today = datetime(now.year, now.month, now.day) + timedelta(days=1)
+
+    overdue = (
+        db.query(func.count(LeadSchedule.id))
+        .filter(LeadSchedule.is_active.is_(True), LeadSchedule.scheduled_at < now)
+        .scalar()
+    )
+    today = (
+        db.query(func.count(LeadSchedule.id))
+        .filter(
+            LeadSchedule.is_active.is_(True),
+            LeadSchedule.scheduled_at >= now,
+            LeadSchedule.scheduled_at < end_of_today,
+        )
+        .scalar()
+    )
+    return AgendaAlertsResponse(overdue=overdue, today=today)
 
 
 @router.post("/leads/{lead_id}/notes", response_model=NoteCreateResponse)

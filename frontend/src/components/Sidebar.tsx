@@ -9,6 +9,7 @@ import api from '../api'
 import { useTheme } from '../ThemeContext'
 
 interface UserInfo { username: string; first_name: string | null; role: string }
+interface AgendaAlerts { overdue: number; today: number }
 
 const NAV = [
   { to: '/dashboard',        label: 'Dashboard',        Icon: LayoutDashboard, adminOnly: false },
@@ -30,6 +31,7 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [user, setUser] = useState<UserInfo | null>(null)
+  const [agendaAlerts, setAgendaAlerts] = useState<AgendaAlerts | null>(null)
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768)
@@ -43,6 +45,19 @@ export default function Sidebar() {
     api.get<UserInfo>('/api/v1/auth/me').then(r => setUser(r.data)).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    if (!user) return
+    const admin = user.role === 'admin' || user.username === 'lucas@o2solution.com.br'
+    if (!admin) return
+    let cancelled = false
+    function load() {
+      api.get<AgendaAlerts>('/api/v1/agenda/alerts/count').then(r => { if (!cancelled) setAgendaAlerts(r.data) }).catch(() => {})
+    }
+    load()
+    const id = setInterval(load, 3 * 60 * 1000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [user])
+
   function logout() { localStorage.removeItem('token'); navigate('/login') }
 
   const slim = collapsed && !isMobile
@@ -51,6 +66,8 @@ export default function Sidebar() {
 
   const navLinks = NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => {
     const isActive = location.pathname === to
+    const alertCount = to === '/agenda' && agendaAlerts ? agendaAlerts.overdue + agendaAlerts.today : 0
+    const alertColor = agendaAlerts && agendaAlerts.overdue > 0 ? '#EF4444' : '#F59E0B'
     return (
       <Link
         key={label}
@@ -60,7 +77,7 @@ export default function Sidebar() {
           display: 'flex', alignItems: 'center', gap: 10,
           padding: slim ? '10px 0' : '9px 12px',
           justifyContent: slim ? 'center' : 'flex-start',
-          borderRadius: 8, textDecoration: 'none',
+          borderRadius: 8, textDecoration: 'none', position: 'relative',
           background: isActive ? '#1E3A5F' : 'transparent',
           color: isActive ? '#93C5FD' : '#9CA3AF',
           fontSize: 13, fontWeight: isActive ? 600 : 400,
@@ -69,8 +86,28 @@ export default function Sidebar() {
         onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#1F2937' }}
         onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
       >
-        <Icon size={17} />
-        {!slim && <span>{label}</span>}
+        <span style={{ position: 'relative', display: 'flex' }}>
+          <Icon size={17} />
+          {alertCount > 0 && slim && (
+            <span style={{
+              position: 'absolute', top: -4, right: -6, background: alertColor,
+              color: '#fff', borderRadius: 999, fontSize: 9, fontWeight: 700,
+              minWidth: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '0 3px', lineHeight: 1,
+            }}>
+              {alertCount}
+            </span>
+          )}
+        </span>
+        {!slim && <span style={{ flex: 1 }}>{label}</span>}
+        {!slim && alertCount > 0 && (
+          <span style={{
+            background: alertColor, color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700,
+            minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px',
+          }}>
+            {alertCount}
+          </span>
+        )}
       </Link>
     )
   })

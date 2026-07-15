@@ -143,3 +143,8 @@ class AgendaItem(BaseModel):
 
 class AgendaResponse(BaseModel):
     items: List[AgendaItem]
+
+
+class AgendaAlertsResponse(BaseModel):
+    overdue: int
+    today: int

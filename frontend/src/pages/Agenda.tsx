@@ -92,6 +92,10 @@ export default function Agenda() {
     return new Date(parseUTC(iso)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   }
 
+  const today = new Date()
+  const todayKey = dateKey(today)
+  const now = Date.now()
+
   return (
     <>
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
@@ -137,6 +141,7 @@ export default function Agenda() {
               {week.map((day, di) => {
                 const dayItems = day ? (byDay[dateKey(day)] ?? []) : []
                 const density = densityFor(dayItems.length)
+                const isToday = !!day && dateKey(day) === todayKey
                 return (
                   <div
                     key={di}
@@ -144,29 +149,39 @@ export default function Agenda() {
                       minHeight: 190, padding: 6,
                       borderRight: di < 6 ? '1px solid var(--border-lt)' : 'none',
                       borderBottom: '1px solid var(--border-lt)',
+                      background: isToday ? 'var(--bg-hover)' : undefined,
+                      boxShadow: isToday ? 'inset 0 0 0 1px #3B82F6' : undefined,
                     }}
                   >
                     {day && (
-                      <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{day.getDate()}</span>
+                      <span style={{
+                        fontSize: 11, color: isToday ? '#3B82F6' : 'var(--text-subtle)',
+                        fontWeight: isToday ? 700 : 400,
+                      }}>
+                        {day.getDate()}
+                      </span>
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: density.gap, marginTop: 4 }}>
-                      {dayItems.map(it => (
-                        <button
-                          key={it.schedule_id}
-                          onClick={() => navigate(`/leads/${it.id}`)}
-                          title={it.name}
-                          style={{
-                            textAlign: 'left', fontSize: density.fontSize, lineHeight: density.lineHeight,
-                            borderLeft: `3px solid ${colorFor(it.attendant)}`,
-                            background: 'var(--bg-hover)', color: 'var(--text-2)',
-                            padding: density.padding, borderRadius: 4, cursor: 'pointer', border: 'none',
-                            borderLeftWidth: 3, borderLeftStyle: 'solid',
-                            whiteSpace: 'normal', wordBreak: 'break-word',
-                          }}
-                        >
-                          {fmtTime(it.scheduled_at)} · {it.followize_id ?? '—'} · {it.name}
-                        </button>
-                      ))}
+                      {dayItems.map(it => {
+                        const overdue = parseUTC(it.scheduled_at) < now
+                        return (
+                          <button
+                            key={it.schedule_id}
+                            onClick={() => navigate(`/leads/${it.id}`)}
+                            title={overdue ? `${it.name} (vencido)` : it.name}
+                            style={{
+                              textAlign: 'left', fontSize: density.fontSize, lineHeight: density.lineHeight,
+                              borderLeft: `3px solid ${overdue ? '#EF4444' : colorFor(it.attendant)}`,
+                              background: overdue ? 'rgba(239,68,68,0.1)' : 'var(--bg-hover)', color: 'var(--text-2)',
+                              padding: density.padding, borderRadius: 4, cursor: 'pointer', border: 'none',
+                              borderLeftWidth: 3, borderLeftStyle: 'solid',
+                              whiteSpace: 'normal', wordBreak: 'break-word',
+                            }}
+                          >
+                            {fmtTime(it.scheduled_at)} · {it.followize_id ?? '—'} · {it.name}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
                 )
