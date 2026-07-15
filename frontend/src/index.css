@@ -3,7 +3,7 @@
 :root {
   --kpi-accent-border: #EDE9FE;
   --bg-page:    #F9FAFB;
-  --bg-card:    #FFFFFF;
+  --bg-card:    #FAFAFA;
   --bg-subtle:  #F3F4F6;
   --bg-faint:   #FAFAFA;
   --bg-hover:   #F9FAFB;
@@ -40,7 +40,8 @@ html.dark {
 
 body { background: var(--bg-page); }
 
-html.dark .bg-white    { background-color: var(--bg-card)   !important; }
+.bg-white { background-color: var(--bg-card) !important; }
+
 html.dark .bg-gray-50  { background-color: var(--bg-subtle) !important; }
 html.dark .bg-gray-100 { background-color: var(--bg-subtle) !important; }
 
