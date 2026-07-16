@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
+from app.lead_utils import extract_base
 from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, User
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
@@ -225,6 +226,7 @@ def get_lead(
         id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
         company=lead.company, attendant=lead.attendant,
         origem=lead.origin, conversion_point=lead.conversion_point,
+        base=extract_base(lead.notes),
         status=lead.status, perception=lead.perception,
         value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
         is_renutrucao=bool(lead.is_renutrucao),

@@ -34,6 +34,7 @@ class LeadReportItem(BaseModel):
     attendant: Optional[str] = None
     origem: Optional[str] = None
     conversion_point: Optional[str] = None
+    base: Optional[str] = None
     status: Optional[str] = None
     perception: Optional[str] = None
     value_potential: Optional[float] = None

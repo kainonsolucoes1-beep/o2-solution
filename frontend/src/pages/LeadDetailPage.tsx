@@ -14,6 +14,7 @@ interface LeadItem {
   attendant: string | null
   origem: string | null
   conversion_point: string | null
+  base: string | null
   current_plan: string | null
   status: string | null
   perception: string | null
@@ -595,6 +596,7 @@ export default function LeadDetailPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
               <Field label="Origem"             value={lead.origem ?? '—'} />
               <Field label="Ponto de Conversão" value={lead.conversion_point ?? '—'} />
+              <Field label="Base"               value={lead.base ?? '—'} />
               <Field label="Modalidade"         value={lead.modalidade ?? '—'} />
               <PlanField value={lead.current_plan} />
               <Field label="Valor Potencial"    value={fmtBRL(lead.value_potential)} />
