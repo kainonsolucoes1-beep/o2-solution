@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
+from app.lead_utils import extract_base as _extract_base
 from app.models.lead import Lead
 from app.models.user import User
 
@@ -16,37 +17,6 @@ router = APIRouter(prefix="/api/v1/kpis", tags=["kpis"])
 
 VENDA_STATUSES    = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 CANCELADO_STATUSES = ("sale_not_performed",)
-
-BASE_ALIASES: dict[str, str] = {
-    "empresas até 9 colaboradores":                    "Empresas SP capital LTDA - Até 9 colaboradores",
-    "discadora – empresas sp até 9 colaboradores":     "Empresas SP capital LTDA - Até 9 colaboradores",
-    "discadora - empresas sp até 9 colaboradores":     "Empresas SP capital LTDA - Até 9 colaboradores",
-    "empresas sp até 9 colaboradores":                 "Empresas SP capital LTDA - Até 9 colaboradores",
-    "empresas sp — até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
-    "empresas sp - até 9 colaboradores":               "Empresas SP capital LTDA - Até 9 colaboradores",
-    "não informado":                                   "Empresas SP capital LTDA - Até 9 colaboradores",
-    "empresas em sp ltda - ate 9 colaboradores":       "Empresas SP capital LTDA - Até 9 colaboradores",
-    "ate 9 colaboradores":                             "Empresas SP capital LTDA - Até 9 colaboradores",
-    "mei sp (discadora)":                              "Clientes MEI em SP",
-    "clientes mei em sp":                              "Clientes MEI em SP",
-    "mei em sp":                                        "Clientes MEI em SP",
-    "discadora sul américa":                           "SulAmerica",
-    "discadora sul america":                           "SulAmerica",
-    "base sulamerica":                                 "SulAmerica",
-}
-_BASE_RE_EMOJI  = re.compile(r'🗂️\s*Base:\s*([^|\n]+)')
-_BASE_RE_SIMPLE = re.compile(r'(?im)^Base:\s*([^\n]+)')
-
-
-def _extract_base(notes: str | None) -> str | None:
-    text = notes or ''
-    m = _BASE_RE_EMOJI.search(text) or _BASE_RE_SIMPLE.search(text)
-    if not m:
-        return None
-    base = m.group(1).strip()
-    if not base:
-        return None
-    return BASE_ALIASES.get(base.lower(), base)
 
 
 @router.get("/conversao-fonte")
@@ -431,6 +401,102 @@ def bases_analytics(
 
     result.sort(key=lambda x: x["captacoes"], reverse=True)
     return result
+
+
+@router.get("/bases-detalhe")
+def base_detalhe(
+    month: str = Query(None),
+    base: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    leads = (
+        db.query(Lead.notes, Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan)
+        .filter(
+            Lead.created_at >= dt_from,
+            Lead.created_at <= dt_to,
+            Lead.notes.isnot(None),
+            Lead.notes.ilike('%Base%'),
+        )
+        .all()
+    )
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+    target = base.strip().lower()
+
+    captacoes = 0
+    vendas = 0
+    cancelados = 0
+    receita = 0.0
+    modalidades: dict = defaultdict(int)
+    plano_possui = 0
+    plano_nao_possui = 0
+    plano_sem_info = 0
+
+    for notes, status, value, modalidade, current_plan in leads:
+        b = _extract_base(notes)
+        if not b or b.lower() != target:
+            continue
+        captacoes += 1
+        s = (status or "").lower()
+        is_perdido = s in cancelado_set
+        if s in venda_set:
+            vendas += 1
+        elif is_perdido:
+            cancelados += 1
+
+        if not is_perdido:
+            if value:
+                receita += float(value)
+            modalidades[(modalidade or "").strip() or "Não informado"] += 1
+            plano = (current_plan or "").strip()
+            if not plano:
+                plano_sem_info += 1
+            elif plano.lower() == "não possui plano":
+                plano_nao_possui += 1
+            else:
+                plano_possui += 1
+
+    base_liquida = captacoes - cancelados
+    plano_com_info = plano_possui + plano_nao_possui
+
+    return {
+        "base": base,
+        "captacoes": captacoes,
+        "cancelados": cancelados,
+        "base_liquida": base_liquida,
+        "vendas": vendas,
+        "conversao": round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0,
+        "pct_cancelamento": round(cancelados / captacoes * 100, 1) if captacoes > 0 else 0.0,
+        "receita_potencial": receita,
+        "ticket_medio": round(receita / base_liquida, 2) if base_liquida > 0 else 0.0,
+        "modalidades": sorted(
+            [
+                {"nome": k, "count": v, "pct": round(v / base_liquida * 100, 1) if base_liquida > 0 else 0.0}
+                for k, v in modalidades.items()
+            ],
+            key=lambda x: x["count"], reverse=True,
+        ),
+        "plano": {
+            "possui": plano_possui,
+            "nao_possui": plano_nao_possui,
+            "sem_informacao": plano_sem_info,
+            "pct_possui": round(plano_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
+            "pct_nao_possui": round(plano_nao_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
+        },
+    }
 
 
 @router.get("/leads-base")

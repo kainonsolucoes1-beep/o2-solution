@@ -73,6 +73,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 const PERCEPTION_STYLE: Record<string, { bg: string; color: string }> = {
   quente: { bg: '#FEF2F2', color: '#DC2626' },
   morno: { bg: '#FFFBEB', color: '#D97706' },
+  frio: { bg: '#ECFEFF', color: '#0891B2' },
 }
 
 function PerceptionBadge({ perception }: { perception: string | null }) {
@@ -491,16 +492,16 @@ export default function LeadsReport() {
               </button>
             </div>
 
-            <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <div className="rounded-xl" style={{ background: 'var(--bg-page)' }}>
               {report.leads.length === 0 ? (
-                <div className="py-16 text-center" style={{ color: 'var(--text-subtle)', fontSize: 14 }}>
+                <div className="py-16 text-center bg-white rounded-xl" style={{ color: 'var(--text-subtle)', fontSize: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                   Nenhum lead encontrado para os filtros selecionados.
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
                     <thead>
-                      <tr style={{ borderBottom: '2px solid var(--border)', background: 'var(--bg-hover)' }}>
+                      <tr style={{ background: 'var(--bg-hover)' }}>
                         {COLUMNS.map(col => (
                           <th
                             key={col.key}
@@ -523,20 +524,20 @@ export default function LeadsReport() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedLeads.map((lead, i) => (
+                      {sortedLeads.map(lead => (
                         <tr
                           key={lead.id}
                           onClick={() => navigate(`/leads/${lead.id}`)}
                           style={{
-                            borderBottom: i < sortedLeads.length - 1 ? '1px solid var(--border-lt)' : 'none',
                             background: 'var(--bg-card)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                             transition: 'background 120ms',
                             cursor: 'pointer',
                           }}
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-card)')}
                         >
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderTopLeftRadius: 10, borderBottomLeftRadius: 10 }}>
                             {fmtDate(lead.created_at)}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
@@ -566,7 +567,7 @@ export default function LeadsReport() {
                           <td style={{ padding: '12px 16px' }}>
                             <PerceptionBadge perception={lead.perception} />
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td style={{ padding: '12px 16px', borderTopRightRadius: 10, borderBottomRightRadius: 10 }}>
                             <StatusBadge status={lead.status} />
                             {lead.lost_reason && (
                               <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 500, marginTop: 4, whiteSpace: 'nowrap' }}>
