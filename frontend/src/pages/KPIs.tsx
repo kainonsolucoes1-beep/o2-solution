@@ -530,7 +530,7 @@ export default function KPIs() {
               <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-hover)' }}>
-                    {['Base', 'Captações', 'Vendas', 'Cancelamentos', 'Conversão', '% Cancelamento', 'Análise'].map(h => (
+                    {['Base', 'Análise'].map(h => (
                       <th key={h} style={{ padding: '9px 14px', textAlign: h === 'Base' ? 'left' : 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -554,25 +554,6 @@ export default function KPIs() {
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent'}
                     >
                       <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{b.base}</td>
-                      <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                        <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{b.captacoes}</span>
-                      </td>
-                      <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: '#10B981', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{b.vendas}</td>
-                      <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: b.cancelados > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: b.cancelados > 0 ? 700 : 400, fontVariantNumeric: 'tabular-nums' }}>{b.cancelados}</td>
-                      <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                        <span style={{
-                          fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', padding: '2px 8px', borderRadius: 99,
-                          color: b.conversao >= 20 ? '#059669' : b.conversao >= 10 ? '#F59E0B' : 'var(--text-muted)',
-                          background: b.conversao >= 20 ? '#05966915' : b.conversao >= 10 ? '#F59E0B15' : 'transparent',
-                        }}>{b.conversao}%</span>
-                      </td>
-                      <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                        <span style={{
-                          fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', padding: '2px 8px', borderRadius: 99,
-                          color: b.pct_cancelamento >= 30 ? '#EF4444' : b.pct_cancelamento >= 15 ? '#F59E0B' : 'var(--text-muted)',
-                          background: b.pct_cancelamento >= 30 ? '#EF444415' : b.pct_cancelamento >= 15 ? '#F59E0B15' : 'transparent',
-                        }}>{b.pct_cancelamento}%</span>
-                      </td>
                       <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                         <button
                           onClick={e => { e.stopPropagation(); openBaseDrawer(b.base) }}
