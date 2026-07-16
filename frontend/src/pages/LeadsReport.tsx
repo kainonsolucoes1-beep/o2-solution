@@ -346,14 +346,6 @@ export default function LeadsReport() {
 
         {searched && report && !loading && (
           <>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              Mostrando{' '}
-              <strong style={{ color: 'var(--text-2)' }}>{report.leads.length}</strong>{' '}
-              de{' '}
-              <strong style={{ color: 'var(--text-2)' }}>{report.total}</strong>{' '}
-              leads
-            </span>
-
             <div className="rounded-xl" style={{ background: 'var(--bg-page)' }}>
               {report.leads.length === 0 ? (
                 <div className="py-16 text-center bg-white rounded-xl" style={{ color: 'var(--text-subtle)', fontSize: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -504,6 +496,14 @@ export default function LeadsReport() {
                 </button>
               </div>
             )}
+
+            <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-subtle)' }}>
+              Mostrando{' '}
+              <strong style={{ color: 'var(--text-muted)' }}>{report.leads.length}</strong>{' '}
+              de{' '}
+              <strong style={{ color: 'var(--text-muted)' }}>{report.total}</strong>{' '}
+              leads
+            </p>
           </>
         )}
 
