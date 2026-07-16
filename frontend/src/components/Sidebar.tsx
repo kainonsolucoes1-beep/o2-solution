@@ -78,12 +78,13 @@ export default function Sidebar() {
           padding: slim ? '10px 0' : '9px 12px',
           justifyContent: slim ? 'center' : 'flex-start',
           borderRadius: 8, textDecoration: 'none', position: 'relative',
-          background: isActive ? '#1E3A5F' : 'transparent',
-          color: isActive ? '#93C5FD' : '#9CA3AF',
+          background: isActive ? 'rgba(0,109,183,0.16)' : 'transparent',
+          color: isActive ? '#4FB0E8' : '#9CA3AF',
+          borderLeft: isActive ? '3px solid #006db7' : '3px solid transparent',
           fontSize: 13, fontWeight: isActive ? 600 : 400,
           transition: 'background 150ms',
         }}
-        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#1F2937' }}
+        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' }}
         onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
       >
         <span style={{ position: 'relative', display: 'flex' }}>
@@ -189,7 +190,10 @@ export default function Sidebar() {
           transition: 'transform 250ms ease',
         }}>
           <div style={{ padding: '18px 16px', borderBottom: '1px solid #1F2937', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#F9FAFB' }}>O2 Solution</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: '#F9FAFB', display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f92280', flexShrink: 0 }} />
+              O2 Solution
+            </span>
             <button
               onClick={() => setMobileOpen(false)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', display: 'flex' }}
@@ -221,7 +225,12 @@ export default function Sidebar() {
         justifyContent: collapsed ? 'center' : 'space-between',
         borderBottom: '1px solid #1F2937', flexShrink: 0, minHeight: 58,
       }}>
-        {!collapsed && <span style={{ fontSize: 15, fontWeight: 700, color: '#F9FAFB' }}>O2 Solution</span>}
+        {!collapsed && (
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#F9FAFB', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f92280', flexShrink: 0 }} />
+            O2 Solution
+          </span>
+        )}
         <button
           onClick={() => setCollapsed(c => !c)}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 4, borderRadius: 4, display: 'flex', flexShrink: 0 }}

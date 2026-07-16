@@ -52,11 +52,42 @@ const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   .slice(0, 10)
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  novo:        { bg: 'rgba(59,130,246,0.12)',  color: '#3B82F6' },
-  qualificado: { bg: 'rgba(22,163,74,0.12)',   color: '#16A34A' },
-  proposta:    { bg: 'rgba(217,119,6,0.12)',   color: '#D97706' },
-  fechado:     { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
-  convertido:  { bg: 'rgba(5,150,105,0.12)',   color: '#059669' },
+  novo: { bg: 'rgba(59,130,246,0.12)', color: '#3B82F6' },
+  new: { bg: 'rgba(59,130,246,0.12)', color: '#3B82F6' },
+  pending: { bg: 'rgba(59,130,246,0.12)', color: '#3B82F6' },
+  qualificado: { bg: 'rgba(124,58,237,0.12)', color: '#7C3AED' },
+  qualified: { bg: 'rgba(124,58,237,0.12)', color: '#7C3AED' },
+  scheduled: { bg: 'rgba(124,58,237,0.12)', color: '#7C3AED' },
+  proposta: { bg: 'rgba(217,119,6,0.12)', color: '#D97706' },
+  proposal_sent: { bg: 'rgba(217,119,6,0.12)', color: '#D97706' },
+  waiting_billing: { bg: 'rgba(13,148,136,0.12)', color: '#0D9488' },
+  sale_performed: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
+  fechado: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
+  closed: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
+  won: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
+  convertido: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
+  converted: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
+  sale_not_performed: { bg: 'rgba(220,38,38,0.12)', color: '#DC2626' },
+}
+
+const PERCEPTION_STYLE: Record<string, { bg: string; color: string }> = {
+  quente: { bg: '#FEF2F2', color: '#DC2626' },
+  morno: { bg: '#FFFBEB', color: '#D97706' },
+}
+
+function PerceptionBadge({ perception }: { perception: string | null }) {
+  if (!perception) return <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>
+  const s = PERCEPTION_STYLE[perception.toLowerCase()] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      background: s.bg, color: s.color,
+      padding: '2px 10px', borderRadius: 99,
+      fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+    }}>
+      🌡️ {perception}
+    </span>
+  )
 }
 
 function fmtDate(iso: string) {
@@ -98,6 +129,7 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'name',           label: 'Cliente' },
   { key: 'origem',         label: 'Origem' },
   { key: 'modalidade',     label: 'Modalidade' },
+  { key: 'perception',     label: 'Temperatura' },
   { key: 'status',         label: 'Status' },
 ]
 
@@ -530,6 +562,9 @@ export default function LeadsReport() {
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
                             {lead.modalidade ?? '—'}
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <PerceptionBadge perception={lead.perception} />
                           </td>
                           <td style={{ padding: '12px 16px' }}>
                             <StatusBadge status={lead.status} />
