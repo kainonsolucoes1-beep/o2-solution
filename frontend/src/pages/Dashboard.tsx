@@ -419,7 +419,8 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+              <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
                 Bases (SDR)
               </p>
               {data.captacao_hoje_origem.bases.length === 0 ? (
@@ -438,7 +439,8 @@ export default function Dashboard() {
               )}
             </div>
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+              <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
                 Pontos de Conversão (Orgânico)
               </p>
               {data.captacao_hoje_origem.conversion_points.length === 0 ? (
