@@ -307,13 +307,9 @@ export default function LeadsReport() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Relatório de Leads</h1>
-            {vencidosFilter ? (
+            {vencidosFilter && (
               <p style={{ fontSize: 13, color: '#EF4444', marginTop: 2, fontWeight: 500 }}>
                 ⚠️ Exibindo leads vencidos — sem atenção nas últimas 24h
-              </p>
-            ) : (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-                Filtre leads por período e atendente
               </p>
             )}
           </div>
@@ -368,7 +364,7 @@ export default function LeadsReport() {
                   <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-hover)' }}>
-                        {COLUMNS.map(col => (
+                        {COLUMNS.map((col, i) => (
                           <th
                             key={col.key}
                             onClick={() => handleSort(col.key)}
@@ -377,6 +373,13 @@ export default function LeadsReport() {
                               fontSize: 11, fontWeight: 800, color: 'var(--text-2)',
                               textTransform: 'uppercase', letterSpacing: '0.05em',
                               cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                              border: '1px solid var(--border)',
+                              borderLeft: i === 0 ? '1px solid var(--border)' : 'none',
+                              borderRight: i === COLUMNS.length - 1 ? '1px solid var(--border)' : 'none',
+                              borderTopLeftRadius: i === 0 ? 10 : 0,
+                              borderBottomLeftRadius: i === 0 ? 10 : 0,
+                              borderTopRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
+                              borderBottomRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
                             }}
                           >
                             {col.label}
