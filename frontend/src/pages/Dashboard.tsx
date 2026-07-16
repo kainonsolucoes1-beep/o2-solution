@@ -411,14 +411,15 @@ export default function Dashboard() {
 
       {/* De onde vieram os leads de hoje — bases (SDR) e pontos de conversão (orgânico) */}
       <div className="bg-white rounded-xl p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
+          <span style={{ width: 3, height: 14, borderRadius: 2, background: '#6366F1', flexShrink: 0 }} />
           De Onde Vieram os Leads de {selectedDate ? dateDisplayStr : 'Hoje'}
         </h2>
         {data.captacao_hoje_origem.bases.length === 0 && data.captacao_hoje_origem.conversion_points.length === 0 ? (
           <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações no dia.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div style={{ background: 'var(--bg-3, #f5f5f5)', borderRadius: 10, padding: '14px 16px' }}>
               <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
                 Bases (SDR)
@@ -426,9 +427,9 @@ export default function Dashboard() {
               {data.captacao_hoje_origem.bases.length === 0 ? (
                 <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum lead de SDR hoje.</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {data.captacao_hoje_origem.bases.map(b => (
-                    <div key={b.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                <div>
+                  {data.captacao_hoje_origem.bases.map((b, i) => (
+                    <div key={b.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border-lt)' }}>
                       <span style={{ fontSize: 13, color: b.label === 'Sem base informada' ? 'var(--text-subtle)' : 'var(--text-2)', fontStyle: b.label === 'Sem base informada' ? 'italic' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {b.label}
                       </span>
@@ -438,7 +439,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <div>
+            <div style={{ background: 'var(--bg-3, #f5f5f5)', borderRadius: 10, padding: '14px 16px' }}>
               <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
                 Pontos de Conversão (Orgânico)
@@ -446,9 +447,9 @@ export default function Dashboard() {
               {data.captacao_hoje_origem.conversion_points.length === 0 ? (
                 <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum lead orgânico hoje.</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {data.captacao_hoje_origem.conversion_points.map(c => (
-                    <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                <div>
+                  {data.captacao_hoje_origem.conversion_points.map((c, i) => (
+                    <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border-lt)' }}>
                       <span style={{ fontSize: 13, color: c.label === 'Não informado' ? 'var(--text-subtle)' : 'var(--text-2)', fontStyle: c.label === 'Não informado' ? 'italic' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {c.label}
                       </span>
