@@ -506,7 +506,7 @@ export default function KPIs() {
         </button>
         {openSection === 'bases' && (
           <div style={{ padding: '20px 24px 24px' }}>
-            {!basesLoading && basesData.length > 0 && (
+            {!basesLoading && basesData.length >= 4 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
                 {baseHighlights.map(({ label, color, bg, icon: Icon, item, value }) => item ? (
                   <div key={label} style={{ background: bg, borderLeft: `4px solid ${color}`, borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
