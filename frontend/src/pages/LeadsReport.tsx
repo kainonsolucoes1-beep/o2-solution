@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
+import { Filter, X } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -156,6 +157,14 @@ export default function LeadsReport() {
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
   const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc')
+  const [filterOpen, setFilterOpen] = useState(false)
+
+  useEffect(() => {
+    if (!filterOpen) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setFilterOpen(false) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [filterOpen])
 
   useEffect(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -295,159 +304,31 @@ export default function LeadsReport() {
     <>
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
 
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Relatório de Leads</h1>
-          {vencidosFilter ? (
-            <p style={{ fontSize: 13, color: '#EF4444', marginTop: 2, fontWeight: 500 }}>
-              ⚠️ Exibindo leads vencidos — sem atenção nas últimas 24h
-            </p>
-          ) : (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-              Filtre leads por período e atendente
-            </p>
-          )}
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex flex-col gap-1">
-              <label style={labelStyle}>Data Início</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ color: 'var(--text-2)' }}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label style={labelStyle}>Data Fim</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ color: 'var(--text-2)' }}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label style={labelStyle}>Atendente</label>
-              {isAdmin ? (
-                <select
-                  value={origem}
-                  onChange={e => setOrigem(e.target.value)}
-                  className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{ color: 'var(--text-2)', minWidth: 170 }}
-                >
-                  <option value="">Todos</option>
-                  {operators.map(op => (
-                    <option key={op} value={op}>{op}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={myName}
-                  disabled
-                  className="border rounded-lg px-3 py-2 text-sm bg-gray-50"
-                  style={{ color: 'var(--text-muted)', minWidth: 170 }}
-                />
-              )}
-            </div>
-
-            {isAdmin && (
-              <div className="flex flex-col gap-1">
-                <label style={labelStyle}>Modalidade</label>
-                <select
-                  value={modalidadeFilter}
-                  onChange={e => setModalidadeFilter(e.target.value)}
-                  className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{ color: 'var(--text-2)', minWidth: 170 }}
-                >
-                  <option value="">Todas</option>
-                  {modalidades.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Relatório de Leads</h1>
+            {vencidosFilter ? (
+              <p style={{ fontSize: 13, color: '#EF4444', marginTop: 2, fontWeight: 500 }}>
+                ⚠️ Exibindo leads vencidos — sem atenção nas últimas 24h
+              </p>
+            ) : (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+                Filtre leads por período e atendente
+              </p>
             )}
-
-            <div className="flex flex-col gap-1">
-              <label style={labelStyle}>Status</label>
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ color: 'var(--text-2)', minWidth: 150 }}
-              >
-                <option value="">Todos</option>
-                <option value="pending,novo,new">Pendente</option>
-                <option value="scheduled,qualificado,qualified">Agendado</option>
-                <option value="proposal_sent">Proposta</option>
-                <option value="waiting_billing,sale_performed,fechado,closed,won,convertido">Fechado</option>
-                <option value="sale_not_performed">Perdido</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label style={labelStyle}>Buscar</label>
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
-                placeholder="Nome, CPF/CNPJ, telefone ou email"
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                style={{ color: 'var(--text-2)', minWidth: 220 }}
-              />
-            </div>
-
-            <button
-              onClick={handleSearch}
-              disabled={loading}
-              className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
-              style={{ height: 38 }}
-            >
-              {loading ? 'Buscando…' : 'Buscar'}
-            </button>
           </div>
-
-          {perceptionFilter !== '' && (
-            <div className="flex items-center gap-2 mt-4 pt-4" style={{ borderTop: '1px solid var(--border-lt)' }}>
-              <span style={labelStyle}>Percepção</span>
-              {[
-                { label: 'Ambos', value: 'Quente,Morno' },
-                { label: 'Quente', value: 'Quente' },
-                { label: 'Morno', value: 'Morno' },
-              ].map(opt => {
-                const active = perceptionFilter === opt.value
-                const colors: Record<string, { bg: string; color: string; border: string }> = {
-                  Quente: { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' },
-                  Morno:  { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' },
-                  Ambos:  { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' },
-                }
-                const c = colors[opt.label]
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => setPerceptionFilter(opt.value)}
-                    style={{
-                      fontSize: 12, fontWeight: 600, padding: '4px 14px', borderRadius: 99,
-                      border: `1px solid ${active ? c.border : 'var(--border)'}`,
-                      background: active ? c.bg : 'var(--bg-card)',
-                      color: active ? c.color : 'var(--text-muted)',
-                      cursor: 'pointer', transition: 'all 150ms',
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              })}
-            </div>
-          )}
+          <button
+            onClick={() => setFilterOpen(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+              background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)',
+              cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+            }}
+          >
+            <Filter size={15} />
+            Filtros
+          </button>
         </div>
 
         {error && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}
@@ -469,28 +350,13 @@ export default function LeadsReport() {
 
         {searched && report && !loading && (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                Mostrando{' '}
-                <strong style={{ color: 'var(--text-2)' }}>{report.leads.length}</strong>{' '}
-                de{' '}
-                <strong style={{ color: 'var(--text-2)' }}>{report.total}</strong>{' '}
-                leads
-              </span>
-              <button
-                onClick={exportExcel}
-                disabled={exporting || report.total === 0}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  background: exporting ? '#D1FAE5' : '#059669', color: exporting ? '#065F46' : 'white',
-                  border: 'none', cursor: exporting || report.total === 0 ? 'not-allowed' : 'pointer',
-                  opacity: report.total === 0 ? 0.4 : 1, transition: 'background 150ms',
-                }}
-              >
-                {exporting ? '⏳ Exportando...' : '⬇ Exportar Excel'}
-              </button>
-            </div>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              Mostrando{' '}
+              <strong style={{ color: 'var(--text-2)' }}>{report.leads.length}</strong>{' '}
+              de{' '}
+              <strong style={{ color: 'var(--text-2)' }}>{report.total}</strong>{' '}
+              leads
+            </span>
 
             <div className="rounded-xl" style={{ background: 'var(--bg-page)' }}>
               {report.leads.length === 0 ? (
@@ -508,7 +374,7 @@ export default function LeadsReport() {
                             onClick={() => handleSort(col.key)}
                             style={{
                               padding: '11px 16px', textAlign: 'left',
-                              fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
+                              fontSize: 11, fontWeight: 800, color: 'var(--text-2)',
                               textTransform: 'uppercase', letterSpacing: '0.05em',
                               cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
                             }}
@@ -636,6 +502,177 @@ export default function LeadsReport() {
               </div>
             )}
           </>
+        )}
+
+        {filterOpen && (
+          <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: 24, overflowY: 'auto' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 640, marginTop: 40, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+              <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Filter size={16} /> Filtros
+                </p>
+                <button onClick={() => setFilterOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ padding: '20px 24px 24px' }}>
+                <div className="flex flex-wrap gap-4 items-end">
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Data Início</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={e => setDateFrom(e.target.value)}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{ color: 'var(--text-2)' }}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Data Fim</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={e => setDateTo(e.target.value)}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{ color: 'var(--text-2)' }}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Atendente</label>
+                    {isAdmin ? (
+                      <select
+                        value={origem}
+                        onChange={e => setOrigem(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', minWidth: 170 }}
+                      >
+                        <option value="">Todos</option>
+                        {operators.map(op => (
+                          <option key={op} value={op}>{op}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={myName}
+                        disabled
+                        className="border rounded-lg px-3 py-2 text-sm bg-gray-50"
+                        style={{ color: 'var(--text-muted)', minWidth: 170 }}
+                      />
+                    )}
+                  </div>
+
+                  {isAdmin && (
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Modalidade</label>
+                      <select
+                        value={modalidadeFilter}
+                        onChange={e => setModalidadeFilter(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', minWidth: 170 }}
+                      >
+                        <option value="">Todas</option>
+                        {modalidades.map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Status</label>
+                    <select
+                      value={statusFilter}
+                      onChange={e => setStatusFilter(e.target.value)}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{ color: 'var(--text-2)', minWidth: 150 }}
+                    >
+                      <option value="">Todos</option>
+                      <option value="pending,novo,new">Pendente</option>
+                      <option value="scheduled,qualificado,qualified">Agendado</option>
+                      <option value="proposal_sent">Proposta</option>
+                      <option value="waiting_billing,sale_performed,fechado,closed,won,convertido">Fechado</option>
+                      <option value="sale_not_performed">Perdido</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Buscar</label>
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); setFilterOpen(false) } }}
+                      placeholder="Nome, CPF/CNPJ, telefone ou email"
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{ color: 'var(--text-2)', minWidth: 220 }}
+                    />
+                  </div>
+                </div>
+
+                {perceptionFilter !== '' && (
+                  <div className="flex items-center gap-2 mt-4 pt-4" style={{ borderTop: '1px solid var(--border-lt)' }}>
+                    <span style={labelStyle}>Percepção</span>
+                    {[
+                      { label: 'Ambos', value: 'Quente,Morno' },
+                      { label: 'Quente', value: 'Quente' },
+                      { label: 'Morno', value: 'Morno' },
+                    ].map(opt => {
+                      const active = perceptionFilter === opt.value
+                      const colors: Record<string, { bg: string; color: string; border: string }> = {
+                        Quente: { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' },
+                        Morno:  { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' },
+                        Ambos:  { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' },
+                      }
+                      const c = colors[opt.label]
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => setPerceptionFilter(opt.value)}
+                          style={{
+                            fontSize: 12, fontWeight: 600, padding: '4px 14px', borderRadius: 99,
+                            border: `1px solid ${active ? c.border : 'var(--border)'}`,
+                            background: active ? c.bg : 'var(--bg-card)',
+                            color: active ? c.color : 'var(--text-muted)',
+                            cursor: 'pointer', transition: 'all 150ms',
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>
+                  <button
+                    onClick={exportExcel}
+                    disabled={exporting || !report || report.total === 0}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                      background: exporting ? '#D1FAE5' : '#059669', color: exporting ? '#065F46' : 'white',
+                      border: 'none', cursor: exporting || !report || report.total === 0 ? 'not-allowed' : 'pointer',
+                      opacity: !report || report.total === 0 ? 0.4 : 1, transition: 'background 150ms',
+                    }}
+                  >
+                    {exporting ? '⏳ Exportando...' : '⬇ Exportar Excel'}
+                  </button>
+                  <button
+                    onClick={() => { handleSearch(); setFilterOpen(false) }}
+                    disabled={loading}
+                    className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+                    style={{ height: 38 }}
+                  >
+                    {loading ? 'Buscando…' : 'Buscar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </>
