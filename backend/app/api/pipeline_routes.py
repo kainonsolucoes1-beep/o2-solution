@@ -223,7 +223,18 @@ def pipeline_alerts(
     except Exception as _perf_err:
         import traceback; traceback.print_exc()
 
+    pf_count = _apply_filters(
+        db.query(func.count(Lead.id)).filter(Lead.modalidade == "PF"),
+        date_from, date_to, source,
+    ).scalar() or 0
+    pme_count = _apply_filters(
+        db.query(func.count(Lead.id)).filter(Lead.modalidade == "PME"),
+        date_from, date_to, source,
+    ).scalar() or 0
+
     return {
+        "pf_count": pf_count,
+        "pme_count": pme_count,
         "vencidos_count": vencidos_count,
         "uncontacted_count": uncontacted_count,
         "avg_time_in_funnel": avg_time_in_funnel,

@@ -33,6 +33,10 @@ interface PerformanceData {
   ranking: { name: string; count: number; pct: number; bar_pct: number }[]
   evolucao_diaria: { day: number; date: string; count: number }[]
   captacao_hoje_por_fonte: { name: string; count: number }[]
+  captacao_hoje_origem: {
+    bases: { label: string; count: number }[]
+    conversion_points: { label: string; count: number }[]
+  }
 }
 
 
@@ -403,6 +407,57 @@ export default function Dashboard() {
           )}
         </div>
 
+      </div>
+
+      {/* De onde vieram os leads de hoje — bases (SDR) e pontos de conversão (orgânico) */}
+      <div className="bg-white rounded-xl p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
+          De Onde Vieram os Leads de {selectedDate ? dateDisplayStr : 'Hoje'}
+        </h2>
+        {data.captacao_hoje_origem.bases.length === 0 && data.captacao_hoje_origem.conversion_points.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações no dia.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+                Bases (SDR)
+              </p>
+              {data.captacao_hoje_origem.bases.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum lead de SDR hoje.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {data.captacao_hoje_origem.bases.map(b => (
+                    <div key={b.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13, color: b.label === 'Sem base informada' ? 'var(--text-subtle)' : 'var(--text-2)', fontStyle: b.label === 'Sem base informada' ? 'italic' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {b.label}
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{b.count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
+                Pontos de Conversão (Orgânico)
+              </p>
+              {data.captacao_hoje_origem.conversion_points.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum lead orgânico hoje.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {data.captacao_hoje_origem.conversion_points.map(c => (
+                    <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13, color: c.label === 'Não informado' ? 'var(--text-subtle)' : 'var(--text-2)', fontStyle: c.label === 'Não informado' ? 'italic' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.label}
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{c.count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Meta + Projeção */}

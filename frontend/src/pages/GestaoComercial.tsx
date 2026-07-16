@@ -8,6 +8,7 @@ import {
   Users, ShoppingCart, TrendingUp, DollarSign, TrendingDown, Tag,
   ChevronDown, ChevronRight, X, ChevronLeft,
   Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter, ArrowLeftRight,
+  Briefcase,
 } from 'lucide-react'
 import api from '../api'
 
@@ -39,6 +40,7 @@ interface PipelineAlerts {
   vencidos: AlertLead[]; uncontacted: AlertLead[]
   vencidos_count?: number; uncontacted_count?: number
   avg_time_in_funnel?: number; avg_first_contact_minutes?: number; contacted_count?: number
+  pf_count?: number; pme_count?: number
 }
 interface MotivoItem { reason: string; count: number; pct: number; total_value: number }
 
@@ -358,7 +360,7 @@ function PipelineTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
         </div>
 
         {/* Alertas + Tempos */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #EF4444', cursor: 'pointer', transition: 'transform 200ms' }}
             onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
             onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
@@ -391,6 +393,32 @@ function PipelineTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
             <p style={{ fontSize: 36, fontWeight: 700, color: '#6366F1', lineHeight: 1 }}>{alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>dias</span></p>
             {(alerts.avg_time_in_funnel ?? 0) === 0 && <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>Sem leads finalizados no período</p>}
           </div>
+
+          {(() => {
+            const pf = alerts.pf_count ?? 0
+            const pme = alerts.pme_count ?? 0
+            const total = pf + pme
+            const lider = pme >= pf ? 'PME' : 'PF'
+            const liderCount = pme >= pf ? pme : pf
+            const pct = total > 0 ? Math.round(liderCount / total * 100) : 0
+            return (
+              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #F59E0B' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Briefcase size={15} color="#F59E0B" />
+                  <h2 style={{ fontSize: 13, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Captação do Período</h2>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Modalidade que mais captou: PF x PME</p>
+                {total > 0 ? (
+                  <>
+                    <p style={{ fontSize: 36, fontWeight: 700, color: '#F59E0B', lineHeight: 1 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
+                    <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 6 }}>PF: {pf} · PME: {pme}</p>
+                  </>
+                ) : (
+                  <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginTop: 6 }}>Sem captações de PF/PME no período</p>
+                )}
+              </div>
+            )
+          })()}
         </div>
       </div>
 

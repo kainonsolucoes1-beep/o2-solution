@@ -72,6 +72,20 @@ interface ConvPointDetalhe {
   plano: { possui: number; nao_possui: number; sem_informacao: number; pct_possui: number; pct_nao_possui: number }
 }
 
+interface SdrDetalhe {
+  nome: string
+  captacoes: number
+  cancelados: number
+  base_liquida: number
+  vendas: number
+  conversao: number
+  pct_perda: number
+  receita_potencial: number
+  ticket_medio: number
+  modalidades: { nome: string; count: number; pct: number }[]
+  plano: { possui: number; nao_possui: number; sem_informacao: number; pct_possui: number; pct_nao_possui: number }
+}
+
 interface PlanoStat {
   nome: string
   captacoes: number
@@ -220,8 +234,22 @@ export default function KPIs() {
       .finally(() => setConvPointDrawerLoading(false))
   }
 
+  const [sdrDrawer, setSdrDrawer] = useState<string | null>(null)
+  const [sdrDrawerData, setSdrDrawerData] = useState<SdrDetalhe | null>(null)
+  const [sdrDrawerLoading, setSdrDrawerLoading] = useState(false)
+
+  function openSdrDrawer(nome: string, origens: string) {
+    setSdrDrawer(nome)
+    setSdrDrawerData(null)
+    setSdrDrawerLoading(true)
+    api.get<SdrDetalhe>(`/api/v1/kpis/sdr-detalhe?${new URLSearchParams({ month, nome, origens })}`)
+      .then(r => setSdrDrawerData(r.data))
+      .catch(() => setSdrDrawerData(null))
+      .finally(() => setSdrDrawerLoading(false))
+  }
+
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null); setSdrPopup(null); setPlanoPopup(null); setBaseDrawer(null); setConvPointDrawer(null) } }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null); setSdrPopup(null); setPlanoPopup(null); setBaseDrawer(null); setConvPointDrawer(null); setSdrDrawer(null) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
@@ -636,7 +664,7 @@ export default function KPIs() {
               <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-3, #f5f5f5)' }}>
-                    {['SDR', 'Captações', 'Vendas', 'Cancelamentos', 'Conversão', '% Perda'].map(h => (
+                    {['SDR', 'Análise'].map(h => (
                       <th key={h} style={{ padding: '9px 14px', textAlign: h === 'SDR' ? 'left' : 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -645,7 +673,6 @@ export default function KPIs() {
                   {sdrDisplayFontes.map(f => {
                     const fd = f as FonteData & { _o2Origens?: string[] }
                     const origens = fd._o2Origens ? fd._o2Origens.join(',') : f.fonte
-                    const pctPerda = f.captacoes > 0 ? +(f.cancelados / f.captacoes * 100).toFixed(1) : 0
                     return (
                       <tr key={f.fonte} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                         onClick={() => {
@@ -662,15 +689,13 @@ export default function KPIs() {
                       >
                         <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{f.fonte}</td>
                         <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                          <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{f.captacoes}</span>
-                        </td>
-                        <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: '#10B981', fontWeight: 700 }}>{f.vendas}</td>
-                        <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: f.cancelados > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: f.cancelados > 0 ? 700 : 400 }}>{f.cancelados}</td>
-                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: f.conversao >= 20 ? '#059669' : f.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{f.conversao}%</span>
-                        </td>
-                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: pctPerda >= 30 ? '#EF4444' : pctPerda >= 15 ? '#F59E0B' : '#6B7280' }}>{pctPerda}%</span>
+                          <button
+                            onClick={e => { e.stopPropagation(); openSdrDrawer(f.fonte, origens) }}
+                            title="Ver análise detalhada"
+                            style={{ background: '#EFF6FF', border: 'none', borderRadius: 8, padding: 7, cursor: 'pointer', display: 'inline-flex', color: '#2563EB' }}
+                          >
+                            <BarChart3 size={15} />
+                          </button>
                         </td>
                       </tr>
                     )
@@ -1461,6 +1486,116 @@ export default function KPIs() {
                   {convPointDrawerData.plano.sem_informacao > 0 && (
                     <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>
                       {convPointDrawerData.plano.sem_informacao} lead(s) sem essa informação não entram no cálculo acima.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Drawer: Análise detalhada do SDR ── */}
+      {sdrDrawer && (
+        <>
+          <div onClick={() => setSdrDrawer(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100 }} />
+          <div style={{
+            position: 'fixed', top: 0, right: 0, bottom: 0, width: 420, maxWidth: '100vw', zIndex: 101,
+            background: 'var(--bg-card, #fff)', boxShadow: '-8px 0 32px rgba(0,0,0,0.2)',
+            display: 'flex', flexDirection: 'column', overflowY: 'auto',
+          }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <p style={{ fontSize: 11, color: '#2563EB', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Análise do SDR</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 0' }}>{sdrDrawer}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{month}</p>
+              </div>
+              <button onClick={() => setSdrDrawer(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px 32px' }}>
+              {sdrDrawerLoading ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px 0' }}>Carregando…</p>
+              ) : !sdrDrawerData ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px 0' }}>Não foi possível carregar os dados.</p>
+              ) : (
+                <>
+                  {/* Funil */}
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Funil</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 22 }}>
+                    <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Captados</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: '#1D4ED8' }}>{sdrDrawerData.captacoes}</div>
+                    </div>
+                    <div style={{ background: '#FEF2F2', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#EF4444', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Perdidos</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: '#DC2626' }}>{sdrDrawerData.cancelados}</div>
+                    </div>
+                    <div style={{ background: '#ECFDF5', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#10B981', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Base líquida</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: '#059669' }}>{sdrDrawerData.base_liquida}</div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '-12px 0 22px' }}>
+                    Vendas: <strong style={{ color: '#059669' }}>{sdrDrawerData.vendas}</strong> ({sdrDrawerData.conversao}% conversão) · % Perda: <strong style={{ color: '#EF4444' }}>{sdrDrawerData.pct_perda}%</strong>
+                  </p>
+
+                  {/* Receita */}
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Receita Potencial</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 22 }}>
+                    <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#F97316', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Total (base líquida)</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#C2410C' }}>{fmtBrl(sdrDrawerData.receita_potencial)}</div>
+                    </div>
+                    <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#F97316', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Ticket médio</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#C2410C' }}>{fmtBrl(sdrDrawerData.ticket_medio)}</div>
+                    </div>
+                  </div>
+
+                  {/* Modalidade (PF x PME x demais) */}
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Perfil do Cliente (Modalidade)</p>
+                  {sdrDrawerData.modalidades.length === 0 ? (
+                    <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginBottom: 22 }}>Sem dados de modalidade.</p>
+                  ) : (
+                    <div style={{ marginBottom: 22 }}>
+                      {sdrDrawerData.modalidades.map((m, i) => (
+                        <div key={m.nome} style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{m.nome}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>{m.count} · {m.pct}%</span>
+                          </div>
+                          <div style={{ background: 'var(--border)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                            <div style={{ width: `${m.pct}%`, height: '100%', borderRadius: 4, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Plano de saúde */}
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Já Possui Plano?</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 8 }}>
+                    <div style={{ background: '#ECFDF5', border: '1px solid #05966930', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <ShieldCheck size={17} color="#059669" />
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: '#059669', lineHeight: 1.2 }}>{sdrDrawerData.plano.possui}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Possui · {sdrDrawerData.plano.pct_possui}%</div>
+                      </div>
+                    </div>
+                    <div style={{ background: '#FEF2F2', border: '1px solid #DC262630', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <ShieldX size={17} color="#DC2626" />
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: '#DC2626', lineHeight: 1.2 }}>{sdrDrawerData.plano.nao_possui}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Não possui · {sdrDrawerData.plano.pct_nao_possui}%</div>
+                      </div>
+                    </div>
+                  </div>
+                  {sdrDrawerData.plano.sem_informacao > 0 && (
+                    <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>
+                      {sdrDrawerData.plano.sem_informacao} lead(s) sem essa informação não entram no cálculo acima.
                     </p>
                   )}
                 </>

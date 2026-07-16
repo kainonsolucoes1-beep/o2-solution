@@ -1,5 +1,6 @@
 import os
 import calendar as _cal
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import List
 
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
+from app.lead_utils import extract_base, is_organico
 from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
 from app.schemas.dashboard import (
@@ -443,6 +445,32 @@ def dashboard_performance(
     )
     captacao_hoje_por_fonte = [{"name": r.name, "count": r.count} for r in hoje_fonte_rows]
 
+    # Captação do dia por base (origin/SDR) e ponto de conversão (orgânico)
+    hoje_origem_rows = (
+        db.query(Lead.origin, Lead.notes, Lead.conversion_point)
+        .filter(Lead.created_at >= today_start, Lead.created_at < today_end)
+        .all()
+    )
+    bases_count: dict = defaultdict(int)
+    conv_points_count: dict = defaultdict(int)
+    for origin, notes, conversion_point in hoje_origem_rows:
+        if is_organico(origin):
+            cp = (conversion_point or "").strip() or "Não informado"
+            conv_points_count[cp] += 1
+        else:
+            base = extract_base(notes) or "Sem base informada"
+            bases_count[base] += 1
+    captacao_hoje_origem = {
+        "bases": [
+            {"label": k, "count": v}
+            for k, v in sorted(bases_count.items(), key=lambda kv: kv[1], reverse=True)
+        ],
+        "conversion_points": [
+            {"label": k, "count": v}
+            for k, v in sorted(conv_points_count.items(), key=lambda kv: kv[1], reverse=True)
+        ],
+    }
+
     return {
         "captacao_hoje": captacao_hoje,
         "vs_ontem": _pct(captacao_hoje, captacao_ontem),
@@ -458,6 +486,7 @@ def dashboard_performance(
         "ranking": ranking,
         "evolucao_diaria": evolucao_diaria,
         "captacao_hoje_por_fonte": captacao_hoje_por_fonte,
+        "captacao_hoje_origem": captacao_hoje_origem,
     }
 
 
