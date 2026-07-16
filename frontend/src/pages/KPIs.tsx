@@ -58,6 +58,20 @@ interface BaseDetalhe {
   plano: { possui: number; nao_possui: number; sem_informacao: number; pct_possui: number; pct_nao_possui: number }
 }
 
+interface ConvPointDetalhe {
+  conv_point: string
+  captacoes: number
+  cancelados: number
+  base_liquida: number
+  vendas: number
+  conversao: number
+  pct_perda: number
+  receita_potencial: number
+  ticket_medio: number
+  modalidades: { nome: string; count: number; pct: number }[]
+  plano: { possui: number; nao_possui: number; sem_informacao: number; pct_possui: number; pct_nao_possui: number }
+}
+
 interface PlanoStat {
   nome: string
   captacoes: number
@@ -190,8 +204,24 @@ export default function KPIs() {
       .finally(() => setBaseDrawerLoading(false))
   }
 
+  const [convPointDrawer, setConvPointDrawer] = useState<string | null>(null)
+  const [convPointDrawerData, setConvPointDrawerData] = useState<ConvPointDetalhe | null>(null)
+  const [convPointDrawerLoading, setConvPointDrawerLoading] = useState(false)
+
+  function openConvPointDrawer(convPoint: string, origens: string[]) {
+    setConvPointDrawer(convPoint)
+    setConvPointDrawerData(null)
+    setConvPointDrawerLoading(true)
+    const qp = new URLSearchParams({ month, conv_point: convPoint })
+    if (origens.length > 0) qp.set('origens', origens.join(','))
+    api.get<ConvPointDetalhe>(`/api/v1/kpis/conv-point-detalhe?${qp}`)
+      .then(r => setConvPointDrawerData(r.data))
+      .catch(() => setConvPointDrawerData(null))
+      .finally(() => setConvPointDrawerLoading(false))
+  }
+
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null); setSdrPopup(null); setPlanoPopup(null); setBaseDrawer(null) } }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null); setSdrPopup(null); setPlanoPopup(null); setBaseDrawer(null); setConvPointDrawer(null) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
@@ -688,45 +718,45 @@ export default function KPIs() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-3, #f5f5f5)' }}>
-                      {['Ponto de Conversão', 'Captações', 'Vendas', 'Cancelamentos', 'Conversão', '% Perda'].map(h => (
+                      {['Ponto de Conversão', 'Análise'].map(h => (
                         <th key={h} style={{ padding: '9px 14px', textAlign: h === 'Ponto de Conversão' ? 'left' : 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {organicBp.map(b => (
-                      <tr key={b.label} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                        onClick={() => {
-                          setOrgPopup(b.label)
-                          setOrgStatusFilter(null)
-                          setOrgLeadsLoading(true)
-                          setOrgLeads([])
-                          const relevantFontes = organicFontes
-                            .filter(f => f.breakdown.some(bd => bd.label === b.label))
-                            .map(f => f.fonte)
-                          const qp = new URLSearchParams({ month, conv_point: b.label })
-                          if (relevantFontes.length > 0) qp.set('origens', relevantFontes.join(','))
-                          api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?${qp}`)
-                            .then(r => setOrgLeads(r.data)).catch(() => setOrgLeads([]))
-                            .finally(() => setOrgLeadsLoading(false))
-                        }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
-                      >
-                        <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{b.label}</td>
-                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                          <span style={{ background: '#EFF6FF', color: '#3B82F6', borderRadius: 6, padding: '2px 8px', fontWeight: 700, fontSize: 12 }}>{b.captacoes}</span>
-                        </td>
-                        <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: '#10B981', fontWeight: 700 }}>{b.vendas}</td>
-                        <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 13, color: b.cancelados > 0 ? '#EF4444' : 'var(--text-muted)', fontWeight: b.cancelados > 0 ? 700 : 400 }}>{b.cancelados}</td>
-                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: b.conversao >= 20 ? '#059669' : b.conversao >= 10 ? '#F59E0B' : '#6B7280' }}>{b.conversao}%</span>
-                        </td>
-                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: b.pct_perda >= 30 ? '#EF4444' : b.pct_perda >= 15 ? '#F59E0B' : '#6B7280' }}>{b.pct_perda}%</span>
-                        </td>
-                      </tr>
-                    ))}
+                    {organicBp.map(b => {
+                      const relevantFontes = organicFontes
+                        .filter(f => f.breakdown.some(bd => bd.label === b.label))
+                        .map(f => f.fonte)
+                      return (
+                        <tr key={b.label} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                          onClick={() => {
+                            setOrgPopup(b.label)
+                            setOrgStatusFilter(null)
+                            setOrgLeadsLoading(true)
+                            setOrgLeads([])
+                            const qp = new URLSearchParams({ month, conv_point: b.label })
+                            if (relevantFontes.length > 0) qp.set('origens', relevantFontes.join(','))
+                            api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?${qp}`)
+                              .then(r => setOrgLeads(r.data)).catch(() => setOrgLeads([]))
+                              .finally(() => setOrgLeadsLoading(false))
+                          }}
+                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
+                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
+                        >
+                          <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{b.label}</td>
+                          <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                            <button
+                              onClick={e => { e.stopPropagation(); openConvPointDrawer(b.label, relevantFontes) }}
+                              title="Ver análise detalhada"
+                              style={{ background: '#EFF6FF', border: 'none', borderRadius: 8, padding: 7, cursor: 'pointer', display: 'inline-flex', color: '#2563EB' }}
+                            >
+                              <BarChart3 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </>
@@ -1321,6 +1351,116 @@ export default function KPIs() {
                   {baseDrawerData.plano.sem_informacao > 0 && (
                     <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>
                       {baseDrawerData.plano.sem_informacao} lead(s) sem essa informação não entram no cálculo acima.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Drawer: Análise detalhada do Ponto de Conversão ── */}
+      {convPointDrawer && (
+        <>
+          <div onClick={() => setConvPointDrawer(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100 }} />
+          <div style={{
+            position: 'fixed', top: 0, right: 0, bottom: 0, width: 420, maxWidth: '100vw', zIndex: 101,
+            background: 'var(--bg-card, #fff)', boxShadow: '-8px 0 32px rgba(0,0,0,0.2)',
+            display: 'flex', flexDirection: 'column', overflowY: 'auto',
+          }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <p style={{ fontSize: 11, color: '#2563EB', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Análise do Ponto de Conversão</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 0' }}>{convPointDrawer}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{month}</p>
+              </div>
+              <button onClick={() => setConvPointDrawer(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px 32px' }}>
+              {convPointDrawerLoading ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px 0' }}>Carregando…</p>
+              ) : !convPointDrawerData ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px 0' }}>Não foi possível carregar os dados.</p>
+              ) : (
+                <>
+                  {/* Funil */}
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Funil</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 22 }}>
+                    <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Captados</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: '#1D4ED8' }}>{convPointDrawerData.captacoes}</div>
+                    </div>
+                    <div style={{ background: '#FEF2F2', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#EF4444', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Perdidos</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: '#DC2626' }}>{convPointDrawerData.cancelados}</div>
+                    </div>
+                    <div style={{ background: '#ECFDF5', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#10B981', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Base líquida</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: '#059669' }}>{convPointDrawerData.base_liquida}</div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '-12px 0 22px' }}>
+                    Vendas: <strong style={{ color: '#059669' }}>{convPointDrawerData.vendas}</strong> ({convPointDrawerData.conversao}% conversão) · % Perda: <strong style={{ color: '#EF4444' }}>{convPointDrawerData.pct_perda}%</strong>
+                  </p>
+
+                  {/* Receita */}
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Receita Potencial</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 22 }}>
+                    <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#F97316', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Total (base líquida)</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#C2410C' }}>{fmtBrl(convPointDrawerData.receita_potencial)}</div>
+                    </div>
+                    <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#F97316', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Ticket médio</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#C2410C' }}>{fmtBrl(convPointDrawerData.ticket_medio)}</div>
+                    </div>
+                  </div>
+
+                  {/* Modalidade (PF x PME x demais) */}
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Perfil do Cliente (Modalidade)</p>
+                  {convPointDrawerData.modalidades.length === 0 ? (
+                    <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginBottom: 22 }}>Sem dados de modalidade.</p>
+                  ) : (
+                    <div style={{ marginBottom: 22 }}>
+                      {convPointDrawerData.modalidades.map((m, i) => (
+                        <div key={m.nome} style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{m.nome}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>{m.count} · {m.pct}%</span>
+                          </div>
+                          <div style={{ background: 'var(--border)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                            <div style={{ width: `${m.pct}%`, height: '100%', borderRadius: 4, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Plano de saúde */}
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Já Possui Plano?</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 8 }}>
+                    <div style={{ background: '#ECFDF5', border: '1px solid #05966930', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <ShieldCheck size={17} color="#059669" />
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: '#059669', lineHeight: 1.2 }}>{convPointDrawerData.plano.possui}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Possui · {convPointDrawerData.plano.pct_possui}%</div>
+                      </div>
+                    </div>
+                    <div style={{ background: '#FEF2F2', border: '1px solid #DC262630', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <ShieldX size={17} color="#DC2626" />
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: '#DC2626', lineHeight: 1.2 }}>{convPointDrawerData.plano.nao_possui}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Não possui · {convPointDrawerData.plano.pct_nao_possui}%</div>
+                      </div>
+                    </div>
+                  </div>
+                  {convPointDrawerData.plano.sem_informacao > 0 && (
+                    <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>
+                      {convPointDrawerData.plano.sem_informacao} lead(s) sem essa informação não entram no cálculo acima.
                     </p>
                   )}
                 </>

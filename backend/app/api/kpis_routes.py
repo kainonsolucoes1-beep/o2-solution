@@ -342,6 +342,104 @@ def leads_conv_point(
     return result
 
 
+@router.get("/conv-point-detalhe")
+def conv_point_detalhe(
+    month: str = Query(None),
+    conv_point: str = Query(...),
+    origens: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    filters = [
+        Lead.created_at >= dt_from,
+        Lead.created_at <= dt_to,
+        Lead.conversion_point.ilike(conv_point),
+    ]
+    if origens:
+        parts = [s.strip() for s in origens.split(',') if s.strip()]
+        if parts:
+            filters.append(Lead.origin.in_(parts))
+
+    leads = (
+        db.query(Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan)
+        .filter(*filters)
+        .all()
+    )
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    captacoes = 0
+    vendas = 0
+    cancelados = 0
+    receita = 0.0
+    modalidades: dict = defaultdict(int)
+    plano_possui = 0
+    plano_nao_possui = 0
+    plano_sem_info = 0
+
+    for status, value, modalidade, current_plan in leads:
+        captacoes += 1
+        s = (status or "").lower()
+        is_perdido = s in cancelado_set
+        if s in venda_set:
+            vendas += 1
+        elif is_perdido:
+            cancelados += 1
+
+        if not is_perdido:
+            if value:
+                receita += float(value)
+            modalidades[(modalidade or "").strip() or "Não informado"] += 1
+            plano = (current_plan or "").strip()
+            if not plano:
+                plano_sem_info += 1
+            elif plano.lower() == "não possui plano":
+                plano_nao_possui += 1
+            else:
+                plano_possui += 1
+
+    base_liquida = captacoes - cancelados
+    plano_com_info = plano_possui + plano_nao_possui
+
+    return {
+        "conv_point": conv_point,
+        "captacoes": captacoes,
+        "cancelados": cancelados,
+        "base_liquida": base_liquida,
+        "vendas": vendas,
+        "conversao": round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0,
+        "pct_perda": round(cancelados / captacoes * 100, 1) if captacoes > 0 else 0.0,
+        "receita_potencial": receita,
+        "ticket_medio": round(receita / base_liquida, 2) if base_liquida > 0 else 0.0,
+        "modalidades": sorted(
+            [
+                {"nome": k, "count": v, "pct": round(v / base_liquida * 100, 1) if base_liquida > 0 else 0.0}
+                for k, v in modalidades.items()
+            ],
+            key=lambda x: x["count"], reverse=True,
+        ),
+        "plano": {
+            "possui": plano_possui,
+            "nao_possui": plano_nao_possui,
+            "sem_informacao": plano_sem_info,
+            "pct_possui": round(plano_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
+            "pct_nao_possui": round(plano_nao_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
+        },
+    }
+
+
 @router.get("/bases")
 def bases_analytics(
     month: str = Query(None),
