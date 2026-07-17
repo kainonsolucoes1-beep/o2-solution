@@ -213,9 +213,8 @@ export default function RelatorioProducao() {
             <p style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: 0 }}>Produção Semanal</p>
             <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>gerado em {today}</p>
           </div>
-          <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 20px' }}>Produção da equipe no período selecionado</p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28, marginTop: 20 }}>
             {CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt }) => {
               const value = kpis ? (kpis as unknown as Record<string, number>)[key] : 0
               const prevValue = prevKpis ? (prevKpis as unknown as Record<string, number>)[key] : 0
@@ -235,9 +234,9 @@ export default function RelatorioProducao() {
           <div style={{ marginBottom: 28 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: '#374151', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Evolução Diária</p>
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={diarioUteis} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+              <LineChart data={diarioUteis} margin={{ top: 4, right: 24, left: -12, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="data" tick={{ fontSize: 11, fill: '#94A3B8' }} interval={chartInterval} />
+                <XAxis dataKey="data" tick={{ fontSize: 11, fill: '#94A3B8' }} interval={chartInterval} padding={{ left: 10, right: 10 }} />
                 <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} />
                 <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #E2E8F0' }}
                   formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']}
