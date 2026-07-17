@@ -1286,9 +1286,8 @@ export default function KPIs() {
           }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <p style={{ fontSize: 11, color: '#2563EB', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Análise da Base</p>
-                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 0' }}>{baseDrawer}</p>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{month}</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{baseDrawer}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{month.split('-').reverse().join('/')}</p>
               </div>
               <button onClick={() => setBaseDrawer(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
                 <X size={18} />
@@ -1338,9 +1337,9 @@ export default function KPIs() {
                   {/* Modalidade (PF x PME x demais) */}
                   <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Perfil do Cliente (Modalidade)</p>
                   {baseDrawerData.modalidades.length === 0 ? (
-                    <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginBottom: 22 }}>Sem dados de modalidade.</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginBottom: 34 }}>Sem dados de modalidade.</p>
                   ) : (
-                    <div style={{ marginBottom: 22 }}>
+                    <div style={{ marginBottom: 34 }}>
                       {baseDrawerData.modalidades.map((m, i) => (
                         <div key={m.nome} style={{ marginBottom: 10 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
