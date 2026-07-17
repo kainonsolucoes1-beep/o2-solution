@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import date, date as _date, timedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -122,6 +122,21 @@ def _tma_individual(calls: int, atendimento: str) -> str:
     return f"{m}m {s:02d}s" if m > 0 else f"{s}s"
 
 
+@router.get("/by-date")
+def get_by_date(
+    date: date = Query(..., alias="date"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = db.query(TelefoniaDaily).filter(TelefoniaDaily.date == date).first()
+    if not row:
+        return {"tma": "—", "ligacoes": {}}
+    return {
+        "tma":      row.tma or "—",
+        "ligacoes": json.loads(row.ligacoes_json or "{}"),
+    }
+
+
 @router.get("/historico")
 def historico(
     days: int = Query(14, ge=1, le=90),
@@ -160,10 +175,12 @@ def historico(
 
 @router.get("/atendimentos-comparativo")
 def atendimentos_comparativo(
+    date: date | None = Query(None, alias="date"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    today     = date.today()
+    ref_date  = date or _date.today()
+    today     = ref_date
     yesterday = today - timedelta(days=1)
     hoje      = db.query(TelefoniaDaily).filter(TelefoniaDaily.date == today).first()
     ontem     = db.query(TelefoniaDaily).filter(TelefoniaDaily.date == yesterday).first()

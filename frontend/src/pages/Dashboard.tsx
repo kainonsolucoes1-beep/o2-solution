@@ -136,23 +136,25 @@ export default function Dashboard() {
       .finally(() => { if (!silent) setLoading(false) })
   }, [navigate])
 
-  const fetchSide = useCallback(() => {
+  const fetchSide = useCallback((date?: string | null) => {
     api.get<FeedItem[]>('/api/v1/dashboard/activity-feed')
       .then(r => setFeed(r.data))
       .catch(() => {})
-    api.get<{ tma: string; ligacoes: Record<string, number> }>('/api/v1/telefonia/settings')
+    const params = date ? { date } : {}
+    const telefoniaUrl = date ? '/api/v1/telefonia/by-date' : '/api/v1/telefonia/settings'
+    api.get<{ tma: string; ligacoes: Record<string, number> }>(telefoniaUrl, { params })
       .then(r => setTelefonia({ tma: r.data.tma || '—', ligacoes: r.data.ligacoes }))
       .catch(() => {})
-    api.get<{ hoje: number; ontem: number | null; diff: number | null }>('/api/v1/telefonia/atendimentos-comparativo')
+    api.get<{ hoje: number; ontem: number | null; diff: number | null }>('/api/v1/telefonia/atendimentos-comparativo', { params })
       .then(r => setAtendimentos(r.data))
       .catch(() => {})
   }, [])
 
   useEffect(() => { fetchAll(selectedDate) }, [fetchAll, selectedDate])
-  useEffect(() => { fetchSide() }, [fetchSide])
+  useEffect(() => { fetchSide(selectedDate) }, [fetchSide, selectedDate])
 
   useEffect(() => {
-    const id = setInterval(() => { fetchAll(selectedDate, true); fetchSide() }, 45000)
+    const id = setInterval(() => { fetchAll(selectedDate, true); fetchSide(selectedDate) }, 45000)
     return () => clearInterval(id)
   }, [fetchAll, fetchSide, selectedDate])
 
