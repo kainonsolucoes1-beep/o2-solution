@@ -38,9 +38,6 @@ function fmtBrl(v: number) {
 function toISODate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-function fmtDateLabel(iso: string) {
-  return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR')
-}
 function mondayOfWeek(d: Date) {
   const day = d.getDay()
   const diff = day === 0 ? -6 : 1 - day
@@ -147,7 +144,12 @@ export default function RelatorioProducao() {
   const grupos = origens.length > 0 ? groupOrigens(origens) : []
   const maxCap = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
   const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  const chartInterval = diario.length > 14 ? ('preserveStartEnd' as const) : 0
+  const diarioUteis = diario.filter(d => {
+    const [day, month] = d.data.split('/')
+    const dow = new Date(`${start.slice(0, 4)}-${month}-${day}T12:00:00`).getDay()
+    return dow !== 0 && dow !== 6
+  })
+  const chartInterval = diarioUteis.length > 14 ? ('preserveStartEnd' as const) : 0
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '20px 32px 60px' }}>
@@ -207,7 +209,7 @@ export default function RelatorioProducao() {
       ) : (
         <div ref={reportRef} style={{ background: '#FFFFFF', borderRadius: 16, padding: 32, border: '1px solid #E5E7EB' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4, flexWrap: 'wrap', gap: 8 }}>
-            <p style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: 0 }}>{fmtDateLabel(start)} – {fmtDateLabel(end)}</p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: 0 }}>Produção Semanal</p>
             <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>gerado em {today}</p>
           </div>
           <p style={{ fontSize: 12, color: '#6B7280', margin: '0 0 20px' }}>Produção da equipe no período selecionado</p>
@@ -232,15 +234,15 @@ export default function RelatorioProducao() {
           <div style={{ marginBottom: 28 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: '#374151', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Evolução Diária</p>
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={diario} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+              <LineChart data={diarioUteis} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="data" tick={{ fontSize: 11, fill: '#94A3B8' }} interval={chartInterval} />
                 <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} />
                 <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #E2E8F0' }}
                   formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']}
                   labelFormatter={(l: string) => l} />
-                <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2} dot={diario.length <= 14} />
-                <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2} dot={diario.length <= 14} />
+                <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2} dot={diarioUteis.length <= 14} />
+                <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2} dot={diarioUteis.length <= 14} />
               </LineChart>
             </ResponsiveContainer>
           </div>
