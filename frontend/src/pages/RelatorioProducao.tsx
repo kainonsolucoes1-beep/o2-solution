@@ -3,13 +3,14 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import {
-  Users, ShoppingCart, UserCheck, DollarSign, TrendingDown, Tag,
+  Users, Handshake, UserCheck, DollarSign, TrendingDown, Tag,
   Download, ArrowUp, ArrowDown, Minus, Calendar,
 } from 'lucide-react'
 import api from '../api'
 
 interface Kpis {
   captacoes: number; vendas: number; conversao: number; qualificados: number
+  em_negociacao: number
   receita_potencial: number; perda_financeira: number; ticket_medio: number
 }
 interface DiarioItem { dia: number; data: string; captacoes: number; vendas: number }
@@ -64,7 +65,7 @@ function previousPeriod(start: string, end: string) {
 
 const CARD_CFG = [
   { key: 'captacoes',         label: 'Captações',         icon: Users,        color: '#3B82F6', bg: '#EFF6FF', sub: '#1E40AF', fmt: (v: number) => String(v) },
-  { key: 'vendas',            label: 'Vendas',            icon: ShoppingCart, color: '#10B981', bg: '#ECFDF5', sub: '#065F46', fmt: (v: number) => String(v) },
+  { key: 'em_negociacao',     label: 'Em Negociação',     icon: Handshake,    color: '#10B981', bg: '#ECFDF5', sub: '#065F46', fmt: (v: number) => String(v) },
   { key: 'qualificados',      label: 'Qualificados',      icon: UserCheck,    color: '#7C3AED', bg: '#F5F3FF', sub: '#4C1D95', fmt: (v: number) => String(v) },
   { key: 'receita_potencial', label: 'Receita Potencial', icon: DollarSign,   color: '#059669', bg: '#ECFDF5', sub: '#065F46', fmt: fmtBrl },
   { key: 'perda_financeira',  label: 'Perda Financeira',  icon: TrendingDown, color: '#EF4444', bg: '#FEF2F2', sub: '#991B1B', fmt: fmtBrl },

@@ -64,8 +64,10 @@ def visao_geral(
     ).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
+    proposta_set = {s.lower() for s in PROPOSTA_STATUSES}
     captacoes = len(leads)
     qualificados = sum(1 for _, _, p in leads if p in HOT_WARM_PERCEPTIONS)
+    em_negociacao = sum(1 for s, _, _ in leads if (s or "").lower() in proposta_set)
 
     if vendas_por_fechamento:
         # conta vendas pela data em que o status virou venda, nao pela data de captacao
@@ -96,6 +98,7 @@ def visao_geral(
         "vendas": vendas,
         "conversao": conversao,
         "qualificados": qualificados,
+        "em_negociacao": em_negociacao,
         "receita_potencial": receita_potencial,
         "perda_financeira": perda_financeira,
         "ticket_medio": ticket_medio,
