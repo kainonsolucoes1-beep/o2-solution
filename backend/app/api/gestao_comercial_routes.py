@@ -14,6 +14,7 @@ from app.models.user import User
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
 
 VENDA_STATUSES      = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
+HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 CANCELADO_STATUS    = "sale_not_performed"
 AGENDAMENTO_STATUSES = ("qualificado", "scheduled")
 PROPOSTA_STATUSES   = ("proposta", "proposal_sent", "negociacao")
@@ -58,13 +59,13 @@ def visao_geral(
 ):
     dt_from, dt_to = _resolve_range(month, until_day, start, end)
 
-    leads = db.query(Lead.status, Lead.value_potential).filter(
+    leads = db.query(Lead.status, Lead.value_potential, Lead.perception).filter(
         Lead.created_at >= dt_from, Lead.created_at <= dt_to,
     ).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
     captacoes = len(leads)
-    qualificados = sum(1 for s, _ in leads if (s or "").lower() == "qualificado")
+    qualificados = sum(1 for _, _, p in leads if p in HOT_WARM_PERCEPTIONS)
 
     if vendas_por_fechamento:
         # conta vendas pela data em que o status virou venda, nao pela data de captacao
@@ -82,11 +83,11 @@ def visao_geral(
         venda_leads = {lead_id: float(value or 0) for lead_id, value in rows}
         vendas = len(venda_leads)
     else:
-        vendas = sum(1 for s, _ in leads if (s or "").lower() in venda_set)
+        vendas = sum(1 for s, _, _ in leads if (s or "").lower() in venda_set)
 
-    leads_com_valor = [float(v) for s, v in leads if (s or "").lower() != CANCELADO_STATUS and v]
+    leads_com_valor = [float(v) for s, v, _ in leads if (s or "").lower() != CANCELADO_STATUS and v]
     receita_potencial = sum(leads_com_valor)
-    perda_financeira = sum(float(v or 0) for s, v in leads if (s or "").lower() == CANCELADO_STATUS)
+    perda_financeira = sum(float(v or 0) for s, v, _ in leads if (s or "").lower() == CANCELADO_STATUS)
     ticket_medio = receita_potencial / len(leads_com_valor) if leads_com_valor else 0.0
     conversao = round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0
 
