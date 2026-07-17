@@ -419,7 +419,7 @@ export default function Dashboard() {
           <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações no dia.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div style={{ background: 'var(--bg-3, #f5f5f5)', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ background: 'var(--bg-subtle)', borderRadius: 10, padding: '14px 16px' }}>
               <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
                 Bases (SDR)
@@ -439,7 +439,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <div style={{ background: 'var(--bg-3, #f5f5f5)', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ background: 'var(--bg-subtle)', borderRadius: 10, padding: '14px 16px' }}>
               <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
                 Pontos de Conversão (Orgânico)
