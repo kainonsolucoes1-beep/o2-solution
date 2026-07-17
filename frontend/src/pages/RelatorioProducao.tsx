@@ -3,7 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import {
-  Users, Handshake, UserCheck, DollarSign, TrendingDown, Tag, Percent,
+  Users, Handshake, UserCheck, DollarSign, TrendingDown, Tag,
   Download, ArrowUp, ArrowDown, Minus, Calendar,
 } from 'lucide-react'
 import api from '../api'
@@ -11,7 +11,7 @@ import api from '../api'
 interface Kpis {
   captacoes: number; vendas: number; conversao: number; qualificados: number
   em_negociacao: number
-  receita_potencial: number; perda_financeira: number; taxa_perda: number; ticket_medio: number
+  receita_potencial: number; perda_financeira: number; ticket_medio: number
 }
 interface DiarioItem { dia: number; data: string; captacoes: number; vendas: number }
 interface OrigemItem { origem: string; captacoes: number; pct: number }
@@ -69,7 +69,6 @@ const CARD_CFG = [
   { key: 'qualificados',      label: 'Qualificados',      icon: UserCheck,    color: '#7C3AED', bg: '#F5F3FF', sub: '#4C1D95', fmt: (v: number) => String(v) },
   { key: 'receita_potencial', label: 'Receita Potencial', icon: DollarSign,   color: '#059669', bg: '#ECFDF5', sub: '#065F46', fmt: fmtBrl },
   { key: 'perda_financeira',  label: 'Perda Financeira',  icon: TrendingDown, color: '#EF4444', bg: '#FEF2F2', sub: '#991B1B', fmt: fmtBrl },
-  { key: 'taxa_perda',        label: 'Taxa de Perda',     icon: Percent,      color: '#EF4444', bg: '#FEF2F2', sub: '#991B1B', fmt: (v: number) => `${v}%` },
   { key: 'ticket_medio',      label: 'Ticket Médio',      icon: Tag,          color: '#F59E0B', bg: '#FFFBEB', sub: '#92400E', fmt: fmtBrl },
 ] as const
 
@@ -226,7 +225,7 @@ export default function RelatorioProducao() {
                     <Icon size={15} color={color} />
                   </div>
                   <p style={{ fontSize: 22, fontWeight: 800, color, margin: '0 0 4px' }}>{fmt(value)}</p>
-                  <Delta current={value} previous={prevValue} invert={key === 'perda_financeira' || key === 'taxa_perda'} />
+                  <Delta current={value} previous={prevValue} invert={key === 'perda_financeira'} />
                 </div>
               )
             })}

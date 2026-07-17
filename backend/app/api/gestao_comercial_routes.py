@@ -90,10 +90,8 @@ def visao_geral(
     leads_com_valor = [float(v) for s, v, _ in leads if (s or "").lower() != CANCELADO_STATUS and v]
     receita_potencial = sum(leads_com_valor)
     perda_financeira = sum(float(v or 0) for s, v, _ in leads if (s or "").lower() == CANCELADO_STATUS)
-    cancelados = sum(1 for s, _, _ in leads if (s or "").lower() == CANCELADO_STATUS)
     ticket_medio = receita_potencial / len(leads_com_valor) if leads_com_valor else 0.0
     conversao = round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0
-    taxa_perda = round(cancelados / captacoes * 100, 1) if captacoes > 0 else 0.0
 
     return {
         "captacoes": captacoes,
@@ -103,7 +101,6 @@ def visao_geral(
         "em_negociacao": em_negociacao,
         "receita_potencial": receita_potencial,
         "perda_financeira": perda_financeira,
-        "taxa_perda": taxa_perda,
         "ticket_medio": ticket_medio,
     }
 
