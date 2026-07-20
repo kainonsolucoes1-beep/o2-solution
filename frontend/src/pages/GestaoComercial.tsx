@@ -133,6 +133,15 @@ const CARD_CFG = [
   { key: 'ticket_medio',     label: 'Ticket Médio',     icon: Tag,          color: '#F59E0B', bg: '#FFFBEB', sub: '#92400E', fmt: fmtBrl,                   clickable: false },
 ] as const
 
+const MAIN_CARD_CFG = [
+  { key: 'captacoes',        label: 'Captações',        icon: Users,        color: '#3B82F6', bg: '#EFF6FF', sub: '#1E40AF', fmt: (v: number) => String(v), clickable: false },
+  { key: 'vendas',           label: 'Vendas',           icon: ShoppingCart, color: '#10B981', bg: '#ECFDF5', sub: '#065F46', fmt: (v: number) => String(v), clickable: true  },
+  { key: 'qualificados',     label: 'Qualificados',     icon: CheckSquare,  color: '#8B5CF6', bg: '#F5F3FF', sub: '#4C1D95', fmt: (v: number) => String(v), clickable: false },
+  { key: 'receita_potencial',label: 'Receita Potencial',icon: DollarSign,   color: '#059669', bg: '#ECFDF5', sub: '#065F46', fmt: fmtBrl,                   clickable: true  },
+  { key: 'perda_financeira', label: 'Perda Financeira', icon: TrendingDown, color: '#EF4444', bg: '#FEF2F2', sub: '#991B1B', fmt: fmtBrl,                   clickable: true  },
+  { key: 'ticket_medio',     label: 'Ticket Médio',     icon: Tag,          color: '#F59E0B', bg: '#FFFBEB', sub: '#92400E', fmt: fmtBrl,                   clickable: false },
+] as const
+
 const KEY_TO_TIPO: Record<string, DrillTipo> = {
   vendas: 'vendas', receita_potencial: 'receita_potencial', perda_financeira: 'perda',
 }
@@ -1169,6 +1178,7 @@ export default function GestaoComercial() {
   const [mensal, setMensal]   = useState<MensalItem[]>([])
   const [modalidades, setModalidades] = useState<ModalidadeItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [qualificados, setQualificados] = useState(0)
 
   const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null)
 
@@ -1198,6 +1208,12 @@ export default function GestaoComercial() {
       setKpis(k.data); setDiario(d.data); setOrigens(o.data); setMensal(m.data); setModalidades(mod.data)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [activeTab, month])
+
+  useEffect(() => {
+    if (activeTab !== 'Visão Geral') return
+    api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${dateFrom}&date_to=${dateTo}`)
+      .then(r => setQualificados(r.data.negociacao)).catch(() => {})
+  }, [activeTab, dateFrom, dateTo])
 
   function openDrill(tipo: DrillTipo) {
     setDrillTipo(tipo); setDrillPath([]); setSelectedStage(null)
@@ -1345,8 +1361,8 @@ export default function GestaoComercial() {
         <div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
-            {CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt, clickable }) => {
-              const value = kpis ? (kpis as Record<string, number>)[key] : 0
+            {MAIN_CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt, clickable }) => {
+              const value = key === 'qualificados' ? qualificados : (kpis ? (kpis as Record<string, number>)[key] : 0)
               return (
                 <div key={key}
                   onClick={clickable ? () => openDrill(KEY_TO_TIPO[key]) : undefined}

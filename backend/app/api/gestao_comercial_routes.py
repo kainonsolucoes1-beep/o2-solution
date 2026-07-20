@@ -198,6 +198,8 @@ def modalidades_captacao(
     venda_set = {s.lower() for s in VENDA_STATUSES}
     data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
     for modalidade, status in leads:
+        if modalidade == "Empresarial":
+            modalidade = "PME"
         data[modalidade]["captacoes"] += 1
         if (status or "").lower() in venda_set:
             data[modalidade]["vendas"] += 1
