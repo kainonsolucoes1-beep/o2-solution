@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, Trophy, BarChart3, type LucideIcon } from 'lucide-react'
+import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, Trophy, BarChart3, ArrowLeftRight, type LucideIcon } from 'lucide-react'
+import {
+  BarChart, Bar, LineChart, Line, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts'
 import api from '../api'
 
 interface BreakdownItem {
@@ -234,6 +237,40 @@ export default function KPIs() {
       .finally(() => setConvPointDrawerLoading(false))
   }
 
+  const [convCompare, setConvCompare] = useState(false)
+  const [convCompareLevel, setConvCompareLevel] = useState<'month' | 'week' | 'day'>('month')
+  const [convComparePoint, setConvComparePoint] = useState<string | null>(null)
+  const [convCompareDaily, setConvCompareDaily] = useState<{ date: string; dia: number; captacoes: number; vendas: number }[]>([])
+  const [convCompareDailyLoading, setConvCompareDailyLoading] = useState(false)
+  const [convCompareWeek, setConvCompareWeek] = useState<number | null>(null)
+
+  function openConvPointCompare(convPoint: string, origens: string[]) {
+    setConvComparePoint(convPoint)
+    setConvCompareLevel('week')
+    setConvCompareWeek(null)
+    setConvCompareDaily([])
+    setConvCompareDailyLoading(true)
+    const qp = new URLSearchParams({ month, conv_point: convPoint })
+    if (origens.length > 0) qp.set('origens', origens.join(','))
+    api.get<{ date: string; dia: number; captacoes: number; vendas: number }[]>(`/api/v1/kpis/conv-point-diario?${qp}`)
+      .then(r => setConvCompareDaily(r.data))
+      .catch(() => setConvCompareDaily([]))
+      .finally(() => setConvCompareDailyLoading(false))
+  }
+
+  const convCompareWeeks = (() => {
+    const weeks = new Map<number, { semana: number; captacoes: number; vendas: number }>()
+    for (const d of convCompareDaily) {
+      const w = Math.ceil(d.dia / 7)
+      const acc = weeks.get(w) ?? { semana: w, captacoes: 0, vendas: 0 }
+      acc.captacoes += d.captacoes
+      acc.vendas += d.vendas
+      weeks.set(w, acc)
+    }
+    return [...weeks.values()].sort((a, b) => a.semana - b.semana)
+  })()
+  const convCompareDays = convCompareWeek === null ? [] : convCompareDaily.filter(d => Math.ceil(d.dia / 7) === convCompareWeek)
+
   const [sdrDrawer, setSdrDrawer] = useState<string | null>(null)
   const [sdrDrawerData, setSdrDrawerData] = useState<SdrDetalhe | null>(null)
   const [sdrDrawerLoading, setSdrDrawerLoading] = useState(false)
@@ -249,7 +286,7 @@ export default function KPIs() {
   }
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null); setSdrPopup(null); setPlanoPopup(null); setBaseDrawer(null); setConvPointDrawer(null); setSdrDrawer(null) } }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setPopover(null); setOrgPopup(null); setAgePopup(null); setBasePopup(null); setSdrPopup(null); setPlanoPopup(null); setBaseDrawer(null); setConvPointDrawer(null); setSdrDrawer(null); setConvCompare(false) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
@@ -739,7 +776,16 @@ export default function KPIs() {
               <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Nenhum dado orgânico neste período</div>
             ) : (
               <>
-                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 10px' }}>Por Ponto de Conversão</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 0 10px' }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: 0 }}>Por Ponto de Conversão</p>
+                  <button
+                    onClick={() => { setConvCompare(true); setConvCompareLevel('month'); setConvComparePoint(null); setConvCompareWeek(null) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}
+                  >
+                    <ArrowLeftRight size={13} />
+                    Comparar
+                  </button>
+                </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-3, #f5f5f5)' }}>
@@ -1492,6 +1538,156 @@ export default function KPIs() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Modal: Comparação entre Pontos de Conversão ── */}
+      {convCompare && (
+        <div onClick={() => setConvCompare(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 640, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Comparação — Pontos de Conversão</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12 }}>
+                  <button
+                    onClick={() => { setConvCompareLevel('month'); setConvComparePoint(null); setConvCompareWeek(null) }}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: convCompareLevel === 'month' ? 'var(--text-1)' : '#2563EB', fontWeight: convCompareLevel === 'month' ? 700 : 500 }}
+                  >
+                    Mensal
+                  </button>
+                  {convComparePoint && (
+                    <>
+                      <span style={{ color: 'var(--text-subtle)' }}>›</span>
+                      <button
+                        onClick={() => setConvCompareLevel('week')}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: convCompareLevel === 'week' ? 'var(--text-1)' : '#2563EB', fontWeight: convCompareLevel === 'week' ? 700 : 500 }}
+                      >
+                        {convComparePoint}
+                      </button>
+                    </>
+                  )}
+                  {convCompareWeek !== null && (
+                    <>
+                      <span style={{ color: 'var(--text-subtle)' }}>›</span>
+                      <span style={{ color: 'var(--text-1)', fontWeight: 700 }}>Semana {convCompareWeek}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => setConvCompare(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: 24 }}>
+              {convCompareLevel === 'month' && (
+                organicBp.length === 0 ? (
+                  <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: 'var(--text-muted)' }}>Sem dados no período.</p>
+                ) : (
+                  <>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 14px' }}>Captações por ponto de conversão em {month} · clique numa barra para ver a evolução semanal</p>
+                    <div style={{ cursor: 'pointer' }}>
+                      <ResponsiveContainer width="100%" height={Math.max(160, organicBp.length * 46)}>
+                        <BarChart
+                          data={organicBp} layout="vertical" margin={{ top: 4, right: 30, left: 8, bottom: 4 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
+                          <XAxis type="number" tick={{ fontSize: 10, fill: '#94A3B8' }} allowDecimals={false} />
+                          <YAxis type="category" dataKey="label" width={150} tick={{ fontSize: 11, fill: 'var(--text-2)' }} />
+                          <Tooltip
+                            contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                            formatter={(val: number, _n, item: any) => [`${val} captações · ${item.payload.conversao}% conversão`, item.payload.label]}
+                          />
+                          <Bar
+                            dataKey="captacoes" radius={[0, 4, 4, 0]}
+                            onClick={(entry: any) => {
+                              const label = entry?.label
+                              if (!label) return
+                              const relevantFontes = organicFontes.filter(f => f.breakdown.some(bd => bd.label === label)).map(f => f.fonte)
+                              openConvPointCompare(label, relevantFontes)
+                            }}
+                          >
+                            {organicBp.map((b, i) => (
+                              <Cell key={i} fill={b.conversao >= 30 ? '#059669' : b.conversao >= 15 ? '#F59E0B' : '#3B82F6'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div style={{ display: 'flex', gap: 16, marginTop: 14, fontSize: 11, color: 'var(--text-muted)' }}>
+                      <span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: '#059669', marginRight: 5 }} />≥30% conversão</span>
+                      <span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: '#F59E0B', marginRight: 5 }} />≥15% conversão</span>
+                      <span><span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: '#3B82F6', marginRight: 5 }} />&lt;15% conversão</span>
+                    </div>
+                  </>
+                )
+              )}
+
+              {convCompareLevel === 'week' && (
+                convCompareDailyLoading ? (
+                  <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: 'var(--text-muted)' }}>Carregando…</p>
+                ) : convCompareWeeks.length === 0 ? (
+                  <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: 'var(--text-muted)' }}>Sem dados no período.</p>
+                ) : (
+                  <>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 14px' }}>Evolução semanal de {convComparePoint} · clique num ponto para ver o detalhe diário</p>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <LineChart
+                        data={convCompareWeeks.map(w => ({ ...w, label: `Semana ${w.semana}` }))}
+                        margin={{ top: 4, right: 20, left: -10, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94A3B8' }} />
+                        <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} allowDecimals={false} />
+                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} />
+                        <Legend formatter={v => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                        <Line
+                          type="monotone" dataKey="captacoes" name="captacoes" stroke="#3B82F6" strokeWidth={2}
+                          dot={(dp: any) => (
+                            <circle key={`c-${dp.payload.semana}`} cx={dp.cx} cy={dp.cy} r={5} fill="#3B82F6" stroke="#fff" strokeWidth={1.5}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => { setConvCompareWeek(dp.payload.semana); setConvCompareLevel('day') }} />
+                          )}
+                          activeDot={{ r: 7 }}
+                        />
+                        <Line
+                          type="monotone" dataKey="vendas" name="vendas" stroke="#10B981" strokeWidth={2}
+                          dot={(dp: any) => (
+                            <circle key={`v-${dp.payload.semana}`} cx={dp.cx} cy={dp.cy} r={5} fill="#10B981" stroke="#fff" strokeWidth={1.5}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => { setConvCompareWeek(dp.payload.semana); setConvCompareLevel('day') }} />
+                          )}
+                          activeDot={{ r: 7 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 10 }}>Clique num ponto do gráfico para detalhar os dias daquela semana.</p>
+                  </>
+                )
+              )}
+
+              {convCompareLevel === 'day' && (
+                convCompareDays.length === 0 ? (
+                  <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: 'var(--text-muted)' }}>Sem dados nesta semana.</p>
+                ) : (
+                  <>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 14px' }}>Captações diárias de {convComparePoint} · Semana {convCompareWeek}</p>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <LineChart data={convCompareDays.map(d => ({ ...d, label: `Dia ${d.dia}` }))} margin={{ top: 4, right: 20, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94A3B8' }} />
+                        <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} allowDecimals={false} />
+                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} />
+                        <Legend formatter={v => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                        <Line type="monotone" dataKey="captacoes" name="captacoes" stroke="#3B82F6" strokeWidth={2} dot={{ r: 4, fill: '#3B82F6' }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="vendas" name="vendas" stroke="#10B981" strokeWidth={2} dot={{ r: 4, fill: '#10B981' }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </>
+                )
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Drawer: Análise detalhada do SDR ── */}

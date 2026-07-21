@@ -440,6 +440,61 @@ def conv_point_detalhe(
     }
 
 
+@router.get("/conv-point-diario")
+def conv_point_diario(
+    month: str = Query(None),
+    conv_point: str = Query(...),
+    origens: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if month:
+        try:
+            year, mon = int(month[:4]), int(month[5:7])
+        except (ValueError, IndexError):
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    else:
+        year, mon = datetime.utcnow().year, datetime.utcnow().month
+
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+
+    filters = [
+        Lead.created_at >= dt_from,
+        Lead.created_at <= dt_to,
+        Lead.conversion_point.ilike(conv_point),
+    ]
+    if origens:
+        parts = [s.strip() for s in origens.split(',') if s.strip()]
+        if parts:
+            filters.append(Lead.origin.in_(parts))
+
+    rows = db.query(func.date(Lead.created_at).label("day"), Lead.status).filter(*filters).all()
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    daily: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
+    for day, status in rows:
+        key = str(day)
+        daily[key]["captacoes"] += 1
+        if (status or "").lower() in venda_set:
+            daily[key]["vendas"] += 1
+
+    result = []
+    cur = dt_from.date()
+    last = dt_to.date()
+    while cur <= last:
+        key = cur.isoformat()
+        result.append({
+            "date": key,
+            "dia": cur.day,
+            "captacoes": daily[key]["captacoes"],
+            "vendas": daily[key]["vendas"],
+        })
+        cur += timedelta(days=1)
+
+    return result
+
+
 @router.get("/sdr-detalhe")
 def sdr_detalhe(
     month: str = Query(None),
