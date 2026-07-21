@@ -146,6 +146,7 @@ export default function LeadsReport() {
   const [dateTo, setDateTo]       = useState(() => searchParams.get('date_to') ?? today)
   const [origem, setOrigem]       = useState(() => searchParams.get('origem') ?? '')
   const [modalidadeFilter, setModalidadeFilter] = useState(() => searchParams.get('modalidade') ?? '')
+  const [conversionPointFilter, setConversionPointFilter] = useState(() => searchParams.get('conversion_point') ?? '')
   const [search, setSearch]       = useState(() => searchParams.get('search') ?? '')
   const [page, setPage]           = useState(1)
   const [report, setReport]       = useState<ReportResponse | null>(null)
@@ -190,6 +191,10 @@ export default function LeadsReport() {
     if (searched) fetchReport(1)
   }, [perceptionFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (searched) fetchReport(1)
+  }, [conversionPointFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
 
   const fetchReport = useCallback(
@@ -208,6 +213,7 @@ export default function LeadsReport() {
       if (statusFilter) params.status = statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
+      if (conversionPointFilter) params.conversion_point = conversionPointFilter
       if (search.trim()) params.search = search.trim()
 
       api
@@ -225,7 +231,7 @@ export default function LeadsReport() {
         })
         .finally(() => setLoading(false))
     },
-    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, search, vencidosFilter, isAdmin, navigate],
+    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, conversionPointFilter, search, vencidosFilter, isAdmin, navigate],
   )
 
   const [exporting, setExporting] = useState(false)
@@ -244,6 +250,7 @@ export default function LeadsReport() {
       if (statusFilter) params.status = statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
+      if (conversionPointFilter) params.conversion_point = conversionPointFilter
       if (search.trim()) params.search = search.trim()
 
       const { data } = await api.get<ReportResponse>('/api/v1/leads/by-period', { params })
@@ -347,7 +354,15 @@ export default function LeadsReport() {
               </p>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {conversionPointFilter && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#7C3AED' }}>Ponto de conversão: {conversionPointFilter}</span>
+                <button onClick={() => setConversionPointFilter('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7C3AED', display: 'flex', alignItems: 'center', padding: 0 }}>
+                  <X size={13} />
+                </button>
+              </div>
+            )}
             {isAdmin && selected.size > 0 && (
               <button
                 onClick={() => setConfirmDeleteOpen(true)}

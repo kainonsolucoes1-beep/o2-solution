@@ -90,6 +90,7 @@ def leads_by_period(
     status: Optional[str] = Query(None),
     perception: Optional[str] = Query(None),
     modalidade: Optional[str] = Query(None),
+    conversion_point: Optional[str] = Query(None),
     search: Optional[str] = Query(None, description="Busca por nome, CPF/CNPJ, telefone ou email"),
     vencidos: bool = Query(False),
     page: int = Query(1, ge=1),
@@ -137,6 +138,8 @@ def leads_by_period(
                 q = q.filter(Lead.modalidade == parts[0])
             else:
                 q = q.filter(Lead.modalidade.in_(parts))
+        if conversion_point:
+            q = q.filter(Lead.conversion_point.ilike(conversion_point))
         if search:
             term = search.strip()
             digits = re.sub(r"\D", "", term)

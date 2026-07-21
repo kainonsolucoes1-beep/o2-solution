@@ -8,7 +8,7 @@ import {
   Users, ShoppingCart, TrendingUp, DollarSign, TrendingDown, Tag,
   ChevronDown, ChevronRight, X, ChevronLeft,
   Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter, ArrowLeftRight,
-  Briefcase,
+  Briefcase, ArrowUpRight,
 } from 'lucide-react'
 import api from '../api'
 
@@ -1199,7 +1199,7 @@ export default function GestaoComercial() {
 
   const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null)
 
-  const [stagePopup, setStagePopup]               = useState<{stage: string, leads: PerfLead[], loading: boolean, x: number, y: number} | null>(null)
+  const [stagePopup, setStagePopup]               = useState<{stage: string, leads: PerfLead[], loading: boolean, x: number, y: number, convPoint?: string, origens?: string} | null>(null)
   const [orgConvPoints, setOrgConvPoints]         = useState<{conversion_point: string, count: number, pct: number}[]>([])
   const [orgConvPointsLoading, setOrgConvPointsLoading] = useState(false)
 
@@ -1258,17 +1258,23 @@ export default function GestaoComercial() {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const x = rect.right + 290 < window.innerWidth ? rect.right + 10 : rect.left - 290
     const y = Math.min(rect.top, window.innerHeight - 320)
-    setStagePopup({ stage: label, leads: [], loading: true, x, y })
+    const origens = convPoint ? undefined : (label === 'o2 Solution' ? [...O2_NAMES].join(',') : label)
+    setStagePopup({ stage: label, leads: [], loading: true, x, y, convPoint, origens })
     const p = new URLSearchParams({ month })
-    if (convPoint) {
-      p.set('conv_point', convPoint)
-    } else {
-      const origens = label === 'o2 Solution' ? [...O2_NAMES].join(',') : label
-      p.set('origens', origens)
-    }
+    if (convPoint) p.set('conv_point', convPoint)
+    else if (origens) p.set('origens', origens)
     api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
       .then(r => setStagePopup(prev => prev ? { ...prev, leads: r.data, loading: false } : null))
       .catch(() => setStagePopup(prev => prev ? { ...prev, leads: [], loading: false } : null))
+  }
+
+  function goToLeadsReport(convPoint?: string, origens?: string) {
+    const [y1, m1] = month.split('-').map(Number)
+    const lastDay = new Date(y1, m1, 0).getDate()
+    const params = new URLSearchParams({ date_from: `${month}-01`, date_to: `${month}-${String(lastDay).padStart(2, '0')}` })
+    if (convPoint) params.set('conversion_point', convPoint)
+    else if (origens) params.set('origem', origens)
+    navigate(`/leads-report?${params}`)
   }
 
   const filtered      = filterDrill(drillRows, drillPath)
@@ -1749,9 +1755,20 @@ export default function GestaoComercial() {
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={() => setStagePopup(null)} />
           <div style={{ position: 'fixed', left: stagePopup.x, top: stagePopup.y, zIndex: 300, background: 'var(--bg-card,#fff)', borderRadius: 14, padding: '16px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.18)', border: '1px solid var(--border)', minWidth: 240, maxWidth: 300, maxHeight: 340, overflowY: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8 }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{stagePopup.stage}</p>
-              {!stagePopup.loading && <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 99, whiteSpace: 'nowrap', flexShrink: 0 }}>{stagePopup.leads.length} lead{stagePopup.leads.length !== 1 ? 's' : ''}</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                {!stagePopup.loading && <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 99, whiteSpace: 'nowrap' }}>{stagePopup.leads.length} lead{stagePopup.leads.length !== 1 ? 's' : ''}</span>}
+                <button
+                  onClick={() => goToLeadsReport(stagePopup.convPoint, stagePopup.origens)}
+                  title="Ver no Relatório de Leads"
+                  style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 2, opacity: 0.6, transition: 'opacity 150ms, color 150ms' }}
+                  onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#2563EB' }}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = '0.6'; e.currentTarget.style.color = 'var(--text-subtle)' }}
+                >
+                  <ArrowUpRight size={14} />
+                </button>
+              </div>
             </div>
             {stagePopup.loading ? (
               <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '8px 0' }}>Carregando...</p>
