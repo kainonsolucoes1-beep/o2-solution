@@ -183,7 +183,7 @@ export default function LeadsReport() {
   }, [navigate])
 
   useEffect(() => {
-    if (me && (searchParams.get('status') || searchParams.get('perception') || vencidosFilter || searchParams.get('date_from') || searchParams.get('origem') || searchParams.get('modalidade') || searchParams.get('search'))) fetchReport(1)
+    if (me) fetchReport(1)
   }, [me]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
