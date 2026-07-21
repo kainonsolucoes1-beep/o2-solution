@@ -12,6 +12,7 @@ from app.lead_utils import extract_base
 from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, User
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
+    BulkDeleteRequest, BulkDeleteResponse,
     StatusUpdateRequest, StatusUpdateResponse,
     NoteCreateRequest, NoteCreateResponse,
     NoteResponse, NotesListResponse,
@@ -59,6 +60,26 @@ def create_lead(
     db.commit()
     db.refresh(lead)
     return lead
+
+
+@router.delete("/leads/bulk", response_model=BulkDeleteResponse)
+def delete_leads_bulk(
+    payload: BulkDeleteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    if not payload.ids:
+        raise HTTPException(status_code=422, detail="Nenhum lead informado")
+
+    deleted = (
+        db.query(Lead)
+        .filter(Lead.id.in_(payload.ids))
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return BulkDeleteResponse(deleted=deleted)
 
 
 @router.get("/leads/by-period", response_model=LeadsReportResponse)

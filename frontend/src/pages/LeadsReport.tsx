@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { Filter, X } from 'lucide-react'
+import { Filter, X, Trash2 } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -158,6 +158,9 @@ export default function LeadsReport() {
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
   const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc')
   const [filterOpen, setFilterOpen] = useState(false)
+  const [selected, setSelected]   = useState<Set<string>>(new Set())
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [deleting, setDeleting]   = useState(false)
 
   useEffect(() => {
     if (!filterOpen) return
@@ -214,6 +217,7 @@ export default function LeadsReport() {
           setPage(p)
           setSearched(true)
           setSortCol(null)
+          setSelected(new Set())
         })
         .catch(err => {
           if (err.response?.status === 401) { navigate('/login') }
@@ -269,6 +273,36 @@ export default function LeadsReport() {
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelected(prev => {
+      if (!report) return prev
+      const allSelected = report.leads.every(l => prev.has(l.id))
+      if (allSelected) return new Set()
+      return new Set(report.leads.map(l => l.id))
+    })
+  }
+
+  async function deleteSelected() {
+    setDeleting(true)
+    try {
+      await api.delete('/api/v1/leads/bulk', { data: { ids: [...selected] } })
+      setConfirmDeleteOpen(false)
+      fetchReport(page)
+    } catch {
+      setError('Erro ao excluir leads. Tente novamente.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   function handleSearch() { fetchReport(1) }
 
   function handleSort(col: SortKey) {
@@ -313,18 +347,34 @@ export default function LeadsReport() {
               </p>
             )}
           </div>
-          <button
-            onClick={() => setFilterOpen(true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-              background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)',
-              cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-            }}
-          >
-            <Filter size={15} />
-            Filtros
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {isAdmin && selected.size > 0 && (
+              <button
+                onClick={() => setConfirmDeleteOpen(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                  background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
+                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                }}
+              >
+                <Trash2 size={15} />
+                Excluir ({selected.size})
+              </button>
+            )}
+            <button
+              onClick={() => setFilterOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)',
+                cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+              }}
+            >
+              <Filter size={15} />
+              Filtros
+            </button>
+          </div>
         </div>
 
         {error && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}
@@ -356,6 +406,16 @@ export default function LeadsReport() {
                   <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-hover)' }}>
+                        {isAdmin && (
+                          <th style={{ padding: '11px 12px', border: '1px solid var(--border)', borderLeft: '1px solid var(--border)', borderTopLeftRadius: 10, borderBottomLeftRadius: 10, width: 1 }}>
+                            <input
+                              type="checkbox"
+                              checked={report !== null && report.leads.length > 0 && report.leads.every(l => selected.has(l.id))}
+                              onChange={toggleSelectAll}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </th>
+                        )}
                         {COLUMNS.map((col, i) => (
                           <th
                             key={col.key}
@@ -366,10 +426,10 @@ export default function LeadsReport() {
                               textTransform: 'uppercase', letterSpacing: '0.05em',
                               cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
                               border: '1px solid var(--border)',
-                              borderLeft: i === 0 ? '1px solid var(--border)' : 'none',
+                              borderLeft: i === 0 && !isAdmin ? '1px solid var(--border)' : i === 0 ? 'none' : 'none',
                               borderRight: i === COLUMNS.length - 1 ? '1px solid var(--border)' : 'none',
-                              borderTopLeftRadius: i === 0 ? 10 : 0,
-                              borderBottomLeftRadius: i === 0 ? 10 : 0,
+                              borderTopLeftRadius: i === 0 && !isAdmin ? 10 : 0,
+                              borderBottomLeftRadius: i === 0 && !isAdmin ? 10 : 0,
                               borderTopRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
                               borderBottomRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
                             }}
@@ -398,7 +458,20 @@ export default function LeadsReport() {
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-card)')}
                         >
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderTopLeftRadius: 10, borderBottomLeftRadius: 10 }}>
+                          {isAdmin && (
+                            <td
+                              onClick={e => e.stopPropagation()}
+                              style={{ padding: '12px 12px', borderTopLeftRadius: 10, borderBottomLeftRadius: 10 }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selected.has(lead.id)}
+                                onChange={() => toggleSelect(lead.id)}
+                                style={{ cursor: 'pointer' }}
+                              />
+                            </td>
+                          )}
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderTopLeftRadius: isAdmin ? 0 : 10, borderBottomLeftRadius: isAdmin ? 0 : 10 }}>
                             {fmtDate(lead.created_at)}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
@@ -673,6 +746,33 @@ export default function LeadsReport() {
                     {loading ? 'Buscando…' : 'Buscar'}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmDeleteOpen && (
+          <div onClick={() => !deleting && setConfirmDeleteOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', padding: '24px' }}>
+              <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 8px' }}>Excluir {selected.size} lead{selected.size !== 1 ? 's' : ''}?</p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px' }}>
+                Esta ação não pode ser desfeita. Os leads selecionados e todo o histórico associado (notas, agendamentos, status) serão excluídos permanentemente.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  onClick={() => setConfirmDeleteOpen(false)}
+                  disabled={deleting}
+                  style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)', cursor: deleting ? 'not-allowed' : 'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={deleteSelected}
+                  disabled={deleting}
+                  style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#DC2626', color: 'white', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
+                >
+                  {deleting ? 'Excluindo…' : 'Excluir'}
+                </button>
               </div>
             </div>
           </div>

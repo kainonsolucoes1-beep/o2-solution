@@ -55,6 +55,14 @@ class LeadsReportResponse(BaseModel):
     leads: List[LeadReportItem]
 
 
+class BulkDeleteRequest(BaseModel):
+    ids: List[str]
+
+
+class BulkDeleteResponse(BaseModel):
+    deleted: int
+
+
 class StatusUpdateRequest(BaseModel):
     status: str
 
