@@ -119,6 +119,20 @@ function nowMonth() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
+function pctDiff(cur: number, prev: number): number | null {
+  if (prev === 0) return cur > 0 ? 100 : null
+  return Math.round((cur - prev) / prev * 100)
+}
+function TrendBadge({ value, invert }: { value: number; invert?: boolean }) {
+  const up = value >= 0
+  const good = invert ? !up : up
+  const color = good ? '#10B981' : '#EF4444'
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 700, color, whiteSpace: 'nowrap' }}>
+      {up ? '▲' : '▼'}{Math.abs(value)}%
+    </span>
+  )
+}
 const _gcNow        = new Date()
 const _gcToday      = `${_gcNow.getFullYear()}-${String(_gcNow.getMonth() + 1).padStart(2, '0')}-${String(_gcNow.getDate()).padStart(2, '0')}`
 const _gcMonthStart = `${_gcNow.getFullYear()}-${String(_gcNow.getMonth() + 1).padStart(2, '0')}-01`
@@ -134,12 +148,12 @@ const CARD_CFG = [
 ] as const
 
 const MAIN_CARD_CFG = [
-  { key: 'captacoes',        label: 'Captações',        icon: Users,        color: '#3B82F6', bg: '#EFF6FF', sub: '#1E40AF', fmt: (v: number) => String(v), clickable: false },
-  { key: 'vendas',           label: 'Vendas',           icon: ShoppingCart, color: '#10B981', bg: '#ECFDF5', sub: '#065F46', fmt: (v: number) => String(v), clickable: true  },
-  { key: 'qualificados',     label: 'Qualificados',     icon: CheckSquare,  color: '#8B5CF6', bg: '#F5F3FF', sub: '#4C1D95', fmt: (v: number) => String(v), clickable: false },
-  { key: 'receita_potencial',label: 'Receita Potencial',icon: DollarSign,   color: '#059669', bg: '#ECFDF5', sub: '#065F46', fmt: fmtBrl,                   clickable: true  },
-  { key: 'perda_financeira', label: 'Perda Financeira', icon: TrendingDown, color: '#EF4444', bg: '#FEF2F2', sub: '#991B1B', fmt: fmtBrl,                   clickable: true  },
-  { key: 'ticket_medio',     label: 'Ticket Médio',     icon: Tag,          color: '#F59E0B', bg: '#FFFBEB', sub: '#92400E', fmt: fmtBrl,                   clickable: false },
+  { key: 'captacoes',        label: 'Captações',        icon: Users,        color: '#3B82F6', bg: '#EFF6FF', sub: '#1E40AF', fmt: (v: number) => String(v), clickable: false, invert: false },
+  { key: 'vendas',           label: 'Vendas',           icon: ShoppingCart, color: '#10B981', bg: '#ECFDF5', sub: '#065F46', fmt: (v: number) => String(v), clickable: true,  invert: false },
+  { key: 'qualificados',     label: 'Qualificados',     icon: CheckSquare,  color: '#8B5CF6', bg: '#F5F3FF', sub: '#4C1D95', fmt: (v: number) => String(v), clickable: true,  invert: false },
+  { key: 'receita_potencial',label: 'Receita Potencial',icon: DollarSign,   color: '#059669', bg: '#ECFDF5', sub: '#065F46', fmt: fmtBrl,                   clickable: true,  invert: false },
+  { key: 'perda_financeira', label: 'Perda Financeira', icon: TrendingDown, color: '#EF4444', bg: '#FEF2F2', sub: '#991B1B', fmt: fmtBrl,                   clickable: true,  invert: true  },
+  { key: 'ticket_medio',     label: 'Ticket Médio',     icon: Tag,          color: '#F59E0B', bg: '#FFFBEB', sub: '#92400E', fmt: fmtBrl,                   clickable: false, invert: false },
 ] as const
 
 const KEY_TO_TIPO: Record<string, DrillTipo> = {
@@ -1147,6 +1161,7 @@ function ComparisonModal({ onClose }: { onClose: () => void }) {
 // Main component
 // ════════════════════════════════════════════════════════════════════════════
 export default function GestaoComercial() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab]     = useState<Tab>('Visão Geral')
   const [dateFrom, setDateFrom]       = useState(_gcMonthStart)
   const [dateTo, setDateTo]           = useState(_gcToday)
@@ -1173,12 +1188,14 @@ export default function GestaoComercial() {
   })()
 
   const [kpis, setKpis]       = useState<Kpis | null>(null)
+  const [prevKpis, setPrevKpis] = useState<Kpis | null>(null)
   const [diario, setDiario]   = useState<DiarioItem[]>([])
   const [origens, setOrigens] = useState<OrigemItem[]>([])
   const [mensal, setMensal]   = useState<MensalItem[]>([])
   const [modalidades, setModalidades] = useState<ModalidadeItem[]>([])
   const [loading, setLoading] = useState(false)
   const [qualificados, setQualificados] = useState(0)
+  const [prevQualificados, setPrevQualificados] = useState(0)
 
   const [expandedGrupo, setExpandedGrupo] = useState<string | null>(null)
 
@@ -1204,8 +1221,9 @@ export default function GestaoComercial() {
       api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}`),
       api.get<MensalItem[]>('/api/v1/gestao-comercial/comparativo-mensal'),
       api.get<ModalidadeItem[]>(`/api/v1/gestao-comercial/modalidades-captacao?month=${month}`),
-    ]).then(([k, d, o, m, mod]) => {
-      setKpis(k.data); setDiario(d.data); setOrigens(o.data); setMensal(m.data); setModalidades(mod.data)
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${prevMonthStr(month)}`),
+    ]).then(([k, d, o, m, mod, pk]) => {
+      setKpis(k.data); setDiario(d.data); setOrigens(o.data); setMensal(m.data); setModalidades(mod.data); setPrevKpis(pk.data)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [activeTab, month])
 
@@ -1213,6 +1231,12 @@ export default function GestaoComercial() {
     if (activeTab !== 'Visão Geral') return
     api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${dateFrom}&date_to=${dateTo}`)
       .then(r => setQualificados(r.data.negociacao)).catch(() => {})
+    const days = Math.round((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000) + 1
+    const prevTo = new Date(dateFrom + 'T12:00:00'); prevTo.setDate(prevTo.getDate() - 1)
+    const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - days + 1)
+    const fmt = (d: Date) => d.toISOString().slice(0, 10)
+    api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${fmt(prevFrom)}&date_to=${fmt(prevTo)}`)
+      .then(r => setPrevQualificados(r.data.negociacao)).catch(() => {})
   }, [activeTab, dateFrom, dateTo])
 
   function openDrill(tipo: DrillTipo) {
@@ -1361,18 +1385,26 @@ export default function GestaoComercial() {
         <div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
-            {MAIN_CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt, clickable }) => {
+            {MAIN_CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt, clickable, invert }) => {
               const value = key === 'qualificados' ? qualificados : (kpis ? (kpis as Record<string, number>)[key] : 0)
+              const prevValue = key === 'qualificados' ? prevQualificados : (prevKpis ? (prevKpis as Record<string, number>)[key] : undefined)
+              const trend = prevValue !== undefined ? pctDiff(value, prevValue) : null
+              const onCardClick = !clickable ? undefined
+                : key === 'qualificados' ? () => navigate(`/leads-report?date_from=${dateFrom}&date_to=${dateTo}&perception=${encodeURIComponent('Quente,Morno')}`)
+                : () => openDrill(KEY_TO_TIPO[key])
               return (
                 <div key={key}
-                  onClick={clickable ? () => openDrill(KEY_TO_TIPO[key]) : undefined}
+                  onClick={onCardClick}
                   style={{ background: bg, borderRadius: 14, padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', borderLeft: `4px solid ${color}`, cursor: clickable ? 'pointer' : 'default', transition: clickable ? 'transform 120ms, box-shadow 120ms' : undefined }}
                   onMouseEnter={e => { if (clickable) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${color}33` } }}
                   onMouseLeave={e => { if (clickable) { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.07)' } }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: sub, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon size={16} color={color} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {trend !== null && <TrendBadge value={trend} invert={invert} />}
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon size={16} color={color} />
+                      </div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
