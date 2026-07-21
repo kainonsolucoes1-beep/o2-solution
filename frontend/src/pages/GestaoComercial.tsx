@@ -1215,27 +1215,35 @@ export default function GestaoComercial() {
   useEffect(() => {
     if (activeTab !== 'Visão Geral') return
     setLoading(true)
+    // limita o mês anterior ao mesmo dia do mês corrente, senão um mês em andamento
+    // sempre perde feio na comparação contra o mês anterior completo
+    const untilDay = Number(dateTo.slice(8, 10))
     Promise.all([
-      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${month}`),
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${month}&until_day=${untilDay}`),
       api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?month=${month}`),
       api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}`),
       api.get<MensalItem[]>('/api/v1/gestao-comercial/comparativo-mensal'),
       api.get<ModalidadeItem[]>(`/api/v1/gestao-comercial/modalidades-captacao?month=${month}`),
-      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${prevMonthStr(month)}`),
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${prevMonthStr(month)}&until_day=${untilDay}`),
     ]).then(([k, d, o, m, mod, pk]) => {
       setKpis(k.data); setDiario(d.data); setOrigens(o.data); setMensal(m.data); setModalidades(mod.data); setPrevKpis(pk.data)
     }).catch(() => {}).finally(() => setLoading(false))
-  }, [activeTab, month])
+  }, [activeTab, month, dateTo])
 
   useEffect(() => {
     if (activeTab !== 'Visão Geral') return
     api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${dateFrom}&date_to=${dateTo}`)
       .then(r => setQualificados(r.data.negociacao)).catch(() => {})
-    const days = Math.round((new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / 86400000) + 1
-    const prevTo = new Date(dateFrom + 'T12:00:00'); prevTo.setDate(prevTo.getDate() - 1)
-    const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - days + 1)
-    const fmt = (d: Date) => d.toISOString().slice(0, 10)
-    api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${fmt(prevFrom)}&date_to=${fmt(prevTo)}`)
+    // mesmo período (mesmos dias-do-mês) do mês anterior, não um mês completo
+    const prevRef = new Date(dateFrom + 'T12:00:00')
+    prevRef.setMonth(prevRef.getMonth() - 1)
+    const y = prevRef.getFullYear(), m = prevRef.getMonth()
+    const lastDayPrev = new Date(y, m + 1, 0).getDate()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const clampDay = (dateStr: string) => pad(Math.min(Number(dateStr.slice(8, 10)), lastDayPrev))
+    const prevFromStr = `${y}-${pad(m + 1)}-${clampDay(dateFrom)}`
+    const prevToStr = `${y}-${pad(m + 1)}-${clampDay(dateTo)}`
+    api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${prevFromStr}&date_to=${prevToStr}`)
       .then(r => setPrevQualificados(r.data.negociacao)).catch(() => {})
   }, [activeTab, dateFrom, dateTo])
 
