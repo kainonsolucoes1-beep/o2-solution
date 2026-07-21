@@ -258,9 +258,14 @@ export default function KPIs() {
       .finally(() => setConvCompareDailyLoading(false))
   }
 
+  // no mês corrente, não mostra semanas/dias futuros (ainda sem dados) como se fossem zero
+  const convCompareElapsedDaily = month === defaultMonth
+    ? convCompareDaily.filter(d => d.dia <= now.getDate())
+    : convCompareDaily
+
   const convCompareWeeks = (() => {
     const weeks = new Map<number, { semana: number; captacoes: number; vendas: number }>()
-    for (const d of convCompareDaily) {
+    for (const d of convCompareElapsedDaily) {
       const w = Math.ceil(d.dia / 7)
       const acc = weeks.get(w) ?? { semana: w, captacoes: 0, vendas: 0 }
       acc.captacoes += d.captacoes
@@ -269,7 +274,7 @@ export default function KPIs() {
     }
     return [...weeks.values()].sort((a, b) => a.semana - b.semana)
   })()
-  const convCompareDays = convCompareWeek === null ? [] : convCompareDaily.filter(d => Math.ceil(d.dia / 7) === convCompareWeek)
+  const convCompareDays = convCompareWeek === null ? [] : convCompareElapsedDaily.filter(d => Math.ceil(d.dia / 7) === convCompareWeek)
 
   const [sdrDrawer, setSdrDrawer] = useState<string | null>(null)
   const [sdrDrawerData, setSdrDrawerData] = useState<SdrDetalhe | null>(null)
