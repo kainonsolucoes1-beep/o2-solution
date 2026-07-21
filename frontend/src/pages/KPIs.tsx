@@ -1584,7 +1584,7 @@ export default function KPIs() {
                   <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: 'var(--text-muted)' }}>Sem dados no período.</p>
                 ) : (
                   <>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 14px' }}>Captações por ponto de conversão em {month} · clique numa barra para ver a evolução semanal</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 14px' }}>Clique numa barra para ver a evolução semanal</p>
                     <div style={{ cursor: 'pointer' }}>
                       <ResponsiveContainer width="100%" height={Math.max(160, organicBp.length * 46)}>
                         <BarChart
@@ -1594,8 +1594,14 @@ export default function KPIs() {
                           <XAxis type="number" tick={{ fontSize: 10, fill: '#94A3B8' }} allowDecimals={false} />
                           <YAxis type="category" dataKey="label" width={150} tick={{ fontSize: 11, fill: 'var(--text-2)' }} />
                           <Tooltip
-                            contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
-                            formatter={(val: number, _n, item: any) => [`${val} captações · ${item.payload.conversao}% conversão`, item.payload.label]}
+                            content={({ active, payload }: any) => {
+                              if (!active || !payload?.length) return null
+                              return (
+                                <div style={{ background: 'var(--bg-card, #fff)', border: '1px solid #E2E8F0', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: 'var(--text-2)' }}>
+                                  {payload[0].payload.captacoes} captações
+                                </div>
+                              )
+                            }}
                           />
                           <Bar
                             dataKey="captacoes" radius={[0, 4, 4, 0]}
@@ -1629,7 +1635,7 @@ export default function KPIs() {
                   <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: 'var(--text-muted)' }}>Sem dados no período.</p>
                 ) : (
                   <>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 14px' }}>Evolução semanal de {convComparePoint} · clique num ponto para ver o detalhe diário</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 14px' }}>Evolução semanal</p>
                     <ResponsiveContainer width="100%" height={240}>
                       <LineChart
                         data={convCompareWeeks.map(w => ({ ...w, label: `Semana ${w.semana}` }))}
