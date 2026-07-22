@@ -264,6 +264,7 @@ def _parse_lead_fields(raw: dict) -> dict:
     email = contact.get("email") or raw.get("email")
     phone = contact.get("cellphone") or contact.get("phone") or raw.get("phone")
     company = company_obj.get("name") or contact.get("company_name") or raw.get("company")
+    team = (contact.get("team") or {}).get("name") or None
     _raw_document = contact.get("id_number") or company_obj.get("id_number") or ""
     document = re.sub(r"\D", "", _raw_document) or None
     status = raw.get("status") or "novo"
@@ -308,7 +309,7 @@ def _parse_lead_fields(raw: dict) -> dict:
     first_interaction_at = _parse_followize_dt(raw.get("first_interaction_at"))
     last_interaction_at = _parse_followize_dt(raw.get("last_interaction_at"))
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "current_plan": current_plan, "document": document, "tracking_campaign": tracking_campaign, "tracking_medium": tracking_medium, "tracking_term": tracking_term, "tracking_format": tracking_format, "fbclid": fbclid, "gclid": gclid, "lgpd_processing_opt_in": lgpd_processing_opt_in, "lgpd_communication_opt_in": lgpd_communication_opt_in, "first_interaction_at": first_interaction_at, "last_interaction_at": last_interaction_at}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "current_plan": current_plan, "document": document, "tracking_campaign": tracking_campaign, "tracking_medium": tracking_medium, "tracking_term": tracking_term, "tracking_format": tracking_format, "fbclid": fbclid, "gclid": gclid, "lgpd_processing_opt_in": lgpd_processing_opt_in, "lgpd_communication_opt_in": lgpd_communication_opt_in, "first_interaction_at": first_interaction_at, "last_interaction_at": last_interaction_at, "team": team}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
@@ -385,6 +386,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.lgpd_communication_opt_in = fields["lgpd_communication_opt_in"]
         existing.first_interaction_at = fields["first_interaction_at"]
         existing.last_interaction_at = fields["last_interaction_at"]
+        existing.team = fields["team"]
         if fields["document"]:
             existing.document = fields["document"]
         if fields["created_at"]:
@@ -418,6 +420,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         lgpd_processing_opt_in=fields["lgpd_processing_opt_in"],
         lgpd_communication_opt_in=fields["lgpd_communication_opt_in"],
         first_interaction_at=fields["first_interaction_at"], last_interaction_at=fields["last_interaction_at"],
+        team=fields["team"],
     )
     if fields["created_at"]:
         lead_kwargs["created_at"] = fields["created_at"]

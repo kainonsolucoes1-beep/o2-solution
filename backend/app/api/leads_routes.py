@@ -92,6 +92,7 @@ def leads_by_period(
     modalidade: Optional[str] = Query(None),
     conversion_point: Optional[str] = Query(None),
     lost_reason: Optional[str] = Query(None),
+    team: Optional[str] = Query(None),
     search: Optional[str] = Query(None, description="Busca por nome, CPF/CNPJ, telefone ou email"),
     vencidos: bool = Query(False),
     page: int = Query(1, ge=1),
@@ -147,6 +148,12 @@ def leads_by_period(
                 q = q.filter(Lead.lost_reason == parts[0])
             else:
                 q = q.filter(Lead.lost_reason.in_(parts))
+        if team:
+            parts = [s.strip() for s in team.split(',') if s.strip()]
+            if len(parts) == 1:
+                q = q.filter(Lead.team == parts[0])
+            else:
+                q = q.filter(Lead.team.in_(parts))
         if search:
             term = search.strip()
             digits = re.sub(r"\D", "", term)
@@ -170,7 +177,7 @@ def leads_by_period(
                 Lead.conversion_point, Lead.current_plan, Lead.document,
                 Lead.tracking_campaign, Lead.tracking_medium, Lead.tracking_term, Lead.tracking_format,
                 Lead.fbclid, Lead.gclid, Lead.lgpd_processing_opt_in, Lead.lgpd_communication_opt_in,
-                Lead.first_interaction_at, Lead.last_interaction_at,
+                Lead.first_interaction_at, Lead.last_interaction_at, Lead.team,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -205,6 +212,7 @@ def leads_by_period(
             lgpd_communication_opt_in=r.lgpd_communication_opt_in,
             first_interaction_at=r.first_interaction_at,
             last_interaction_at=r.last_interaction_at,
+            team=r.team,
         )
         for r in rows
     ]
@@ -299,6 +307,7 @@ def get_lead(
         lgpd_processing_opt_in=lead.lgpd_processing_opt_in,
         lgpd_communication_opt_in=lead.lgpd_communication_opt_in,
         first_interaction_at=lead.first_interaction_at, last_interaction_at=lead.last_interaction_at,
+        team=lead.team,
         created_at=lead.created_at, updated_at=lead.updated_at,
     )
 

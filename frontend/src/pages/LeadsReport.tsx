@@ -59,6 +59,11 @@ const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,conver
 const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
 const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
 
+const TEAM_OPTIONS = [
+  { label: 'São Paulo', value: 'Equipe São Paulo' },
+  { label: 'Recife', value: 'Equipe Pernambuco' },
+]
+
 interface StoredFilters {
   dateFrom: string
   dateTo: string
@@ -69,6 +74,7 @@ interface StoredFilters {
   search: string
   lostReasonFilter: string
   closedSubStatus: string
+  teamFilter: string
 }
 
 function loadStoredFilters(): Partial<StoredFilters> {
@@ -186,6 +192,7 @@ export default function LeadsReport() {
   const [perceptionFilter, setPerceptionFilter] = useState(() => searchParams.get('perception') ?? storedFilters.perceptionFilter ?? '')
   const [lostReasonFilter, setLostReasonFilter] = useState(() => searchParams.get('lost_reason') ?? storedFilters.lostReasonFilter ?? '')
   const [closedSubStatus, setClosedSubStatus] = useState(() => storedFilters.closedSubStatus ?? '')
+  const [teamFilter, setTeamFilter] = useState(() => searchParams.get('team') ?? storedFilters.teamFilter ?? '')
   const vencidosFilter = searchParams.get('vencidos') === '1'
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
@@ -203,9 +210,9 @@ export default function LeadsReport() {
   }, [filterOpen])
 
   useEffect(() => {
-    const toStore: StoredFilters = { dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus }
+    const toStore: StoredFilters = { dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter }
     localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore))
-  }, [dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus])
+  }, [dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter])
 
   const [clearTrigger, setClearTrigger] = useState(0)
 
@@ -220,6 +227,7 @@ export default function LeadsReport() {
     setSearch('')
     setLostReasonFilter('')
     setClosedSubStatus('')
+    setTeamFilter('')
     setFilterOpen(false)
     setClearTrigger(c => c + 1)
   }
@@ -275,6 +283,7 @@ export default function LeadsReport() {
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
       if (conversionPointFilter) params.conversion_point = conversionPointFilter
       if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
+      if (teamFilter) params.team = teamFilter
       if (search.trim()) params.search = search.trim()
 
       api
@@ -292,7 +301,7 @@ export default function LeadsReport() {
         })
         .finally(() => setLoading(false))
     },
-    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, closedSubStatus, search, vencidosFilter, isAdmin, navigate],
+    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, closedSubStatus, teamFilter, search, vencidosFilter, isAdmin, navigate],
   )
 
   useEffect(() => {
@@ -317,6 +326,7 @@ export default function LeadsReport() {
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
       if (conversionPointFilter) params.conversion_point = conversionPointFilter
       if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
+      if (teamFilter) params.team = teamFilter
       if (search.trim()) params.search = search.trim()
 
       const { data } = await api.get<ReportResponse>('/api/v1/leads/by-period', { params })
@@ -773,6 +783,23 @@ export default function LeadsReport() {
                       <option value={STATUS_PERDIDO}>Perdido</option>
                     </select>
                   </div>
+
+                  {isAdmin && (
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Equipe</label>
+                      <select
+                        value={teamFilter}
+                        onChange={e => setTeamFilter(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', width: '100%' }}
+                      >
+                        <option value="">Todas</option>
+                        {TEAM_OPTIONS.map(t => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {statusFilter === STATUS_PERDIDO && (
                     <div className="flex flex-col gap-1">

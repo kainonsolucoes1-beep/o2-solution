@@ -38,6 +38,7 @@ class Lead(Base):
     lgpd_communication_opt_in = Column(Boolean, nullable=True)
     first_interaction_at = Column(TIMESTAMP, nullable=True)
     last_interaction_at = Column(TIMESTAMP, nullable=True)
+    team = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())
 

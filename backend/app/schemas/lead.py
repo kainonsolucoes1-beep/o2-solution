@@ -54,6 +54,7 @@ class LeadReportItem(BaseModel):
     lgpd_communication_opt_in: Optional[bool] = None
     first_interaction_at: Optional[datetime] = None
     last_interaction_at: Optional[datetime] = None
+    team: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
