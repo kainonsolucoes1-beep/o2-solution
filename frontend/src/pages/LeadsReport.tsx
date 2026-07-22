@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { Filter, X, Trash2 } from 'lucide-react'
+import { Filter, X, Trash2, RotateCcw } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -51,6 +51,27 @@ const today = new Date().toISOString().slice(0, 10)
 const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   .toISOString()
   .slice(0, 10)
+
+const FILTERS_STORAGE_KEY = 'leadsReportFilters'
+
+interface StoredFilters {
+  dateFrom: string
+  dateTo: string
+  origem: string
+  modalidadeFilter: string
+  statusFilter: string
+  perceptionFilter: string
+  search: string
+}
+
+function loadStoredFilters(): Partial<StoredFilters> {
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   novo: { bg: 'rgba(59,130,246,0.12)', color: '#3B82F6' },
@@ -142,18 +163,19 @@ export default function LeadsReport() {
   const [me, setMe]               = useState<Me | null>(null)
   const [operators, setOperators] = useState<Operator[]>([])
   const [modalidades, setModalidades] = useState<string[]>([])
-  const [dateFrom, setDateFrom]   = useState(() => searchParams.get('date_from') ?? monthStart)
-  const [dateTo, setDateTo]       = useState(() => searchParams.get('date_to') ?? today)
-  const [origem, setOrigem]       = useState(() => searchParams.get('origem') ?? '')
-  const [modalidadeFilter, setModalidadeFilter] = useState(() => searchParams.get('modalidade') ?? '')
+  const storedFilters = loadStoredFilters()
+  const [dateFrom, setDateFrom]   = useState(() => searchParams.get('date_from') ?? storedFilters.dateFrom ?? monthStart)
+  const [dateTo, setDateTo]       = useState(() => searchParams.get('date_to') ?? storedFilters.dateTo ?? today)
+  const [origem, setOrigem]       = useState(() => searchParams.get('origem') ?? storedFilters.origem ?? '')
+  const [modalidadeFilter, setModalidadeFilter] = useState(() => searchParams.get('modalidade') ?? storedFilters.modalidadeFilter ?? '')
   const [conversionPointFilter, setConversionPointFilter] = useState(() => searchParams.get('conversion_point') ?? '')
-  const [search, setSearch]       = useState(() => searchParams.get('search') ?? '')
+  const [search, setSearch]       = useState(() => searchParams.get('search') ?? storedFilters.search ?? '')
   const [page, setPage]           = useState(1)
   const [report, setReport]       = useState<ReportResponse | null>(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
-  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? '')
-  const [perceptionFilter, setPerceptionFilter] = useState(() => searchParams.get('perception') ?? '')
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? storedFilters.statusFilter ?? '')
+  const [perceptionFilter, setPerceptionFilter] = useState(() => searchParams.get('perception') ?? storedFilters.perceptionFilter ?? '')
   const vencidosFilter = searchParams.get('vencidos') === '1'
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
@@ -169,6 +191,22 @@ export default function LeadsReport() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [filterOpen])
+
+  useEffect(() => {
+    const toStore: StoredFilters = { dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search }
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore))
+  }, [dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search])
+
+  function clearFilters() {
+    setDateFrom(monthStart)
+    setDateTo(today)
+    setOrigem('')
+    setModalidadeFilter('')
+    setStatusFilter('')
+    setPerceptionFilter('')
+    setConversionPointFilter('')
+    setSearch('')
+  }
 
   useEffect(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -596,19 +634,37 @@ export default function LeadsReport() {
         )}
 
         {filterOpen && (
-          <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: 24, overflowY: 'auto' }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 16, width: '100%', maxWidth: 640, marginTop: 40, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-              <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
-                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Filter size={16} /> Filtros
+          <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24, overflowY: 'auto' }}>
+            <style>{`@keyframes filterModalIn { from { opacity: 0; transform: translateY(-10px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-card, #fff)', borderRadius: 20, width: '100%', maxWidth: 940,
+                boxShadow: '0 24px 70px rgba(0,0,0,0.3)', animation: 'filterModalIn 180ms ease-out',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{
+                padding: '22px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'linear-gradient(135deg, rgba(37,99,235,0.08), rgba(124,58,237,0.05))',
+                borderBottom: '1px solid var(--border)',
+              }}>
+                <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 32, height: 32, borderRadius: 10, background: '#2563EB', color: 'white',
+                  }}>
+                    <Filter size={16} />
+                  </span>
+                  Filtros
                 </p>
-                <button onClick={() => setFilterOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
-                  <X size={18} />
+                <button onClick={() => setFilterOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }}>
+                  <X size={20} />
                 </button>
               </div>
 
-              <div style={{ padding: '20px 24px 24px' }}>
-                <div className="flex flex-wrap gap-4 items-end">
+              <div style={{ padding: '24px 28px 28px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
                   <div className="flex flex-col gap-1">
                     <label style={labelStyle}>Data Início</label>
                     <input
@@ -616,7 +672,7 @@ export default function LeadsReport() {
                       value={dateFrom}
                       onChange={e => setDateFrom(e.target.value)}
                       className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'var(--text-2)' }}
+                      style={{ color: 'var(--text-2)', width: '100%' }}
                     />
                   </div>
 
@@ -627,7 +683,7 @@ export default function LeadsReport() {
                       value={dateTo}
                       onChange={e => setDateTo(e.target.value)}
                       className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'var(--text-2)' }}
+                      style={{ color: 'var(--text-2)', width: '100%' }}
                     />
                   </div>
 
@@ -638,7 +694,7 @@ export default function LeadsReport() {
                         value={origem}
                         onChange={e => setOrigem(e.target.value)}
                         className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', minWidth: 170 }}
+                        style={{ color: 'var(--text-2)', width: '100%' }}
                       >
                         <option value="">Todos</option>
                         {operators.map(op => (
@@ -651,7 +707,7 @@ export default function LeadsReport() {
                         value={myName}
                         disabled
                         className="border rounded-lg px-3 py-2 text-sm bg-gray-50"
-                        style={{ color: 'var(--text-muted)', minWidth: 170 }}
+                        style={{ color: 'var(--text-muted)', width: '100%' }}
                       />
                     )}
                   </div>
@@ -663,7 +719,7 @@ export default function LeadsReport() {
                         value={modalidadeFilter}
                         onChange={e => setModalidadeFilter(e.target.value)}
                         className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', minWidth: 170 }}
+                        style={{ color: 'var(--text-2)', width: '100%' }}
                       >
                         <option value="">Todas</option>
                         {modalidades.map(m => (
@@ -679,7 +735,7 @@ export default function LeadsReport() {
                       value={statusFilter}
                       onChange={e => setStatusFilter(e.target.value)}
                       className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'var(--text-2)', minWidth: 150 }}
+                      style={{ color: 'var(--text-2)', width: '100%' }}
                     >
                       <option value="">Todos</option>
                       <option value="pending,novo,new">Pendente</option>
@@ -690,7 +746,7 @@ export default function LeadsReport() {
                     </select>
                   </div>
 
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1" style={{ gridColumn: '1 / -1' }}>
                     <label style={labelStyle}>Buscar</label>
                     <input
                       type="text"
@@ -699,7 +755,7 @@ export default function LeadsReport() {
                       onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); setFilterOpen(false) } }}
                       placeholder="Nome, CPF/CNPJ, telefone ou email"
                       className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'var(--text-2)', minWidth: 220 }}
+                      style={{ color: 'var(--text-2)', width: '100%' }}
                     />
                   </div>
                 </div>
@@ -738,28 +794,43 @@ export default function LeadsReport() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border-lt)' }}>
                   <button
-                    onClick={exportExcel}
-                    disabled={exporting || !report || report.total === 0}
+                    onClick={clearFilters}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,
-                      padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                      background: exporting ? '#D1FAE5' : '#059669', color: exporting ? '#065F46' : 'white',
-                      border: 'none', cursor: exporting || !report || report.total === 0 ? 'not-allowed' : 'pointer',
-                      opacity: !report || report.total === 0 ? 0.4 : 1, transition: 'background 150ms',
+                      padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                      background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)',
+                      cursor: 'pointer', transition: 'all 150ms',
                     }}
                   >
-                    {exporting ? '⏳ Exportando...' : '⬇ Exportar Excel'}
+                    <RotateCcw size={14} />
+                    Limpar Filtros
                   </button>
-                  <button
-                    onClick={() => { handleSearch(); setFilterOpen(false) }}
-                    disabled={loading}
-                    className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
-                    style={{ height: 38 }}
-                  >
-                    {loading ? 'Buscando…' : 'Buscar'}
-                  </button>
+
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      onClick={exportExcel}
+                      disabled={exporting || !report || report.total === 0}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                        background: exporting ? '#D1FAE5' : '#059669', color: exporting ? '#065F46' : 'white',
+                        border: 'none', cursor: exporting || !report || report.total === 0 ? 'not-allowed' : 'pointer',
+                        opacity: !report || report.total === 0 ? 0.4 : 1, transition: 'background 150ms',
+                      }}
+                    >
+                      {exporting ? '⏳ Exportando...' : '⬇ Exportar Excel'}
+                    </button>
+                    <button
+                      onClick={() => { handleSearch(); setFilterOpen(false) }}
+                      disabled={loading}
+                      className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+                      style={{ height: 38 }}
+                    >
+                      {loading ? 'Buscando…' : 'Buscar'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
