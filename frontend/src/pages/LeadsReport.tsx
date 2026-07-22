@@ -54,6 +54,11 @@ const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 
 const FILTERS_STORAGE_KEY = 'leadsReportFilters'
 
+const STATUS_PERDIDO = 'sale_not_performed'
+const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,convertido'
+const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
+const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
+
 interface StoredFilters {
   dateFrom: string
   dateTo: string
@@ -62,6 +67,8 @@ interface StoredFilters {
   statusFilter: string
   perceptionFilter: string
   search: string
+  lostReasonFilter: string
+  closedSubStatus: string
 }
 
 function loadStoredFilters(): Partial<StoredFilters> {
@@ -163,6 +170,7 @@ export default function LeadsReport() {
   const [me, setMe]               = useState<Me | null>(null)
   const [operators, setOperators] = useState<Operator[]>([])
   const [modalidades, setModalidades] = useState<string[]>([])
+  const [lostReasons, setLostReasons] = useState<string[]>([])
   const storedFilters = loadStoredFilters()
   const [dateFrom, setDateFrom]   = useState(() => searchParams.get('date_from') ?? storedFilters.dateFrom ?? monthStart)
   const [dateTo, setDateTo]       = useState(() => searchParams.get('date_to') ?? storedFilters.dateTo ?? today)
@@ -176,6 +184,8 @@ export default function LeadsReport() {
   const [error, setError]         = useState('')
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? storedFilters.statusFilter ?? '')
   const [perceptionFilter, setPerceptionFilter] = useState(() => searchParams.get('perception') ?? storedFilters.perceptionFilter ?? '')
+  const [lostReasonFilter, setLostReasonFilter] = useState(() => searchParams.get('lost_reason') ?? storedFilters.lostReasonFilter ?? '')
+  const [closedSubStatus, setClosedSubStatus] = useState(() => storedFilters.closedSubStatus ?? '')
   const vencidosFilter = searchParams.get('vencidos') === '1'
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
@@ -193,9 +203,9 @@ export default function LeadsReport() {
   }, [filterOpen])
 
   useEffect(() => {
-    const toStore: StoredFilters = { dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search }
+    const toStore: StoredFilters = { dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus }
     localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore))
-  }, [dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search])
+  }, [dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus])
 
   const [clearTrigger, setClearTrigger] = useState(0)
 
@@ -208,6 +218,8 @@ export default function LeadsReport() {
     setPerceptionFilter('')
     setConversionPointFilter('')
     setSearch('')
+    setLostReasonFilter('')
+    setClosedSubStatus('')
     setFilterOpen(false)
     setClearTrigger(c => c + 1)
   }
@@ -220,10 +232,16 @@ export default function LeadsReport() {
         if (r.data.role === 'admin' || r.data.username === 'lucas@o2solution.com.br') {
           api.get<string[]>('/api/v1/leads/origins').then(u => setOperators(u.data))
           api.get<string[]>('/api/v1/leads/modalidades').then(u => setModalidades(u.data))
+          api.get<string[]>('/api/v1/leads/lost-reasons').then(u => setLostReasons(u.data))
         }
       })
       .catch(() => navigate('/login'))
   }, [navigate])
+
+  useEffect(() => {
+    if (statusFilter !== STATUS_PERDIDO) setLostReasonFilter('')
+    if (statusFilter !== STATUS_FECHADO) setClosedSubStatus('')
+  }, [statusFilter])
 
   useEffect(() => {
     if (me) fetchReport(1)
@@ -252,10 +270,11 @@ export default function LeadsReport() {
       }
       if (vencidosFilter) params.vencidos = true
       if (isAdmin && origem) params.origem = origem
-      if (statusFilter) params.status = statusFilter
+      if (statusFilter) params.status = closedSubStatus || statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
       if (conversionPointFilter) params.conversion_point = conversionPointFilter
+      if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
       if (search.trim()) params.search = search.trim()
 
       api
@@ -273,7 +292,7 @@ export default function LeadsReport() {
         })
         .finally(() => setLoading(false))
     },
-    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, conversionPointFilter, search, vencidosFilter, isAdmin, navigate],
+    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, closedSubStatus, search, vencidosFilter, isAdmin, navigate],
   )
 
   useEffect(() => {
@@ -293,10 +312,11 @@ export default function LeadsReport() {
       }
       if (vencidosFilter) params.vencidos = true
       if (isAdmin && origem) params.origem = origem
-      if (statusFilter) params.status = statusFilter
+      if (statusFilter) params.status = closedSubStatus || statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
       if (conversionPointFilter) params.conversion_point = conversionPointFilter
+      if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
       if (search.trim()) params.search = search.trim()
 
       const { data } = await api.get<ReportResponse>('/api/v1/leads/by-period', { params })
@@ -749,10 +769,43 @@ export default function LeadsReport() {
                       <option value="pending,novo,new">Pendente</option>
                       <option value="scheduled,qualificado,qualified">Agendado</option>
                       <option value="proposal_sent">Proposta</option>
-                      <option value="waiting_billing,sale_performed,fechado,closed,won,convertido">Fechado</option>
-                      <option value="sale_not_performed">Perdido</option>
+                      <option value={STATUS_FECHADO}>Fechado</option>
+                      <option value={STATUS_PERDIDO}>Perdido</option>
                     </select>
                   </div>
+
+                  {statusFilter === STATUS_PERDIDO && (
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Motivo</label>
+                      <select
+                        value={lostReasonFilter}
+                        onChange={e => setLostReasonFilter(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', width: '100%' }}
+                      >
+                        <option value="">Todos</option>
+                        {lostReasons.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {statusFilter === STATUS_FECHADO && (
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Etapa</label>
+                      <select
+                        value={closedSubStatus}
+                        onChange={e => setClosedSubStatus(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', width: '100%' }}
+                      >
+                        <option value="">Todos</option>
+                        <option value={STATUS_AGUARDANDO_FATURAMENTO}>Aguardando Faturamento</option>
+                        <option value={STATUS_VENDA_REALIZADA}>Venda Realizada</option>
+                      </select>
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-1" style={{ gridColumn: '1 / -1' }}>
                     <label style={labelStyle}>Buscar</label>

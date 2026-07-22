@@ -91,6 +91,7 @@ def leads_by_period(
     perception: Optional[str] = Query(None),
     modalidade: Optional[str] = Query(None),
     conversion_point: Optional[str] = Query(None),
+    lost_reason: Optional[str] = Query(None),
     search: Optional[str] = Query(None, description="Busca por nome, CPF/CNPJ, telefone ou email"),
     vencidos: bool = Query(False),
     page: int = Query(1, ge=1),
@@ -140,6 +141,12 @@ def leads_by_period(
                 q = q.filter(Lead.modalidade.in_(parts))
         if conversion_point:
             q = q.filter(Lead.conversion_point.ilike(conversion_point))
+        if lost_reason:
+            parts = [s.strip() for s in lost_reason.split(',') if s.strip()]
+            if len(parts) == 1:
+                q = q.filter(Lead.lost_reason == parts[0])
+            else:
+                q = q.filter(Lead.lost_reason.in_(parts))
         if search:
             term = search.strip()
             digits = re.sub(r"\D", "", term)
@@ -231,6 +238,23 @@ def list_origins(
         .all()
     )
     return [r.origin for r in rows]
+
+
+@router.get("/leads/lost-reasons", response_model=List[str])
+def list_lost_reasons(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    rows = (
+        db.query(Lead.lost_reason)
+        .filter(Lead.lost_reason.isnot(None), Lead.lost_reason != "")
+        .distinct()
+        .order_by(Lead.lost_reason)
+        .all()
+    )
+    return [r.lost_reason for r in rows]
 
 
 @router.get("/leads/modalidades", response_model=List[str])
