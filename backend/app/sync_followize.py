@@ -296,7 +296,19 @@ def _parse_lead_fields(raw: dict) -> dict:
     _interest_1_id = (interests.get("interest_1") or {}).get("id")
     current_plan = CURRENT_PLAN_MAP.get(int(_interest_1_id)) if _interest_1_id else None
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "current_plan": current_plan, "document": document}
+    tracking_campaign = tracking.get("campaign") or None
+    tracking_medium = tracking.get("medium") or None
+    tracking_term = tracking.get("term") or None
+    tracking_format = tracking.get("format") or None
+    fbclid = raw.get("fbclid") or None
+    gclid = raw.get("gclid") or None
+    legal_bases = raw.get("legal_bases") or {}
+    lgpd_processing_opt_in = (legal_bases.get("processing") or {}).get("opt_in")
+    lgpd_communication_opt_in = (legal_bases.get("communication") or {}).get("opt_in")
+    first_interaction_at = _parse_followize_dt(raw.get("first_interaction_at"))
+    last_interaction_at = _parse_followize_dt(raw.get("last_interaction_at"))
+
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "current_plan": current_plan, "document": document, "tracking_campaign": tracking_campaign, "tracking_medium": tracking_medium, "tracking_term": tracking_term, "tracking_format": tracking_format, "fbclid": fbclid, "gclid": gclid, "lgpd_processing_opt_in": lgpd_processing_opt_in, "lgpd_communication_opt_in": lgpd_communication_opt_in, "first_interaction_at": first_interaction_at, "last_interaction_at": last_interaction_at}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
@@ -363,6 +375,16 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.ages_raw = fields["ages_raw"]
         existing.modalidade = fields["modalidade"]
         existing.current_plan = fields["current_plan"]
+        existing.tracking_campaign = fields["tracking_campaign"]
+        existing.tracking_medium = fields["tracking_medium"]
+        existing.tracking_term = fields["tracking_term"]
+        existing.tracking_format = fields["tracking_format"]
+        existing.fbclid = fields["fbclid"]
+        existing.gclid = fields["gclid"]
+        existing.lgpd_processing_opt_in = fields["lgpd_processing_opt_in"]
+        existing.lgpd_communication_opt_in = fields["lgpd_communication_opt_in"]
+        existing.first_interaction_at = fields["first_interaction_at"]
+        existing.last_interaction_at = fields["last_interaction_at"]
         if fields["document"]:
             existing.document = fields["document"]
         if fields["created_at"]:
@@ -390,6 +412,12 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         lost_reason=fields["lost_reason"], lost_message=fields["lost_message"],
         notes=fields["notes"], ages_raw=fields["ages_raw"], modalidade=fields["modalidade"],
         current_plan=fields["current_plan"], document=fields["document"],
+        tracking_campaign=fields["tracking_campaign"], tracking_medium=fields["tracking_medium"],
+        tracking_term=fields["tracking_term"], tracking_format=fields["tracking_format"],
+        fbclid=fields["fbclid"], gclid=fields["gclid"],
+        lgpd_processing_opt_in=fields["lgpd_processing_opt_in"],
+        lgpd_communication_opt_in=fields["lgpd_communication_opt_in"],
+        first_interaction_at=fields["first_interaction_at"], last_interaction_at=fields["last_interaction_at"],
     )
     if fields["created_at"]:
         lead_kwargs["created_at"] = fields["created_at"]
@@ -485,23 +513,34 @@ async def sync_leads_backfill(days: int = 365) -> None:
     except Exception as exc:
         logger.error("Erro no backfill Followize: %s", exc)
         return
+    BATCH_SIZE = 200
     db: Session = SessionLocal()
     try:
         default_user = db.query(User).first()
         if not default_user:
             return
-        inserted = updated = 0
-        for raw in raw_leads:
-            result = _upsert_lead(db, raw, default_user.id)
-            if result == "inserted":
-                inserted += 1
-            else:
-                updated += 1
-        db.commit()
-        logger.info("Backfill concluído: %d inseridos, %d atualizados", inserted, updated)
-    except Exception as exc:
-        db.rollback()
-        logger.exception("Erro no backfill: %s", exc)
+        inserted = updated = failed = 0
+        for i in range(0, len(raw_leads), BATCH_SIZE):
+            batch = raw_leads[i:i + BATCH_SIZE]
+            batch_inserted = batch_updated = 0
+            try:
+                for raw in batch:
+                    result = _upsert_lead(db, raw, default_user.id)
+                    if result == "inserted":
+                        batch_inserted += 1
+                    else:
+                        batch_updated += 1
+                db.commit()
+                inserted += batch_inserted
+                updated += batch_updated
+            except Exception as exc:
+                db.rollback()
+                failed += len(batch)
+                logger.exception("Erro no lote %d-%d do backfill: %s", i, i + len(batch), exc)
+        logger.info(
+            "Backfill concluído: %d inseridos, %d atualizados, %d falharam",
+            inserted, updated, failed,
+        )
     finally:
         db.close()
 

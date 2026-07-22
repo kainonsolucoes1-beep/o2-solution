@@ -185,6 +185,16 @@ def leads_by_period(
             modalidade=r.modalidade,
             current_plan=r.current_plan,
             document=r.document,
+            tracking_campaign=r.tracking_campaign,
+            tracking_medium=r.tracking_medium,
+            tracking_term=r.tracking_term,
+            tracking_format=r.tracking_format,
+            fbclid=r.fbclid,
+            gclid=r.gclid,
+            lgpd_processing_opt_in=r.lgpd_processing_opt_in,
+            lgpd_communication_opt_in=r.lgpd_communication_opt_in,
+            first_interaction_at=r.first_interaction_at,
+            last_interaction_at=r.last_interaction_at,
         )
         for r in rows
     ]
@@ -256,6 +266,12 @@ def get_lead(
         is_renutrucao=bool(lead.is_renutrucao),
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
         modalidade=lead.modalidade, current_plan=lead.current_plan, document=lead.document,
+        tracking_campaign=lead.tracking_campaign, tracking_medium=lead.tracking_medium,
+        tracking_term=lead.tracking_term, tracking_format=lead.tracking_format,
+        fbclid=lead.fbclid, gclid=lead.gclid,
+        lgpd_processing_opt_in=lead.lgpd_processing_opt_in,
+        lgpd_communication_opt_in=lead.lgpd_communication_opt_in,
+        first_interaction_at=lead.first_interaction_at, last_interaction_at=lead.last_interaction_at,
         created_at=lead.created_at, updated_at=lead.updated_at,
     )
 

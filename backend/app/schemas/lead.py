@@ -44,6 +44,16 @@ class LeadReportItem(BaseModel):
     modalidade: Optional[str] = None
     current_plan: Optional[str] = None
     document: Optional[str] = None
+    tracking_campaign: Optional[str] = None
+    tracking_medium: Optional[str] = None
+    tracking_term: Optional[str] = None
+    tracking_format: Optional[str] = None
+    fbclid: Optional[str] = None
+    gclid: Optional[str] = None
+    lgpd_processing_opt_in: Optional[bool] = None
+    lgpd_communication_opt_in: Optional[bool] = None
+    first_interaction_at: Optional[datetime] = None
+    last_interaction_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
