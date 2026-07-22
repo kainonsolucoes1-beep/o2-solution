@@ -172,12 +172,9 @@ const CONV_COLORS  = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
 // ════════════════════════════════════════════════════════════════════════════
 // Pipeline sub-tab component
 // ════════════════════════════════════════════════════════════════════════════
-function PipelineTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
+function PipelineTab({ dateFrom, dateTo, selectedSources }: { dateFrom: string; dateTo: string; selectedSources: string[] }) {
   const navigate = useNavigate()
 
-  const [selectedSources, setSelectedSources] = useState<string[]>([])
-  const [sourcesOpen, setSourcesOpen]         = useState(false)
-  const [sources, setSources]                 = useState<string[]>([])
   const [overview, setOverview]               = useState<PipelineOverview | null>(null)
   const [alerts, setAlerts]                   = useState<PipelineAlerts | null>(null)
   const [loading, setLoading]                 = useState(true)
@@ -185,10 +182,6 @@ function PipelineTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
   const [showLostModal, setShowLostModal]     = useState(false)
   const [motivos, setMotivos]                 = useState<MotivoItem[]>([])
   const [motivosLoading, setMotivosLoading]   = useState(false)
-
-  useEffect(() => {
-    api.get<string[]>('/api/v1/leads/origins').then(r => setSources(r.data)).catch(() => {})
-  }, [])
 
   const fetchAll = useCallback(() => {
     const qs = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
@@ -266,35 +259,6 @@ function PipelineTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string })
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Filtro de origens */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
-          <div style={{ position: 'relative' }}>
-            <button onClick={() => setSourcesOpen(o => !o)}
-              style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: selectedSources.length > 0 ? 'var(--text-3)' : 'var(--text-subtle)', background: 'var(--bg-input)', cursor: 'pointer', minWidth: 160, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <span>{selectedSources.length === 0 ? 'Todas as origens' : selectedSources.length === 1 ? selectedSources[0] : `${selectedSources.length} origens`}</span>
-              <ChevronDown size={13} />
-            </button>
-            {sourcesOpen && (
-              <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setSourcesOpen(false)} />
-                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, background: 'var(--bg-card, white)', border: '1px solid var(--border-in)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, minWidth: 220, maxHeight: 280, overflowY: 'auto' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #F1F5F9' }}>
-                    <input type="checkbox" checked={selectedSources.length === 0} onChange={() => setSelectedSources([])} readOnly />
-                    <span style={{ color: 'var(--text-2)' }}>Todas as origens</span>
-                  </label>
-                  {sources.map(s => (
-                    <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>
-                      <input type="checkbox" checked={selectedSources.includes(s)}
-                        onChange={() => setSelectedSources(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])} />
-                      <span style={{ color: 'var(--text-2)' }}>{s}</span>
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
         {/* Overview cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16 }}>
           {overviewCards.map(card => (
@@ -1168,7 +1132,13 @@ export default function GestaoComercial() {
   const [filterOpen, setFilterOpen]   = useState(false)
   const [filterMode, setFilterMode]   = useState<'range' | 'month'>('range')
   const [showComparison, setShowComparison] = useState(false)
+  const [selectedSources, setSelectedSources] = useState<string[]>([])
+  const [sources, setSources]         = useState<string[]>([])
   const month = dateFrom.slice(0, 7)
+
+  useEffect(() => {
+    api.get<string[]>('/api/v1/leads/origins').then(r => setSources(r.data)).catch(() => {})
+  }, [])
 
 
   function applyMonth(val: string) {
@@ -1389,6 +1359,25 @@ export default function GestaoComercial() {
                 </div>
               )}
 
+              {activeTab === 'Pipeline' && (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-lt)' }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Origem</p>
+                  <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--border-in)', borderRadius: 8 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--border-lt)' }}>
+                      <input type="checkbox" checked={selectedSources.length === 0} onChange={() => setSelectedSources([])} readOnly />
+                      <span style={{ color: 'var(--text-2)' }}>Todas as origens</span>
+                    </label>
+                    {sources.map(s => (
+                      <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', cursor: 'pointer', fontSize: 13 }}>
+                        <input type="checkbox" checked={selectedSources.includes(s)}
+                          onChange={() => setSelectedSources(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])} />
+                        <span style={{ color: 'var(--text-2)' }}>{s}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
           </>
         )}
@@ -1596,7 +1585,7 @@ export default function GestaoComercial() {
       )}
 
       {/* ── PIPELINE ── */}
-      {activeTab === 'Pipeline' && <PipelineTab dateFrom={dateFrom} dateTo={dateTo} />}
+      {activeTab === 'Pipeline' && <PipelineTab dateFrom={dateFrom} dateTo={dateTo} selectedSources={selectedSources} />}
 
       {activeTab === 'Performance' && <PerformanceTab month={month} />}
 
