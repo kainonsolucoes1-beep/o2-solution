@@ -197,6 +197,8 @@ export default function LeadsReport() {
     localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore))
   }, [dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search])
 
+  const [clearTrigger, setClearTrigger] = useState(0)
+
   function clearFilters() {
     setDateFrom(monthStart)
     setDateTo(today)
@@ -206,6 +208,8 @@ export default function LeadsReport() {
     setPerceptionFilter('')
     setConversionPointFilter('')
     setSearch('')
+    setFilterOpen(false)
+    setClearTrigger(c => c + 1)
   }
 
   useEffect(() => {
@@ -271,6 +275,10 @@ export default function LeadsReport() {
     },
     [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, conversionPointFilter, search, vencidosFilter, isAdmin, navigate],
   )
+
+  useEffect(() => {
+    if (clearTrigger > 0) fetchReport(1)
+  }, [clearTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [exporting, setExporting] = useState(false)
 
