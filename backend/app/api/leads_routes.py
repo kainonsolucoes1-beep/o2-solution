@@ -161,6 +161,9 @@ def leads_by_period(
                 Lead.created_at, Lead.updated_at, Lead.origin, Lead.is_renutrucao,
                 Lead.lost_reason, Lead.lost_message, Lead.modalidade,
                 Lead.conversion_point, Lead.current_plan, Lead.document,
+                Lead.tracking_campaign, Lead.tracking_medium, Lead.tracking_term, Lead.tracking_format,
+                Lead.fbclid, Lead.gclid, Lead.lgpd_processing_opt_in, Lead.lgpd_communication_opt_in,
+                Lead.first_interaction_at, Lead.last_interaction_at,
             )
         )
         .order_by(Lead.created_at.desc())

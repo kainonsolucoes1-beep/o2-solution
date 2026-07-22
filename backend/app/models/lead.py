@@ -12,7 +12,7 @@ class Lead(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     name = Column(String(255), nullable=False)
     email = Column(String(255))
-    phone = Column(String(20))
+    phone = Column(String(255))
     company = Column(String(255))
     origin = Column(String(100))
     conversion_point = Column(String(255), nullable=True)

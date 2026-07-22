@@ -522,21 +522,28 @@ async def sync_leads_backfill(days: int = 365) -> None:
         inserted = updated = failed = 0
         for i in range(0, len(raw_leads), BATCH_SIZE):
             batch = raw_leads[i:i + BATCH_SIZE]
-            batch_inserted = batch_updated = 0
+            batch_inserted = batch_updated = batch_failed = 0
+            for raw in batch:
+                try:
+                    with db.begin_nested():
+                        result = _upsert_lead(db, raw, default_user.id)
+                except Exception as exc:
+                    batch_failed += 1
+                    logger.error("Falha ao processar lead followize_id=%s: %s", raw.get("id"), exc)
+                    continue
+                if result == "inserted":
+                    batch_inserted += 1
+                else:
+                    batch_updated += 1
             try:
-                for raw in batch:
-                    result = _upsert_lead(db, raw, default_user.id)
-                    if result == "inserted":
-                        batch_inserted += 1
-                    else:
-                        batch_updated += 1
                 db.commit()
                 inserted += batch_inserted
                 updated += batch_updated
+                failed += batch_failed
             except Exception as exc:
                 db.rollback()
                 failed += len(batch)
-                logger.exception("Erro no lote %d-%d do backfill: %s", i, i + len(batch), exc)
+                logger.exception("Erro ao comitar lote %d-%d do backfill: %s", i, i + len(batch), exc)
         logger.info(
             "Backfill concluído: %d inseridos, %d atualizados, %d falharam",
             inserted, updated, failed,
