@@ -526,14 +526,10 @@ function ProjecaoTab() {
 
 interface PerfLead { nome: string; origem?: string; status: string; valor: number | null; tipo: string }
 
-function PerformanceTab({ month }: { month: string }) {
-  const [useMonth, setUseMonth]     = useState(false)
+function PerformanceTab({ month, dateFrom, dateTo }: { month: string; dateFrom: string; dateTo: string }) {
   const [lifetimeData, setLifetimeData] = useState<OperadorPerf[]>([])
   const [trend, setTrend]           = useState<MensalItem[]>([])
   const [loadingLifetime, setLoadingLifetime] = useState(true)
-  const [monthData, setMonthData]   = useState<OperadorPerf[]>([])
-  const [prevData, setPrevData]     = useState<OperadorPerf[]>([])
-  const [loadingMonth, setLoadingMonth] = useState(false)
   const [sortBy, setSortBy]         = useState<'receita' | 'captacoes' | 'vendas' | 'cancelados'>('receita')
   const [expConv, setExpConv]       = useState(false)
   const [expRec, setExpRec]         = useState(false)
@@ -544,8 +540,8 @@ function PerformanceTab({ month }: { month: string }) {
   const [perfStatusFilter, setPerfStatusFilter] = useState<string | null>(null)
   const [perfTrend, setPerfTrend]           = useState<MensalItem[] | null>(null)
 
-  const data    = useMonth ? monthData : lifetimeData
-  const loading = useMonth ? loadingMonth : loadingLifetime
+  const data    = lifetimeData
+  const loading = loadingLifetime
 
   function openPerfModal(title: string, origens?: string, statusGroup?: string, withTrend?: boolean) {
     setPerfPopup(title); setPerfLeads([]); setPerfLoading(true); setPerfStatusFilter(null); setPerfTrend(null)
@@ -568,35 +564,24 @@ function PerformanceTab({ month }: { month: string }) {
     return () => window.removeEventListener('keydown', h)
   }, [perfPopup])
 
-  // histórico vitalício (padrão) + tendência da equipe desde o primeiro lead — busca única
+  // histórico do período selecionado (filtro global de datas) + tendência mensal
   useEffect(() => {
     setLoadingLifetime(true)
-    api.get<PerformanceHistorico>('/api/v1/gestao-comercial/performance-historico')
+    const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
+    api.get<PerformanceHistorico>(`/api/v1/gestao-comercial/performance-historico?${p}`)
       .then(r => { setLifetimeData(mergeO2Operadores(r.data.operadores)); setTrend(r.data.trend) })
       .catch(() => { setLifetimeData([]); setTrend([]) })
       .finally(() => setLoadingLifetime(false))
-  }, [])
-
-  // recorte por mês — só busca quando o usuário liga o filtro
-  useEffect(() => {
-    if (!useMonth) return
-    setLoadingMonth(true)
-    Promise.all([
-      api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${month}`),
-      api.get<OperadorPerf[]>(`/api/v1/gestao-comercial/performance-operadores?month=${prevMonthStr(month)}`),
-    ])
-      .then(([cur, prv]) => { setMonthData(mergeO2Operadores(cur.data)); setPrevData(mergeO2Operadores(prv.data)) })
-      .catch(() => { setMonthData([]); setPrevData([]) })
-      .finally(() => setLoadingMonth(false))
-  }, [useMonth, month])
+  }, [dateFrom, dateTo])
 
   // ── derivados ──────────────────────────────────────────────────────────
   const totalCap      = data.reduce((s, r) => s + r.captacoes, 0)
   const totalVendas   = data.reduce((s, r) => s + r.vendas, 0)
   const totalRec      = data.reduce((s, r) => s + r.receita, 0)
   const avgConv       = totalCap > 0 ? +(totalVendas / totalCap * 100).toFixed(1) : 0
-  const prevVendas    = prevData.reduce((s, r) => s + r.vendas, 0)
   const avgTicket     = totalVendas > 0 ? totalRec / totalVendas : 0
+  const melhorMesReceita = trend.length > 1 ? [...trend].sort((a, b) => b.receita - a.receita)[0] : null
+  const melhorMesVendas  = trend.length > 1 ? [...trend].sort((a, b) => b.vendas - a.vendas)[0] : null
 
   const qualified  = data.filter(r => r.captacoes >= 3)
   const byReceita  = [...data].sort((a, b) => b.receita - a.receita)
@@ -612,11 +597,10 @@ function PerformanceTab({ month }: { month: string }) {
   const insights = useMemo(() => {
     if (!data.length) return []
     const list: { type: 'ok' | 'warn'; text: string }[] = []
-    const periodo = useMonth ? 'neste mês' : 'no período'
     // top vendedor — só quando há primeiro lugar isolado (sem empate)
     if (byVendas[0] && totalVendas > 0 && byVendas[0].vendas > (byVendas[1]?.vendas ?? 0)) {
       const pct = Math.round(byVendas[0].vendas / totalVendas * 100)
-      list.push({ type: 'ok', text: `${byVendas[0].operador} fechou ${pct}% das vendas da equipe ${periodo}.` })
+      list.push({ type: 'ok', text: `${byVendas[0].operador} fechou ${pct}% das vendas da equipe no período.` })
     }
     // melhor conversão (somente quem tem ≥1 venda, primeiro lugar isolado)
     const byConvVendas = [...data].filter(r => r.vendas > 0).sort((a, b) => b.conversao - a.conversao)
@@ -628,12 +612,14 @@ function PerformanceTab({ month }: { month: string }) {
     const hclt = [...byConv].find(r => r.vendas > 0 && r.conversao > avgConv && (r.receita / r.vendas) < avgTicket * 0.75)
     if (hclt)
       list.push({ type: 'warn', text: `${hclt.operador} tem boa conversão (${hclt.conversao}%), mas ticket médio abaixo da equipe (${fmtBrl(Math.round(hclt.receita / hclt.vendas))}).` })
-    if (useMonth && prevVendas > 0) {
-      const diff = Math.round((totalVendas - prevVendas) / prevVendas * 100)
-      list.push({ type: diff >= 0 ? 'ok' : 'warn', text: `Equipe está ${Math.abs(diff)}% ${diff >= 0 ? 'acima' : 'abaixo'} do mês anterior em vendas (${prevVendas} → ${totalVendas}).` })
+    if (melhorMesReceita && melhorMesReceita.receita > 0) {
+      const mesmoMesVendas = melhorMesVendas?.mes === melhorMesReceita.mes
+      list.push({ type: 'ok', text: mesmoMesVendas
+        ? `${melhorMesReceita.mes_label} foi o melhor mês do período, com ${fmtBrl(melhorMesReceita.receita)} em receita e ${melhorMesReceita.vendas} vendas.`
+        : `${melhorMesReceita.mes_label} foi o melhor mês em receita (${fmtBrl(melhorMesReceita.receita)}); ${melhorMesVendas?.mes_label} teve o maior número de vendas (${melhorMesVendas?.vendas}).` })
     }
     return list
-  }, [data, byVendas, atencao, avgConv, avgTicket, byConv, prevVendas, totalVendas, useMonth])
+  }, [data, byVendas, atencao, avgConv, avgTicket, byConv, totalVendas, melhorMesReceita, melhorMesVendas])
 
   const secLabel = (txt: string) => (
     <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 14px' }}>{txt}</p>
@@ -645,23 +631,6 @@ function PerformanceTab({ month }: { month: string }) {
   return (
     <>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
-
-      {/* controles */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 4, background: 'var(--bg-input)', borderRadius: 8, padding: 3 }}>
-          {([{ v: false, label: 'Todo o período' }, { v: true, label: 'Mês selecionado' }] as const).map(o => (
-            <button key={String(o.v)} onClick={() => { if (o.v) setLoadingMonth(true); setUseMonth(o.v) }} style={{
-              padding: '6px 14px', borderRadius: 6, border: 'none',
-              background: useMonth === o.v ? 'var(--bg-card)' : 'transparent',
-              color: useMonth === o.v ? 'var(--text-1)' : 'var(--text-muted)',
-              cursor: 'pointer', fontSize: 12, fontWeight: useMonth === o.v ? 700 : 500,
-              boxShadow: useMonth === o.v ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 150ms',
-            }}>
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* ── Evolução Geral ── */}
       <div>
@@ -1587,7 +1556,7 @@ export default function GestaoComercial() {
       {/* ── PIPELINE ── */}
       {activeTab === 'Pipeline' && <PipelineTab dateFrom={dateFrom} dateTo={dateTo} selectedSources={selectedSources} />}
 
-      {activeTab === 'Performance' && <PerformanceTab month={month} />}
+      {activeTab === 'Performance' && <PerformanceTab month={month} dateFrom={dateFrom} dateTo={dateTo} />}
 
       {activeTab === 'Projeção' && <ProjecaoTab />}
 

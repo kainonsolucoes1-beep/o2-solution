@@ -432,10 +432,12 @@ def performance_operadores(
 @router.get("/performance-historico")
 def performance_historico(
     origens: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Historico vitalicio por operador (sem filtro de mes) + tendencia mensal desde o primeiro lead."""
+    """Historico por operador (vitalicio ou recortado por date_from/date_to) + tendencia mensal."""
     filters = [Lead.origin.isnot(None), Lead.origin != ""]
     if origens:
         parts = [s.strip() for s in origens.split(",") if s.strip()]
@@ -443,6 +445,10 @@ def performance_historico(
             filters.append(Lead.origin == parts[0])
         elif parts:
             filters.append(Lead.origin.in_(parts))
+    if date_from:
+        filters.append(Lead.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+    if date_to:
+        filters.append(Lead.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     leads = (
         db.query(Lead.origin, Lead.status, Lead.value_potential, Lead.created_at)
@@ -482,25 +488,27 @@ def performance_historico(
     if not leads:
         return {"operadores": operadores, "trend": []}
 
-    monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
-    for _, status, _, created_at in leads:
+    monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0})
+    for _, status, value, created_at in leads:
         key = f"{created_at.year}-{created_at.month:02d}"
         monthly[key]["captacoes"] += 1
         if (status or "").lower() in venda_set:
             monthly[key]["vendas"] += 1
+            monthly[key]["receita"] += float(value or 0)
 
     earliest = min(l.created_at for l in leads)
-    now = datetime.utcnow()
+    latest = max(l.created_at for l in leads)
     trend = []
     year, mon = earliest.year, earliest.month
-    while (year, mon) <= (now.year, now.month):
+    while (year, mon) <= (latest.year, latest.month):
         key = f"{year}-{mon:02d}"
-        m = monthly.get(key, {"captacoes": 0, "vendas": 0})
+        m = monthly.get(key, {"captacoes": 0, "vendas": 0, "receita": 0.0})
         trend.append({
             "mes": key,
             "mes_label": f"{calendar.month_abbr[mon]}/{str(year)[2:]}",
             "captacoes": m["captacoes"],
             "vendas": m["vendas"],
+            "receita": m["receita"],
         })
         mon += 1
         if mon > 12:
