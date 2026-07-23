@@ -526,7 +526,7 @@ function ProjecaoTab() {
 
 interface PerfLead { nome: string; origem?: string; status: string; valor: number | null; tipo: string }
 
-function PerformanceTab({ month, dateFrom, dateTo }: { month: string; dateFrom: string; dateTo: string }) {
+function PerformanceTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
   const [lifetimeData, setLifetimeData] = useState<OperadorPerf[]>([])
   const [trend, setTrend]           = useState<MensalItem[]>([])
   const [loadingLifetime, setLoadingLifetime] = useState(true)
@@ -545,14 +545,15 @@ function PerformanceTab({ month, dateFrom, dateTo }: { month: string; dateFrom: 
 
   function openPerfModal(title: string, origens?: string, statusGroup?: string, withTrend?: boolean) {
     setPerfPopup(title); setPerfLeads([]); setPerfLoading(true); setPerfStatusFilter(null); setPerfTrend(null)
-    const p = new URLSearchParams({ month })
+    const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
     if (origens) p.set('origens', origens)
     if (statusGroup) p.set('status_group', statusGroup)
     api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
       .then(r => setPerfLeads(r.data)).catch(() => setPerfLeads([]))
       .finally(() => setPerfLoading(false))
     if (withTrend && origens) {
-      api.get<PerformanceHistorico>(`/api/v1/gestao-comercial/performance-historico?origens=${encodeURIComponent(origens)}`)
+      const pt = new URLSearchParams({ origens, date_from: dateFrom, date_to: dateTo })
+      api.get<PerformanceHistorico>(`/api/v1/gestao-comercial/performance-historico?${pt}`)
         .then(r => setPerfTrend(r.data.trend)).catch(() => setPerfTrend([]))
     }
   }
@@ -1556,7 +1557,7 @@ export default function GestaoComercial() {
       {/* ── PIPELINE ── */}
       {activeTab === 'Pipeline' && <PipelineTab dateFrom={dateFrom} dateTo={dateTo} selectedSources={selectedSources} />}
 
-      {activeTab === 'Performance' && <PerformanceTab month={month} dateFrom={dateFrom} dateTo={dateTo} />}
+      {activeTab === 'Performance' && <PerformanceTab dateFrom={dateFrom} dateTo={dateTo} />}
 
       {activeTab === 'Projeção' && <ProjecaoTab />}
 

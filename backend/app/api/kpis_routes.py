@@ -283,22 +283,28 @@ def motivos_cancelamento(
 @router.get("/leads-conv-point")
 def leads_conv_point(
     month: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     conv_point: str = Query(None),
     origens: str = Query(None),
     status_group: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
+    if date_from and date_to:
+        dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+        dt_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
     else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
+        if month:
+            try:
+                year, mon = int(month[:4]), int(month[5:7])
+            except (ValueError, IndexError):
+                year, mon = datetime.utcnow().year, datetime.utcnow().month
+        else:
+            year, mon = datetime.utcnow().year, datetime.utcnow().month
 
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+        dt_from = datetime(year, mon, 1)
+        dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
 
     filters = [Lead.created_at >= dt_from, Lead.created_at <= dt_to]
     if conv_point:
@@ -314,7 +320,6 @@ def leads_conv_point(
         db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential)
         .filter(*filters)
         .order_by(Lead.created_at.desc())
-        .limit(50)
         .all()
     )
 
