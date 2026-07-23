@@ -1368,13 +1368,13 @@ export default function KPIs() {
                       <div style={{ fontSize: 20, fontWeight: 800, color: '#059669' }}>{baseDrawerData.base_liquida}</div>
                     </div>
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '-12px 0 30px' }}>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '-12px 0 20px' }}>
                     Vendas: <strong style={{ color: '#059669' }}>{baseDrawerData.vendas}</strong> ({baseDrawerData.conversao}% conversão) · % Cancelamento: <strong style={{ color: '#EF4444' }}>{baseDrawerData.pct_cancelamento}%</strong>
                   </p>
 
                   {/* Receita */}
-                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Receita Potencial</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 30 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px', paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>Receita Potencial</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 20 }}>
                     <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '12px 14px' }}>
                       <div style={{ fontSize: 10, fontWeight: 600, color: '#F97316', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Total (base líquida)</div>
                       <div style={{ fontSize: 16, fontWeight: 800, color: '#C2410C' }}>{fmtBrl(baseDrawerData.receita_potencial)}</div>
@@ -1386,7 +1386,7 @@ export default function KPIs() {
                   </div>
 
                   {/* Modalidade (PF x PME x demais) */}
-                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Perfil do Cliente (Modalidade)</p>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px', paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>Perfil do Cliente (Modalidade)</p>
                   {baseDrawerData.modalidades.length === 0 ? (
                     <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginBottom: 34 }}>Sem dados de modalidade.</p>
                   ) : (
@@ -1478,13 +1478,13 @@ export default function KPIs() {
                       <div style={{ fontSize: 20, fontWeight: 800, color: '#059669' }}>{convPointDrawerData.base_liquida}</div>
                     </div>
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '-12px 0 30px' }}>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '-12px 0 20px' }}>
                     Vendas: <strong style={{ color: '#059669' }}>{convPointDrawerData.vendas}</strong> ({convPointDrawerData.conversao}% conversão) · % Perda: <strong style={{ color: '#EF4444' }}>{convPointDrawerData.pct_perda}%</strong>
                   </p>
 
                   {/* Receita */}
-                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Receita Potencial</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 30 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px', paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>Receita Potencial</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 20 }}>
                     <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '12px 14px' }}>
                       <div style={{ fontSize: 10, fontWeight: 600, color: '#F97316', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Total (base líquida)</div>
                       <div style={{ fontSize: 16, fontWeight: 800, color: '#C2410C' }}>{fmtBrl(convPointDrawerData.receita_potencial)}</div>
@@ -1496,7 +1496,7 @@ export default function KPIs() {
                   </div>
 
                   {/* Modalidade (PF x PME x demais) */}
-                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Perfil do Cliente (Modalidade)</p>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px', paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>Perfil do Cliente (Modalidade)</p>
                   {convPointDrawerData.modalidades.length === 0 ? (
                     <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginBottom: 22 }}>Sem dados de modalidade.</p>
                   ) : (
@@ -1744,13 +1744,13 @@ export default function KPIs() {
                       <div style={{ fontSize: 20, fontWeight: 800, color: '#059669' }}>{sdrDrawerData.base_liquida}</div>
                     </div>
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '-12px 0 30px' }}>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '-12px 0 20px' }}>
                     Vendas: <strong style={{ color: '#059669' }}>{sdrDrawerData.vendas}</strong> ({sdrDrawerData.conversao}% conversão) · % Perda: <strong style={{ color: '#EF4444' }}>{sdrDrawerData.pct_perda}%</strong>
                   </p>
 
                   {/* Receita */}
-                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Receita Potencial</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 30 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px', paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>Receita Potencial</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 20 }}>
                     <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '12px 14px' }}>
                       <div style={{ fontSize: 10, fontWeight: 600, color: '#F97316', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Total (base líquida)</div>
                       <div style={{ fontSize: 16, fontWeight: 800, color: '#C2410C' }}>{fmtBrl(sdrDrawerData.receita_potencial)}</div>
@@ -1762,7 +1762,7 @@ export default function KPIs() {
                   </div>
 
                   {/* Modalidade (PF x PME x demais) */}
-                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>Perfil do Cliente (Modalidade)</p>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px', paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>Perfil do Cliente (Modalidade)</p>
                   {sdrDrawerData.modalidades.length === 0 ? (
                     <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginBottom: 22 }}>Sem dados de modalidade.</p>
                   ) : (
