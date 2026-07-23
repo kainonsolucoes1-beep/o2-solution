@@ -454,7 +454,7 @@ def dashboard_performance(
     bases_count: dict = defaultdict(int)
     conv_points_count: dict = defaultdict(int)
     for origin, notes, conversion_point in hoje_origem_rows:
-        if is_organico(origin):
+        if is_organico(origin, conversion_point):
             cp = (conversion_point or "").strip() or "Não informado"
             conv_points_count[cp] += 1
         else:

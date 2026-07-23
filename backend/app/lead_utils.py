@@ -35,6 +35,8 @@ def extract_base(notes: str | None) -> str | None:
 ORGANICO_EXTRA = {'site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp'}
 
 
-def is_organico(origin: str | None) -> bool:
+def is_organico(origin: str | None, conversion_point: str | None = None) -> bool:
+    if (conversion_point or '').strip().lower() == 'chatgpt.com':
+        return True
     o = (origin or '').lower()
     return 'org' in o or o in ORGANICO_EXTRA
