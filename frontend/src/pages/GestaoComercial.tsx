@@ -665,7 +665,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
 
       {/* ── LINHA 2: Destaques ── */}
       <div>
-        {secLabel('Quem Está se Destacando')}
+        {secLabel('Destaque')}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
           {byReceita[0] && (
             <div onClick={() => openPerfModal(`Leads de ${byReceita[0].operador}`, byReceita[0].operador)} style={{ background: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', borderRadius: 14, padding: 20, border: '1px solid #6EE7B7', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #6EE7B755' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
