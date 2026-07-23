@@ -1381,6 +1381,16 @@ export default function GestaoComercial() {
                 </div>
               )}
 
+              <button
+                onClick={() => {
+                  setFilterMode('range'); setDateFrom(_gcMonthStart); setDateTo(_gcToday)
+                  setTeamFilter(''); setSelectedSources([]); setFilterOpen(false)
+                }}
+                style={{ width: '100%', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-lt)', borderLeft: 'none', borderRight: 'none', borderBottom: 'none', background: 'none', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center' }}
+              >
+                Limpar filtro
+              </button>
+
             </div>
           </>
         )}
