@@ -223,6 +223,7 @@ def motivos_cancelamento(
     date_from: str = Query(None),
     date_to: str = Query(None),
     origin: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -255,6 +256,12 @@ def motivos_cancelamento(
             filters.append(Lead.origin == parts[0])
         else:
             filters.append(Lead.origin.in_(parts))
+    if team:
+        parts = [s.strip() for s in team.split(',') if s.strip()]
+        if len(parts) == 1:
+            filters.append(Lead.team == parts[0])
+        elif parts:
+            filters.append(Lead.team.in_(parts))
 
     rows = (
         db.query(
@@ -288,6 +295,7 @@ def leads_conv_point(
     conv_point: str = Query(None),
     origens: str = Query(None),
     status_group: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -313,6 +321,12 @@ def leads_conv_point(
         parts = [s.strip() for s in origens.split(',') if s.strip()]
         if parts:
             filters.append(Lead.origin.in_(parts))
+    if team:
+        parts = [s.strip() for s in team.split(',') if s.strip()]
+        if len(parts) == 1:
+            filters.append(Lead.team == parts[0])
+        elif parts:
+            filters.append(Lead.team.in_(parts))
     if status_group == 'venda':
         filters.append(Lead.status.in_(VENDA_STATUSES))
 

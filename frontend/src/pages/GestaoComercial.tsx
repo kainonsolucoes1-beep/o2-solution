@@ -48,6 +48,10 @@ interface MotivoItem { reason: string; count: number; pct: number; total_value: 
 const O2_NAMES       = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
 const ORGANICO_EXTRA = new Set(['site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp'])
 const isOrganico     = (o: string) => o.toLowerCase().includes('org') || ORGANICO_EXTRA.has(o.toLowerCase())
+const TEAM_OPTIONS   = [
+  { label: 'São Paulo', value: 'Equipe São Paulo' },
+  { label: 'Recife',    value: 'Equipe Pernambuco' },
+]
 
 interface GrupoOrigem {
   nome: string; captacoes: number; pct: number; color: string
@@ -172,7 +176,7 @@ const CONV_COLORS  = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
 // ════════════════════════════════════════════════════════════════════════════
 // Pipeline sub-tab component
 // ════════════════════════════════════════════════════════════════════════════
-function PipelineTab({ dateFrom, dateTo, selectedSources }: { dateFrom: string; dateTo: string; selectedSources: string[] }) {
+function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFrom: string; dateTo: string; selectedSources: string[]; teamParam: string }) {
   const navigate = useNavigate()
 
   const [overview, setOverview]               = useState<PipelineOverview | null>(null)
@@ -186,6 +190,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources }: { dateFrom: string; 
   const fetchAll = useCallback(() => {
     const qs = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
+    if (teamParam) qs.set('team', teamParam)
     setLoading(true)
     Promise.all([
       api.get<PipelineOverview>(`/api/v1/pipeline/overview?${qs}`),
@@ -197,7 +202,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources }: { dateFrom: string; 
         else setError('Erro ao carregar pipeline.')
       })
       .finally(() => setLoading(false))
-  }, [navigate, dateFrom, dateTo, selectedSources])
+  }, [navigate, dateFrom, dateTo, selectedSources, teamParam])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -205,6 +210,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources }: { dateFrom: string; 
     setShowLostModal(true); setMotivosLoading(true)
     const params: Record<string, string> = { date_from: dateFrom, date_to: dateTo }
     if (selectedSources.length > 0) params.origin = selectedSources.join(',')
+    if (teamParam) params.team = teamParam
     api.get<MotivoItem[]>('/api/v1/kpis/motivos-cancelamento', { params })
       .then(r => setMotivos(r.data)).catch(() => setMotivos([]))
       .finally(() => setMotivosLoading(false))
@@ -213,6 +219,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources }: { dateFrom: string; 
   const cardNav = (params: Record<string, string>) => {
     const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...params })
     if (selectedSources.length > 0) p.set('origem', selectedSources.join(','))
+    if (teamParam) p.set('team', teamParam)
     return `?${p.toString()}`
   }
 
@@ -526,7 +533,7 @@ function ProjecaoTab() {
 
 interface PerfLead { nome: string; origem?: string; status: string; valor: number | null; tipo: string }
 
-function PerformanceTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
+function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dateTo: string; teamParam: string }) {
   const [lifetimeData, setLifetimeData] = useState<OperadorPerf[]>([])
   const [trend, setTrend]           = useState<MensalItem[]>([])
   const [loadingLifetime, setLoadingLifetime] = useState(true)
@@ -548,11 +555,13 @@ function PerformanceTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string
     const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
     if (origens) p.set('origens', origens)
     if (statusGroup) p.set('status_group', statusGroup)
+    if (teamParam) p.set('team', teamParam)
     api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
       .then(r => setPerfLeads(r.data)).catch(() => setPerfLeads([]))
       .finally(() => setPerfLoading(false))
     if (withTrend && origens) {
       const pt = new URLSearchParams({ origens, date_from: dateFrom, date_to: dateTo })
+      if (teamParam) pt.set('team', teamParam)
       api.get<PerformanceHistorico>(`/api/v1/gestao-comercial/performance-historico?${pt}`)
         .then(r => setPerfTrend(r.data.trend)).catch(() => setPerfTrend([]))
     }
@@ -565,15 +574,16 @@ function PerformanceTab({ dateFrom, dateTo }: { dateFrom: string; dateTo: string
     return () => window.removeEventListener('keydown', h)
   }, [perfPopup])
 
-  // histórico do período selecionado (filtro global de datas) + tendência mensal
+  // histórico do período selecionado (filtro global de datas + equipe) + tendência mensal
   useEffect(() => {
     setLoadingLifetime(true)
     const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
+    if (teamParam) p.set('team', teamParam)
     api.get<PerformanceHistorico>(`/api/v1/gestao-comercial/performance-historico?${p}`)
       .then(r => { setLifetimeData(mergeO2Operadores(r.data.operadores)); setTrend(r.data.trend) })
       .catch(() => { setLifetimeData([]); setTrend([]) })
       .finally(() => setLoadingLifetime(false))
-  }, [dateFrom, dateTo])
+  }, [dateFrom, dateTo, teamParam])
 
   // ── derivados ──────────────────────────────────────────────────────────
   const totalCap      = data.reduce((s, r) => s + r.captacoes, 0)
@@ -1104,7 +1114,9 @@ export default function GestaoComercial() {
   const [showComparison, setShowComparison] = useState(false)
   const [selectedSources, setSelectedSources] = useState<string[]>([])
   const [sources, setSources]         = useState<string[]>([])
+  const [teamFilter, setTeamFilter]   = useState('')
   const month = dateFrom.slice(0, 7)
+  const teamParam = teamFilter
 
   useEffect(() => {
     api.get<string[]>('/api/v1/leads/origins').then(r => setSources(r.data)).catch(() => {})
@@ -1158,21 +1170,23 @@ export default function GestaoComercial() {
     // limita o mês anterior ao mesmo dia do mês corrente, senão um mês em andamento
     // sempre perde feio na comparação contra o mês anterior completo
     const untilDay = Number(dateTo.slice(8, 10))
+    const teamSuffix = teamParam ? `&team=${encodeURIComponent(teamParam)}` : ''
     Promise.all([
-      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${month}&until_day=${untilDay}`),
-      api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?month=${month}`),
-      api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}`),
-      api.get<MensalItem[]>('/api/v1/gestao-comercial/comparativo-mensal'),
-      api.get<ModalidadeItem[]>(`/api/v1/gestao-comercial/modalidades-captacao?month=${month}`),
-      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${prevMonthStr(month)}&until_day=${untilDay}`),
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${month}&until_day=${untilDay}${teamSuffix}`),
+      api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?month=${month}${teamSuffix}`),
+      api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}${teamSuffix}`),
+      api.get<MensalItem[]>(`/api/v1/gestao-comercial/comparativo-mensal?${new URLSearchParams(teamParam ? { team: teamParam } : {})}`),
+      api.get<ModalidadeItem[]>(`/api/v1/gestao-comercial/modalidades-captacao?month=${month}${teamSuffix}`),
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${prevMonthStr(month)}&until_day=${untilDay}${teamSuffix}`),
     ]).then(([k, d, o, m, mod, pk]) => {
       setKpis(k.data); setDiario(d.data); setOrigens(o.data); setMensal(m.data); setModalidades(mod.data); setPrevKpis(pk.data)
     }).catch(() => {}).finally(() => setLoading(false))
-  }, [activeTab, month, dateTo])
+  }, [activeTab, month, dateTo, teamParam])
 
   useEffect(() => {
     if (activeTab !== 'Visão Geral') return
-    api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${dateFrom}&date_to=${dateTo}`)
+    const teamSuffix = teamParam ? `&team=${encodeURIComponent(teamParam)}` : ''
+    api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${dateFrom}&date_to=${dateTo}${teamSuffix}`)
       .then(r => setQualificados(r.data.negociacao)).catch(() => {})
     // mesmo período (mesmos dias-do-mês) do mês anterior, não um mês completo
     const prevRef = new Date(dateFrom + 'T12:00:00')
@@ -1183,14 +1197,16 @@ export default function GestaoComercial() {
     const clampDay = (dateStr: string) => pad(Math.min(Number(dateStr.slice(8, 10)), lastDayPrev))
     const prevFromStr = `${y}-${pad(m + 1)}-${clampDay(dateFrom)}`
     const prevToStr = `${y}-${pad(m + 1)}-${clampDay(dateTo)}`
-    api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${prevFromStr}&date_to=${prevToStr}`)
+    api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${prevFromStr}&date_to=${prevToStr}${teamSuffix}`)
       .then(r => setPrevQualificados(r.data.negociacao)).catch(() => {})
-  }, [activeTab, dateFrom, dateTo])
+  }, [activeTab, dateFrom, dateTo, teamParam])
 
   function openDrill(tipo: DrillTipo) {
     setDrillTipo(tipo); setDrillPath([]); setSelectedStage(null)
     setShowDrill(true); setDrillLoading(true); setDrillRows([])
-    api.get<DrillRawRow[]>(`/api/v1/gestao-comercial/receita-potencial-drill?month=${month}&tipo=${tipo}`)
+    const p = new URLSearchParams({ month, tipo })
+    if (teamParam) p.set('team', teamParam)
+    api.get<DrillRawRow[]>(`/api/v1/gestao-comercial/receita-potencial-drill?${p}`)
       .then(r => setDrillRows(normalizeDrill(r.data))).catch(() => {}).finally(() => setDrillLoading(false))
   }
 
@@ -1203,6 +1219,7 @@ export default function GestaoComercial() {
     const p = new URLSearchParams({ month })
     if (convPoint) p.set('conv_point', convPoint)
     else if (origens) p.set('origens', origens)
+    if (teamParam) p.set('team', teamParam)
     api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
       .then(r => setStagePopup(prev => prev ? { ...prev, leads: r.data, loading: false } : null))
       .catch(() => setStagePopup(prev => prev ? { ...prev, leads: [], loading: false } : null))
@@ -1214,6 +1231,7 @@ export default function GestaoComercial() {
     const params = new URLSearchParams({ date_from: `${month}-01`, date_to: `${month}-${String(lastDay).padStart(2, '0')}` })
     if (convPoint) params.set('conversion_point', convPoint)
     else if (origens) params.set('origem', origens)
+    if (teamParam) params.set('team', teamParam)
     navigate(`/leads-report?${params}`)
   }
 
@@ -1227,6 +1245,7 @@ export default function GestaoComercial() {
     const origins = [...new Set(filtered.map(r => r.origem))]
     const params  = new URLSearchParams({ month, status, tipo: drillTipo })
     if (origins.length > 0) params.set('origens', origins.join(','))
+    if (teamParam) params.set('team', teamParam)
     api.get<ContractItem[]>(`/api/v1/gestao-comercial/receita-contratos?${params}`)
       .then(r => setContracts(r.data)).catch(() => setContracts([]))
       .finally(() => setContractsLoading(false))
@@ -1329,6 +1348,20 @@ export default function GestaoComercial() {
                 </div>
               )}
 
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-lt)' }}>
+                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Equipe</p>
+                <div style={{ display: 'flex', gap: 4, background: 'var(--bg-input)', borderRadius: 8, padding: 3 }}>
+                  <button onClick={() => setTeamFilter('')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', background: teamFilter === '' ? 'var(--bg-card)' : 'transparent', color: teamFilter === '' ? 'var(--text-1)' : 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontWeight: teamFilter === '' ? 600 : 400, boxShadow: teamFilter === '' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 150ms' }}>
+                    Todas
+                  </button>
+                  {TEAM_OPTIONS.map(t => (
+                    <button key={t.value} onClick={() => setTeamFilter(t.value)} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', background: teamFilter === t.value ? 'var(--bg-card)' : 'transparent', color: teamFilter === t.value ? 'var(--text-1)' : 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontWeight: teamFilter === t.value ? 600 : 400, boxShadow: teamFilter === t.value ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 150ms' }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {activeTab === 'Pipeline' && (
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-lt)' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Origem</p>
@@ -1425,6 +1458,7 @@ export default function GestaoComercial() {
                         const origens = g.subs.map(s => s.nome).join(',')
                         const p = new URLSearchParams({ month })
                         if (origens) p.set('origens', origens)
+                        if (teamParam) p.set('team', teamParam)
                         api.get<{conversion_point: string, count: number, pct: number}[]>(`/api/v1/gestao-comercial/conversion-points?${p}`)
                           .then(r => setOrgConvPoints(r.data)).catch(() => setOrgConvPoints([]))
                           .finally(() => setOrgConvPointsLoading(false))
@@ -1555,9 +1589,9 @@ export default function GestaoComercial() {
       )}
 
       {/* ── PIPELINE ── */}
-      {activeTab === 'Pipeline' && <PipelineTab dateFrom={dateFrom} dateTo={dateTo} selectedSources={selectedSources} />}
+      {activeTab === 'Pipeline' && <PipelineTab dateFrom={dateFrom} dateTo={dateTo} selectedSources={selectedSources} teamParam={teamParam} />}
 
-      {activeTab === 'Performance' && <PerformanceTab dateFrom={dateFrom} dateTo={dateTo} />}
+      {activeTab === 'Performance' && <PerformanceTab dateFrom={dateFrom} dateTo={dateTo} teamParam={teamParam} />}
 
       {activeTab === 'Projeção' && <ProjecaoTab />}
 
@@ -1614,6 +1648,7 @@ export default function GestaoComercial() {
                                 setContractsLoading(true)
                                 const params = new URLSearchParams({ month, tipo: drillTipo })
                                 if (origins.length > 0) params.set('origens', origins.join(','))
+                                if (teamParam) params.set('team', teamParam)
                                 api.get<ContractItem[]>(`/api/v1/gestao-comercial/receita-contratos?${params}`)
                                   .then(r => setContracts(r.data)).catch(() => setContracts([]))
                                   .finally(() => setContractsLoading(false))

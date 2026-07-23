@@ -55,7 +55,7 @@ def _status_in(statuses):
     return or_(*[func.lower(Lead.status) == s.lower() for s in statuses])
 
 
-def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: Optional[str]):
+def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: Optional[str], team: Optional[str] = None):
     if date_from:
         try:
             q = q.filter(Lead.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
@@ -72,22 +72,28 @@ def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: 
             q = q.filter(Lead.origin == parts[0])
         else:
             q = q.filter(Lead.origin.in_(parts))
+    if team:
+        parts = [s.strip() for s in team.split(',') if s.strip()]
+        if len(parts) == 1:
+            q = q.filter(Lead.team == parts[0])
+        elif parts:
+            q = q.filter(Lead.team.in_(parts))
     return q
 
 
-def _count_status(db: Session, statuses, date_from=None, date_to=None, source=None) -> int:
+def _count_status(db: Session, statuses, date_from=None, date_to=None, source=None, team=None) -> int:
     q = db.query(func.count(Lead.id)).filter(_status_in(statuses))
-    return _apply_filters(q, date_from, date_to, source).scalar() or 0
+    return _apply_filters(q, date_from, date_to, source, team).scalar() or 0
 
 
-def _count_perception(db: Session, perceptions, date_from=None, date_to=None, source=None) -> int:
+def _count_perception(db: Session, perceptions, date_from=None, date_to=None, source=None, team=None) -> int:
     q = db.query(func.count(Lead.id)).filter(Lead.perception.in_(list(perceptions)))
-    return _apply_filters(q, date_from, date_to, source).scalar() or 0
+    return _apply_filters(q, date_from, date_to, source, team).scalar() or 0
 
 
-def _sum_value(db: Session, extra_filters, date_from=None, date_to=None, source=None) -> float:
+def _sum_value(db: Session, extra_filters, date_from=None, date_to=None, source=None, team=None) -> float:
     q = db.query(func.coalesce(func.sum(Lead.value_potential), 0)).filter(*extra_filters)
-    return float(_apply_filters(q, date_from, date_to, source).scalar() or 0.0)
+    return float(_apply_filters(q, date_from, date_to, source, team).scalar() or 0.0)
 
 
 @router.get("/overview")
@@ -95,6 +101,7 @@ def pipeline_overview(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
+    team: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -103,28 +110,28 @@ def pipeline_overview(
         ~_status_in(FECHADO_STATUSES),
         ~_status_in(PERDIDO_STATUSES),
     )
-    negociacao = _apply_filters(neg_q, date_from, date_to, source).scalar() or 0
+    negociacao = _apply_filters(neg_q, date_from, date_to, source, team).scalar() or 0
 
     neg_val_q = db.query(func.coalesce(func.sum(Lead.value_potential), 0)).filter(
         Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
         ~_status_in(FECHADO_STATUSES),
         ~_status_in(PERDIDO_STATUSES),
     )
-    negociacao_value = float(_apply_filters(neg_val_q, date_from, date_to, source).scalar() or 0.0)
+    negociacao_value = float(_apply_filters(neg_val_q, date_from, date_to, source, team).scalar() or 0.0)
 
     return {
-        "novo":        _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source),
-        "qualificado": _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source),
-        "proposta":    _count_status(db, PROPOSTA_STATUSES,  date_from, date_to, source),
+        "novo":        _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source, team),
+        "qualificado": _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source, team),
+        "proposta":    _count_status(db, PROPOSTA_STATUSES,  date_from, date_to, source, team),
         "negociacao":  negociacao,
-        "fechado":     _count_status(db, FECHADO_STATUSES,   date_from, date_to, source),
-        "perdido":     _count_status(db, PERDIDO_STATUSES,   date_from, date_to, source),
-        "novo_value":        _sum_value(db, [_status_in(PENDENTE_STATUSES)],  date_from, date_to, source),
-        "qualificado_value": _sum_value(db, [_status_in(AGENDADO_STATUSES)],  date_from, date_to, source),
-        "proposta_value":    _sum_value(db, [_status_in(PROPOSTA_STATUSES)],  date_from, date_to, source),
+        "fechado":     _count_status(db, FECHADO_STATUSES,   date_from, date_to, source, team),
+        "perdido":     _count_status(db, PERDIDO_STATUSES,   date_from, date_to, source, team),
+        "novo_value":        _sum_value(db, [_status_in(PENDENTE_STATUSES)],  date_from, date_to, source, team),
+        "qualificado_value": _sum_value(db, [_status_in(AGENDADO_STATUSES)],  date_from, date_to, source, team),
+        "proposta_value":    _sum_value(db, [_status_in(PROPOSTA_STATUSES)],  date_from, date_to, source, team),
         "negociacao_value":  negociacao_value,
-        "fechado_value":     _sum_value(db, [_status_in(FECHADO_STATUSES)],   date_from, date_to, source),
-        "perdido_value":     _sum_value(db, [_status_in(PERDIDO_STATUSES)],   date_from, date_to, source),
+        "fechado_value":     _sum_value(db, [_status_in(FECHADO_STATUSES)],   date_from, date_to, source, team),
+        "perdido_value":     _sum_value(db, [_status_in(PERDIDO_STATUSES)],   date_from, date_to, source, team),
     }
 
 
@@ -162,6 +169,7 @@ def pipeline_alerts(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
+    team: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -172,12 +180,12 @@ def pipeline_alerts(
 
     vencidos_count = _apply_filters(
         db.query(func.count(Lead.id)).filter(Lead.updated_at <= cutoff_24h, vencidos_filter),
-        date_from, date_to, source,
+        date_from, date_to, source, team,
     ).scalar() or 0
     uncontacted_count = vencidos_count
 
     vq = db.query(Lead).filter(Lead.updated_at <= cutoff_24h, vencidos_filter)
-    vq = _apply_filters(vq, date_from, date_to, source)
+    vq = _apply_filters(vq, date_from, date_to, source, team)
     vencidos_rows = vq.order_by(Lead.updated_at.asc()).limit(10).all()
     uncontacted_rows = vencidos_rows
 
@@ -187,7 +195,7 @@ def pipeline_alerts(
             Lead.created_at.isnot(None),
             Lead.updated_at.isnot(None),
         ),
-        date_from, date_to, source,
+        date_from, date_to, source, team,
     ).all()
     times = [
         (r.updated_at - r.created_at).total_seconds() / 86400
@@ -200,10 +208,13 @@ def pipeline_alerts(
     avg_first_contact_minutes = 0.0
     contacted_count = 0
     try:
+        from sqlalchemy import bindparam
         from sqlalchemy import text as sa_text
         date_from_dt = datetime.strptime(date_from, "%Y-%m-%d") if date_from else None
         date_to_dt   = datetime.strptime(date_to,   "%Y-%m-%d") + timedelta(days=1) if date_to else None
-        perf_rows = db.execute(sa_text("""
+        team_parts = [s.strip() for s in team.split(',') if s.strip()] if team else None
+        team_clause = "AND l.team IN :team_parts" if team_parts else ""
+        stmt = sa_text(f"""
             SELECT l.created_at, ne.first_exit
             FROM leads l
             JOIN (
@@ -216,7 +227,13 @@ def pipeline_alerts(
               AND (:date_from IS NULL OR l.created_at >= :date_from)
               AND (:date_to   IS NULL OR l.created_at <  :date_to)
               AND (:source    IS NULL OR l.origin = :source)
-        """), {"date_from": date_from_dt, "date_to": date_to_dt, "source": source or None}).fetchall()
+              {team_clause}
+        """)
+        params = {"date_from": date_from_dt, "date_to": date_to_dt, "source": source or None}
+        if team_parts:
+            stmt = stmt.bindparams(bindparam("team_parts", expanding=True))
+            params["team_parts"] = team_parts
+        perf_rows = db.execute(stmt, params).fetchall()
         biz_mins = [_business_minutes(r[0], r[1]) for r in perf_rows if r[0] and r[1]]
         avg_first_contact_minutes = round(sum(biz_mins) / len(biz_mins), 1) if biz_mins else 0.0
         contacted_count = len(biz_mins)
@@ -225,11 +242,11 @@ def pipeline_alerts(
 
     pf_count = _apply_filters(
         db.query(func.count(Lead.id)).filter(Lead.modalidade == "PF"),
-        date_from, date_to, source,
+        date_from, date_to, source, team,
     ).scalar() or 0
     pme_count = _apply_filters(
         db.query(func.count(Lead.id)).filter(Lead.modalidade == "PME"),
-        date_from, date_to, source,
+        date_from, date_to, source, team,
     ).scalar() or 0
 
     return {

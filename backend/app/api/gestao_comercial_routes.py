@@ -47,20 +47,31 @@ def _resolve_range(month: str | None, until_day: int | None, start: str | None, 
     return _month_range(year, mon, until_day)
 
 
+def _team_clause(team: str | None):
+    if not team:
+        return []
+    parts = [s.strip() for s in team.split(",") if s.strip()]
+    if not parts:
+        return []
+    return [Lead.team.in_(parts)] if len(parts) > 1 else [Lead.team == parts[0]]
+
+
 @router.get("/visao-geral")
 def visao_geral(
     month: str = Query(None),
     until_day: int = Query(None),
     start: str = Query(None),
     end: str = Query(None),
+    team: str = Query(None),
     vendas_por_fechamento: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     dt_from, dt_to = _resolve_range(month, until_day, start, end)
+    team_clause = _team_clause(team)
 
     leads = db.query(Lead.status, Lead.value_potential, Lead.perception).filter(
-        Lead.created_at >= dt_from, Lead.created_at <= dt_to,
+        Lead.created_at >= dt_from, Lead.created_at <= dt_to, *team_clause,
     ).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -79,6 +90,7 @@ def visao_geral(
                 LeadStatusHistory.changed_at >= dt_from,
                 LeadStatusHistory.changed_at <= dt_to,
                 func.lower(LeadStatusHistory.to_status).in_(venda_set),
+                *team_clause,
             )
             .all()
         )
@@ -111,6 +123,7 @@ def evolucao_diaria(
     until_day: int = Query(None),
     start: str = Query(None),
     end: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -119,7 +132,7 @@ def evolucao_diaria(
     rows = db.query(
         func.date(Lead.created_at).label("day"),
         Lead.status,
-    ).filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to).all()
+    ).filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_team_clause(team)).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
     daily: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
@@ -150,6 +163,7 @@ def origens_captacao(
     until_day: int = Query(None),
     start: str = Query(None),
     end: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -160,6 +174,7 @@ def origens_captacao(
         .filter(
             Lead.created_at >= dt_from, Lead.created_at <= dt_to,
             Lead.origin.isnot(None), Lead.origin != "",
+            *_team_clause(team),
         )
         .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
@@ -180,6 +195,7 @@ def origens_captacao(
 @router.get("/modalidades-captacao")
 def modalidades_captacao(
     month: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -191,6 +207,7 @@ def modalidades_captacao(
         .filter(
             Lead.created_at >= dt_from, Lead.created_at <= dt_to,
             Lead.modalidade.isnot(None), Lead.modalidade != "",
+            *_team_clause(team),
         )
         .all()
     )
@@ -221,11 +238,13 @@ def modalidades_captacao(
 
 @router.get("/comparativo-mensal")
 def comparativo_mensal(
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     now = datetime.utcnow()
     result = []
+    team_clause = _team_clause(team)
 
     for i in range(5, -1, -1):
         mon = now.month - i
@@ -236,7 +255,7 @@ def comparativo_mensal(
 
         dt_from, dt_to = _month_range(year, mon)
         leads = db.query(Lead.status, Lead.value_potential).filter(
-            Lead.created_at >= dt_from, Lead.created_at <= dt_to,
+            Lead.created_at >= dt_from, Lead.created_at <= dt_to, *team_clause,
         ).all()
 
         venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -259,6 +278,7 @@ def comparativo_mensal(
 def receita_potencial_drill(
     month: str = Query(None),
     tipo: str = Query("receita"),   # receita | vendas | perda
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -270,6 +290,7 @@ def receita_potencial_drill(
         Lead.created_at <= dt_to,
         Lead.value_potential.isnot(None),
         Lead.value_potential > 0,
+        *_team_clause(team),
     ]
 
     if tipo == "vendas":
@@ -311,6 +332,7 @@ def receita_contratos(
     status: str = Query(None),
     origens: str = Query(None),
     tipo: str = Query("receita"),   # receita | vendas | perda
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -322,6 +344,7 @@ def receita_contratos(
         Lead.created_at <= dt_to,
         Lead.value_potential.isnot(None),
         Lead.value_potential > 0,
+        *_team_clause(team),
     ]
 
     if tipo == "vendas":
@@ -434,11 +457,12 @@ def performance_historico(
     origens: str = Query(None),
     date_from: str = Query(None),
     date_to: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Historico por operador (vitalicio ou recortado por date_from/date_to) + tendencia mensal."""
-    filters = [Lead.origin.isnot(None), Lead.origin != ""]
+    filters = [Lead.origin.isnot(None), Lead.origin != "", *_team_clause(team)]
     if origens:
         parts = [s.strip() for s in origens.split(",") if s.strip()]
         if len(parts) == 1:
@@ -522,6 +546,7 @@ def performance_historico(
 def conversion_points_by_group(
     month: str = Query(None),
     origens: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -533,6 +558,7 @@ def conversion_points_by_group(
         Lead.created_at <= dt_to,
         Lead.conversion_point.isnot(None),
         Lead.conversion_point != "",
+        *_team_clause(team),
     ]
     if origens:
         parts = [s.strip() for s in origens.split(',') if s.strip()]
