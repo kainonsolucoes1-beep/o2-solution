@@ -19,6 +19,8 @@ interface LeadItem {
   status: string | null
   perception: string | null
   value_potential: number | null
+  receita_real_recebida: number | null
+  receita_real_a_receber: number | null
   modalidade: string | null
   document: string | null
   created_at: string
@@ -142,16 +144,19 @@ function initials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-function SectionCard({ title, icon: Icon, accent = '#2563EB', children }: { title?: string; icon?: LucideIcon; accent?: string; children: ReactNode }) {
+function SectionCard({ title, icon: Icon, accent = '#2563EB', action, children }: { title?: string; icon?: LucideIcon; accent?: string; action?: ReactNode; children: ReactNode }) {
   return (
     <div style={{ position: 'relative', border: '1px solid var(--border-lt)', borderRadius: 12, padding: '16px 18px 16px 20px', background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
       {title && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: accent }} />}
       {title && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '0 0 14px' }}>
-          {Icon && <Icon size={14} color={accent} strokeWidth={2.5} />}
-          <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-            {title}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, margin: '0 0 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            {Icon && <Icon size={14} color={accent} strokeWidth={2.5} />}
+            <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+              {title}
+            </p>
+          </div>
+          {action}
         </div>
       )}
       {children}
@@ -172,55 +177,17 @@ function Field({ label, value }: { label: string; value: string }) {
   )
 }
 
-function EditableField({ label, value, onSave }: { label: string; value: string; onSave: (v: string) => Promise<void> }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft]     = useState(value)
-  const [saving, setSaving]   = useState(false)
-
-  function start() { setDraft(value === '—' ? '' : value); setEditing(true) }
-  function save() {
-    setSaving(true)
-    onSave(draft.trim()).finally(() => { setSaving(false); setEditing(false) })
-  }
-
-  if (editing) {
-    return (
-      <div className="flex flex-col gap-1">
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
-          {label}
-        </span>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input
-            autoFocus
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
-            style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box' }}
-          />
-          <button onClick={save} disabled={saving} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600, flexShrink: 0 }}>
-            {saving ? '…' : 'Salvar'}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
+function EditInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-col gap-1">
       <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         {label}
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 14, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500 }}>
-          {value}
-        </span>
-        <button onClick={start} title={`Editar ${label.toLowerCase()}`} style={{ display: 'flex', alignItems: 'center', color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.6, transition: 'opacity 150ms, color 150ms' }}
-          onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#3B82F6' }}
-          onMouseLeave={e => { e.currentTarget.style.opacity = '0.6'; e.currentTarget.style.color = 'var(--text-subtle)' }}
-        >
-          <Pencil size={12} />
-        </button>
-      </div>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{ fontSize: 13, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box' }}
+      />
     </div>
   )
 }
@@ -270,6 +237,9 @@ export default function LeadDetailPage() {
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [cancelingSchedule, setCancelingSchedule] = useState(false)
   const [, setTick]                       = useState(0)
+  const [editingInfo, setEditingInfo]     = useState(false)
+  const [savingInfo, setSavingInfo]       = useState(false)
+  const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', email: '', phone: '', attendant: '' })
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
 
@@ -316,14 +286,26 @@ export default function LeadDetailPage() {
       .finally(() => setSavingStatus(false))
   }
 
-  function handleSaveContact(field: 'phone' | 'email', value: string) {
-    if (!id) return Promise.resolve()
-    return api.post(`/api/v1/leads/${id}/contact`, { [field]: value })
+  function startEditInfo() {
+    if (!lead) return
+    setInfoDraft({
+      name: lead.name ?? '', company: lead.company ?? '', email: lead.email ?? '',
+      phone: lead.phone ?? '', attendant: lead.attendant ?? '',
+    })
+    setEditingInfo(true)
+  }
+
+  function handleSaveInfo() {
+    if (!id) return
+    setSavingInfo(true)
+    api.post(`/api/v1/leads/${id}/info`, infoDraft)
       .then(() => {
-        setLead(prev => prev ? { ...prev, [field]: value || null } : prev)
-        setToast({ msg: 'Contato atualizado com sucesso', ok: true })
+        setLead(prev => prev ? { ...prev, ...infoDraft } : prev)
+        setEditingInfo(false)
+        setToast({ msg: 'Informações atualizadas com sucesso', ok: true })
       })
-      .catch(() => setToast({ msg: 'Erro ao atualizar contato', ok: false }))
+      .catch(() => setToast({ msg: 'Erro ao atualizar informações', ok: false }))
+      .finally(() => setSavingInfo(false))
   }
 
   function handleSaveNote() {
@@ -455,7 +437,25 @@ export default function LeadDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Informações" icon={User} accent="#2563EB">
+          <SectionCard title="Informações" icon={User} accent="#2563EB" action={
+            editingInfo ? (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setEditingInfo(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button onClick={handleSaveInfo} disabled={savingInfo} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingInfo ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                  {savingInfo ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            ) : (
+              <button onClick={startEditInfo} title="Editar informações" style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, padding: 2, opacity: 0.7, transition: 'opacity 150ms, color 150ms' }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#3B82F6' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.color = 'var(--text-subtle)' }}
+              >
+                <Pencil size={12} /> Editar
+              </button>
+            )
+          }>
             <div style={{ display: 'flex', gap: 18 }}>
               <div style={{
                 flexShrink: 0, width: 52, height: 52, borderRadius: '50%',
@@ -467,11 +467,23 @@ export default function LeadDetailPage() {
                 {initials(lead.name)}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px', flex: 1 }}>
-                <Field label="Nome"     value={lead.name} />
-                <Field label="Empresa"  value={lead.company ?? '—'} />
-                <EditableField label="Email"    value={lead.email ?? '—'} onSave={v => handleSaveContact('email', v)} />
-                <EditableField label="Telefone" value={lead.phone ?? '—'} onSave={v => handleSaveContact('phone', v)} />
-                <Field label="Atendente" value={lead.attendant ?? '—'} />
+                {editingInfo ? (
+                  <>
+                    <EditInput label="Nome"     value={infoDraft.name}     onChange={v => setInfoDraft(d => ({ ...d, name: v }))} />
+                    <EditInput label="Empresa"  value={infoDraft.company}  onChange={v => setInfoDraft(d => ({ ...d, company: v }))} />
+                    <EditInput label="Email"    value={infoDraft.email}    onChange={v => setInfoDraft(d => ({ ...d, email: v }))} />
+                    <EditInput label="Telefone" value={infoDraft.phone}    onChange={v => setInfoDraft(d => ({ ...d, phone: v }))} />
+                    <EditInput label="Atendente" value={infoDraft.attendant} onChange={v => setInfoDraft(d => ({ ...d, attendant: v }))} />
+                  </>
+                ) : (
+                  <>
+                    <Field label="Nome"     value={lead.name} />
+                    <Field label="Empresa"  value={lead.company ?? '—'} />
+                    <Field label="Email"    value={lead.email ?? '—'} />
+                    <Field label="Telefone" value={lead.phone ?? '—'} />
+                    <Field label="Atendente" value={lead.attendant ?? '—'} />
+                  </>
+                )}
                 {lead.perception && PERCEPTION_STYLE[lead.perception] && (
                   <div className="flex flex-col gap-1">
                     <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
@@ -663,6 +675,12 @@ export default function LeadDetailPage() {
               <Field label="Modalidade"         value={lead.modalidade ?? '—'} />
               <PlanField value={lead.current_plan} />
               <Field label="Valor Potencial"    value={fmtBRL(lead.value_potential)} />
+              {(lead.receita_real_recebida != null || lead.receita_real_a_receber != null) && (
+                <>
+                  <Field label="Receita Real Recebida"  value={fmtBRL(lead.receita_real_recebida)} />
+                  <Field label="Receita Real a Receber" value={fmtBRL(lead.receita_real_a_receber)} />
+                </>
+              )}
               <Field label="Data Criação"       value={fmtDate(lead.created_at)} />
             </div>
           </SectionCard>

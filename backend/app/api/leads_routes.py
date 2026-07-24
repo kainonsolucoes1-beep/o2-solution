@@ -14,7 +14,7 @@ from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
     BulkDeleteRequest, BulkDeleteResponse,
     StatusUpdateRequest, StatusUpdateResponse,
-    ContactUpdateRequest, ContactUpdateResponse,
+    LeadInfoUpdateRequest, LeadInfoUpdateResponse,
     NoteCreateRequest, NoteCreateResponse,
     NoteResponse, NotesListResponse,
     StatusHistoryItem, StatusHistoryResponse,
@@ -299,6 +299,8 @@ def get_lead(
         base=extract_base(lead.notes),
         status=lead.status, perception=lead.perception,
         value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
+        receita_real_recebida=float(lead.receita_real_recebida) if lead.receita_real_recebida is not None else None,
+        receita_real_a_receber=float(lead.receita_real_a_receber) if lead.receita_real_a_receber is not None else None,
         is_renutrucao=bool(lead.is_renutrucao),
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
         modalidade=lead.modalidade, current_plan=lead.current_plan, document=lead.document,
@@ -338,22 +340,31 @@ def update_lead_status(
     return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
 
 
-@router.post("/leads/{lead_id}/contact", response_model=ContactUpdateResponse)
-def update_lead_contact(
+@router.post("/leads/{lead_id}/info", response_model=LeadInfoUpdateResponse)
+def update_lead_info(
     lead_id: str,
-    body: ContactUpdateRequest,
+    body: LeadInfoUpdateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
-    if body.phone is not None:
-        lead.phone = body.phone.strip() or None
+    if body.name is not None and body.name.strip():
+        lead.name = body.name.strip()
+    if body.company is not None:
+        lead.company = body.company.strip() or None
     if body.email is not None:
         lead.email = body.email.strip() or None
+    if body.phone is not None:
+        lead.phone = body.phone.strip() or None
+    if body.attendant is not None:
+        lead.attendant = body.attendant.strip() or None
     db.commit()
-    return ContactUpdateResponse(success=True, lead_id=lead.id, phone=lead.phone, email=lead.email)
+    return LeadInfoUpdateResponse(
+        success=True, lead_id=lead.id, name=lead.name,
+        company=lead.company, email=lead.email, phone=lead.phone, attendant=lead.attendant,
+    )
 
 
 @router.get("/leads/{lead_id}/status-history", response_model=StatusHistoryResponse)

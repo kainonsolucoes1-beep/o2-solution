@@ -38,6 +38,8 @@ class LeadReportItem(BaseModel):
     status: Optional[str] = None
     perception: Optional[str] = None
     value_potential: Optional[float] = None
+    receita_real_recebida: Optional[float] = None
+    receita_real_a_receber: Optional[float] = None
     is_renutrucao: bool = False
     lost_reason: Optional[str] = None
     lost_message: Optional[str] = None
@@ -84,16 +86,22 @@ class StatusUpdateResponse(BaseModel):
     status: str
 
 
-class ContactUpdateRequest(BaseModel):
-    phone: Optional[str] = None
+class LeadInfoUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    company: Optional[str] = None
     email: Optional[str] = None
+    phone: Optional[str] = None
+    attendant: Optional[str] = None
 
 
-class ContactUpdateResponse(BaseModel):
+class LeadInfoUpdateResponse(BaseModel):
     success: bool
     lead_id: UUID
-    phone: Optional[str] = None
+    name: str
+    company: Optional[str] = None
     email: Optional[str] = None
+    phone: Optional[str] = None
+    attendant: Optional[str] = None
 
 
 class NoteCreateRequest(BaseModel):
