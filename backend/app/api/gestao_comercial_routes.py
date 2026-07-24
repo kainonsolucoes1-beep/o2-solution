@@ -581,3 +581,83 @@ def conversion_points_by_group(
         }
         for r in rows
     ]
+
+
+@router.get("/vida-sdr")
+def vida_sdr(
+    origens: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Historico vitalicio de um SDR/origem: funil, conversao e receita real desde o primeiro lead."""
+    parts = [s.strip() for s in origens.split(",") if s.strip()]
+
+    leads = (
+        db.query(Lead.status, Lead.receita_real_recebida, Lead.receita_real_a_receber, Lead.created_at)
+        .filter(Lead.origin.in_(parts))
+        .all()
+    ) if parts else []
+
+    if not leads:
+        return {
+            "captacoes": 0, "em_andamento": 0, "cancelados": 0, "vendas": 0,
+            "conversao": 0.0, "receita_recebida": 0.0, "receita_a_receber": 0.0,
+            "primeiro_lead_em": None, "trend": [],
+        }
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    captacoes = len(leads)
+    vendas = 0
+    cancelados = 0
+    receita_recebida = 0.0
+    receita_a_receber = 0.0
+    monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0})
+
+    for status, recebido, a_receber, created_at in leads:
+        s = (status or "").lower()
+        if s in venda_set:
+            vendas += 1
+        elif s == CANCELADO_STATUS:
+            cancelados += 1
+        receita_recebida += float(recebido or 0)
+        receita_a_receber += float(a_receber or 0)
+
+        key = f"{created_at.year}-{created_at.month:02d}"
+        monthly[key]["captacoes"] += 1
+        if s in venda_set:
+            monthly[key]["vendas"] += 1
+        monthly[key]["receita"] += float(recebido or 0)
+
+    em_andamento = captacoes - vendas - cancelados
+    conversao = round(vendas / captacoes * 100, 1) if captacoes else 0.0
+
+    earliest = min(l.created_at for l in leads)
+    latest = max(l.created_at for l in leads)
+    trend = []
+    year, mon = earliest.year, earliest.month
+    while (year, mon) <= (latest.year, latest.month):
+        key = f"{year}-{mon:02d}"
+        m = monthly.get(key, {"captacoes": 0, "vendas": 0, "receita": 0.0})
+        trend.append({
+            "mes": key,
+            "mes_label": f"{calendar.month_abbr[mon]}/{str(year)[2:]}",
+            "captacoes": m["captacoes"],
+            "vendas": m["vendas"],
+            "receita": m["receita"],
+        })
+        mon += 1
+        if mon > 12:
+            mon = 1
+            year += 1
+
+    return {
+        "captacoes": captacoes,
+        "em_andamento": em_andamento,
+        "cancelados": cancelados,
+        "vendas": vendas,
+        "conversao": conversao,
+        "receita_recebida": receita_recebida,
+        "receita_a_receber": receita_a_receber,
+        "primeiro_lead_em": earliest.isoformat(),
+        "trend": trend,
+    }

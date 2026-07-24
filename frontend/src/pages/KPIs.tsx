@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, Trophy, BarChart3, ArrowLeftRight, type LucideIcon } from 'lucide-react'
+import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, Trophy, BarChart3, ArrowLeftRight, UserRoundSearch, type LucideIcon } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, LineChart, Line, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
@@ -165,6 +166,7 @@ function card(bg: string, border: string): React.CSSProperties {
 const UNDER_CONSTRUCTION: boolean = true
 
 export default function KPIs() {
+  const navigate = useNavigate()
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const [month, setMonth] = useState(defaultMonth)
@@ -731,13 +733,22 @@ export default function KPIs() {
                       >
                         <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{f.fonte}</td>
                         <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                          <button
-                            onClick={e => { e.stopPropagation(); openSdrDrawer(f.fonte, origens) }}
-                            title="Ver análise detalhada"
-                            style={{ background: '#EFF6FF', border: 'none', borderRadius: 8, padding: 7, cursor: 'pointer', display: 'inline-flex', color: '#2563EB' }}
-                          >
-                            <BarChart3 size={15} />
-                          </button>
+                          <div style={{ display: 'inline-flex', gap: 6 }}>
+                            <button
+                              onClick={e => { e.stopPropagation(); openSdrDrawer(f.fonte, origens) }}
+                              title="Ver análise detalhada"
+                              style={{ background: '#EFF6FF', border: 'none', borderRadius: 8, padding: 7, cursor: 'pointer', display: 'inline-flex', color: '#2563EB' }}
+                            >
+                              <BarChart3 size={15} />
+                            </button>
+                            <button
+                              onClick={e => { e.stopPropagation(); navigate(`/vida-sdr/${encodeURIComponent(origens)}?nome=${encodeURIComponent(f.fonte)}`) }}
+                              title="Ver vida do SDR"
+                              style={{ background: '#F5F3FF', border: 'none', borderRadius: 8, padding: 7, cursor: 'pointer', display: 'inline-flex', color: '#7C3AED' }}
+                            >
+                              <UserRoundSearch size={15} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
