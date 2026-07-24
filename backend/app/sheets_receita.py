@@ -1,0 +1,153 @@
+import os
+import re
+from collections import defaultdict
+
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from sqlalchemy.orm import Session
+
+from app.models.lead import Lead
+
+SPREADSHEET_ID = "1AcNQ5DEgz92IJ4GuuYkwgvr_THnVdKRki-R7c8uTNwY"
+SHEET_TITLE = "UNIFICACAO"
+STATUS_ALVO = "PAGO - FINALIZADO"
+CREDS_PATH = os.getenv(
+    "GOOGLE_SERVICE_ACCOUNT_PATH",
+    os.path.join(os.path.dirname(__file__), "..", "google_service_account.json"),
+)
+
+# calibrado direto na planilha em 2026-07-23 — cor de fundo das celulas VALOR Nª
+_GREEN = (0.20392157, 0.65882355, 0.3254902)   # recebido
+_YELLOW = (1.0, 1.0, 0.0)                      # a receber
+_COLOR_TOL = 0.03
+
+
+def _color_matches(color: dict, target: tuple) -> bool:
+    r, g, b = color.get("red", 0.0), color.get("green", 0.0), color.get("blue", 0.0)
+    return abs(r - target[0]) < _COLOR_TOL and abs(g - target[1]) < _COLOR_TOL and abs(b - target[2]) < _COLOR_TOL
+
+
+def _normalize_phone(s: str | None) -> str | None:
+    if not s:
+        return None
+    digits = re.sub(r"\D", "", s)
+    if len(digits) > 11 and digits.startswith("55"):
+        digits = digits[2:]  # remove DDI +55, mantendo so DDD+numero
+    return digits or None
+
+
+def _normalize_email(s: str | None) -> str | None:
+    if not s:
+        return None
+    e = s.strip().lower()
+    return e or None
+
+
+def _parse_brl(s: str | None) -> float:
+    if not s:
+        return 0.0
+    s = s.replace("R$", "").strip().replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def _get_service():
+    creds = service_account.Credentials.from_service_account_file(
+        CREDS_PATH, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    )
+    return build("sheets", "v4", credentials=creds)
+
+
+def _fetch_rows():
+    svc = _get_service()
+    resp = svc.spreadsheets().get(
+        spreadsheetId=SPREADSHEET_ID,
+        ranges=[f"'{SHEET_TITLE}'!A1:AC5000"],
+        includeGridData=True,
+        fields="sheets(data(rowData(values(formattedValue,effectiveFormat.backgroundColor))))",
+    ).execute()
+    return resp["sheets"][0]["data"][0]["rowData"]
+
+
+def sync_receita_real(db: Session) -> dict:
+    """Le a aba UNIFICACAO da planilha de vendas e preenche receita_real_recebida/
+    receita_real_a_receber dos leads correspondentes (cruzamento por telefone, com
+    fallback por e-mail). So considera linhas com STATUS = 'PAGO - FINALIZADO'."""
+    row_data = _fetch_rows()
+    if not row_data:
+        return {"matched": 0, "matched_names": [], "unmatched": [], "ambiguous": []}
+
+    header = [c.get("formattedValue") for c in row_data[0].get("values", [])]
+    idx = {h: i for i, h in enumerate(header) if h}
+
+    for col in ("TITULAR", "TELEFONE", "EMAIL", "STATUS"):
+        if col not in idx:
+            raise ValueError(f"Coluna obrigatória '{col}' não encontrada na aba {SHEET_TITLE}")
+
+    phone_map: dict[str, list] = defaultdict(list)
+    email_map: dict[str, list] = defaultdict(list)
+    for lead in db.query(Lead).filter((Lead.phone.isnot(None)) | (Lead.email.isnot(None))).all():
+        p = _normalize_phone(lead.phone)
+        if p:
+            phone_map[p].append(lead)
+        e = _normalize_email(lead.email)
+        if e:
+            email_map[e].append(lead)
+
+    matched_names, unmatched, ambiguous = [], [], []
+
+    for row in row_data[1:]:
+        vals = row.get("values", [])
+        if not vals:
+            continue
+
+        def cell(col):
+            i = idx.get(col)
+            return vals[i] if i is not None and i < len(vals) else {}
+
+        status = (cell("STATUS").get("formattedValue") or "").strip().upper()
+        if status != STATUS_ALVO:
+            continue
+
+        titular = cell("TITULAR").get("formattedValue") or "Sem nome"
+        phone = _normalize_phone(cell("TELEFONE").get("formattedValue"))
+        email = _normalize_email(cell("EMAIL").get("formattedValue"))
+
+        candidates = phone_map.get(phone, []) if phone else []
+        if not candidates and email:
+            candidates = email_map.get(email, [])
+
+        if not candidates:
+            unmatched.append(titular)
+            continue
+        if len(candidates) > 1:
+            ambiguous.append(titular)
+            continue
+
+        recebido = 0.0
+        a_receber = 0.0
+        for n in range(1, 8):
+            c = cell(f"VALOR {n}ª")
+            valor = _parse_brl(c.get("formattedValue"))
+            if not valor:
+                continue
+            color = c.get("effectiveFormat", {}).get("backgroundColor", {})
+            if _color_matches(color, _GREEN):
+                recebido += valor
+            elif _color_matches(color, _YELLOW):
+                a_receber += valor
+
+        lead = candidates[0]
+        lead.receita_real_recebida = recebido
+        lead.receita_real_a_receber = a_receber
+        matched_names.append(titular)
+
+    db.commit()
+    return {
+        "matched": len(matched_names),
+        "matched_names": matched_names,
+        "unmatched": unmatched,
+        "ambiguous": ambiguous,
+    }

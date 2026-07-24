@@ -268,6 +268,19 @@ def backfill_status_history(
     return {"inserted": result.rowcount}
 
 
+@router.post("/sync-receita-real")
+def sync_receita_real_endpoint(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from app.sheets_receita import sync_receita_real
+    try:
+        return sync_receita_real(db)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.get("/distinct-attendants")
 def distinct_attendants(
     current_user: User = Depends(get_current_user),

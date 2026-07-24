@@ -3,6 +3,7 @@
 .env.production
 Google Tec.txt
 logo o2.png
+backend/google_service_account.json
 
 # Python
 __pycache__/
