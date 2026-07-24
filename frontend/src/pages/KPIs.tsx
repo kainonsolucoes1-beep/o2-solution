@@ -708,7 +708,7 @@ export default function KPIs() {
               <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-3, #f5f5f5)' }}>
-                    {['SDR', 'Análise'].map(h => (
+                    {['SDR', 'Análise', 'Ver Vida do SDR'].map(h => (
                       <th key={h} style={{ padding: '9px 14px', textAlign: h === 'SDR' ? 'left' : 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -733,22 +733,22 @@ export default function KPIs() {
                       >
                         <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 600, color: '#2563EB' }}>{f.fonte}</td>
                         <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                          <div style={{ display: 'inline-flex', gap: 6 }}>
-                            <button
-                              onClick={e => { e.stopPropagation(); openSdrDrawer(f.fonte, origens) }}
-                              title="Ver análise detalhada"
-                              style={{ background: '#EFF6FF', border: 'none', borderRadius: 8, padding: 7, cursor: 'pointer', display: 'inline-flex', color: '#2563EB' }}
-                            >
-                              <BarChart3 size={15} />
-                            </button>
-                            <button
-                              onClick={e => { e.stopPropagation(); navigate(`/vida-sdr/${encodeURIComponent(origens)}?nome=${encodeURIComponent(f.fonte)}`) }}
-                              title="Ver vida do SDR"
-                              style={{ background: '#F5F3FF', border: 'none', borderRadius: 8, padding: 7, cursor: 'pointer', display: 'inline-flex', color: '#7C3AED' }}
-                            >
-                              <UserRoundSearch size={15} />
-                            </button>
-                          </div>
+                          <button
+                            onClick={e => { e.stopPropagation(); openSdrDrawer(f.fonte, origens) }}
+                            title="Ver análise detalhada"
+                            style={{ background: '#EFF6FF', border: 'none', borderRadius: 8, padding: 7, cursor: 'pointer', display: 'inline-flex', color: '#2563EB' }}
+                          >
+                            <BarChart3 size={15} />
+                          </button>
+                        </td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); navigate(`/vida-sdr/${encodeURIComponent(origens)}?nome=${encodeURIComponent(f.fonte)}`) }}
+                            title="Ver vida do SDR"
+                            style={{ background: '#F5F3FF', border: 'none', borderRadius: 8, padding: 7, cursor: 'pointer', display: 'inline-flex', color: '#7C3AED' }}
+                          >
+                            <UserRoundSearch size={15} />
+                          </button>
                         </td>
                       </tr>
                     )

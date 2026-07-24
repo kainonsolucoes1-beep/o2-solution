@@ -10,6 +10,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.lead_utils import extract_base
 from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, User
+from app.security import can_see_financials
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
     BulkDeleteRequest, BulkDeleteResponse,
@@ -292,6 +293,7 @@ def get_lead(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    show_fin = can_see_financials(current_user)
     return LeadReportItem(
         id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
         company=lead.company, attendant=lead.attendant,
@@ -299,8 +301,8 @@ def get_lead(
         base=extract_base(lead.notes),
         status=lead.status, perception=lead.perception,
         value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
-        receita_real_recebida=float(lead.receita_real_recebida) if lead.receita_real_recebida is not None else None,
-        receita_real_a_receber=float(lead.receita_real_a_receber) if lead.receita_real_a_receber is not None else None,
+        receita_real_recebida=float(lead.receita_real_recebida) if show_fin and lead.receita_real_recebida is not None else None,
+        receita_real_a_receber=float(lead.receita_real_a_receber) if show_fin and lead.receita_real_a_receber is not None else None,
         is_renutrucao=bool(lead.is_renutrucao),
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
         modalidade=lead.modalidade, current_plan=lead.current_plan, document=lead.document,

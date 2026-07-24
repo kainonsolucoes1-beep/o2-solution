@@ -25,6 +25,14 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+FINANCIAL_ROLES = ("admin", "diretor")
+
+
+def can_see_financials(user) -> bool:
+    """Receita real (recebida/a receber) e dado confidencial: so admin e diretor veem."""
+    return user.role in FINANCIAL_ROLES
+
+
 def verify_token(token: str) -> Optional[str]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

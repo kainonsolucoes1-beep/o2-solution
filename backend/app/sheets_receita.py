@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import os
 import re
 from collections import defaultdict
@@ -7,6 +9,8 @@ from googleapiclient.discovery import build
 from sqlalchemy.orm import Session
 
 from app.models.lead import Lead
+
+logger = logging.getLogger(__name__)
 
 SPREADSHEET_ID = "1AcNQ5DEgz92IJ4GuuYkwgvr_THnVdKRki-R7c8uTNwY"
 SHEET_TITLE = "UNIFICACAO"
@@ -151,3 +155,22 @@ def sync_receita_real(db: Session) -> dict:
         "unmatched": unmatched,
         "ambiguous": ambiguous,
     }
+
+
+async def start_receita_sync_scheduler() -> None:
+    """Loop infinito: sincroniza a receita real da planilha a cada 5 minutos."""
+    from app.database import SessionLocal
+    while True:
+        try:
+            db = SessionLocal()
+            try:
+                result = await asyncio.to_thread(sync_receita_real, db)
+                logger.info(
+                    "Sync receita real concluido: %d cruzados, %d sem match, %d ambiguos",
+                    result["matched"], len(result["unmatched"]), len(result["ambiguous"]),
+                )
+            finally:
+                db.close()
+        except Exception as exc:
+            logger.error("Erro no scheduler de receita real: %s", exc)
+        await asyncio.sleep(300)

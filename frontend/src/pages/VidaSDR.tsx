@@ -6,15 +6,15 @@ import {
 import { ArrowLeft, Users, Loader2, XCircle, Percent, Wallet, Clock3 } from 'lucide-react'
 import api from '../api'
 
-interface TrendItem { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number }
+interface TrendItem { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number | null }
 interface VidaSdrData {
   captacoes: number
   em_andamento: number
   cancelados: number
   vendas: number
   conversao: number
-  receita_recebida: number
-  receita_a_receber: number
+  receita_recebida: number | null
+  receita_a_receber: number | null
   primeiro_lead_em: string | null
   trend: TrendItem[]
 }
@@ -113,7 +113,7 @@ export default function VidaSDR() {
         <>
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
-            {STAT_CFG.map(({ key, label, icon: Icon, color, bg, border, fmt }) => (
+            {STAT_CFG.filter(({ key }) => data[key as keyof VidaSdrData] != null).map(({ key, label, icon: Icon, color, bg, border, fmt }) => (
               <div key={key} style={{ background: bg, borderRadius: 16, padding: '20px 22px', border: `1px solid ${border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <span style={{ fontSize: 11.5, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>

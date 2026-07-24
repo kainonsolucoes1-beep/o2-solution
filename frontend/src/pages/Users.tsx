@@ -14,7 +14,14 @@ interface UserItem {
   created_at: string
 }
 
-const EMPTY_FORM = { email: '', username: '', first_name: '', password: '', role: 'user' }
+const EMPTY_FORM = { email: '', username: '', first_name: '', password: '', role: 'usuario' }
+const ROLE_OPTIONS = ['admin', 'diretor', 'supervisor', 'usuario']
+const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
+  admin:      { bg: 'rgba(139,92,246,0.12)', color: '#7C3AED' },
+  diretor:    { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB' },
+  supervisor: { bg: 'rgba(217,119,6,0.12)',  color: '#D97706' },
+  usuario:    { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
+}
 const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '' }
 
 function fmtDate(iso: string) {
@@ -115,10 +122,10 @@ export default function Users() {
     }
   }
 
-  async function toggleRole(user: UserItem) {
-    const newRole = user.role === 'admin' ? 'user' : 'admin'
+  async function changeRole(user: UserItem, role: string) {
+    if (role === user.role) return
     try {
-      const { data } = await api.patch<UserItem>(`/api/v1/admin/users/${user.id}`, { role: newRole })
+      const { data } = await api.patch<UserItem>(`/api/v1/admin/users/${user.id}`, { role })
       setUsers(u => u.map(x => x.id === data.id ? data : x))
       setToast({ msg: `Perfil alterado para ${data.role}`, ok: true })
     } catch {
@@ -196,8 +203,8 @@ export default function Users() {
                       <td style={{ padding: '12px 16px' }}>
                         <span style={{
                           fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99,
-                          background: user.role === 'admin' ? 'rgba(139,92,246,0.12)' : 'rgba(107,114,128,0.12)',
-                          color: user.role === 'admin' ? '#7C3AED' : '#6B7280',
+                          background: (ROLE_STYLE[user.role] ?? ROLE_STYLE.usuario).bg,
+                          color: (ROLE_STYLE[user.role] ?? ROLE_STYLE.usuario).color,
                         }}>
                           {user.role}
                         </span>
@@ -223,12 +230,13 @@ export default function Users() {
                           >
                             <Pencil size={12} /> Editar
                           </button>
-                          <button
-                            onClick={() => toggleRole(user)}
-                            style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'none', color: 'var(--text-3b)', cursor: 'pointer' }}
+                          <select
+                            value={user.role}
+                            onChange={e => changeRole(user, e.target.value)}
+                            style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-3b)', cursor: 'pointer' }}
                           >
-                            {user.role === 'admin' ? 'Tornar user' : 'Tornar admin'}
-                          </button>
+                            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
                           <button
                             onClick={() => toggleActive(user)}
                             style={{
@@ -346,8 +354,7 @@ export default function Users() {
                   onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
                   style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}
                 >
-                  <option value="user">user</option>
-                  <option value="admin">admin</option>
+                  {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
 

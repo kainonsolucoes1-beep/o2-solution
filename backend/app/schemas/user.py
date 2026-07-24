@@ -22,7 +22,7 @@ class UserResponse(BaseModel):
     email: str
     username: str
     first_name: Optional[str]
-    role: str = "user"
+    role: str = "usuario"
     created_at: datetime
 
     class Config:
@@ -39,7 +39,7 @@ class UserAdminCreate(BaseModel):
     username: str
     password: str
     first_name: Optional[str] = None
-    role: str = "user"
+    role: str = "usuario"
 
 
 class UserAdminUpdate(BaseModel):

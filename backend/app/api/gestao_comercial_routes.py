@@ -10,6 +10,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
+from app.security import can_see_financials
 
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
 
@@ -650,14 +651,15 @@ def vida_sdr(
             mon = 1
             year += 1
 
+    show_fin = can_see_financials(current_user)
     return {
         "captacoes": captacoes,
         "em_andamento": em_andamento,
         "cancelados": cancelados,
         "vendas": vendas,
         "conversao": conversao,
-        "receita_recebida": receita_recebida,
-        "receita_a_receber": receita_a_receber,
+        "receita_recebida": receita_recebida if show_fin else None,
+        "receita_a_receber": receita_a_receber if show_fin else None,
         "primeiro_lead_em": earliest.isoformat(),
-        "trend": trend,
+        "trend": [{**t, "receita": t["receita"] if show_fin else None} for t in trend],
     }
