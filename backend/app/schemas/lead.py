@@ -84,6 +84,18 @@ class StatusUpdateResponse(BaseModel):
     status: str
 
 
+class ContactUpdateRequest(BaseModel):
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+
+class ContactUpdateResponse(BaseModel):
+    success: bool
+    lead_id: UUID
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+
 class NoteCreateRequest(BaseModel):
     content: str
 

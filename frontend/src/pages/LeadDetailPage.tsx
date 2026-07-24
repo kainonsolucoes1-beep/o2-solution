@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Tag, Activity, CalendarClock, StickyNote, History, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarClock, StickyNote, History, Pencil, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -172,6 +172,59 @@ function Field({ label, value }: { label: string; value: string }) {
   )
 }
 
+function EditableField({ label, value, onSave }: { label: string; value: string; onSave: (v: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft]     = useState(value)
+  const [saving, setSaving]   = useState(false)
+
+  function start() { setDraft(value === '—' ? '' : value); setEditing(true) }
+  function save() {
+    setSaving(true)
+    onSave(draft.trim()).finally(() => { setSaving(false); setEditing(false) })
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-1">
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+          {label}
+        </span>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input
+            autoFocus
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+            style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box' }}
+          />
+          <button onClick={save} disabled={saving} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600, flexShrink: 0 }}>
+            {saving ? '…' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+        {label}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 14, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500 }}>
+          {value}
+        </span>
+        <button onClick={start} title={`Editar ${label.toLowerCase()}`} style={{ display: 'flex', alignItems: 'center', color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.6, transition: 'opacity 150ms, color 150ms' }}
+          onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#3B82F6' }}
+          onMouseLeave={e => { e.currentTarget.style.opacity = '0.6'; e.currentTarget.style.color = 'var(--text-subtle)' }}
+        >
+          <Pencil size={12} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
@@ -261,6 +314,16 @@ export default function LeadDetailPage() {
       .then(r => setHistory(r.data.history))
       .catch(() => setToast({ msg: 'Erro ao atualizar status', ok: false }))
       .finally(() => setSavingStatus(false))
+  }
+
+  function handleSaveContact(field: 'phone' | 'email', value: string) {
+    if (!id) return Promise.resolve()
+    return api.post(`/api/v1/leads/${id}/contact`, { [field]: value })
+      .then(() => {
+        setLead(prev => prev ? { ...prev, [field]: value || null } : prev)
+        setToast({ msg: 'Contato atualizado com sucesso', ok: true })
+      })
+      .catch(() => setToast({ msg: 'Erro ao atualizar contato', ok: false }))
   }
 
   function handleSaveNote() {
@@ -406,8 +469,8 @@ export default function LeadDetailPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px', flex: 1 }}>
                 <Field label="Nome"     value={lead.name} />
                 <Field label="Empresa"  value={lead.company ?? '—'} />
-                <Field label="Email"    value={lead.email ?? '—'} />
-                <Field label="Telefone" value={lead.phone ?? '—'} />
+                <EditableField label="Email"    value={lead.email ?? '—'} onSave={v => handleSaveContact('email', v)} />
+                <EditableField label="Telefone" value={lead.phone ?? '—'} onSave={v => handleSaveContact('phone', v)} />
                 <Field label="Atendente" value={lead.attendant ?? '—'} />
                 {lead.perception && PERCEPTION_STYLE[lead.perception] && (
                   <div className="flex flex-col gap-1">

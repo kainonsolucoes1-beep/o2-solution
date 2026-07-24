@@ -14,6 +14,7 @@ from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
     BulkDeleteRequest, BulkDeleteResponse,
     StatusUpdateRequest, StatusUpdateResponse,
+    ContactUpdateRequest, ContactUpdateResponse,
     NoteCreateRequest, NoteCreateResponse,
     NoteResponse, NotesListResponse,
     StatusHistoryItem, StatusHistoryResponse,
@@ -335,6 +336,24 @@ def update_lead_status(
     db.add(history)
     db.commit()
     return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
+
+
+@router.post("/leads/{lead_id}/contact", response_model=ContactUpdateResponse)
+def update_lead_contact(
+    lead_id: str,
+    body: ContactUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if body.phone is not None:
+        lead.phone = body.phone.strip() or None
+    if body.email is not None:
+        lead.email = body.email.strip() or None
+    db.commit()
+    return ContactUpdateResponse(success=True, lead_id=lead.id, phone=lead.phone, email=lead.email)
 
 
 @router.get("/leads/{lead_id}/status-history", response_model=StatusHistoryResponse)
