@@ -160,7 +160,7 @@ function initials(name: string) {
 
 function SectionCard({ title, icon: Icon, accent = '#2563EB', action, children }: { title?: string; icon?: LucideIcon; accent?: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <div style={{ position: 'relative', border: '1px solid var(--border-lt)', borderRadius: 12, padding: '16px 18px 16px 20px', background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', border: '1px solid var(--border-lt)', borderRadius: 14, padding: '16px 18px 16px 20px', background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
       {title && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: accent }} />}
       {title && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, margin: '0 0 14px' }}>
@@ -279,6 +279,7 @@ export default function LeadDetailPage() {
   const agendaRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
+  const canSeeFinancials = me !== null && (me.role === 'admin' || me.role === 'diretor')
 
   useEffect(() => {
     if (!id) return
@@ -573,33 +574,42 @@ export default function LeadDetailPage() {
             )}
           </SectionCard>
 
-          {(lead.receita_real_recebida != null || lead.receita_real_a_receber != null) && (() => {
+          {canSeeFinancials && (() => {
             const recebida = lead.receita_real_recebida ?? 0
             const aReceber = lead.receita_real_a_receber ?? 0
             const total = recebida + aReceber
-            const pct = total > 0 ? Math.round(recebida / total * 100) : 0
+            const hasData = total > 0
+            const pct = hasData ? Math.round(recebida / total * 100) : 0
             return (
               <SectionCard title="Receita Gerada" icon={Wallet} accent="#059669">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '12px 14px' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recebida</div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: '#059669', marginTop: 4 }}>{fmtBRL(recebida)}</div>
-                  </div>
-                  <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '12px 14px' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>A Receber</div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: '#D97706', marginTop: 4 }}>{fmtBRL(aReceber)}</div>
-                  </div>
-                </div>
-                <div style={{ marginTop: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total do negócio</span>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-1)' }}>{fmtBRL(total)}</span>
-                  </div>
-                  <div style={{ height: 6, borderRadius: 99, background: '#FFFBEB', overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: '#059669' }} />
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>{pct}% já recebido</div>
-                </div>
+                {hasData ? (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '12px 14px' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recebida</div>
+                        <div style={{ fontSize: 17, fontWeight: 800, color: '#059669', marginTop: 4 }}>{fmtBRL(recebida)}</div>
+                      </div>
+                      <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '12px 14px' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>A Receber</div>
+                        <div style={{ fontSize: 17, fontWeight: 800, color: '#D97706', marginTop: 4 }}>{fmtBRL(aReceber)}</div>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total do negócio</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-1)' }}>{fmtBRL(total)}</span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 99, background: '#FFFBEB', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: '#059669' }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>{pct}% já recebido</div>
+                    </div>
+                  </>
+                ) : (
+                  <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '10px 0', margin: 0 }}>
+                    Nenhuma receita gerada ainda.
+                  </p>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--text-subtle)', background: 'var(--bg-subtle)', borderRadius: 6, padding: '3px 8px', width: 'fit-content', marginTop: 14 }}>
                   <Lock size={10} /> Visível apenas para Admin e Diretor
                 </div>
