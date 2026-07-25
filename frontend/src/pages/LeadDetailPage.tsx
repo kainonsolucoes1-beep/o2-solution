@@ -1,9 +1,23 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Tag, Activity, CalendarClock, StickyNote, History, Pencil, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarClock, CalendarPlus, StickyNote, History, Pencil, Phone, Mail, Wallet, Lock, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
+
+function WhatsAppIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.6 6.32A7.85 7.85 0 0 0 12.05 4a7.94 7.94 0 0 0-6.9 11.9L4 20l4.2-1.1a7.9 7.9 0 0 0 3.8 1h.03a7.94 7.94 0 0 0 5.57-13.58zM12.06 18.4h-.02a6.58 6.58 0 0 1-3.36-.92l-.24-.14-2.5.66.67-2.44-.16-.25a6.6 6.6 0 1 1 12.24-3.5 6.56 6.56 0 0 1-6.63 6.6zm3.6-4.94c-.2-.1-1.17-.58-1.35-.64-.18-.07-.31-.1-.45.1-.13.2-.5.64-.62.77-.11.13-.23.15-.42.05-.2-.1-.83-.3-1.58-.97a5.9 5.9 0 0 1-1.1-1.36c-.11-.2 0-.3.09-.4.1-.1.2-.23.3-.35.1-.11.13-.2.2-.32.06-.13.03-.25-.02-.35-.05-.1-.45-1.08-.62-1.48-.16-.4-.33-.33-.45-.34h-.38c-.13 0-.35.05-.53.25s-.7.68-.7 1.66.72 1.93.82 2.06c.1.13 1.4 2.15 3.4 3 .48.2.85.33 1.14.42.48.15.92.13 1.26.08.39-.06 1.17-.48 1.34-.94.16-.46.16-.85.11-.94-.05-.09-.18-.14-.38-.24z"/>
+    </svg>
+  )
+}
+
+function normalizePhoneDigits(phone: string) {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length > 11 && digits.startsWith('55')) return digits
+  return digits ? `55${digits}` : ''
+}
 
 interface LeadItem {
   id: string
@@ -192,10 +206,29 @@ function EditInput({ label, value, onChange }: { label: string; value: string; o
   )
 }
 
+function SelectField({ label, value, options, onChange, saving }: { label: string; value: string; options: string[]; onChange: (v: string) => void; saving?: boolean }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+        {label}
+      </span>
+      <select
+        value={value}
+        disabled={saving}
+        onChange={e => onChange(e.target.value)}
+        style={{ fontSize: 13, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}
+      >
+        {!options.includes(value) && <option value={value}>{value || '—'}</option>}
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  )
+}
+
 function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         Plano Atual
       </span>
@@ -239,7 +272,11 @@ export default function LeadDetailPage() {
   const [, setTick]                       = useState(0)
   const [editingInfo, setEditingInfo]     = useState(false)
   const [savingInfo, setSavingInfo]       = useState(false)
-  const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', email: '', phone: '', attendant: '' })
+  const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', email: '', phone: '', attendant: '', document: '' })
+  const [origins, setOrigins]             = useState<string[]>([])
+  const [savingOrigin, setSavingOrigin]   = useState(false)
+  const [savingModalidade, setSavingModalidade] = useState(false)
+  const agendaRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
 
@@ -249,6 +286,7 @@ export default function LeadDetailPage() {
       .then(r => { setLead(r.data); setStatus(r.data.status ?? 'novo') })
       .catch(err => { if (err.response?.status === 404) setNotFound(true) })
     api.get<Me>('/api/v1/auth/me').then(r => setMe(r.data)).catch(() => {})
+    api.get<string[]>('/api/v1/leads/origins').then(r => setOrigins(r.data)).catch(() => {})
     api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`)
       .then(r => setNotes(r.data.notes))
       .finally(() => setLoadingNotes(false))
@@ -290,7 +328,7 @@ export default function LeadDetailPage() {
     if (!lead) return
     setInfoDraft({
       name: lead.name ?? '', company: lead.company ?? '', email: lead.email ?? '',
-      phone: lead.phone ?? '', attendant: lead.attendant ?? '',
+      phone: lead.phone ?? '', attendant: lead.attendant ?? '', document: lead.document ?? '',
     })
     setEditingInfo(true)
   }
@@ -306,6 +344,20 @@ export default function LeadDetailPage() {
       })
       .catch(() => setToast({ msg: 'Erro ao atualizar informações', ok: false }))
       .finally(() => setSavingInfo(false))
+  }
+
+  function handleQuickUpdate(field: 'origem' | 'modalidade', value: string) {
+    if (!id) return
+    const setSaving = field === 'origem' ? setSavingOrigin : setSavingModalidade
+    const apiField = field === 'origem' ? 'origin' : 'modalidade'
+    setSaving(true)
+    api.post(`/api/v1/leads/${id}/info`, { [apiField]: value })
+      .then(() => {
+        setLead(prev => prev ? { ...prev, [field]: value } : prev)
+        setToast({ msg: 'Atualizado com sucesso', ok: true })
+      })
+      .catch(() => setToast({ msg: 'Erro ao atualizar', ok: false }))
+      .finally(() => setSaving(false))
   }
 
   function handleSaveNote() {
@@ -391,8 +443,18 @@ export default function LeadDetailPage() {
     })
   })()
 
+  const telHref = lead.phone ? `tel:${lead.phone.replace(/\D/g, '')}` : null
+  const waHref = lead.phone ? `https://wa.me/${normalizePhoneDigits(lead.phone)}` : null
+  const mailHref = lead.email ? `mailto:${lead.email}` : null
+  const actionBtnStyle = (enabled: boolean): React.CSSProperties => ({
+    display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 10,
+    fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', background: 'var(--bg-card)',
+    color: 'var(--text-2)', textDecoration: 'none', cursor: enabled ? 'pointer' : 'not-allowed',
+    opacity: enabled ? 1 : 0.4, boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+  })
+
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px 24px 60px' }}>
+    <div style={{ maxWidth: 1440, margin: '0 auto', padding: '20px 24px 60px' }}>
       {toast && (
         <div
           style={{
@@ -408,33 +470,58 @@ export default function LeadDetailPage() {
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <button
             onClick={() => navigate(-1)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', padding: 4, borderRadius: 6 }}
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, flexShrink: 0 }}
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={16} />
           </button>
+          <div style={{
+            flexShrink: 0, width: 50, height: 50, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #60A5FA, #2563EB)',
+            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 17, fontWeight: 700, letterSpacing: '0.02em',
+            boxShadow: '0 2px 8px rgba(37,99,235,0.35)',
+          }}>
+            {initials(lead.name)}
+          </div>
           <div>
-            <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{lead.name}</p>
-            <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: '2px 0 0' }}>Detalhe do Lead</p>
+            <p style={{ fontSize: 21, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>{lead.name}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 9 }}>
+              <span style={{ background: sStyle.bg, color: sStyle.color, padding: '4px 13px', borderRadius: 99, fontSize: 12.5, fontWeight: 700 }}>
+                {statusLabel(status)}
+              </span>
+              {history.length > 0 && statusLabel(status) !== 'Venda Realizada' && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '4px 12px', borderRadius: 99, fontVariantNumeric: 'tabular-nums' }}>
+                  ⏱ {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ background: sStyle.bg, color: sStyle.color, padding: '5px 16px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
-            {statusLabel(status)}
-          </span>
-          {history.length > 0 && statusLabel(status) !== 'Venda Realizada' && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums' }}>
-              ⏱ {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
-            </span>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <a href={telHref ?? undefined} style={actionBtnStyle(!!telHref)} onClick={e => { if (!telHref) e.preventDefault() }}>
+            <Phone size={15} /> Ligar
+          </a>
+          <a href={waHref ?? undefined} target="_blank" rel="noreferrer" style={{ ...actionBtnStyle(!!waHref), borderColor: waHref ? '#86EFAC' : 'var(--border)', color: waHref ? '#16A34A' : 'var(--text-2)', background: waHref ? '#F0FDF4' : 'var(--bg-card)' }} onClick={e => { if (!waHref) e.preventDefault() }}>
+            <WhatsAppIcon /> WhatsApp
+          </a>
+          <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
+            <Mail size={15} /> E-mail
+          </a>
+          <button
+            onClick={() => agendaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            style={{ ...actionBtnStyle(true), background: '#2563EB', borderColor: '#2563EB', color: '#fff', boxShadow: '0 2px 8px rgba(37,99,235,0.3)' }}
+          >
+            <CalendarPlus size={15} /> Agendar
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] gap-5 items-start">
         <div className="flex flex-col gap-5">
 
           <SectionCard title="Informações" icon={User} accent="#2563EB" action={
@@ -456,36 +543,24 @@ export default function LeadDetailPage() {
               </button>
             )
           }>
-            <div style={{ display: 'flex', gap: 18 }}>
-              <div style={{
-                flexShrink: 0, width: 52, height: 52, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #60A5FA, #2563EB)',
-                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 18, fontWeight: 700, letterSpacing: '0.02em',
-                boxShadow: '0 2px 8px rgba(37,99,235,0.35)',
-              }}>
-                {initials(lead.name)}
+            {editingInfo ? (
+              <div className="flex flex-col gap-4">
+                <EditInput label="Nome"      value={infoDraft.name}      onChange={v => setInfoDraft(d => ({ ...d, name: v }))} />
+                <EditInput label="Empresa"   value={infoDraft.company}   onChange={v => setInfoDraft(d => ({ ...d, company: v }))} />
+                <EditInput label="Email"     value={infoDraft.email}     onChange={v => setInfoDraft(d => ({ ...d, email: v }))} />
+                <EditInput label="Telefone"  value={infoDraft.phone}     onChange={v => setInfoDraft(d => ({ ...d, phone: v }))} />
+                <EditInput label="Documento" value={infoDraft.document}  onChange={v => setInfoDraft(d => ({ ...d, document: v }))} />
+                <EditInput label="Atendente" value={infoDraft.attendant} onChange={v => setInfoDraft(d => ({ ...d, attendant: v }))} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px', flex: 1 }}>
-                {editingInfo ? (
-                  <>
-                    <EditInput label="Nome"     value={infoDraft.name}     onChange={v => setInfoDraft(d => ({ ...d, name: v }))} />
-                    <EditInput label="Empresa"  value={infoDraft.company}  onChange={v => setInfoDraft(d => ({ ...d, company: v }))} />
-                    <EditInput label="Email"    value={infoDraft.email}    onChange={v => setInfoDraft(d => ({ ...d, email: v }))} />
-                    <EditInput label="Telefone" value={infoDraft.phone}    onChange={v => setInfoDraft(d => ({ ...d, phone: v }))} />
-                    <EditInput label="Atendente" value={infoDraft.attendant} onChange={v => setInfoDraft(d => ({ ...d, attendant: v }))} />
-                  </>
-                ) : (
-                  <>
-                    <Field label="Nome"     value={lead.name} />
-                    <Field label="Empresa"  value={lead.company ?? '—'} />
-                    <Field label="Email"    value={lead.email ?? '—'} />
-                    <Field label="Telefone" value={lead.phone ?? '—'} />
-                    <Field label="Atendente" value={lead.attendant ?? '—'} />
-                  </>
-                )}
+            ) : (
+              <div className="flex flex-col gap-4">
+                <Field label="Empresa"   value={lead.company ?? '—'} />
+                <Field label="E-mail"    value={lead.email ?? '—'} />
+                <Field label="Telefone"  value={lead.phone ?? '—'} />
+                <Field label="Documento" value={lead.document ?? '—'} />
+                <Field label="Atendente" value={lead.attendant ?? '—'} />
                 {lead.perception && PERCEPTION_STYLE[lead.perception] && (
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-2">
                     <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
                       Percepção
                     </span>
@@ -495,8 +570,105 @@ export default function LeadDetailPage() {
                   </div>
                 )}
               </div>
+            )}
+          </SectionCard>
+
+          {(lead.receita_real_recebida != null || lead.receita_real_a_receber != null) && (() => {
+            const recebida = lead.receita_real_recebida ?? 0
+            const aReceber = lead.receita_real_a_receber ?? 0
+            const total = recebida + aReceber
+            const pct = total > 0 ? Math.round(recebida / total * 100) : 0
+            return (
+              <SectionCard title="Receita Gerada" icon={Wallet} accent="#059669">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recebida</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#059669', marginTop: 4 }}>{fmtBRL(recebida)}</div>
+                  </div>
+                  <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>A Receber</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#D97706', marginTop: 4 }}>{fmtBRL(aReceber)}</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total do negócio</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-1)' }}>{fmtBRL(total)}</span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 99, background: '#FFFBEB', overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: '#059669' }} />
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>{pct}% já recebido</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--text-subtle)', background: 'var(--bg-subtle)', borderRadius: 6, padding: '3px 8px', width: 'fit-content', marginTop: 14 }}>
+                  <Lock size={10} /> Visível apenas para Admin e Diretor
+                </div>
+              </SectionCard>
+            )
+          })()}
+
+        </div>
+
+        <div className="flex flex-col gap-5">
+
+          <SectionCard title="Detalhes do Lead" icon={Tag} accent="#4F46E5">
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '16px 20px', marginTop: 8 }}>
+              <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
+              <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
+              <div style={{ gridColumn: '1 / -1', marginTop: 12 }}>
+                <Field label="Ponto de Conversão" value={lead.conversion_point ?? '—'} />
+              </div>
+              <div style={{ marginTop: 12 }}><PlanField value={lead.current_plan} /></div>
+              <div style={{ marginTop: 12 }}><Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} /></div>
+              <div style={{ marginTop: 12 }}><Field label="Data de Criação" value={fmtDate(lead.created_at)} /></div>
             </div>
           </SectionCard>
+
+          <SectionCard title="Linha do Tempo · tempo por etapa" icon={History} accent="#059669">
+            {loadingHistory ? (
+              <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
+            ) : timeline.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem histórico registrado.</p>
+            ) : (
+              <div style={{ position: 'relative', paddingLeft: 20 }}>
+                <div style={{ position: 'absolute', left: 6, top: 8, bottom: 8, width: 2, background: 'var(--border)', borderRadius: 2 }} />
+                {timeline.map((item, i) => {
+                  const c = statusColor(item.status)
+                  const isVendaRealizada = statusLabel(item.status) === 'Venda Realizada'
+                  return (
+                    <div key={i} style={{ position: 'relative', marginBottom: i < timeline.length - 1 ? 18 : 0 }}>
+                      <div style={{
+                        position: 'absolute', left: -17, top: 4,
+                        width: 10, height: 10, borderRadius: '50%',
+                        background: c.color, border: '2px solid var(--bg-card)',
+                        boxShadow: `0 0 0 2px ${c.color}`,
+                      }} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, background: c.bg, color: c.color, padding: '2px 10px', borderRadius: 99 }}>
+                          {item.isCreation ? `Criado como ${statusLabel(item.status)}` : statusLabel(item.status)}
+                        </span>
+                        {!(item.ongoing && isVendaRealizada) && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, color: item.ongoing ? c.color : 'var(--text-subtle)',
+                            background: item.ongoing ? c.bg : 'var(--bg-hover)', padding: '2px 8px', borderRadius: 99,
+                          }}>
+                            {item.ongoing ? `em andamento · ${fmtDuration(item.durationMs)}` : fmtDuration(item.durationMs)}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>
+                        {fmtDate(item.at)}{item.by ? ` · ${item.by}` : ''}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </SectionCard>
+
+        </div>
+
+        <div className="flex flex-col gap-5">
 
           <SectionCard title="Status" icon={Activity} accent={sStyle.color}>
             {editingStatus ? (
@@ -545,6 +717,7 @@ export default function LeadDetailPage() {
             )}
           </SectionCard>
 
+          <div ref={agendaRef}>
           <SectionCard title="Agendamento" icon={CalendarClock} accent="#7C3AED">
             <div className="flex flex-col gap-2">
               {loadingSchedules ? (
@@ -604,6 +777,7 @@ export default function LeadDetailPage() {
               )}
             </div>
           </SectionCard>
+          </div>
 
           <SectionCard title="Notas" icon={StickyNote} accent="#D97706">
             <div className="flex flex-col gap-3">
@@ -661,70 +835,6 @@ export default function LeadDetailPage() {
                 </div>
               )}
             </div>
-          </SectionCard>
-
-        </div>
-
-        <div className="flex flex-col gap-5">
-
-          <SectionCard title="Detalhes do Lead" icon={Tag} accent="#4F46E5">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
-              <Field label="Origem"             value={lead.origem ?? '—'} />
-              <Field label="Ponto de Conversão" value={lead.conversion_point ?? '—'} />
-              <Field label="Base"               value={lead.base ?? '—'} />
-              <Field label="Modalidade"         value={lead.modalidade ?? '—'} />
-              <PlanField value={lead.current_plan} />
-              <Field label="Valor Potencial"    value={fmtBRL(lead.value_potential)} />
-              {(lead.receita_real_recebida != null || lead.receita_real_a_receber != null) && (
-                <>
-                  <Field label="Receita Real Recebida"  value={fmtBRL(lead.receita_real_recebida)} />
-                  <Field label="Receita Real a Receber" value={fmtBRL(lead.receita_real_a_receber)} />
-                </>
-              )}
-              <Field label="Data Criação"       value={fmtDate(lead.created_at)} />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Linha do Tempo · tempo por etapa" icon={History} accent="#059669">
-            {loadingHistory ? (
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
-            ) : timeline.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem histórico registrado.</p>
-            ) : (
-              <div style={{ position: 'relative', paddingLeft: 20 }}>
-                <div style={{ position: 'absolute', left: 6, top: 8, bottom: 8, width: 2, background: 'var(--border)', borderRadius: 2 }} />
-                {timeline.map((item, i) => {
-                  const c = statusColor(item.status)
-                  const isVendaRealizada = statusLabel(item.status) === 'Venda Realizada'
-                  return (
-                    <div key={i} style={{ position: 'relative', marginBottom: i < timeline.length - 1 ? 18 : 0 }}>
-                      <div style={{
-                        position: 'absolute', left: -17, top: 4,
-                        width: 10, height: 10, borderRadius: '50%',
-                        background: c.color, border: '2px solid var(--bg-card)',
-                        boxShadow: `0 0 0 2px ${c.color}`,
-                      }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, background: c.bg, color: c.color, padding: '2px 10px', borderRadius: 99 }}>
-                          {item.isCreation ? `Criado como ${statusLabel(item.status)}` : statusLabel(item.status)}
-                        </span>
-                        {!(item.ongoing && isVendaRealizada) && (
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, color: item.ongoing ? c.color : 'var(--text-subtle)',
-                            background: item.ongoing ? c.bg : 'var(--bg-hover)', padding: '2px 8px', borderRadius: 99,
-                          }}>
-                            {item.ongoing ? `em andamento · ${fmtDuration(item.durationMs)}` : fmtDuration(item.durationMs)}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>
-                        {fmtDate(item.at)}{item.by ? ` · ${item.by}` : ''}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
           </SectionCard>
 
         </div>

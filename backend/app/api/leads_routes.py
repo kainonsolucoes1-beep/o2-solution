@@ -362,10 +362,17 @@ def update_lead_info(
         lead.phone = body.phone.strip() or None
     if body.attendant is not None:
         lead.attendant = body.attendant.strip() or None
+    if body.document is not None:
+        lead.document = body.document.strip() or None
+    if body.origin is not None:
+        lead.origin = body.origin.strip() or None
+    if body.modalidade is not None:
+        lead.modalidade = body.modalidade.strip() or None
     db.commit()
     return LeadInfoUpdateResponse(
         success=True, lead_id=lead.id, name=lead.name,
         company=lead.company, email=lead.email, phone=lead.phone, attendant=lead.attendant,
+        document=lead.document, origin=lead.origin, modalidade=lead.modalidade,
     )
 
 

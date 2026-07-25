@@ -92,6 +92,9 @@ class LeadInfoUpdateRequest(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     attendant: Optional[str] = None
+    document: Optional[str] = None
+    origin: Optional[str] = None
+    modalidade: Optional[str] = None
 
 
 class LeadInfoUpdateResponse(BaseModel):
@@ -102,6 +105,9 @@ class LeadInfoUpdateResponse(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     attendant: Optional[str] = None
+    document: Optional[str] = None
+    origin: Optional[str] = None
+    modalidade: Optional[str] = None
 
 
 class NoteCreateRequest(BaseModel):
