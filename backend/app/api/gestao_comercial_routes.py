@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.models.lead import Lead, LeadStatusHistory
+from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
 from app.models.user import User
 from app.security import can_see_financials
 
@@ -19,6 +19,22 @@ HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 CANCELADO_STATUS    = "sale_not_performed"
 AGENDAMENTO_STATUSES = ("qualificado", "scheduled")
 PROPOSTA_STATUSES   = ("proposta", "proposal_sent", "negociacao")
+
+# mesma classificação SDR x Orgânico usada no front (GestaoComercial.tsx: groupOrigens)
+O2_NAMES        = {"clara", "maria eduarda", "kauany", "gabrieli", "o2 solution", "o2solution"}
+ORGANICO_EXTRA  = {"site", "chatgpt.com", "chatgpt", "google", "instagram", "facebook", "whatsapp"}
+
+
+def _is_organico(origin: str) -> bool:
+    lower = origin.lower()
+    return "org" in lower or lower in ORGANICO_EXTRA
+
+
+def _ranking_bucket(origin: str) -> str | None:
+    o = (origin or "").strip()
+    if not o or _is_organico(o):
+        return None
+    return "o2 Solution" if o.lower() in O2_NAMES else o
 
 
 def _parse_month(month: str | None):
@@ -652,6 +668,69 @@ def vida_sdr(
             year += 1
 
     show_fin = can_see_financials(current_user)
+
+    ranking = None
+    if show_fin:
+        origin_rows = db.query(Lead.origin, Lead.receita_real_recebida).filter(
+            Lead.origin.isnot(None), Lead.origin != "",
+        ).all()
+        buckets: dict = defaultdict(float)
+        for origin, recebido in origin_rows:
+            key = _ranking_bucket(origin)
+            if key is None:
+                continue
+            buckets[key] += float(recebido or 0)
+
+        current_key = "o2 Solution" if any(p.strip().lower() in O2_NAMES for p in parts) else next(
+            (p.strip() for p in parts if not _is_organico(p)), parts[0].strip()
+        )
+        buckets[current_key] = receita_recebida
+
+        ordered = sorted(buckets.items(), key=lambda kv: kv[1], reverse=True)
+        posicao = next(i + 1 for i, (k, _) in enumerate(ordered) if k == current_key)
+        ranking = {
+            "posicao": posicao,
+            "total": len(ordered),
+            "leaderboard": [{"nome": k, "receita": v, "voce": k == current_key} for k, v in ordered[:5]],
+        }
+
+    status_rows = (
+        db.query(LeadStatusHistory.changed_at, LeadStatusHistory.to_status, Lead.name)
+        .join(Lead, Lead.id == LeadStatusHistory.lead_id)
+        .filter(Lead.origin.in_(parts))
+        .order_by(LeadStatusHistory.changed_at.desc())
+        .limit(15)
+        .all()
+    )
+    note_rows = (
+        db.query(LeadNote.created_at, LeadNote.content, Lead.name)
+        .join(Lead, Lead.id == LeadNote.lead_id)
+        .filter(Lead.origin.in_(parts))
+        .order_by(LeadNote.created_at.desc())
+        .limit(15)
+        .all()
+    )
+    schedule_rows = (
+        db.query(LeadSchedule.created_at, Lead.name)
+        .join(Lead, Lead.id == LeadSchedule.lead_id)
+        .filter(Lead.origin.in_(parts), LeadSchedule.is_active.is_(True))
+        .order_by(LeadSchedule.created_at.desc())
+        .limit(15)
+        .all()
+    )
+
+    atividades = []
+    for changed_at, to_status, nome in status_rows:
+        atividades.append({"tipo": "status", "lead_nome": nome, "detalhe": to_status, "em": changed_at.isoformat()})
+    for created_at, content, nome in note_rows:
+        resumo = (content or "").strip().replace("\n", " ")
+        if len(resumo) > 90:
+            resumo = resumo[:87] + "…"
+        atividades.append({"tipo": "nota", "lead_nome": nome, "detalhe": resumo, "em": created_at.isoformat()})
+    for created_at, nome in schedule_rows:
+        atividades.append({"tipo": "agendamento", "lead_nome": nome, "detalhe": None, "em": created_at.isoformat()})
+    atividades.sort(key=lambda a: a["em"], reverse=True)
+
     return {
         "captacoes": captacoes,
         "em_andamento": em_andamento,
@@ -662,4 +741,6 @@ def vida_sdr(
         "receita_a_receber": receita_a_receber if show_fin else None,
         "primeiro_lead_em": earliest.isoformat(),
         "trend": [{**t, "receita": t["receita"] if show_fin else None} for t in trend],
+        "ranking": ranking,
+        "atividades": atividades[:15],
     }
