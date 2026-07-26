@@ -1,11 +1,29 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+import time
+from collections import defaultdict, deque
+
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
-from app.schemas import UserRegister, UserLogin, TokenResponse, UserResponse
-from app.security import hash_password, verify_password, create_access_token, verify_token
+from app.schemas import UserLogin, TokenResponse, UserResponse
+from app.security import verify_password, create_access_token, verify_token
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+_LOGIN_RATE_WINDOW = 300
+_LOGIN_RATE_MAX = 8
+_login_attempts: dict[str, deque] = defaultdict(deque)
+
+
+def _check_login_rate_limit(ip: str):
+    now = time.time()
+    hits = _login_attempts[ip]
+    while hits and now - hits[0] > _LOGIN_RATE_WINDOW:
+        hits.popleft()
+    if len(hits) >= _LOGIN_RATE_MAX:
+        raise HTTPException(status_code=429, detail="Muitas tentativas de login. Tente novamente em alguns minutos.")
+    hits.append(now)
+
 
 def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)):
     if not authorization:
@@ -26,29 +44,14 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     
     return user
 
-@router.post("/register", response_model=UserResponse)
-async def register(user_data: UserRegister, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == user_data.email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email já registrado")
-    
-    new_user = User(
-        email=user_data.email,
-        username=user_data.username,
-        password_hash=hash_password(user_data.password),
-        first_name=user_data.first_name
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
-
 @router.post("/login", response_model=TokenResponse)
-async def login(credentials: UserLogin, db: Session = Depends(get_db)):
+async def login(credentials: UserLogin, request: Request, db: Session = Depends(get_db)):
+    _check_login_rate_limit(request.client.host if request.client else "unknown")
+
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
-    
+
     access_token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
 

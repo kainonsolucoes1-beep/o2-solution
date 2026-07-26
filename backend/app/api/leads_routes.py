@@ -28,7 +28,7 @@ router = APIRouter(prefix="/api/v1", tags=["leads"])
 
 
 def _is_admin(user: User) -> bool:
-    return user.role == "admin" or user.username == "lucas@o2solution.com.br"
+    return user.role == "admin"
 
 
 @router.get("/leads", response_model=List[LeadResponse])

@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1", tags=["forms"])
 
 
 def _require_admin(user: User):
-    if user.role != "admin" and user.username != "lucas@o2solution.com.br":
+    if user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
 
 
