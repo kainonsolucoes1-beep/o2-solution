@@ -14,12 +14,6 @@ function WhatsAppIcon({ size = 15 }: { size?: number }) {
   )
 }
 
-function normalizePhoneDigits(phone: string) {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length > 11 && digits.startsWith('55')) return digits
-  return digits ? `55${digits}` : ''
-}
-
 interface LeadItem {
   id: string
   name: string
@@ -451,7 +445,7 @@ export default function LeadDetailPage() {
   })()
 
   const telHref = lead.phone ? `tel:${lead.phone.replace(/\D/g, '')}` : null
-  const waHref = lead.phone ? `https://wa.me/${normalizePhoneDigits(lead.phone)}` : null
+  const waHref = 'https://app.hbcconecta.com.br/index.html#/atendimentos/chat/'
   const mailHref = lead.email ? `mailto:${lead.email}` : null
   const actionBtnStyle = (enabled: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 10,
