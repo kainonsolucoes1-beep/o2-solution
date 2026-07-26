@@ -158,14 +158,13 @@ function initials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-function SectionCard({ title, icon: Icon, accent = '#2563EB', action, children }: { title?: string; icon?: LucideIcon; accent?: string; action?: ReactNode; children: ReactNode }) {
+function SectionCard({ title, icon: Icon, action, children }: { title?: string; icon?: LucideIcon; action?: ReactNode; children: ReactNode }) {
   return (
-    <div style={{ position: 'relative', border: '1px solid var(--border-lt)', borderRadius: 14, padding: '16px 18px 16px 20px', background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-      {title && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: accent }} />}
+    <div style={{ border: '1px solid var(--border-lt)', borderRadius: 14, padding: '18px 20px', background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
       {title && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, margin: '0 0 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            {Icon && <Icon size={14} color={accent} strokeWidth={2.5} />}
+            {Icon && <Icon size={14} color="#2563EB" strokeWidth={2.5} />}
             <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
               {title}
             </p>
@@ -181,10 +180,10 @@ function SectionCard({ title, icon: Icon, accent = '#2563EB', action, children }
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         {label}
       </span>
-      <span style={{ fontSize: 14, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500 }}>
+      <span style={{ fontSize: 13.5, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500 }}>
         {value}
       </span>
     </div>
@@ -194,7 +193,7 @@ function Field({ label, value }: { label: string; value: string }) {
 function EditInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         {label}
       </span>
       <input
@@ -209,7 +208,7 @@ function EditInput({ label, value, onChange }: { label: string; value: string; o
 function SelectField({ label, value, options, onChange, saving }: { label: string; value: string; options: string[]; onChange: (v: string) => void; saving?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         {label}
       </span>
       <select
@@ -229,17 +228,17 @@ function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
     <div className="flex flex-col gap-2">
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         Plano Atual
       </span>
       {!value ? (
-        <span style={{ fontSize: 14, color: 'var(--text-subtle)' }}>—</span>
+        <span style={{ fontSize: 13.5, color: 'var(--text-subtle)' }}>—</span>
       ) : semPlano ? (
         <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'rgba(220,38,38,0.12)', color: '#DC2626', padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700 }}>
           Não possui plano
         </span>
       ) : (
-        <span style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>{value}</span>
+        <span style={{ fontSize: 13.5, color: 'var(--text-2)', fontWeight: 500 }}>{value}</span>
       )}
     </div>
   )
@@ -525,7 +524,7 @@ export default function LeadDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] gap-5 items-start">
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Informações" icon={User} accent="#2563EB" action={
+          <SectionCard title="Informações" icon={User} action={
             editingInfo ? (
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => setEditingInfo(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -562,7 +561,7 @@ export default function LeadDetailPage() {
                 <Field label="Atendente" value={lead.attendant ?? '—'} />
                 {lead.perception && PERCEPTION_STYLE[lead.perception] && (
                   <div className="flex flex-col gap-2">
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
                       Percepção
                     </span>
                     <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: PERCEPTION_STYLE[lead.perception].bg, color: PERCEPTION_STYLE[lead.perception].color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
@@ -581,7 +580,7 @@ export default function LeadDetailPage() {
             const hasData = total > 0
             const pct = hasData ? Math.round(recebida / total * 100) : 0
             return (
-              <SectionCard title="Receita Gerada" icon={Wallet} accent="#059669">
+              <SectionCard title="Receita Gerada" icon={Wallet}>
                 {hasData ? (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -621,7 +620,7 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Detalhes do Lead" icon={Tag} accent="#4F46E5">
+          <SectionCard title="Detalhes do Lead" icon={Tag}>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '16px 20px', marginTop: 8 }}>
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
@@ -634,7 +633,7 @@ export default function LeadDetailPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Linha do Tempo · tempo por etapa" icon={History} accent="#059669">
+          <SectionCard title="Linha do Tempo · tempo por etapa" icon={History}>
             {loadingHistory ? (
               <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
             ) : timeline.length === 0 ? (
@@ -680,7 +679,7 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Status" icon={Activity} accent={sStyle.color}>
+          <SectionCard title="Status" icon={Activity}>
             {editingStatus ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {STATUS_OPTIONS.map(opt => {
@@ -728,7 +727,7 @@ export default function LeadDetailPage() {
           </SectionCard>
 
           <div ref={agendaRef}>
-          <SectionCard title="Agendamento" icon={CalendarClock} accent="#7C3AED">
+          <SectionCard title="Agendamento" icon={CalendarClock}>
             <div className="flex flex-col gap-2">
               {loadingSchedules ? (
                 <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
@@ -789,7 +788,7 @@ export default function LeadDetailPage() {
           </SectionCard>
           </div>
 
-          <SectionCard title="Notas" icon={StickyNote} accent="#D97706">
+          <SectionCard title="Notas" icon={StickyNote}>
             <div className="flex flex-col gap-3">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <textarea
