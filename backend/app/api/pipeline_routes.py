@@ -105,17 +105,23 @@ def pipeline_overview(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    neg_q = db.query(func.count(Lead.id)).filter(
-        Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
+    neg_exclusions = (
+        ~_status_in(PENDENTE_STATUSES),
+        ~_status_in(AGENDADO_STATUSES),
+        ~_status_in(PROPOSTA_STATUSES),
         ~_status_in(FECHADO_STATUSES),
         ~_status_in(PERDIDO_STATUSES),
+    )
+
+    neg_q = db.query(func.count(Lead.id)).filter(
+        Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
+        *neg_exclusions,
     )
     negociacao = _apply_filters(neg_q, date_from, date_to, source, team).scalar() or 0
 
     neg_val_q = db.query(func.coalesce(func.sum(Lead.value_potential), 0)).filter(
         Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
-        ~_status_in(FECHADO_STATUSES),
-        ~_status_in(PERDIDO_STATUSES),
+        *neg_exclusions,
     )
     negociacao_value = float(_apply_filters(neg_val_q, date_from, date_to, source, team).scalar() or 0.0)
 
