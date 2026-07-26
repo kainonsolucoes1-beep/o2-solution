@@ -699,7 +699,7 @@ def vida_sdr(
         .join(Lead, Lead.id == LeadStatusHistory.lead_id)
         .filter(Lead.origin.in_(parts))
         .order_by(LeadStatusHistory.changed_at.desc())
-        .limit(15)
+        .limit(60)
         .all()
     )
     note_rows = (
@@ -707,7 +707,7 @@ def vida_sdr(
         .join(Lead, Lead.id == LeadNote.lead_id)
         .filter(Lead.origin.in_(parts))
         .order_by(LeadNote.created_at.desc())
-        .limit(15)
+        .limit(60)
         .all()
     )
     schedule_rows = (
@@ -715,7 +715,7 @@ def vida_sdr(
         .join(Lead, Lead.id == LeadSchedule.lead_id)
         .filter(Lead.origin.in_(parts), LeadSchedule.is_active.is_(True))
         .order_by(LeadSchedule.created_at.desc())
-        .limit(15)
+        .limit(60)
         .all()
     )
 
@@ -742,5 +742,5 @@ def vida_sdr(
         "primeiro_lead_em": earliest.isoformat(),
         "trend": [{**t, "receita": t["receita"] if show_fin else None} for t in trend],
         "ranking": ranking,
-        "atividades": atividades[:15],
+        "atividades": atividades[:100],
     }

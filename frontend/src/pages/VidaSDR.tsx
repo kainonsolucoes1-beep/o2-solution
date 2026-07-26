@@ -4,8 +4,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import {
-  ArrowLeft, Users, Loader2, XCircle, Percent, Wallet, Clock3,
-  Trophy, Download, List, Lock, StickyNote, CalendarClock, ArrowRightLeft,
+  ArrowLeft, Users, Loader2, XCircle, Percent, Wallet, Clock3, Handshake,
+  Trophy, Download, List, Lock, StickyNote, CalendarClock, ArrowRightLeft, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
@@ -67,8 +67,9 @@ function relTime(iso: string): string {
 const MEDALS = ['🥇', '🥈', '🥉']
 
 const STAT_CFG = [
-  { key: 'captacoes',        label: 'Total de Leads',    icon: Users,    color: '#3B82F6', bg: 'rgba(59,130,246,0.14)',  fmt: (v: number) => String(v) },
-  { key: 'em_andamento',     label: 'Em Andamento',      icon: Clock3,   color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', fmt: (v: number) => String(v) },
+  { key: 'captacoes',        label: 'Total de Leads',    icon: Users,     color: '#3B82F6', bg: 'rgba(59,130,246,0.14)',  fmt: (v: number) => String(v) },
+  { key: 'vendas',           label: 'Vendas Realizadas', icon: Handshake, color: '#059669', bg: 'rgba(5,150,105,0.14)',   fmt: (v: number) => String(v) },
+  { key: 'em_andamento',     label: 'Em Andamento',      icon: Clock3,    color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', fmt: (v: number) => String(v) },
   { key: 'cancelados',       label: 'Cancelados',        icon: XCircle,  color: '#EF4444', bg: 'rgba(239,68,68,0.14)',  fmt: (v: number) => String(v) },
   { key: 'conversao',        label: 'Conversão Geral',   icon: Percent,  color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: (v: number) => `${v}%` },
   { key: 'receita_recebida', label: 'Receita Recebida',  icon: Wallet,   color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: fmtBrl },
@@ -89,6 +90,7 @@ export default function VidaSDR() {
 
   const [data, setData] = useState<VidaSdrData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showAllAtividades, setShowAllAtividades] = useState(false)
 
   useEffect(() => {
     if (!origens) return
@@ -263,23 +265,33 @@ export default function VidaSDR() {
               {data.atividades.length === 0 ? (
                 <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', textAlign: 'center', padding: '18px 0' }}>Nenhuma atividade registrada ainda.</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {data.atividades.map((a, i) => {
-                    const cfg = ATIVIDADE_CFG[a.tipo]
-                    const texto = a.tipo === 'status' ? `${a.lead_nome} → ${statusLabel(a.detalhe)}`
-                      : a.tipo === 'nota' ? `${a.lead_nome}: ${a.detalhe}`
-                      : `Agendamento criado para ${a.lead_nome}`
-                    return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: i < data.atividades.length - 1 ? '1px solid var(--border-lt)' : 'none' }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 7, background: cfg.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <cfg.Icon size={12} color={cfg.color} />
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {(showAllAtividades ? data.atividades : data.atividades.slice(0, 6)).map((a, i, arr) => {
+                      const cfg = ATIVIDADE_CFG[a.tipo]
+                      const texto = a.tipo === 'status' ? `${a.lead_nome} → ${statusLabel(a.detalhe)}`
+                        : a.tipo === 'nota' ? `${a.lead_nome}: ${a.detalhe}`
+                        : `Agendamento criado para ${a.lead_nome}`
+                      return (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-lt)' : 'none' }}>
+                          <div style={{ width: 24, height: 24, borderRadius: 7, background: cfg.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <cfg.Icon size={12} color={cfg.color} />
+                          </div>
+                          <span style={{ fontSize: 12.5, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{texto}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-subtle)', flexShrink: 0 }}>{relTime(a.em)}</span>
                         </div>
-                        <span style={{ fontSize: 12.5, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{texto}</span>
-                        <span style={{ fontSize: 11, color: 'var(--text-subtle)', flexShrink: 0 }}>{relTime(a.em)}</span>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                  {data.atividades.length > 6 && (
+                    <button
+                      onClick={() => setShowAllAtividades(v => !v)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '12px auto 0', background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', fontSize: 12, fontWeight: 600 }}
+                    >
+                      {showAllAtividades ? <>Mostrar menos <ChevronUp size={13} /></> : <>Ver histórico completo ({data.atividades.length}) <ChevronDown size={13} /></>}
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
