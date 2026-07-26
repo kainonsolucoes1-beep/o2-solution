@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
+import { statusLabel } from '../utils/statusLabel'
 
 interface AgendaItem {
   id: string
@@ -23,26 +24,35 @@ interface AgendaItem {
   schedule_id: string
 }
 
-const WEEKDAYS = ['DOM.', 'SEG.', 'TER.', 'QUA.', 'QUI.', 'SEX.', 'SÁB.']
+const WEEKDAYS = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.']
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
-const PALETTE = ['#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#EF4444', '#14B8A6', '#F97316']
 
-function colorFor(key: string | null) {
-  if (!key) return PALETTE[0]
-  let hash = 0
-  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0
-  return PALETTE[hash % PALETTE.length]
+const STATUS_DOT: Record<string, string> = {
+  novo: '#3B82F6', new: '#3B82F6', pending: '#3B82F6',
+  qualificado: '#10B981', qualified: '#10B981', scheduled: '#10B981',
+  proposta: '#F59E0B', proposal_sent: '#F59E0B', 'proposal sent': '#F59E0B',
+  negociacao: '#8B5CF6', negociação: '#8B5CF6',
+  waiting_billing: '#059669', fechado: '#059669', closed: '#059669',
+  won: '#059669', convertido: '#059669', sale_performed: '#059669', 'sale performed': '#059669',
+  sale_not_performed: '#EF4444', 'sale not performed': '#EF4444',
+}
+const LEGEND = [
+  { status: 'novo', label: 'Novo' },
+  { status: 'qualificado', label: 'Agendado' },
+  { status: 'proposta', label: 'Proposta enviada' },
+  { status: 'negociacao', label: 'Negociação' },
+  { status: 'fechado', label: 'Fechado' },
+]
+
+function dotColor(status: string | null) {
+  if (!status) return '#9CA3AF'
+  return STATUS_DOT[status.toLowerCase()] ?? '#9CA3AF'
 }
 
-function densityFor(count: number) {
-  if (count <= 3) return { fontSize: 11, padding: '4px 6px', gap: 4, lineHeight: 1.4 }
-  if (count <= 6) return { fontSize: 10, padding: '3px 5px', gap: 3, lineHeight: 1.3 }
-  if (count <= 10) return { fontSize: 9, padding: '2px 4px', gap: 2, lineHeight: 1.25 }
-  return { fontSize: 8, padding: '1px 3px', gap: 2, lineHeight: 1.2 }
-}
+const MAX_VISIBLE = 3
 
 function dateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -53,6 +63,7 @@ export default function Agenda() {
   const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); return d })
   const [items, setItems] = useState<AgendaItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [dayPopover, setDayPopover] = useState<{ date: Date; items: AgendaItem[] } | null>(null)
 
   useEffect(() => {
     const year = cursor.getFullYear()
@@ -64,6 +75,13 @@ export default function Agenda() {
       .then(r => setItems(r.data.items))
       .finally(() => setLoading(false))
   }, [cursor])
+
+  useEffect(() => {
+    if (!dayPopover) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setDayPopover(null) }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [dayPopover])
 
   const byDay = useMemo(() => {
     const map: Record<string, AgendaItem[]> = {}
@@ -96,38 +114,68 @@ export default function Agenda() {
   const todayKey = dateKey(today)
   const now = Date.now()
 
+  const stats = useMemo(() => {
+    let hoje = 0, semana = 0, vencidos = 0
+    const todayWeek = weeks.find(w => w.some(d => d && dateKey(d) === todayKey))
+    for (const it of items) {
+      const key = dateKey(new Date(parseUTC(it.scheduled_at)))
+      if (key === todayKey) hoje++
+      if (todayWeek && todayWeek.some(d => d && dateKey(d) === key)) semana++
+      if (parseUTC(it.scheduled_at) < now) vencidos++
+    }
+    return { hoje, semana, vencidos }
+  }, [items, weeks, todayKey, now])
+
   return (
-    <>
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
-      <div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Agenda / Calendário</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-          Leads agendados por data
-        </p>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Agenda / Calendário</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Leads agendados por data</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, border: '1px solid #BFDBFE', background: '#EFF6FF', color: '#1D4ED8' }}>
+            Hoje <span style={{ fontSize: 15, fontWeight: 800 }}>{stats.hoje}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, border: '1px solid #A7F3D0', background: '#ECFDF5', color: '#059669' }}>
+            Esta semana <span style={{ fontSize: 15, fontWeight: 800 }}>{stats.semana}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, border: '1px solid #FECACA', background: '#FEF2F2', color: '#DC2626' }}>
+            Vencidos <span style={{ fontSize: 15, fontWeight: 800 }}>{stats.vencidos}</span>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '14px 16px', borderBottom: '1px solid var(--border-lt)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-lt)' }}>
           <button
             onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() - 1, 1))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex' }}
+            style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </button>
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)', minWidth: 140, textAlign: 'center' }}>
-            {MONTHS[cursor.getMonth()]} - {cursor.getFullYear()}
+          <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-1)', minWidth: 160, textAlign: 'center' }}>
+            {MONTHS[cursor.getMonth()]} de {cursor.getFullYear()}
           </span>
-          <button
-            onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex' }}
-          >
-            <ChevronRight size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => { const d = new Date(); d.setDate(1); setCursor(d) }}
+              style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}
+            >
+              Hoje
+            </button>
+            <button
+              onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))}
+              style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg-subtle)' }}>
           {WEEKDAYS.map(w => (
-            <div key={w} style={{ padding: '10px 12px', fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center', borderBottom: '1px solid var(--border-lt)' }}>
+            <div key={w} style={{ padding: '10px 12px', fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center', borderBottom: '1px solid var(--border-lt)' }}>
               {w}
             </div>
           ))}
@@ -140,48 +188,59 @@ export default function Agenda() {
             <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {week.map((day, di) => {
                 const dayItems = day ? (byDay[dateKey(day)] ?? []) : []
-                const density = densityFor(dayItems.length)
                 const isToday = !!day && dateKey(day) === todayKey
+                const visible = dayItems.slice(0, MAX_VISIBLE)
+                const hiddenCount = dayItems.length - visible.length
                 return (
                   <div
                     key={di}
                     style={{
-                      minHeight: 190, padding: 6,
+                      minHeight: 120, padding: 8,
                       borderRight: di < 6 ? '1px solid var(--border-lt)' : 'none',
                       borderBottom: '1px solid var(--border-lt)',
-                      background: isToday ? 'var(--bg-hover)' : undefined,
-                      boxShadow: isToday ? 'inset 0 0 0 1px #3B82F6' : undefined,
+                      display: 'flex', flexDirection: 'column', gap: 4,
+                      background: !day ? 'var(--bg-hover)' : undefined,
+                      opacity: !day ? 0.4 : 1,
+                      boxShadow: isToday ? 'inset 0 0 0 1.5px #93C5FD' : undefined,
                     }}
                   >
                     {day && (
-                      <span style={{
-                        fontSize: 11, color: isToday ? '#3B82F6' : 'var(--text-subtle)',
-                        fontWeight: isToday ? 700 : 400,
-                      }}>
-                        {day.getDate()}
-                      </span>
+                      isToday ? (
+                        <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#2563EB', color: '#fff', fontWeight: 800, fontSize: 11.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {day.getDate()}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', fontWeight: 500 }}>{day.getDate()}</span>
+                      )
                     )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: density.gap, marginTop: 4 }}>
-                      {dayItems.map(it => {
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {visible.map(it => {
                         const overdue = parseUTC(it.scheduled_at) < now
                         return (
                           <button
                             key={it.schedule_id}
                             onClick={() => navigate(`/leads/${it.id}`)}
-                            title={overdue ? `${it.name} (vencido)` : it.name}
+                            title={`${statusLabel(it.status)}${overdue ? ' · vencido' : ''} · ${it.name}`}
                             style={{
-                              textAlign: 'left', fontSize: density.fontSize, lineHeight: density.lineHeight,
-                              borderLeft: `3px solid ${overdue ? '#EF4444' : colorFor(it.attendant)}`,
-                              background: overdue ? 'rgba(239,68,68,0.1)' : 'var(--bg-hover)', color: 'var(--text-2)',
-                              padding: density.padding, borderRadius: 4, cursor: 'pointer', border: 'none',
-                              borderLeftWidth: 3, borderLeftStyle: 'solid',
-                              whiteSpace: 'normal', wordBreak: 'break-word',
+                              display: 'flex', alignItems: 'center', gap: 5, textAlign: 'left', fontSize: 10.5,
+                              background: overdue ? '#FEF2F2' : 'var(--bg-hover)', color: 'var(--text-2)',
+                              padding: '3px 6px', borderRadius: 6, cursor: 'pointer', border: 'none', overflow: 'hidden',
                             }}
                           >
-                            {fmtTime(it.scheduled_at)} · {it.followize_id ?? '—'} · {it.name}
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor(it.status), flexShrink: 0 }} />
+                            <span style={{ fontSize: 10, color: overdue ? '#DC2626' : 'var(--text-subtle)', fontWeight: 700, flexShrink: 0 }}>{fmtTime(it.scheduled_at)}</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
                           </button>
                         )
                       })}
+                      {hiddenCount > 0 && day && (
+                        <button
+                          onClick={() => setDayPopover({ date: day, items: dayItems })}
+                          style={{ fontSize: 10, fontWeight: 700, color: '#1D4ED8', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', textAlign: 'left', borderRadius: 4 }}
+                        >
+                          +{hiddenCount} mais
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
@@ -189,8 +248,59 @@ export default function Agenda() {
             </div>
           ))
         )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', padding: '14px 20px', borderTop: '1px solid var(--border-lt)' }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
+          {LEGEND.map(l => (
+            <div key={l.status} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor(l.status) }} />
+              {l.label}
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>
+            <span style={{ width: 14, height: 10, borderRadius: 3, background: '#FEF2F2', border: '1px solid #FECACA' }} />
+            Vencido
+          </div>
+        </div>
       </div>
+
+      {dayPopover && (
+        <div onClick={() => setDayPopover(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card,#fff)', borderRadius: 16, width: '100%', maxWidth: 380, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-1)' }}>
+                {dayPopover.date.getDate()} de {MONTHS[dayPopover.date.getMonth()].toLowerCase()} · {dayPopover.items.length} agendamento{dayPopover.items.length !== 1 ? 's' : ''}
+              </span>
+              <button onClick={() => setDayPopover(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {dayPopover.items
+                .slice()
+                .sort((a, b) => parseUTC(a.scheduled_at) - parseUTC(b.scheduled_at))
+                .map(it => {
+                  const overdue = parseUTC(it.scheduled_at) < now
+                  return (
+                    <button
+                      key={it.schedule_id}
+                      onClick={() => navigate(`/leads/${it.id}`)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10,
+                        background: overdue ? '#FEF2F2' : 'var(--bg-hover)', border: '1px solid var(--border-lt)',
+                        cursor: 'pointer', textAlign: 'left', width: '100%',
+                      }}
+                    >
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor(it.status), flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: overdue ? '#DC2626' : 'var(--text-muted)', width: 42, flexShrink: 0 }}>{fmtTime(it.scheduled_at)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
+                    </button>
+                  )
+                })}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
-    </>
   )
 }
