@@ -68,10 +68,10 @@ const MEDALS = ['🥇', '🥈', '🥉']
 
 const STAT_CFG = [
   { key: 'captacoes',        label: 'Total de Leads',    icon: Users,     color: '#3B82F6', bg: 'rgba(59,130,246,0.14)',  fmt: (v: number) => String(v) },
-  { key: 'vendas',           label: 'Vendas Realizadas', icon: Handshake, color: '#059669', bg: 'rgba(5,150,105,0.14)',   fmt: (v: number) => String(v) },
   { key: 'em_andamento',     label: 'Em Andamento',      icon: Clock3,    color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', fmt: (v: number) => String(v) },
-  { key: 'cancelados',       label: 'Cancelados',        icon: XCircle,  color: '#EF4444', bg: 'rgba(239,68,68,0.14)',  fmt: (v: number) => String(v) },
+  { key: 'vendas',           label: 'Vendas Realizadas', icon: Handshake, color: '#059669', bg: 'rgba(5,150,105,0.14)',   fmt: (v: number) => String(v) },
   { key: 'conversao',        label: 'Conversão Geral',   icon: Percent,  color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: (v: number) => `${v}%` },
+  { key: 'cancelados',       label: 'Cancelados',        icon: XCircle,  color: '#EF4444', bg: 'rgba(239,68,68,0.14)',  fmt: (v: number) => String(v) },
   { key: 'receita_recebida', label: 'Receita Recebida',  icon: Wallet,   color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: fmtBrl },
   { key: 'receita_a_receber',label: 'Receita a Receber', icon: Wallet,   color: '#F59E0B', bg: 'rgba(245,158,11,0.14)', fmt: fmtBrl },
 ] as const
