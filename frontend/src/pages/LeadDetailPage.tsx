@@ -4,6 +4,7 @@ import { ArrowLeft, User, Tag, Activity, CalendarClock, CalendarPlus, StickyNote
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
+import { useTheme } from '../ThemeContext'
 
 function WhatsAppIcon({ size = 15 }: { size?: number }) {
   return (
@@ -159,8 +160,13 @@ function initials(name: string) {
 }
 
 function SectionCard({ title, icon: Icon, action, children }: { title?: string; icon?: LucideIcon; action?: ReactNode; children: ReactNode }) {
+  const { dark } = useTheme()
   return (
-    <div style={{ border: '1px solid var(--border-lt)', borderRadius: 14, padding: '18px 20px', background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+    <div style={{
+      border: `1px solid ${dark ? 'var(--border-lt)' : 'var(--border-in)'}`,
+      borderRadius: 14, padding: '18px 20px', background: 'var(--bg-card)',
+      boxShadow: dark ? '0 1px 3px rgba(0,0,0,0.04)' : '0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04)',
+    }}>
       {title && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, margin: '0 0 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -247,6 +253,7 @@ function PlanField({ value }: { value: string | null }) {
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { dark } = useTheme()
 
   const [lead, setLead]                   = useState<LeadItem | null>(null)
   const [notFound, setNotFound]           = useState(false)
@@ -454,6 +461,7 @@ export default function LeadDetailPage() {
   })
 
   return (
+    <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
     <div style={{ maxWidth: 1440, margin: '0 auto', padding: '20px 24px 60px' }}>
       {toast && (
         <div
@@ -878,6 +886,7 @@ export default function LeadDetailPage() {
           )}
         </div>
       )}
+    </div>
     </div>
   )
 }
