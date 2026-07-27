@@ -41,6 +41,10 @@ class Lead(Base):
     team = Column(String(255), nullable=True)
     receita_real_recebida = Column(Numeric(12, 2), nullable=True)
     receita_real_a_receber = Column(Numeric(12, 2), nullable=True)
+    receita_titular = Column(String(255), nullable=True)
+    receita_promotora = Column(String(255), nullable=True)
+    receita_modalidade = Column(String(255), nullable=True)
+    receita_data_venda = Column(TIMESTAMP, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())
 

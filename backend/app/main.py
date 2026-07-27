@@ -30,6 +30,7 @@ from app.api import telefonia_routes
 from app.api import kpis_routes
 from app.api import gestao_comercial_routes
 from app.api import public_routes
+from app.api import financeiro_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler, sync_leads_backfill
@@ -40,6 +41,10 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS current_plan VARCHAR(255)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS document VARCHAR(20)"))
     _conn.execute(text("CREATE INDEX IF NOT EXISTS idx_leads_document ON leads(document)"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_titular VARCHAR(255)"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_promotora VARCHAR(255)"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_modalidade VARCHAR(255)"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_data_venda TIMESTAMP"))
     _conn.commit()
 
 app = FastAPI(
@@ -79,6 +84,7 @@ app.include_router(telefonia_routes.router)
 app.include_router(kpis_routes.router)
 app.include_router(gestao_comercial_routes.router)
 app.include_router(public_routes.router)
+app.include_router(financeiro_routes.router)
 
 _FORM_USERS_SEED = [
     ("isaac",        "Isaac",        "",           "isaac@equipe.com",         "$2b$12$nNCX6xqvp1CPBWT2VmQQxeRymHfesflUbRrRt5CTo5Je0TKnKnOTS"),

@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from collections import defaultdict
+from datetime import datetime
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -31,6 +32,30 @@ def _color_matches(color: dict, target: tuple) -> bool:
     return abs(r - target[0]) < _COLOR_TOL and abs(g - target[1]) < _COLOR_TOL and abs(b - target[2]) < _COLOR_TOL
 
 
+# normaliza grafias diferentes pro mesmo nome na planilha (ex: "VIVA SAUDE"/"VIVA" -> "Viva Saúde")
+_PROMOTORA_ALIASES = {
+    "viva saude": "Viva Saúde",
+    "viva saúde": "Viva Saúde",
+    "viva": "Viva Saúde",
+    "bliss": "Bliss",
+    "multinotas": "Multinotas",
+    "allcross": "Allcross",
+}
+_MODALIDADE_ALIASES = {
+    "pme": "PME",
+    "pf": "PF",
+    "odonto pf": "Odonto PF",
+    "petlove": "Petlove",
+}
+
+
+def _normalize_label(raw: str | None, aliases: dict) -> str | None:
+    if not raw or not raw.strip():
+        return None
+    key = raw.strip().lower()
+    return aliases.get(key, raw.strip().title())
+
+
 def _normalize_phone(s: str | None) -> str | None:
     if not s:
         return None
@@ -45,6 +70,15 @@ def _normalize_email(s: str | None) -> str | None:
         return None
     e = s.strip().lower()
     return e or None
+
+
+def _parse_sheet_date(s: str | None):
+    if not s:
+        return None
+    try:
+        return datetime.strptime(s.strip(), "%d/%m/%Y")
+    except ValueError:
+        return None
 
 
 def _parse_brl(s: str | None) -> float:
@@ -128,6 +162,10 @@ def sync_receita_real(db: Session) -> dict:
                 if lead.receita_real_recebida or lead.receita_real_a_receber:
                     lead.receita_real_recebida = 0.0
                     lead.receita_real_a_receber = 0.0
+                    lead.receita_titular = None
+                    lead.receita_promotora = None
+                    lead.receita_modalidade = None
+                    lead.receita_data_venda = None
             continue
 
         if not candidates:
@@ -164,6 +202,10 @@ def sync_receita_real(db: Session) -> dict:
         lead = candidates[0]
         lead.receita_real_recebida = recebido
         lead.receita_real_a_receber = a_receber
+        lead.receita_titular = titular
+        lead.receita_promotora = _normalize_label(cell("PLATAFORMA").get("formattedValue"), _PROMOTORA_ALIASES)
+        lead.receita_modalidade = _normalize_label(cell("MODALIDADE").get("formattedValue"), _MODALIDADE_ALIASES)
+        lead.receita_data_venda = _parse_sheet_date(cell("DATA").get("formattedValue"))
         matched_names.append(titular)
 
     db.commit()
