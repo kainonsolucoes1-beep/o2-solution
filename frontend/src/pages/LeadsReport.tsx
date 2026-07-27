@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { Filter, X, Trash2, RotateCcw } from 'lucide-react'
+import { Filter, X, Trash2, RotateCcw, Plus } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -176,6 +176,7 @@ export default function LeadsReport() {
   const [me, setMe]               = useState<Me | null>(null)
   const [operators, setOperators] = useState<Operator[]>([])
   const [modalidades, setModalidades] = useState<string[]>([])
+  const [conversionPoints, setConversionPoints] = useState<string[]>([])
   const [lostReasons, setLostReasons] = useState<string[]>([])
   const storedFilters = loadStoredFilters()
   const [dateFrom, setDateFrom]   = useState(() => searchParams.get('date_from') ?? storedFilters.dateFrom ?? monthStart)
@@ -201,6 +202,44 @@ export default function LeadsReport() {
   const [selected, setSelected]   = useState<Set<string>>(new Set())
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [deleting, setDeleting]   = useState(false)
+  const [newLeadOpen, setNewLeadOpen] = useState(false)
+  const [savingNewLead, setSavingNewLead] = useState(false)
+  const [newLeadError, setNewLeadError] = useState('')
+  const [newLead, setNewLead] = useState({
+    name: '', company: '', email: '', phone: '', document: '',
+    origin: '', modalidade: '', conversion_point: '', value_potential: '', attendant: '', notes: '',
+  })
+
+  function resetNewLead() {
+    setNewLead({ name: '', company: '', email: '', phone: '', document: '', origin: '', modalidade: '', conversion_point: '', value_potential: '', attendant: '', notes: '' })
+    setNewLeadError('')
+  }
+
+  function handleCreateLead() {
+    if (!newLead.name.trim()) { setNewLeadError('Nome é obrigatório'); return }
+    setSavingNewLead(true)
+    setNewLeadError('')
+    api.post<{ id: string }>('/api/v1/leads', {
+      name: newLead.name.trim(),
+      company: newLead.company.trim() || null,
+      email: newLead.email.trim() || null,
+      phone: newLead.phone.trim() || null,
+      document: newLead.document.trim() || null,
+      origin: newLead.origin || null,
+      modalidade: newLead.modalidade || null,
+      conversion_point: newLead.conversion_point || null,
+      value_potential: newLead.value_potential ? Number(newLead.value_potential) : null,
+      attendant: newLead.attendant.trim() || null,
+      notes: newLead.notes.trim() || null,
+    })
+      .then(r => {
+        setNewLeadOpen(false)
+        resetNewLead()
+        navigate(`/leads/${r.data.id}`)
+      })
+      .catch(err => setNewLeadError(err.response?.data?.detail || 'Erro ao criar lead'))
+      .finally(() => setSavingNewLead(false))
+  }
 
   useEffect(() => {
     if (!filterOpen) return
@@ -237,9 +276,10 @@ export default function LeadsReport() {
     api.get<Me>('/api/v1/auth/me')
       .then(r => {
         setMe(r.data)
+        api.get<string[]>('/api/v1/leads/origins').then(u => setOperators(u.data))
+        api.get<string[]>('/api/v1/leads/modalidades').then(u => setModalidades(u.data))
+        api.get<string[]>('/api/v1/leads/conversion-points').then(u => setConversionPoints(u.data))
         if (r.data.role === 'admin' || r.data.username === 'lucas@o2solution.com.br') {
-          api.get<string[]>('/api/v1/leads/origins').then(u => setOperators(u.data))
-          api.get<string[]>('/api/v1/leads/modalidades').then(u => setModalidades(u.data))
           api.get<string[]>('/api/v1/leads/lost-reasons').then(u => setLostReasons(u.data))
         }
       })
@@ -453,6 +493,18 @@ export default function LeadsReport() {
                 Excluir ({selected.size})
               </button>
             )}
+            <button
+              onClick={() => { resetNewLead(); setNewLeadOpen(true) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                background: '#2563EB', color: '#fff', border: '1px solid #2563EB',
+                cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+              }}
+            >
+              <Plus size={15} />
+              Novo Lead
+            </button>
             <button
               onClick={() => setFilterOpen(true)}
               style={{
@@ -947,6 +999,109 @@ export default function LeadsReport() {
                 >
                   {deleting ? 'Excluindo…' : 'Excluir'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {newLeadOpen && (
+          <div onClick={() => !savingNewLead && setNewLeadOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24, overflowY: 'auto' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 20, width: '100%', maxWidth: 620, boxShadow: '0 24px 70px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+              <div style={{
+                padding: '20px 26px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'linear-gradient(135deg, rgba(37,99,235,0.08), rgba(124,58,237,0.05))',
+                borderBottom: '1px solid var(--border)',
+              }}>
+                <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, background: '#2563EB', color: 'white' }}>
+                    <Plus size={15} />
+                  </span>
+                  Novo Lead
+                </p>
+                <button onClick={() => !savingNewLead && setNewLeadOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{ padding: '22px 26px 26px' }}>
+                {newLeadError && <p style={{ color: '#EF4444', fontSize: 13, margin: '0 0 14px' }}>{newLeadError}</p>}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div className="flex flex-col gap-1" style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>Nome *</label>
+                    <input value={newLead.name} onChange={e => setNewLead(d => ({ ...d, name: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Empresa</label>
+                    <input value={newLead.company} onChange={e => setNewLead(d => ({ ...d, company: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Documento</label>
+                    <input value={newLead.document} onChange={e => setNewLead(d => ({ ...d, document: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>E-mail</label>
+                    <input type="email" value={newLead.email} onChange={e => setNewLead(d => ({ ...d, email: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Telefone</label>
+                    <input value={newLead.phone} onChange={e => setNewLead(d => ({ ...d, phone: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Origem</label>
+                    <input list="new-lead-origins" value={newLead.origin} onChange={e => setNewLead(d => ({ ...d, origin: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    <datalist id="new-lead-origins">{operators.map(o => <option key={o} value={o} />)}</datalist>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Modalidade</label>
+                    <input list="new-lead-modalidades" value={newLead.modalidade} onChange={e => setNewLead(d => ({ ...d, modalidade: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    <datalist id="new-lead-modalidades">{modalidades.map(m => <option key={m} value={m} />)}</datalist>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Ponto de Conversão</label>
+                    <input list="new-lead-conv-points" value={newLead.conversion_point} onChange={e => setNewLead(d => ({ ...d, conversion_point: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    <datalist id="new-lead-conv-points">{conversionPoints.map(c => <option key={c} value={c} />)}</datalist>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Valor da Cotação</label>
+                    <input type="number" step="0.01" value={newLead.value_potential} onChange={e => setNewLead(d => ({ ...d, value_potential: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Atendente</label>
+                    <input value={newLead.attendant} onChange={e => setNewLead(d => ({ ...d, attendant: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                  </div>
+                  <div className="flex flex-col gap-1" style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>Notas</label>
+                    <textarea value={newLead.notes} onChange={e => setNewLead(d => ({ ...d, notes: e.target.value }))} rows={3}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border-lt)' }}>
+                  <button
+                    onClick={() => setNewLeadOpen(false)}
+                    disabled={savingNewLead}
+                    style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)', cursor: savingNewLead ? 'not-allowed' : 'pointer' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreateLead}
+                    disabled={savingNewLead}
+                    style={{ padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#2563EB', color: 'white', border: 'none', cursor: savingNewLead ? 'not-allowed' : 'pointer', opacity: savingNewLead ? 0.6 : 1 }}
+                  >
+                    {savingNewLead ? 'Salvando…' : 'Criar Lead'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

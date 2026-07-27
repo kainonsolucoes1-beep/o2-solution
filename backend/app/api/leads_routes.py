@@ -238,8 +238,6 @@ def list_origins(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(current_user):
-        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     rows = (
         db.query(Lead.origin)
         .filter(Lead.origin.isnot(None), Lead.origin != "")
@@ -255,8 +253,6 @@ def list_conversion_points(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(current_user):
-        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     rows = (
         db.query(Lead.conversion_point)
         .filter(Lead.conversion_point.isnot(None), Lead.conversion_point != "")
@@ -289,8 +285,6 @@ def list_modalidades(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(current_user):
-        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     rows = (
         db.query(Lead.modalidade)
         .filter(Lead.modalidade.isnot(None), Lead.modalidade != "")

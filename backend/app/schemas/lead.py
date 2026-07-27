@@ -13,6 +13,10 @@ class LeadCreate(BaseModel):
     status: Optional[str] = "novo"
     value_potential: Optional[float] = None
     notes: Optional[str] = None
+    document: Optional[str] = None
+    modalidade: Optional[str] = None
+    conversion_point: Optional[str] = None
+    attendant: Optional[str] = None
 
 
 class LeadResponse(LeadCreate):
