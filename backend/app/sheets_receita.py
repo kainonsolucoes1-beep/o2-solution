@@ -111,10 +111,6 @@ def sync_receita_real(db: Session) -> dict:
             i = idx.get(col)
             return vals[i] if i is not None and i < len(vals) else {}
 
-        status = (cell("STATUS").get("formattedValue") or "").strip().upper()
-        if status != STATUS_ALVO:
-            continue
-
         titular = cell("TITULAR").get("formattedValue") or "Sem nome"
         phone = _normalize_phone(cell("TELEFONE").get("formattedValue"))
         email = _normalize_email(cell("EMAIL").get("formattedValue"))
@@ -122,6 +118,17 @@ def sync_receita_real(db: Session) -> dict:
         candidates = phone_map.get(phone, []) if phone else []
         if not candidates and email:
             candidates = email_map.get(email, [])
+
+        status = (cell("STATUS").get("formattedValue") or "").strip().upper()
+        if status != STATUS_ALVO:
+            # deixou de ser "pago - finalizado" (ex: revertido para boleto emitido) —
+            # zera o que tinha sido marcado antes, senao fica um valor fantasma pra sempre
+            if len(candidates) == 1:
+                lead = candidates[0]
+                if lead.receita_real_recebida or lead.receita_real_a_receber:
+                    lead.receita_real_recebida = 0.0
+                    lead.receita_real_a_receber = 0.0
+            continue
 
         if not candidates:
             unmatched.append(titular)
