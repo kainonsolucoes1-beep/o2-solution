@@ -683,7 +683,7 @@ export default function LeadDetailPage() {
                             fontSize: 11, fontWeight: 700, color: item.ongoing ? c.color : 'var(--text-subtle)',
                             background: item.ongoing ? c.bg : 'var(--bg-hover)', padding: '2px 8px', borderRadius: 99,
                           }}>
-                            {item.ongoing ? `em andamento · ${fmtDuration(item.durationMs)}` : fmtDuration(item.durationMs)}
+                            {fmtDuration(item.durationMs)}
                           </span>
                         )}
                       </div>
