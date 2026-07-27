@@ -160,11 +160,18 @@ export default function FinanceiroDashboard() {
   const [dateTo, setDateTo] = useState(_today);
   const [periodOpen, setPeriodOpen] = useState(false);
 
-  const periodLabel = dateFrom === _monthStart && dateTo === _today ? "Este mês" : `${dateFrom.split("-").reverse().join("/")} – ${dateTo.split("-").reverse().join("/")}`;
+  const periodLabel =
+    !dateFrom && !dateTo
+      ? "Todo o período"
+      : dateFrom === _monthStart && dateTo === _today
+      ? "Este mês"
+      : `${dateFrom.split("-").reverse().join("/")} – ${dateTo.split("-").reverse().join("/")}`;
 
   useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo) params.set("date_to", dateTo);
     api
       .get<Contract[]>(`/api/v1/financeiro/contratos?${params}`)
       .then((r) => setContracts(r.data))
@@ -219,12 +226,20 @@ export default function FinanceiroDashboard() {
                     onChange={(e) => setDateTo(e.target.value)}
                     className="mt-1 mb-3 w-full rounded-lg border border-[#E4E7EE] px-2.5 py-1.5 text-[13px] text-[#10142B]"
                   />
-                  <button
-                    onClick={() => { setDateFrom(_monthStart); setDateTo(_today); }}
-                    className="text-[12px] font-medium text-[#5B4FE0] hover:underline"
-                  >
-                    Voltar para este mês
-                  </button>
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => { setDateFrom(_monthStart); setDateTo(_today); }}
+                      className="text-[12px] font-medium text-[#5B4FE0] hover:underline"
+                    >
+                      Este mês
+                    </button>
+                    <button
+                      onClick={() => { setDateFrom(""); setDateTo(""); }}
+                      className="text-[12px] font-medium text-[#5B4FE0] hover:underline"
+                    >
+                      Ver todo período
+                    </button>
+                  </div>
                 </div>
               </>
             )}
