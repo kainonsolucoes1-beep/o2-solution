@@ -629,7 +629,7 @@ export default function LeadDetailPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '16px 20px', marginTop: 8 }}>
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
-              <div style={{ gridColumn: '1 / -1', marginTop: 12 }}>
+              <div style={{ gridColumn: '1 / -1', marginTop: 12, maxWidth: 320 }}>
                 <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPoints} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
               </div>
               <div style={{ marginTop: 12 }}><PlanField value={lead.current_plan} /></div>
