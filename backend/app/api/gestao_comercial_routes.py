@@ -212,12 +212,13 @@ def origens_captacao(
 @router.get("/modalidades-captacao")
 def modalidades_captacao(
     month: str = Query(None),
+    start: str = Query(None),
+    end: str = Query(None),
     team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    year, mon = _parse_month(month)
-    dt_from, dt_to = _month_range(year, mon)
+    dt_from, dt_to = _resolve_range(month, None, start, end)
 
     leads = (
         db.query(Lead.modalidade, Lead.status)

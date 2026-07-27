@@ -1194,12 +1194,15 @@ export default function GestaoComercial() {
     // sempre perde feio na comparação contra o mês anterior completo
     const untilDay = Number(dateTo.slice(8, 10))
     const teamSuffix = teamParam ? `&team=${encodeURIComponent(teamParam)}` : ''
+    // usa o intervalo real escolhido (start/end), nao mais month+until_day — que so
+    // funcionava corretamente quando dateFrom/dateTo caiam no mesmo mes
+    const rangeParams = `start=${dateFrom}&end=${dateTo}`
     Promise.all([
-      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${month}&until_day=${untilDay}${teamSuffix}`),
-      api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?month=${month}${teamSuffix}`),
-      api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}${teamSuffix}`),
+      api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?${rangeParams}${teamSuffix}`),
+      api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?${rangeParams}${teamSuffix}`),
+      api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?${rangeParams}${teamSuffix}`),
       api.get<MensalItem[]>(`/api/v1/gestao-comercial/comparativo-mensal?${new URLSearchParams(teamParam ? { team: teamParam } : {})}`),
-      api.get<ModalidadeItem[]>(`/api/v1/gestao-comercial/modalidades-captacao?month=${month}${teamSuffix}`),
+      api.get<ModalidadeItem[]>(`/api/v1/gestao-comercial/modalidades-captacao?${rangeParams}${teamSuffix}`),
       api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${prevMonthStr(month)}&until_day=${untilDay}${teamSuffix}`),
     ]).then(([k, d, o, m, mod, pk]) => {
       setKpis(k.data); setDiario(d.data); setOrigens(o.data); setMensal(m.data); setModalidades(mod.data); setPrevKpis(pk.data)
