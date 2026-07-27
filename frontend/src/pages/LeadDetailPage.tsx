@@ -177,13 +177,13 @@ function SectionCard({ title, icon: Icon, action, children }: { title?: string; 
   )
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value, small }: { label: string; value: string; small?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
       <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         {label}
       </span>
-      <span style={{ fontSize: 13.5, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+      <span style={{ fontSize: small ? 12 : 13.5, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500 }}>
         {value}
       </span>
     </div>
@@ -560,7 +560,7 @@ export default function LeadDetailPage() {
             ) : (
               <div className="flex flex-col gap-4">
                 <Field label="Empresa"   value={lead.company ?? '—'} />
-                <Field label="E-mail"    value={lead.email ?? '—'} />
+                <Field label="E-mail"    value={lead.email ?? '—'} small />
                 <Field label="Telefone"  value={lead.phone ?? '—'} />
                 <Field label="Documento" value={lead.document ?? '—'} />
                 <Field label="Atendente" value={lead.attendant ?? '—'} />
