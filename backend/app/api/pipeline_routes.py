@@ -81,8 +81,8 @@ def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: 
     return q
 
 
-def _count_status(db: Session, statuses, date_from=None, date_to=None, source=None, team=None) -> int:
-    q = db.query(func.count(Lead.id)).filter(_status_in(statuses))
+def _count_status(db: Session, statuses, date_from=None, date_to=None, source=None, team=None, extra_filters=()) -> int:
+    q = db.query(func.count(Lead.id)).filter(_status_in(statuses), *extra_filters)
     return _apply_filters(q, date_from, date_to, source, team).scalar() or 0
 
 
@@ -105,36 +105,34 @@ def pipeline_overview(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    neg_exclusions = (
-        ~_status_in(PENDENTE_STATUSES),
-        ~_status_in(AGENDADO_STATUSES),
-        ~_status_in(PROPOSTA_STATUSES),
-        ~_status_in(FECHADO_STATUSES),
-        ~_status_in(PERDIDO_STATUSES),
-    )
+    # lead quente/morno ainda nao fechado/perdido conta so em "Qualificado" (negociacao),
+    # mesmo que o status dele ainda seja pendente/agendado/proposta
+    not_hot_warm = ~Lead.perception.in_(list(HOT_WARM_PERCEPTIONS))
 
     neg_q = db.query(func.count(Lead.id)).filter(
         Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
-        *neg_exclusions,
+        ~_status_in(FECHADO_STATUSES),
+        ~_status_in(PERDIDO_STATUSES),
     )
     negociacao = _apply_filters(neg_q, date_from, date_to, source, team).scalar() or 0
 
     neg_val_q = db.query(func.coalesce(func.sum(Lead.value_potential), 0)).filter(
         Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
-        *neg_exclusions,
+        ~_status_in(FECHADO_STATUSES),
+        ~_status_in(PERDIDO_STATUSES),
     )
     negociacao_value = float(_apply_filters(neg_val_q, date_from, date_to, source, team).scalar() or 0.0)
 
     return {
-        "novo":        _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source, team),
-        "qualificado": _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source, team),
-        "proposta":    _count_status(db, PROPOSTA_STATUSES,  date_from, date_to, source, team),
+        "novo":        _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm]),
+        "qualificado": _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm]),
+        "proposta":    _count_status(db, PROPOSTA_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm]),
         "negociacao":  negociacao,
         "fechado":     _count_status(db, FECHADO_STATUSES,   date_from, date_to, source, team),
         "perdido":     _count_status(db, PERDIDO_STATUSES,   date_from, date_to, source, team),
-        "novo_value":        _sum_value(db, [_status_in(PENDENTE_STATUSES)],  date_from, date_to, source, team),
-        "qualificado_value": _sum_value(db, [_status_in(AGENDADO_STATUSES)],  date_from, date_to, source, team),
-        "proposta_value":    _sum_value(db, [_status_in(PROPOSTA_STATUSES)],  date_from, date_to, source, team),
+        "novo_value":        _sum_value(db, [_status_in(PENDENTE_STATUSES), not_hot_warm],  date_from, date_to, source, team),
+        "qualificado_value": _sum_value(db, [_status_in(AGENDADO_STATUSES), not_hot_warm],  date_from, date_to, source, team),
+        "proposta_value":    _sum_value(db, [_status_in(PROPOSTA_STATUSES), not_hot_warm],  date_from, date_to, source, team),
         "negociacao_value":  negociacao_value,
         "fechado_value":     _sum_value(db, [_status_in(FECHADO_STATUSES)],   date_from, date_to, source, team),
         "perdido_value":     _sum_value(db, [_status_in(PERDIDO_STATUSES)],   date_from, date_to, source, team),
