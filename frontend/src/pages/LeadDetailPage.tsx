@@ -121,7 +121,7 @@ function fmtDate(iso: string) {
 
 function fmtBRL(n: number | null) {
   if (n == null || n === 0) return '—'
-  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function fmtDuration(ms: number) {
