@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -18,6 +18,57 @@ PROPOSTA_STATUSES    = ("proposal_sent",)
 FECHADO_STATUSES     = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 PERDIDO_STATUSES     = ("sale_not_performed",)
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
+
+BR_FIXED_HOLIDAYS = ((1, 1), (4, 21), (5, 1), (9, 7), (10, 12), (11, 2), (11, 15), (12, 25))
+_HOLIDAY_CACHE: dict[int, set] = {}
+
+
+def _easter(year: int) -> date:
+    """Domingo de pascoa (algoritmo de Gauss)."""
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return date(year, month, day)
+
+
+def _br_holidays(year: int) -> set:
+    if year not in _HOLIDAY_CACHE:
+        easter = _easter(year)
+        movable = [easter - timedelta(days=47), easter - timedelta(days=2), easter + timedelta(days=60)]
+        fixed = [date(year, m, d) for m, d in BR_FIXED_HOLIDAYS]
+        _HOLIDAY_CACHE[year] = set(fixed + movable)
+    return _HOLIDAY_CACHE[year]
+
+
+def _is_business_day(d: date) -> bool:
+    return d.weekday() < 5 and d not in _br_holidays(d.year)
+
+
+def _business_hours_since(start: Optional[datetime], end: datetime) -> float:
+    """Horas corridas decorridas entre start e end, pulando fim de semana e feriado nacional."""
+    if not start or end <= start:
+        return 0.0
+    total = 0.0
+    cur = start
+    while cur.date() < end.date():
+        next_day = datetime.combine(cur.date() + timedelta(days=1), datetime.min.time())
+        if _is_business_day(cur.date()):
+            total += (next_day - cur).total_seconds() / 3600
+        cur = next_day
+    if _is_business_day(cur.date()):
+        total += (end - cur).total_seconds() / 3600
+    return total
 
 
 def _now():
@@ -178,19 +229,19 @@ def pipeline_alerts(
     db: Session = Depends(get_db),
 ):
     now = _now()
-    cutoff_24h = now - timedelta(hours=24)
 
     vencidos_filter = _status_in(PENDENTE_STATUSES)
 
-    vencidos_count = _apply_filters(
-        db.query(func.count(Lead.id)).filter(Lead.updated_at <= cutoff_24h, vencidos_filter),
-        date_from, date_to, source, team,
-    ).scalar() or 0
+    # "vencido" = 24h uteis sem atualizacao (fim de semana e feriado nacional nao contam)
+    candidatos_q = db.query(Lead).filter(Lead.updated_at.isnot(None), vencidos_filter)
+    candidatos_q = _apply_filters(candidatos_q, date_from, date_to, source, team)
+    vencidos_all = [c for c in candidatos_q.all() if _business_hours_since(c.updated_at, now) >= 24]
+    vencidos_all.sort(key=lambda c: c.updated_at)
+
+    vencidos_count = len(vencidos_all)
     uncontacted_count = vencidos_count
 
-    vq = db.query(Lead).filter(Lead.updated_at <= cutoff_24h, vencidos_filter)
-    vq = _apply_filters(vq, date_from, date_to, source, team)
-    vencidos_rows = vq.order_by(Lead.updated_at.asc()).limit(10).all()
+    vencidos_rows = vencidos_all[:10]
     uncontacted_rows = vencidos_rows
 
     terminal_rows = _apply_filters(
