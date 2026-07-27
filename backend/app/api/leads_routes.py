@@ -250,6 +250,23 @@ def list_origins(
     return [r.origin for r in rows]
 
 
+@router.get("/leads/conversion-points", response_model=List[str])
+def list_conversion_points(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    rows = (
+        db.query(Lead.conversion_point)
+        .filter(Lead.conversion_point.isnot(None), Lead.conversion_point != "")
+        .distinct()
+        .order_by(Lead.conversion_point)
+        .all()
+    )
+    return [r.conversion_point for r in rows]
+
+
 @router.get("/leads/lost-reasons", response_model=List[str])
 def list_lost_reasons(
     current_user: User = Depends(get_current_user),

@@ -224,25 +224,6 @@ function SelectField({ label, value, options, onChange, saving }: { label: strin
   )
 }
 
-function TextEditField({ label, value, onSave, saving }: { label: string; value: string; onSave: (v: string) => void; saving?: boolean }) {
-  const [draft, setDraft] = useState(value)
-  useEffect(() => setDraft(value), [value])
-  return (
-    <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
-        {label}
-      </span>
-      <input
-        value={draft}
-        disabled={saving}
-        onChange={e => setDraft(e.target.value)}
-        onBlur={() => { if (draft.trim() !== value) onSave(draft.trim()) }}
-        style={{ fontSize: 13, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: saving ? 'not-allowed' : 'text', opacity: saving ? 0.6 : 1 }}
-      />
-    </div>
-  )
-}
-
 function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
@@ -293,6 +274,7 @@ export default function LeadDetailPage() {
   const [savingInfo, setSavingInfo]       = useState(false)
   const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', email: '', phone: '', attendant: '', document: '' })
   const [origins, setOrigins]             = useState<string[]>([])
+  const [conversionPoints, setConversionPoints] = useState<string[]>([])
   const [savingOrigin, setSavingOrigin]   = useState(false)
   const [savingModalidade, setSavingModalidade] = useState(false)
   const [savingConvPoint, setSavingConvPoint] = useState(false)
@@ -308,6 +290,7 @@ export default function LeadDetailPage() {
       .catch(err => { if (err.response?.status === 404) setNotFound(true) })
     api.get<Me>('/api/v1/auth/me').then(r => setMe(r.data)).catch(() => {})
     api.get<string[]>('/api/v1/leads/origins').then(r => setOrigins(r.data)).catch(() => {})
+    api.get<string[]>('/api/v1/leads/conversion-points').then(r => setConversionPoints(r.data)).catch(() => {})
     api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`)
       .then(r => setNotes(r.data.notes))
       .finally(() => setLoadingNotes(false))
@@ -647,7 +630,7 @@ export default function LeadDetailPage() {
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
               <div style={{ gridColumn: '1 / -1', marginTop: 12 }}>
-                <TextEditField label="Ponto de Conversão" value={lead.conversion_point ?? ''} saving={savingConvPoint} onSave={v => handleQuickUpdate('conversion_point', v)} />
+                <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPoints} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
               </div>
               <div style={{ marginTop: 12 }}><PlanField value={lead.current_plan} /></div>
               <div style={{ marginTop: 12 }}><Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} /></div>
