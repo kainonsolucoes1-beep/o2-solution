@@ -534,6 +534,7 @@ function ProjecaoTab() {
 interface PerfLead { nome: string; origem?: string; status: string; valor: number | null; tipo: string }
 
 function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dateTo: string; teamParam: string }) {
+  const navigate = useNavigate()
   const [lifetimeData, setLifetimeData] = useState<OperadorPerf[]>([])
   const [trend, setTrend]           = useState<MensalItem[]>([])
   const [loadingLifetime, setLoadingLifetime] = useState(true)
@@ -546,12 +547,15 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
   const [perfLoading, setPerfLoading]       = useState(false)
   const [perfStatusFilter, setPerfStatusFilter] = useState<string | null>(null)
   const [perfTrend, setPerfTrend]           = useState<MensalItem[] | null>(null)
+  const [perfPopupOrigens, setPerfPopupOrigens] = useState<string | undefined>(undefined)
+  const [perfPopupStatusGroup, setPerfPopupStatusGroup] = useState<string | undefined>(undefined)
 
   const data    = lifetimeData
   const loading = loadingLifetime
 
   function openPerfModal(title: string, origens?: string, statusGroup?: string, withTrend?: boolean) {
     setPerfPopup(title); setPerfLeads([]); setPerfLoading(true); setPerfStatusFilter(null); setPerfTrend(null)
+    setPerfPopupOrigens(origens); setPerfPopupStatusGroup(statusGroup)
     const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
     if (origens) p.set('origens', origens)
     if (statusGroup) p.set('status_group', statusGroup)
@@ -565,6 +569,14 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
       api.get<PerformanceHistorico>(`/api/v1/gestao-comercial/performance-historico?${pt}`)
         .then(r => setPerfTrend(r.data.trend)).catch(() => setPerfTrend([]))
     }
+  }
+
+  function goToLeadsReportFromPopup() {
+    const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
+    if (perfPopupOrigens) params.set('origem', perfPopupOrigens)
+    if (perfPopupStatusGroup === 'venda') params.set('status', 'waiting_billing,sale_performed,fechado,closed,won,convertido')
+    if (teamParam) params.set('team', teamParam)
+    navigate(`/leads-report?${params}`)
   }
 
   useEffect(() => {
@@ -844,8 +856,19 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
       {perfPopup && (
         <div onClick={() => setPerfPopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card,#fff)', borderRadius: 18, width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-            <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{perfPopup}</p>
+            <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{perfPopup}</p>
+                <button
+                  onClick={goToLeadsReportFromPopup}
+                  title="Ver no Relatório de Leads"
+                  style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 2, opacity: 0.6, transition: 'opacity 150ms, color 150ms' }}
+                  onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#2563EB' }}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = '0.6'; e.currentTarget.style.color = 'var(--text-subtle)' }}
+                >
+                  <ArrowUpRight size={14} />
+                </button>
+              </div>
               <button onClick={() => setPerfPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4 }}><X size={18} /></button>
             </div>
             <div style={{ padding: '16px 24px 24px' }}>
