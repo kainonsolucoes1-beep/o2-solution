@@ -224,6 +224,25 @@ function SelectField({ label, value, options, onChange, saving }: { label: strin
   )
 }
 
+function TextEditField({ label, value, onSave, saving }: { label: string; value: string; onSave: (v: string) => void; saving?: boolean }) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  return (
+    <div className="flex flex-col gap-1">
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+        {label}
+      </span>
+      <input
+        value={draft}
+        disabled={saving}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={() => { if (draft.trim() !== value) onSave(draft.trim()) }}
+        style={{ fontSize: 13, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: saving ? 'not-allowed' : 'text', opacity: saving ? 0.6 : 1 }}
+      />
+    </div>
+  )
+}
+
 function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
@@ -276,6 +295,7 @@ export default function LeadDetailPage() {
   const [origins, setOrigins]             = useState<string[]>([])
   const [savingOrigin, setSavingOrigin]   = useState(false)
   const [savingModalidade, setSavingModalidade] = useState(false)
+  const [savingConvPoint, setSavingConvPoint] = useState(false)
   const agendaRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
@@ -347,10 +367,10 @@ export default function LeadDetailPage() {
       .finally(() => setSavingInfo(false))
   }
 
-  function handleQuickUpdate(field: 'origem' | 'modalidade', value: string) {
+  function handleQuickUpdate(field: 'origem' | 'modalidade' | 'conversion_point', value: string) {
     if (!id) return
-    const setSaving = field === 'origem' ? setSavingOrigin : setSavingModalidade
-    const apiField = field === 'origem' ? 'origin' : 'modalidade'
+    const setSaving = field === 'origem' ? setSavingOrigin : field === 'modalidade' ? setSavingModalidade : setSavingConvPoint
+    const apiField = field === 'origem' ? 'origin' : field
     setSaving(true)
     api.post(`/api/v1/leads/${id}/info`, { [apiField]: value })
       .then(() => {
@@ -627,7 +647,7 @@ export default function LeadDetailPage() {
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
               <div style={{ gridColumn: '1 / -1', marginTop: 12 }}>
-                <Field label="Ponto de Conversão" value={lead.conversion_point ?? '—'} />
+                <TextEditField label="Ponto de Conversão" value={lead.conversion_point ?? ''} saving={savingConvPoint} onSave={v => handleQuickUpdate('conversion_point', v)} />
               </div>
               <div style={{ marginTop: 12 }}><PlanField value={lead.current_plan} /></div>
               <div style={{ marginTop: 12 }}><Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} /></div>

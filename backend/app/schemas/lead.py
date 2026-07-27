@@ -95,6 +95,7 @@ class LeadInfoUpdateRequest(BaseModel):
     document: Optional[str] = None
     origin: Optional[str] = None
     modalidade: Optional[str] = None
+    conversion_point: Optional[str] = None
 
 
 class LeadInfoUpdateResponse(BaseModel):
@@ -108,6 +109,7 @@ class LeadInfoUpdateResponse(BaseModel):
     document: Optional[str] = None
     origin: Optional[str] = None
     modalidade: Optional[str] = None
+    conversion_point: Optional[str] = None
 
 
 class NoteCreateRequest(BaseModel):
