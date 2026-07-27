@@ -183,7 +183,7 @@ function Field({ label, value }: { label: string; value: string }) {
       <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         {label}
       </span>
-      <span style={{ fontSize: 13.5, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500 }}>
+      <span style={{ fontSize: 13.5, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
         {value}
       </span>
     </div>
@@ -476,7 +476,7 @@ export default function LeadDetailPage() {
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
           <button
             onClick={() => navigate(-1)}
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, flexShrink: 0 }}
@@ -492,8 +492,8 @@ export default function LeadDetailPage() {
           }}>
             {initials(lead.name)}
           </div>
-          <div>
-            <p style={{ fontSize: 21, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>{lead.name}</p>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 21, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em', overflowWrap: 'break-word' }}>{lead.name}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 9 }}>
               <span style={{ background: sStyle.bg, color: sStyle.color, padding: '4px 13px', borderRadius: 99, fontSize: 12.5, fontWeight: 700 }}>
                 {statusLabel(status)}
