@@ -143,6 +143,17 @@ def sync_receita_real(db: Session) -> dict:
             elif _color_matches(color, _YELLOW):
                 a_receber += valor
 
+        if recebido == 0.0 and a_receber == 0.0:
+            # algumas vendas nao quebram em parcelas, usam so a coluna VALOR TOTAL
+            ct = cell("VALOR TOTAL")
+            valor_total = _parse_brl(ct.get("formattedValue"))
+            if valor_total:
+                color = ct.get("effectiveFormat", {}).get("backgroundColor", {})
+                if _color_matches(color, _GREEN):
+                    recebido = valor_total
+                elif _color_matches(color, _YELLOW):
+                    a_receber = valor_total
+
         lead = candidates[0]
         lead.receita_real_recebida = recebido
         lead.receita_real_a_receber = a_receber
