@@ -66,14 +66,18 @@ function relTime(iso: string): string {
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
+const EM_ANDAMENTO_STATUSES = 'pending,novo,new,scheduled,qualificado,qualified,proposta,proposal_sent,negociacao'
+const VENDA_STATUSES_CSV    = 'waiting_billing,sale_performed,fechado,closed,won,convertido'
+const CANCELADO_STATUS_CSV  = 'sale_not_performed'
+
 const STAT_CFG = [
-  { key: 'captacoes',        label: 'Total de Leads',    icon: Users,     color: '#3B82F6', bg: 'rgba(59,130,246,0.14)',  fmt: (v: number) => String(v) },
-  { key: 'em_andamento',     label: 'Em Andamento',      icon: Clock3,    color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', fmt: (v: number) => String(v) },
-  { key: 'vendas',           label: 'Vendas Realizadas', icon: Handshake, color: '#059669', bg: 'rgba(5,150,105,0.14)',   fmt: (v: number) => String(v) },
-  { key: 'conversao',        label: 'Conversão Geral',   icon: Percent,  color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: (v: number) => `${v}%` },
-  { key: 'cancelados',       label: 'Cancelados',        icon: XCircle,  color: '#EF4444', bg: 'rgba(239,68,68,0.14)',  fmt: (v: number) => String(v) },
-  { key: 'receita_recebida', label: 'Receita Recebida',  icon: Wallet,   color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: fmtBrl },
-  { key: 'receita_a_receber',label: 'Receita a Receber', icon: Wallet,   color: '#F59E0B', bg: 'rgba(245,158,11,0.14)', fmt: fmtBrl },
+  { key: 'captacoes',        label: 'Total de Leads',    icon: Users,     color: '#3B82F6', bg: 'rgba(59,130,246,0.14)',  fmt: (v: number) => String(v), statusFilter: undefined as string | undefined },
+  { key: 'em_andamento',     label: 'Em Andamento',      icon: Clock3,    color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', fmt: (v: number) => String(v), statusFilter: EM_ANDAMENTO_STATUSES },
+  { key: 'vendas',           label: 'Vendas Realizadas', icon: Handshake, color: '#059669', bg: 'rgba(5,150,105,0.14)',   fmt: (v: number) => String(v), statusFilter: VENDA_STATUSES_CSV },
+  { key: 'conversao',        label: 'Conversão Geral',   icon: Percent,  color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: (v: number) => `${v}%`, statusFilter: VENDA_STATUSES_CSV },
+  { key: 'cancelados',       label: 'Cancelados',        icon: XCircle,  color: '#EF4444', bg: 'rgba(239,68,68,0.14)',  fmt: (v: number) => String(v), statusFilter: CANCELADO_STATUS_CSV },
+  { key: 'receita_recebida', label: 'Receita Recebida',  icon: Wallet,   color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: fmtBrl, statusFilter: VENDA_STATUSES_CSV },
+  { key: 'receita_a_receber',label: 'Receita a Receber', icon: Wallet,   color: '#F59E0B', bg: 'rgba(245,158,11,0.14)', fmt: fmtBrl, statusFilter: VENDA_STATUSES_CSV },
 ] as const
 
 const ATIVIDADE_CFG = {
@@ -100,6 +104,16 @@ export default function VidaSDR() {
       .catch(() => setData(null))
       .finally(() => setLoading(false))
   }, [origens])
+
+  function leadsHref(statusFilter?: string) {
+    const params = new URLSearchParams({ origem: origens || '' })
+    if (data?.primeiro_lead_em) {
+      params.set('date_from', data.primeiro_lead_em.slice(0, 10))
+      params.set('date_to', new Date().toISOString().slice(0, 10))
+    }
+    if (statusFilter) params.set('status', statusFilter)
+    return `/leads-report?${params.toString()}`
+  }
 
   function exportarCsv() {
     if (!data) return
@@ -196,17 +210,26 @@ export default function VidaSDR() {
         <>
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
-            {STAT_CFG.filter(({ key }) => data[key as keyof VidaSdrData] != null).map(({ key, label, icon: Icon, color, bg, fmt }) => (
-              <div key={key} style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '18px 20px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+            {STAT_CFG.filter(({ key }) => data[key as keyof VidaSdrData] != null).map(({ key, label, icon: Icon, color, bg, fmt, statusFilter }) => (
+              <div
+                key={key}
+                onClick={() => navigate(leadsHref(statusFilter))}
+                style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '18px 20px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${color}33` }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(15,23,42,0.06)' }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
                   <div style={{ width: 28, height: 28, borderRadius: 8, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Icon size={14} color={color} />
                   </div>
                 </div>
-                <p style={{ fontSize: 27, fontWeight: 800, color, margin: 0, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums' }}>
-                  {fmt(data[key as keyof VidaSdrData] as number)}
-                </p>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                  <p style={{ fontSize: 27, fontWeight: 800, color, margin: 0, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums' }}>
+                    {fmt(data[key as keyof VidaSdrData] as number)}
+                  </p>
+                  <span style={{ fontSize: 10.5, color, fontWeight: 600, marginBottom: 2 }}>Ver leads →</span>
+                </div>
               </div>
             ))}
           </div>
