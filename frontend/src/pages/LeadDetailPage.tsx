@@ -224,6 +224,31 @@ function SelectField({ label, value, options, onChange, saving }: { label: strin
   )
 }
 
+function ComboField({ label, value, options, onSave, saving }: { label: string; value: string; options: string[]; onSave: (v: string) => void; saving?: boolean }) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  const listId = 'combo-' + label.replace(/\s+/g, '-').toLowerCase()
+  return (
+    <div className="flex flex-col gap-1">
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+        {label}
+      </span>
+      <input
+        list={listId}
+        value={draft}
+        disabled={saving}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={() => { if (draft.trim() !== value) onSave(draft.trim()) }}
+        placeholder="Selecione ou digite um novo..."
+        style={{ fontSize: 13, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: saving ? 'not-allowed' : 'text', opacity: saving ? 0.6 : 1 }}
+      />
+      <datalist id={listId}>
+        {options.map(o => <option key={o} value={o} />)}
+      </datalist>
+    </div>
+  )
+}
+
 function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
@@ -630,7 +655,7 @@ export default function LeadDetailPage() {
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
               <div style={{ gridColumn: '1 / -1', marginTop: 12, maxWidth: 320 }}>
-                <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPoints} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
+                <ComboField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPoints} saving={savingConvPoint} onSave={v => handleQuickUpdate('conversion_point', v)} />
               </div>
               <div style={{ marginTop: 12 }}><PlanField value={lead.current_plan} /></div>
               <div style={{ marginTop: 12 }}><Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} /></div>
