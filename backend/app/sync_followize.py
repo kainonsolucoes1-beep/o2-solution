@@ -177,6 +177,8 @@ def _refresh_access_token() -> bool:
 
 
 def _parse_followize_dt(s: str | None) -> datetime | None:
+    """Followize manda o horario ja em UTC (sufixo Z / +00:00); so precisamos tirar o sufixo,
+    sem deslocar, pois o banco guarda tudo em UTC (ver comentario em frontend/src/utils/date.ts)."""
     if not s:
         return None
     for fmt in (
@@ -184,7 +186,7 @@ def _parse_followize_dt(s: str | None) -> datetime | None:
         "%Y-%m-%dT%H:%M:%S.%f+00:00", "%Y-%m-%dT%H:%M:%S+00:00",
     ):
         try:
-            return datetime.strptime(s, fmt) - timedelta(hours=3)
+            return datetime.strptime(s, fmt)
         except ValueError:
             continue
     return None
