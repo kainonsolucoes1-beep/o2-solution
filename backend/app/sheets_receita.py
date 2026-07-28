@@ -107,8 +107,14 @@ def _normalize_email(s: str | None) -> str | None:
 def _parse_sheet_date(s: str | None):
     if not s:
         return None
+    s = s.strip()
     try:
-        return datetime.strptime(s.strip(), "%d/%m/%Y")
+        return datetime.strptime(s, "%d/%m/%Y")
+    except ValueError:
+        pass
+    try:
+        # sem ano (ex: '11/03') -- assume o ano corrente
+        return datetime.strptime(s, "%d/%m").replace(year=datetime.utcnow().year)
     except ValueError:
         return None
 
