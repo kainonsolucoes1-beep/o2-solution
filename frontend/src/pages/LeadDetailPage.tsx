@@ -282,6 +282,7 @@ export default function LeadDetailPage() {
   const [savingModalidade, setSavingModalidade] = useState(false)
   const [savingConvPoint, setSavingConvPoint] = useState(false)
   const [savingPerception, setSavingPerception] = useState(false)
+  const [editingPerception, setEditingPerception] = useState(false)
   const agendaRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
@@ -739,7 +740,8 @@ export default function LeadDetailPage() {
               <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85, display: 'block', marginBottom: 8 }}>
                 Temperatura
               </span>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {editingPerception ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {Object.keys(PERCEPTION_STYLE).map(key => {
                   const s = PERCEPTION_STYLE[key]
                   const active = lead.perception === key
@@ -747,7 +749,7 @@ export default function LeadDetailPage() {
                     <button
                       key={key}
                       disabled={savingPerception}
-                      onClick={() => handleQuickUpdate('perception', key)}
+                      onClick={() => { handleQuickUpdate('perception', key); setEditingPerception(false) }}
                       style={{
                         background: active ? s.color : s.bg,
                         color: active ? 'white' : s.color,
@@ -762,7 +764,30 @@ export default function LeadDetailPage() {
                     </button>
                   )
                 })}
+                <button
+                  onClick={() => setEditingPerception(false)}
+                  style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                >
+                  Cancelar
+                </button>
               </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {lead.perception && PERCEPTION_STYLE[lead.perception] ? (
+                    <span style={{ background: PERCEPTION_STYLE[lead.perception].bg, color: PERCEPTION_STYLE[lead.perception].color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
+                      {PERCEPTION_STYLE[lead.perception].label}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não definida</span>
+                  )}
+                  <button
+                    onClick={() => setEditingPerception(true)}
+                    style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                  >
+                    Editar
+                  </button>
+                </div>
+              )}
             </div>
           </SectionCard>
 
