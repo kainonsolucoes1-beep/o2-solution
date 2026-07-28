@@ -403,16 +403,18 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             const liderCount = pme >= pf ? pme : pf
             const pct = total > 0 ? Math.round(liderCount / total * 100) : 0
             return (
-              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #F59E0B' }}>
+              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #F59E0B', display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <Briefcase size={15} color="#F59E0B" />
                   <h2 style={{ fontSize: 13, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Captação do Período</h2>
                 </div>
-                {total > 0 ? (
-                  <p style={{ fontSize: 36, fontWeight: 700, color: '#F59E0B', lineHeight: 1 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
-                ) : (
-                  <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginTop: 6 }}>Sem captações de PF/PME no período</p>
-                )}
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                  {total > 0 ? (
+                    <p style={{ fontSize: 36, fontWeight: 700, color: '#F59E0B', lineHeight: 1, margin: 0 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
+                  ) : (
+                    <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: 0 }}>Sem captações de PF/PME no período</p>
+                  )}
+                </div>
               </div>
             )
           })()}
