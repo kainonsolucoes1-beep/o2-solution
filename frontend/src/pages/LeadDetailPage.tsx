@@ -281,6 +281,7 @@ export default function LeadDetailPage() {
   const [savingOrigin, setSavingOrigin]   = useState(false)
   const [savingModalidade, setSavingModalidade] = useState(false)
   const [savingConvPoint, setSavingConvPoint] = useState(false)
+  const [savingPerception, setSavingPerception] = useState(false)
   const agendaRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
@@ -354,9 +355,9 @@ export default function LeadDetailPage() {
       .finally(() => setSavingInfo(false))
   }
 
-  function handleQuickUpdate(field: 'origem' | 'modalidade' | 'conversion_point', value: string) {
+  function handleQuickUpdate(field: 'origem' | 'modalidade' | 'conversion_point' | 'perception', value: string) {
     if (!id) return
-    const setSaving = field === 'origem' ? setSavingOrigin : field === 'modalidade' ? setSavingModalidade : setSavingConvPoint
+    const setSaving = field === 'origem' ? setSavingOrigin : field === 'modalidade' ? setSavingModalidade : field === 'conversion_point' ? setSavingConvPoint : setSavingPerception
     const apiField = field === 'origem' ? 'origin' : field
     setSaving(true)
     api.post(`/api/v1/leads/${id}/info`, { [apiField]: value })
@@ -733,6 +734,36 @@ export default function LeadDetailPage() {
                 </button>
               </div>
             )}
+
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85, display: 'block', marginBottom: 8 }}>
+                Temperatura
+              </span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {Object.keys(PERCEPTION_STYLE).map(key => {
+                  const s = PERCEPTION_STYLE[key]
+                  const active = lead.perception === key
+                  return (
+                    <button
+                      key={key}
+                      disabled={savingPerception}
+                      onClick={() => handleQuickUpdate('perception', key)}
+                      style={{
+                        background: active ? s.color : s.bg,
+                        color: active ? 'white' : s.color,
+                        border: `1.5px solid ${s.color}`,
+                        padding: '4px 14px', borderRadius: 99,
+                        fontSize: 13, fontWeight: 600, cursor: savingPerception ? 'not-allowed' : 'pointer',
+                        opacity: savingPerception ? 0.6 : 1,
+                        transition: 'all 150ms',
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </SectionCard>
 
           <div ref={agendaRef}>

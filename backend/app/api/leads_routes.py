@@ -381,12 +381,14 @@ def update_lead_info(
         lead.modalidade = body.modalidade.strip() or None
     if body.conversion_point is not None:
         lead.conversion_point = body.conversion_point.strip() or None
+    if body.perception is not None:
+        lead.perception = body.perception.strip() or None
     db.commit()
     return LeadInfoUpdateResponse(
         success=True, lead_id=lead.id, name=lead.name,
         company=lead.company, email=lead.email, phone=lead.phone, attendant=lead.attendant,
         document=lead.document, origin=lead.origin, modalidade=lead.modalidade,
-        conversion_point=lead.conversion_point,
+        conversion_point=lead.conversion_point, perception=lead.perception,
     )
 
 
