@@ -57,10 +57,10 @@ const MODALIDADE_COLORS: Record<string, string> = {
   Petlove: "#C2760C",
 };
 
-function aggregate(list: Contract[], key: "promotora" | "modalidade") {
+function aggregate(list: Contract[], key: "promotora" | "modalidade", metric: "valor" | "count" = "valor") {
   const map: Record<string, number> = {};
   list.forEach((c) => {
-    map[c[key]] = (map[c[key]] || 0) + c.valorContrato;
+    map[c[key]] = (map[c[key]] || 0) + (metric === "count" ? 1 : c.valorContrato);
   });
   return Object.entries(map)
     .map(([name, value]) => ({ name, value }))
@@ -214,7 +214,7 @@ export default function FinanceiroDashboard() {
   }, [contracts]);
 
   const byPromotora = useMemo(() => aggregate(contracts, "promotora"), [contracts]);
-  const byModalidade = useMemo(() => aggregate(contracts, "modalidade"), [contracts]);
+  const byModalidade = useMemo(() => aggregate(contracts, "modalidade", "count"), [contracts]);
 
   return (
     <div className="min-h-full w-full bg-[#F6F7FB] p-8">
