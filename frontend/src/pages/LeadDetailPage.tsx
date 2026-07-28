@@ -76,7 +76,7 @@ const EXTRA_CONVERSION_POINTS = ['Campanha WhatsApp']
 
 const STATUS_OPTIONS = [
   { value: 'novo',        label: 'Novo' },
-  { value: 'qualificado', label: 'Qualificado' },
+  { value: 'qualificado', label: 'Agendado' },
   { value: 'proposta',    label: 'Proposta' },
   { value: 'fechado',     label: 'Fechado' },
   { value: 'convertido',  label: 'Convertido' },
