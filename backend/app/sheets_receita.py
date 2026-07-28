@@ -49,6 +49,38 @@ _MODALIDADE_ALIASES = {
 }
 
 
+_NOTE_DATE_RE = re.compile(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?")
+
+
+def _parse_note_date(note: str | None, reference: datetime | None) -> datetime | None:
+    """Extrai uma data (DD/MM ou DD/MM/AA[AA]) de dentro do texto livre da nota
+    da celula (ex: 'Recebimento previsto - 30/07', 'acerto ... pago dia 05/06').
+    Quando o ano nao vem escrito, usa o ano de `reference` (a data da venda),
+    avancando pro ano seguinte se a data cair antes da venda."""
+    if not note:
+        return None
+    m = _NOTE_DATE_RE.search(note)
+    if not m:
+        return None
+    day, month, year_raw = m.groups()
+    try:
+        day, month = int(day), int(month)
+        if year_raw:
+            year = int(year_raw)
+            if year < 100:
+                year += 2000
+        elif reference:
+            year = reference.year
+        else:
+            year = datetime.utcnow().year
+        result = datetime(year, month, day)
+        if not year_raw and reference and result < reference:
+            result = datetime(year + 1, month, day)
+        return result
+    except ValueError:
+        return None
+
+
 def _normalize_label(raw: str | None, aliases: dict) -> str | None:
     if not raw or not raw.strip():
         return None
@@ -104,7 +136,7 @@ def _fetch_rows():
         spreadsheetId=SPREADSHEET_ID,
         ranges=[f"'{SHEET_TITLE}'!A1:AC5000"],
         includeGridData=True,
-        fields="sheets(data(rowData(values(formattedValue,effectiveFormat.backgroundColor))))",
+        fields="sheets(data(rowData(values(formattedValue,note,effectiveFormat.backgroundColor))))",
     ).execute()
     return resp["sheets"][0]["data"][0]["rowData"]
 
@@ -176,21 +208,24 @@ def sync_receita_real(db: Session) -> dict:
             ambiguous.append(titular)
             continue
 
+        data_venda = _parse_sheet_date(cell("DATA").get("formattedValue"))
+
         recebido = 0.0
         a_receber = 0.0
-        parcelas = []  # (numero, valor, status)
+        parcelas = []  # (numero, valor, status, previsao_recebimento)
         for n in range(1, 8):
             c = cell(f"VALOR {n}ª")
             valor = _parse_brl(c.get("formattedValue"))
             if not valor:
                 continue
             color = c.get("effectiveFormat", {}).get("backgroundColor", {})
+            previsao = _parse_note_date(c.get("note"), data_venda)
             if _color_matches(color, _GREEN):
                 recebido += valor
-                parcelas.append((n, valor, "recebido"))
+                parcelas.append((n, valor, "recebido", previsao))
             elif _color_matches(color, _YELLOW):
                 a_receber += valor
-                parcelas.append((n, valor, "a_receber"))
+                parcelas.append((n, valor, "a_receber", previsao))
 
         if recebido == 0.0 and a_receber == 0.0:
             # algumas vendas nao quebram em parcelas, usam so a coluna VALOR TOTAL
@@ -198,12 +233,13 @@ def sync_receita_real(db: Session) -> dict:
             valor_total = _parse_brl(ct.get("formattedValue"))
             if valor_total:
                 color = ct.get("effectiveFormat", {}).get("backgroundColor", {})
+                previsao = _parse_note_date(ct.get("note"), data_venda)
                 if _color_matches(color, _GREEN):
                     recebido = valor_total
-                    parcelas.append((None, valor_total, "recebido"))
+                    parcelas.append((None, valor_total, "recebido", previsao))
                 elif _color_matches(color, _YELLOW):
                     a_receber = valor_total
-                    parcelas.append((None, valor_total, "a_receber"))
+                    parcelas.append((None, valor_total, "a_receber", previsao))
 
         lead = candidates[0]
         lead.receita_real_recebida = recebido
@@ -211,12 +247,12 @@ def sync_receita_real(db: Session) -> dict:
         lead.receita_titular = titular
         lead.receita_promotora = _normalize_label(cell("PLATAFORMA").get("formattedValue"), _PROMOTORA_ALIASES)
         lead.receita_modalidade = _normalize_label(cell("MODALIDADE").get("formattedValue"), _MODALIDADE_ALIASES)
-        lead.receita_data_venda = _parse_sheet_date(cell("DATA").get("formattedValue"))
+        lead.receita_data_venda = data_venda
         matched_names.append(titular)
 
         db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id).delete()
-        for numero, valor, p_status in parcelas:
-            db.add(LeadParcela(lead_id=lead.id, numero=numero, valor=valor, status=p_status))
+        for numero, valor, p_status, previsao in parcelas:
+            db.add(LeadParcela(lead_id=lead.id, numero=numero, valor=valor, status=p_status, previsao_recebimento=previsao))
 
     db.commit()
     return {

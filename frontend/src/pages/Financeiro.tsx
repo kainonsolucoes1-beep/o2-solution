@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronRight, Building2, Layers3 } from "lucide-react";
+import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronRight, Building2, Layers3, CalendarClock } from "lucide-react";
 import api from "../api";
 
 // ---------------------------------------------------------------------------
@@ -16,6 +16,7 @@ interface Parcela {
   numero: number | null;
   valor: number;
   status: "recebido" | "a_receber";
+  previsaoRecebimento: string | null;
 }
 
 interface Contract {
@@ -27,6 +28,12 @@ interface Contract {
   recebido: number;
   aReceber: number;
   parcelas: Parcela[];
+}
+
+interface PrevisaoMes {
+  mes: string;
+  mesLabel: string;
+  valor: number;
 }
 
 const _now = new Date();
@@ -163,6 +170,13 @@ export default function FinanceiroDashboard() {
   const [dateTo, setDateTo] = useState(_today);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [previsao, setPrevisao] = useState<{ meses: PrevisaoMes[]; semPrevisao: number } | null>(null);
+
+  useEffect(() => {
+    api.get<{ meses: PrevisaoMes[]; semPrevisao: number }>("/api/v1/financeiro/previsao-mensal")
+      .then((r) => setPrevisao(r.data))
+      .catch(() => setPrevisao(null));
+  }, []);
 
   function toggleRow(id: string) {
     setExpandedRows((prev) => {
@@ -307,6 +321,44 @@ export default function FinanceiroDashboard() {
               </div>
             </div>
 
+            {/* Previsão de recebimento por mês */}
+            {previsao && previsao.meses.length > 0 && (
+              <div className="mt-4 rounded-2xl border border-[#E4E7EE] bg-white p-5">
+                <div className="mb-1 flex items-center gap-2">
+                  <CalendarClock size={15} className="text-[#8891AC]" />
+                  <h2 className="text-[13px] font-semibold text-[#10142B]">Previsão de Recebimento por Mês</h2>
+                </div>
+                <p className="mb-4 text-[11px] text-[#8891AC]">
+                  Baseado na data prevista anotada em cada parcela na planilha
+                </p>
+                {(() => {
+                  const max = Math.max(...previsao.meses.map((m) => m.valor), 1);
+                  return (
+                    <div className="flex flex-col gap-2.5">
+                      {previsao.meses.map((m) => (
+                        <div key={m.mes} className="flex items-center gap-3">
+                          <span className="w-12 flex-shrink-0 text-[12px] font-semibold capitalize text-[#626A85]">{m.mesLabel}</span>
+                          <div className="h-6 flex-1 overflow-hidden rounded-md bg-[#FFFBEB]">
+                            <div
+                              className="flex h-full items-center justify-end rounded-md bg-[#C2760C] px-2"
+                              style={{ width: `${Math.max((m.valor / max) * 100, 8)}%` }}
+                            >
+                              <span className="text-[11px] font-semibold text-white">{fmt(m.valor)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+                {previsao.semPrevisao > 0 && (
+                  <p className="mt-3 text-[11.5px] text-[#8891AC]">
+                    + {fmt(previsao.semPrevisao)} a receber sem data de previsão anotada
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Breakdown */}
             <div className="mt-4 grid grid-cols-2 gap-4">
               <div className="rounded-2xl border border-[#E4E7EE] bg-white p-5">
@@ -420,6 +472,11 @@ export default function FinanceiroDashboard() {
                                   <div className="mt-0.5 text-[10px]" style={{ color: cor }}>
                                     {p.status === "recebido" ? "Recebido" : "A receber"}
                                   </div>
+                                  {p.status === "a_receber" && p.previsaoRecebimento && (
+                                    <div className="mt-0.5 text-[10px] text-[#8891AC]">
+                                      Previsto: {p.previsaoRecebimento.split("-").reverse().join("/")}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}

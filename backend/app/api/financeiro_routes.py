@@ -47,6 +47,7 @@ def list_contratos(
                 "numero": r.numero,
                 "valor": float(r.valor),
                 "status": r.status,
+                "previsaoRecebimento": r.previsao_recebimento.strftime("%Y-%m-%d") if r.previsao_recebimento else None,
             })
 
     return [
@@ -62,3 +63,40 @@ def list_contratos(
         }
         for lead in leads
     ]
+
+
+@router.get("/previsao-mensal")
+def previsao_mensal(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Soma das parcelas 'a_receber' com data de previsao conhecida, agrupadas por mes."""
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
+
+    rows = (
+        db.query(LeadParcela)
+        .filter(LeadParcela.status == "a_receber", LeadParcela.previsao_recebimento.isnot(None))
+        .all()
+    )
+
+    por_mes: dict = {}
+    for r in rows:
+        key = r.previsao_recebimento.strftime("%Y-%m")
+        por_mes[key] = por_mes.get(key, 0.0) + float(r.valor)
+
+    sem_previsao_valores = (
+        db.query(LeadParcela.valor)
+        .filter(LeadParcela.status == "a_receber", LeadParcela.previsao_recebimento.is_(None))
+        .all()
+    )
+    sem_previsao = sum(float(v) for (v,) in sem_previsao_valores)
+
+    meses = sorted(por_mes.keys())
+    return {
+        "meses": [
+            {"mes": k, "mesLabel": datetime.strptime(k, "%Y-%m").strftime("%b/%y"), "valor": round(por_mes[k], 2)}
+            for k in meses
+        ],
+        "semPrevisao": round(sem_previsao, 2),
+    }

@@ -45,6 +45,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_promotora VARCHAR(255)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_modalidade VARCHAR(255)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_data_venda TIMESTAMP"))
+    _conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS previsao_recebimento TIMESTAMP"))
     _conn.commit()
 
 app = FastAPI(

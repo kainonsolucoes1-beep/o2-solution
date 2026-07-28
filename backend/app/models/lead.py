@@ -90,4 +90,5 @@ class LeadParcela(Base):
     numero = Column(Integer, nullable=True)  # 1-7; null = valor unico, sem quebra em parcelas
     valor = Column(Numeric(12, 2), nullable=False)
     status = Column(String(20), nullable=False)  # 'recebido' | 'a_receber'
+    previsao_recebimento = Column(TIMESTAMP, nullable=True)  # extraido da nota da celula na planilha
     updated_at = Column(TIMESTAMP, server_default=func.now())
