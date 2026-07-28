@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.models.lead import Lead
+from app.models.lead import Lead, LeadParcela
 from app.models.user import User
 from app.security import can_see_financials
 
@@ -33,6 +33,22 @@ def list_contratos(
 
     leads = q.order_by(Lead.receita_data_venda.desc().nullslast()).all()
 
+    parcelas_by_lead: dict = {}
+    if leads:
+        lead_ids = [lead.id for lead in leads]
+        rows = (
+            db.query(LeadParcela)
+            .filter(LeadParcela.lead_id.in_(lead_ids))
+            .order_by(LeadParcela.numero.asc().nullsfirst())
+            .all()
+        )
+        for r in rows:
+            parcelas_by_lead.setdefault(r.lead_id, []).append({
+                "numero": r.numero,
+                "valor": float(r.valor),
+                "status": r.status,
+            })
+
     return [
         {
             "id": str(lead.id),
@@ -42,6 +58,7 @@ def list_contratos(
             "valorContrato": float(lead.receita_real_recebida or 0) + float(lead.receita_real_a_receber or 0),
             "recebido": float(lead.receita_real_recebida or 0),
             "aReceber": float(lead.receita_real_a_receber or 0),
+            "parcelas": parcelas_by_lead.get(lead.id, []),
         }
         for lead in leads
     ]

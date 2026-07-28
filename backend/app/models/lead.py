@@ -79,3 +79,15 @@ class LeadSchedule(Base):
     is_active = Column(Boolean, default=True, nullable=False, server_default='true')
     created_by = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class LeadParcela(Base):
+    """Detalhamento por parcela da receita real (planilha de vendas), por lead."""
+    __tablename__ = "lead_parcelas"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False)
+    numero = Column(Integer, nullable=True)  # 1-7; null = valor unico, sem quebra em parcelas
+    valor = Column(Numeric(12, 2), nullable=False)
+    status = Column(String(20), nullable=False)  # 'recebido' | 'a_receber'
+    updated_at = Column(TIMESTAMP, server_default=func.now())

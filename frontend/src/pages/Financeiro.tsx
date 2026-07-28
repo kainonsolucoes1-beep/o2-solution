@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { Wallet, Clock3, TrendingUp, ChevronDown, Building2, Layers3 } from "lucide-react";
+import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronRight, Building2, Layers3 } from "lucide-react";
 import api from "../api";
 
 // ---------------------------------------------------------------------------
@@ -12,6 +12,12 @@ import api from "../api";
 // Display/mono for big figures: ui-monospace stack (tabular numerals)
 // ---------------------------------------------------------------------------
 
+interface Parcela {
+  numero: number | null;
+  valor: number;
+  status: "recebido" | "a_receber";
+}
+
 interface Contract {
   id: string;
   empresa: string;
@@ -20,6 +26,7 @@ interface Contract {
   valorContrato: number;
   recebido: number;
   aReceber: number;
+  parcelas: Parcela[];
 }
 
 const _now = new Date();
@@ -159,6 +166,16 @@ export default function FinanceiroDashboard() {
   const [dateFrom, setDateFrom] = useState(_monthStart);
   const [dateTo, setDateTo] = useState(_today);
   const [periodOpen, setPeriodOpen] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  function toggleRow(id: string) {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const periodLabel =
     !dateFrom && !dateTo
@@ -331,6 +348,7 @@ export default function FinanceiroDashboard() {
               <table className="w-full text-left text-[13px]">
                 <thead>
                   <tr className="border-b border-[#E4E7EE] text-[11px] uppercase tracking-wider text-[#8891AC]">
+                    <th className="w-8 px-2 py-3" />
                     <th className="px-5 py-3 font-semibold">Empresa</th>
                     <th className="px-5 py-3 font-semibold">Promotora</th>
                     <th className="px-5 py-3 font-semibold">Modalidade</th>
@@ -341,8 +359,19 @@ export default function FinanceiroDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {contracts.map((c) => (
-                    <tr key={c.id} className="border-b border-[#F0F1F5] last:border-0 hover:bg-[#FAFBFC]">
+                  {contracts.map((c) => {
+                    const expanded = expandedRows.has(c.id);
+                    const hasParcelas = c.parcelas && c.parcelas.length > 0;
+                    return (
+                    <Fragment key={c.id}>
+                    <tr
+                      onClick={() => hasParcelas && toggleRow(c.id)}
+                      className="border-b border-[#F0F1F5] last:border-0 hover:bg-[#FAFBFC]"
+                      style={{ cursor: hasParcelas ? "pointer" : "default" }}
+                    >
+                      <td className="px-2 py-3.5 text-center text-[#8891AC]">
+                        {hasParcelas && (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                      </td>
                       <td className="px-5 py-3.5 font-medium text-[#10142B]">{c.empresa}</td>
                       <td className="px-5 py-3.5 text-[#626A85]">
                         <span className="inline-flex items-center gap-1.5">
@@ -376,11 +405,48 @@ export default function FinanceiroDashboard() {
                         <StatusPill recebido={c.recebido} valorContrato={c.valorContrato} />
                       </td>
                     </tr>
-                  ))}
+                    {expanded && hasParcelas && (
+                      <tr className="border-b border-[#F0F1F5] bg-[#FAFBFC]">
+                        <td colSpan={8} className="px-5 py-4">
+                          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">
+                            Parcelas — {c.empresa}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {c.parcelas.map((p, i) => {
+                              const cor = p.status === "recebido" ? "#0E9F6E" : "#C2760C";
+                              const bg = p.status === "recebido" ? "#ECFDF5" : "#FFFBEB";
+                              return (
+                                <div
+                                  key={i}
+                                  className="rounded-lg px-3 py-2 text-[12px]"
+                                  style={{ background: bg, border: `1px solid ${cor}33`, minWidth: 110 }}
+                                >
+                                  <div className="font-semibold" style={{ color: cor }}>
+                                    {p.numero ? `${p.numero}ª parcela` : "Valor único"}
+                                  </div>
+                                  <div
+                                    className="mt-0.5"
+                                    style={{ color: "#10142B", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+                                  >
+                                    {fmt(p.valor)}
+                                  </div>
+                                  <div className="mt-0.5 text-[10px]" style={{ color: cor }}>
+                                    {p.status === "recebido" ? "Recebido" : "A receber"}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#FAFBFC]">
-                    <td className="px-5 py-3.5 font-semibold text-[#10142B]" colSpan={3}>
+                    <td className="px-5 py-3.5 font-semibold text-[#10142B]" colSpan={4}>
                       Total
                     </td>
                     <td

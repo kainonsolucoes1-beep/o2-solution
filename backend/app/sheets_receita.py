@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from sqlalchemy.orm import Session
 
-from app.models.lead import Lead
+from app.models.lead import Lead, LeadParcela
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +166,7 @@ def sync_receita_real(db: Session) -> dict:
                     lead.receita_promotora = None
                     lead.receita_modalidade = None
                     lead.receita_data_venda = None
+                    db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id).delete()
             continue
 
         if not candidates:
@@ -177,6 +178,7 @@ def sync_receita_real(db: Session) -> dict:
 
         recebido = 0.0
         a_receber = 0.0
+        parcelas = []  # (numero, valor, status)
         for n in range(1, 8):
             c = cell(f"VALOR {n}ª")
             valor = _parse_brl(c.get("formattedValue"))
@@ -185,8 +187,10 @@ def sync_receita_real(db: Session) -> dict:
             color = c.get("effectiveFormat", {}).get("backgroundColor", {})
             if _color_matches(color, _GREEN):
                 recebido += valor
+                parcelas.append((n, valor, "recebido"))
             elif _color_matches(color, _YELLOW):
                 a_receber += valor
+                parcelas.append((n, valor, "a_receber"))
 
         if recebido == 0.0 and a_receber == 0.0:
             # algumas vendas nao quebram em parcelas, usam so a coluna VALOR TOTAL
@@ -196,8 +200,10 @@ def sync_receita_real(db: Session) -> dict:
                 color = ct.get("effectiveFormat", {}).get("backgroundColor", {})
                 if _color_matches(color, _GREEN):
                     recebido = valor_total
+                    parcelas.append((None, valor_total, "recebido"))
                 elif _color_matches(color, _YELLOW):
                     a_receber = valor_total
+                    parcelas.append((None, valor_total, "a_receber"))
 
         lead = candidates[0]
         lead.receita_real_recebida = recebido
@@ -207,6 +213,10 @@ def sync_receita_real(db: Session) -> dict:
         lead.receita_modalidade = _normalize_label(cell("MODALIDADE").get("formattedValue"), _MODALIDADE_ALIASES)
         lead.receita_data_venda = _parse_sheet_date(cell("DATA").get("formattedValue"))
         matched_names.append(titular)
+
+        db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id).delete()
+        for numero, valor, p_status in parcelas:
+            db.add(LeadParcela(lead_id=lead.id, numero=numero, valor=valor, status=p_status))
 
     db.commit()
     return {
