@@ -11,6 +11,8 @@ import {
   Briefcase, ArrowUpRight,
 } from 'lucide-react'
 import api from '../api'
+import { statusLabel } from '../utils/statusLabel'
+import { parseUTC } from '../utils/date'
 
 const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção'] as const
 type Tab = typeof TABS[number]
@@ -36,6 +38,7 @@ interface PipelineOverview {
   negociacao_value: number; fechado_value: number; perdido_value: number
 }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
+interface AgendaItem { id: string; name: string; status: string | null; scheduled_at: string }
 interface PipelineAlerts {
   vencidos: AlertLead[]; uncontacted: AlertLead[]
   vencidos_count?: number; uncontacted_count?: number
@@ -186,6 +189,21 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   const [showLostModal, setShowLostModal]     = useState(false)
   const [motivos, setMotivos]                 = useState<MotivoItem[]>([])
   const [motivosLoading, setMotivosLoading]   = useState(false)
+  const [role, setRole]                       = useState<string | null>(null)
+  const [agendaHoje, setAgendaHoje]           = useState<AgendaItem[]>([])
+  const isUsuario = role === 'usuario'
+
+  useEffect(() => {
+    api.get<{ role: string }>('/api/v1/auth/me').then(r => setRole(r.data.role)).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (role !== 'usuario') return
+    const todayStr = new Date().toISOString().slice(0, 10)
+    api.get<{ items: AgendaItem[] }>(`/api/v1/agenda?date_from=${todayStr}&date_to=${todayStr}`)
+      .then(r => setAgendaHoje(r.data.items))
+      .catch(() => setAgendaHoje([]))
+  }, [role])
 
   const fetchAll = useCallback(() => {
     const qs = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
@@ -283,6 +301,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         </div>
 
         {/* Distribuição + Conversões */}
+        {!isUsuario && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           {/* Distribuição Financeira */}
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -352,9 +371,68 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             </div>
           </div>
         </div>
+        )}
+
+        {/* Meus Agendamentos de Hoje + Leads Vencidos — visão simplificada pra quem atende */}
+        {isUsuario && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+              📅 Meus Agendamentos de Hoje
+            </h2>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Clique num lead pra abrir a ficha</p>
+            {agendaHoje.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum agendamento pra hoje.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {agendaHoje.map(item => (
+                  <div key={item.id}
+                    onClick={() => navigate(`/leads/${item.id}`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, cursor: 'pointer', transition: 'background 150ms' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', borderRadius: 8, padding: '4px 0', width: 50, textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                      {new Date(parseUTC(item.scheduled_at)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', flexShrink: 0 }}>{statusLabel(item.status)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+              ⚠️ Leads Vencidos
+            </h2>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Sem atenção nas últimas 24h · {alerts.vencidos_count ?? alerts.vencidos.length} leads</p>
+            {alerts.vencidos.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum lead vencido 🎉</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {alerts.vencidos.map(lead => (
+                  <div key={lead.id}
+                    onClick={() => navigate(`/leads/${lead.id}`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, cursor: 'pointer', transition: 'background 150ms' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', background: '#FEF2F2', borderRadius: 8, padding: '4px 0', width: 50, textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                      {lead.hours_without_action ?? 0}h
+                    </span>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.name}</span>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', flexShrink: 0 }}>{statusLabel(lead.status)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        )}
 
         {/* Alertas + Tempos */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isUsuario ? 3 : 4}, 1fr)`, gap: 20 }}>
+          {!isUsuario && (
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #EF4444', cursor: 'pointer', transition: 'transform 200ms' }}
             onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
             onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
@@ -367,6 +445,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Qualquer status sem atenção nas últimas 24h</p>
             <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
           </div>
+          )}
 
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #10B981' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>

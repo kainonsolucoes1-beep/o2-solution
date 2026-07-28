@@ -490,8 +490,6 @@ def get_agenda(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(current_user):
-        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     try:
         start = datetime.strptime(date_from, "%Y-%m-%d")
         end = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
