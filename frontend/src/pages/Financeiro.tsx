@@ -85,7 +85,6 @@ function StatusPill({ recebido, valorContrato }: { recebido: number; valorContra
 function KpiCard({ icon: Icon, eyebrow, value, sub, accent }: { icon: typeof Wallet; eyebrow: string; value: number; sub: string; accent: string }) {
   return (
     <div className="relative flex-1 overflow-hidden rounded-2xl border border-[#E4E7EE] bg-white p-5">
-      <div className="absolute left-0 top-0 h-full w-1" style={{ backgroundColor: accent }} />
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">
           {eyebrow}
