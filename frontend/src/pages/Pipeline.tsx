@@ -383,9 +383,18 @@ export default function Pipeline() {
               </h2>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Tempo médio em "Novo" antes de avançar no funil</p>
-            <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>
-              {alerts.avg_first_contact_minutes ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span>
-            </p>
+            {(() => {
+              const minutes = alerts.avg_first_contact_minutes ?? 0
+              return minutes >= 60 ? (
+                <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>
+                  {(minutes / 60).toFixed(1)}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>h</span>
+                </p>
+              ) : (
+                <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>
+                  {minutes}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span>
+                </p>
+              )
+            })()}
             <p style={{ fontSize: 12, color: 'var(--text-subtle)' }}>
               {alerts.contacted_count ?? 0} leads atendidos no período
             </p>

@@ -374,7 +374,14 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
               <h2 style={{ fontSize: 13, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Desempenho no Atendimento</h2>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Tempo médio em "Novo" antes de avançar no funil</p>
-            <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>{alerts.avg_first_contact_minutes ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span></p>
+            {(() => {
+              const minutes = alerts.avg_first_contact_minutes ?? 0
+              return minutes >= 60 ? (
+                <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>{(minutes / 60).toFixed(1)}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>h</span></p>
+              ) : (
+                <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>{minutes}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span></p>
+              )
+            })()}
             <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 6 }}>{alerts.contacted_count ?? 0} leads atendidos no período</p>
           </div>
 
@@ -401,12 +408,8 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
                   <Briefcase size={15} color="#F59E0B" />
                   <h2 style={{ fontSize: 13, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Captação do Período</h2>
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Modalidade que mais captou: PF x PME</p>
                 {total > 0 ? (
-                  <>
-                    <p style={{ fontSize: 36, fontWeight: 700, color: '#F59E0B', lineHeight: 1 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
-                    <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 6 }}>PF: {pf} · PME: {pme}</p>
-                  </>
+                  <p style={{ fontSize: 36, fontWeight: 700, color: '#F59E0B', lineHeight: 1 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
                 ) : (
                   <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginTop: 6 }}>Sem captações de PF/PME no período</p>
                 )}
