@@ -99,7 +99,7 @@ function KpiCard({ icon: Icon, eyebrow, value, sub, accent }: { icon: typeof Wal
       </div>
       <div
         className="mt-3 text-[28px] font-bold leading-none text-[#10142B]"
-        style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontVariantNumeric: "tabular-nums" }}
+        style={{ fontVariantNumeric: "tabular-nums" }}
       >
         {fmt(value)}
       </div>
@@ -131,10 +131,7 @@ function Donut({ data, colors, centerLabel, centerSub }: { data: { name: string;
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className="text-lg font-bold text-[#10142B]"
-            style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
-          >
+          <span className="text-lg font-bold text-[#10142B]">
             {centerLabel}
           </span>
           <span className="text-[10px] uppercase tracking-wide text-[#8891AC]">{centerSub}</span>
@@ -207,7 +204,7 @@ export default function FinanceiroDashboard() {
   const byModalidade = useMemo(() => aggregate(contracts, "modalidade"), [contracts]);
 
   return (
-    <div className="min-h-full w-full bg-[#F6F7FB] p-8 font-sans" style={{ fontFamily: "Inter, ui-sans-serif, system-ui" }}>
+    <div className="min-h-full w-full bg-[#F6F7FB] p-8">
       <div className="mx-auto max-w-[1180px]">
         {/* Header */}
         <div className="mb-6 flex items-end justify-between">
@@ -383,22 +380,13 @@ export default function FinanceiroDashboard() {
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-[#626A85]">{c.modalidade}</td>
-                      <td
-                        className="px-5 py-3.5 text-right text-[#10142B]"
-                        style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
-                      >
+                      <td className="px-5 py-3.5 text-right text-[#10142B]">
                         {fmt(c.valorContrato)}
                       </td>
-                      <td
-                        className="px-5 py-3.5 text-right text-[#0E9F6E]"
-                        style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
-                      >
+                      <td className="px-5 py-3.5 text-right text-[#0E9F6E]">
                         {fmt(c.recebido)}
                       </td>
-                      <td
-                        className="px-5 py-3.5 text-right text-[#C2760C]"
-                        style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
-                      >
+                      <td className="px-5 py-3.5 text-right text-[#C2760C]">
                         {fmt(c.aReceber)}
                       </td>
                       <td className="px-5 py-3.5">
@@ -426,7 +414,7 @@ export default function FinanceiroDashboard() {
                                   </div>
                                   <div
                                     className="mt-0.5"
-                                    style={{ color: "#10142B", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+                                    style={{ color: "#10142B" }}
                                   >
                                     {fmt(p.valor)}
                                   </div>
@@ -449,22 +437,13 @@ export default function FinanceiroDashboard() {
                     <td className="px-5 py-3.5 font-semibold text-[#10142B]" colSpan={4}>
                       Total
                     </td>
-                    <td
-                      className="px-5 py-3.5 text-right font-semibold text-[#10142B]"
-                      style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
-                    >
+                    <td className="px-5 py-3.5 text-right font-semibold text-[#10142B]">
                       {fmt(totals.valorContrato)}
                     </td>
-                    <td
-                      className="px-5 py-3.5 text-right font-semibold text-[#0E9F6E]"
-                      style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
-                    >
+                    <td className="px-5 py-3.5 text-right font-semibold text-[#0E9F6E]">
                       {fmt(totals.recebido)}
                     </td>
-                    <td
-                      className="px-5 py-3.5 text-right font-semibold text-[#C2760C]"
-                      style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
-                    >
+                    <td className="px-5 py-3.5 text-right font-semibold text-[#C2760C]">
                       {fmt(totals.aReceber)}
                     </td>
                     <td className="px-5 py-3.5" />
