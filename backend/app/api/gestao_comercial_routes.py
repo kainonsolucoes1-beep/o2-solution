@@ -14,6 +14,9 @@ from app.security import can_see_financials
 
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
 
+# abreviacao de mes em pt-BR — nao depende de locale instalado no servidor
+MESES_ABREV = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
 VENDA_STATUSES      = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 CANCELADO_STATUS    = "sale_not_performed"
@@ -283,7 +286,7 @@ def comparativo_mensal(
 
         result.append({
             "mes": f"{year}-{mon:02d}",
-            "mes_label": f"{calendar.month_abbr[mon]}/{str(year)[2:]}",
+            "mes_label": f"{MESES_ABREV[mon]}/{str(year)[2:]}",
             "captacoes": captacoes,
             "vendas": vendas,
             "receita": receita,
@@ -547,7 +550,7 @@ def performance_historico(
         m = monthly.get(key, {"captacoes": 0, "vendas": 0, "receita": 0.0})
         trend.append({
             "mes": key,
-            "mes_label": f"{calendar.month_abbr[mon]}/{str(year)[2:]}",
+            "mes_label": f"{MESES_ABREV[mon]}/{str(year)[2:]}",
             "captacoes": m["captacoes"],
             "vendas": m["vendas"],
             "receita": m["receita"],
@@ -658,7 +661,7 @@ def vida_sdr(
         m = monthly.get(key, {"captacoes": 0, "vendas": 0, "receita": 0.0})
         trend.append({
             "mes": key,
-            "mes_label": f"{calendar.month_abbr[mon]}/{str(year)[2:]}",
+            "mes_label": f"{MESES_ABREV[mon]}/{str(year)[2:]}",
             "captacoes": m["captacoes"],
             "vendas": m["vendas"],
             "receita": m["receita"],
