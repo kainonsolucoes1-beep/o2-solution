@@ -65,38 +65,53 @@ def list_contratos(
     ]
 
 
-@router.get("/previsao-mensal")
-def previsao_mensal(
+@router.get("/previsao-mes")
+def previsao_mes(
+    mes: str = Query(..., description="Mes alvo no formato YYYY-MM"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Soma das parcelas 'a_receber' com data de previsao conhecida, agrupadas por mes."""
+    """Parcelas 'a_receber' com previsao de recebimento dentro do mes informado,
+    usadas quando o filtro de periodo da tela foca em um unico mes."""
     if not can_see_financials(current_user):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
 
+    try:
+        ano, mes_num = (int(p) for p in mes.split("-"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Parâmetro 'mes' inválido, use YYYY-MM")
+
+    inicio = datetime(ano, mes_num, 1)
+    fim = datetime(ano + 1, 1, 1) if mes_num == 12 else datetime(ano, mes_num + 1, 1)
+
     rows = (
-        db.query(LeadParcela)
-        .filter(LeadParcela.status == "a_receber", LeadParcela.previsao_recebimento.isnot(None))
+        db.query(LeadParcela, Lead)
+        .join(Lead, Lead.id == LeadParcela.lead_id)
+        .filter(
+            LeadParcela.status == "a_receber",
+            LeadParcela.previsao_recebimento >= inicio,
+            LeadParcela.previsao_recebimento < fim,
+        )
+        .order_by(LeadParcela.previsao_recebimento.asc())
         .all()
     )
 
-    por_mes: dict = {}
-    for r in rows:
-        key = r.previsao_recebimento.strftime("%Y-%m")
-        por_mes[key] = por_mes.get(key, 0.0) + float(r.valor)
+    parcelas = [
+        {
+            "leadId": str(lead.id),
+            "empresa": lead.receita_titular or lead.company or lead.name,
+            "promotora": lead.receita_promotora or "Sem promotora",
+            "modalidade": lead.receita_modalidade or "Sem modalidade",
+            "numero": parcela.numero,
+            "valor": float(parcela.valor),
+            "previsaoRecebimento": parcela.previsao_recebimento.strftime("%Y-%m-%d"),
+        }
+        for parcela, lead in rows
+    ]
 
-    sem_previsao_valores = (
-        db.query(LeadParcela.valor)
-        .filter(LeadParcela.status == "a_receber", LeadParcela.previsao_recebimento.is_(None))
-        .all()
-    )
-    sem_previsao = sum(float(v) for (v,) in sem_previsao_valores)
-
-    meses = sorted(por_mes.keys())
     return {
-        "meses": [
-            {"mes": k, "mesLabel": datetime.strptime(k, "%Y-%m").strftime("%b/%y"), "valor": round(por_mes[k], 2)}
-            for k in meses
-        ],
-        "semPrevisao": round(sem_previsao, 2),
+        "mes": mes,
+        "totalPrevisto": round(sum(p["valor"] for p in parcelas), 2),
+        "contratosCount": len({p["leadId"] for p in parcelas}),
+        "parcelas": parcelas,
     }

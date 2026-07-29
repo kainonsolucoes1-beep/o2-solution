@@ -30,10 +30,27 @@ interface Contract {
   parcelas: Parcela[];
 }
 
-interface PrevisaoMes {
-  mes: string;
-  mesLabel: string;
+interface ParcelaMes {
+  leadId: string;
+  empresa: string;
+  promotora: string;
+  modalidade: string;
+  numero: number | null;
   valor: number;
+  previsaoRecebimento: string;
+}
+
+interface PrevisaoMesResumo {
+  mes: string;
+  totalPrevisto: number;
+  contratosCount: number;
+  parcelas: ParcelaMes[];
+}
+
+function monthLabel(mesKey: string) {
+  const [y, m] = mesKey.split("-").map(Number);
+  const label = new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 const _now = new Date();
@@ -89,7 +106,7 @@ function StatusPill({ recebido, valorContrato }: { recebido: number; valorContra
   );
 }
 
-function KpiCard({ icon: Icon, eyebrow, value, sub, accent }: { icon: typeof Wallet; eyebrow: string; value: number; sub: string; accent: string }) {
+function KpiCard({ icon: Icon, eyebrow, value, sub, accent, format = fmt }: { icon: typeof Wallet; eyebrow: string; value: number; sub: string; accent: string; format?: (n: number) => string }) {
   return (
     <div className="relative flex-1 overflow-hidden rounded-2xl border border-[#E4E7EE] bg-white p-5">
       <div className="flex items-center justify-between">
@@ -107,7 +124,7 @@ function KpiCard({ icon: Icon, eyebrow, value, sub, accent }: { icon: typeof Wal
         className="mt-3 text-[28px] font-bold leading-none text-[#10142B]"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
-        {fmt(value)}
+        {format(value)}
       </div>
       <div className="mt-2 text-[13px] text-[#626A85]">{sub}</div>
     </div>
@@ -170,13 +187,28 @@ export default function FinanceiroDashboard() {
   const [dateTo, setDateTo] = useState(_today);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [previsao, setPrevisao] = useState<{ meses: PrevisaoMes[]; semPrevisao: number } | null>(null);
+  const [previsaoMes, setPrevisaoMes] = useState<PrevisaoMesResumo | null>(null);
+  const [previsaoLoading, setPrevisaoLoading] = useState(false);
+
+  // Filtro focado em um mes inteiro (do dia 1 ao ultimo dia do mesmo mes, ex: 01/08 a 31/08)
+  const monthKey = (() => {
+    if (!dateFrom || !dateTo) return null;
+    const [fy, fm, fd] = dateFrom.split("-").map(Number);
+    const [ty, tm, td] = dateTo.split("-").map(Number);
+    if (fy !== ty || fm !== tm || fd !== 1) return null;
+    const lastDay = new Date(ty, tm, 0).getDate();
+    if (td !== lastDay) return null;
+    return dateFrom.slice(0, 7);
+  })();
 
   useEffect(() => {
-    api.get<{ meses: PrevisaoMes[]; semPrevisao: number }>("/api/v1/financeiro/previsao-mensal")
-      .then((r) => setPrevisao(r.data))
-      .catch(() => setPrevisao(null));
-  }, []);
+    if (!monthKey) { setPrevisaoMes(null); return; }
+    setPrevisaoLoading(true);
+    api.get<PrevisaoMesResumo>(`/api/v1/financeiro/previsao-mes?mes=${monthKey}`)
+      .then((r) => setPrevisaoMes(r.data))
+      .catch(() => setPrevisaoMes(null))
+      .finally(() => setPrevisaoLoading(false));
+  }, [monthKey]);
 
   function toggleRow(id: string) {
     setExpandedRows((prev) => {
@@ -195,6 +227,7 @@ export default function FinanceiroDashboard() {
       : `${dateFrom.split("-").reverse().join("/")} – ${dateTo.split("-").reverse().join("/")}`;
 
   useEffect(() => {
+    if (monthKey) return; // modo mes-focado usa /previsao-mes, nao precisa da lista por data de venda
     setLoading(true);
     const params = new URLSearchParams();
     if (dateFrom) params.set("date_from", dateFrom);
@@ -204,7 +237,7 @@ export default function FinanceiroDashboard() {
       .then((r) => setContracts(r.data))
       .catch(() => setContracts([]))
       .finally(() => setLoading(false));
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, monthKey]);
 
   const totals = useMemo(() => {
     const valorContrato = contracts.reduce((s, c) => s + c.valorContrato, 0);
@@ -273,45 +306,94 @@ export default function FinanceiroDashboard() {
           </div>
         </div>
 
-        {/* Previsão de recebimento por mês — independe do filtro de período acima */}
-        {previsao && previsao.meses.length > 0 && (
-          <div className="mb-4 rounded-2xl border border-[#E4E7EE] bg-white p-5">
-            <div className="mb-1 flex items-center gap-2">
-              <CalendarClock size={15} className="text-[#8891AC]" />
-              <h2 className="text-[13px] font-semibold text-[#10142B]">Previsão de Recebimento por Mês</h2>
-            </div>
-            <p className="mb-4 text-[11px] text-[#8891AC]">
-              Baseado na data prevista anotada em cada parcela na planilha
-            </p>
-            {(() => {
-              const max = Math.max(...previsao.meses.map((m) => m.valor), 1);
-              return (
-                <div className="flex flex-col gap-2.5">
-                  {previsao.meses.map((m) => (
-                    <div key={m.mes} className="flex items-center gap-3">
-                      <span className="w-12 flex-shrink-0 text-[12px] font-semibold capitalize text-[#626A85]">{m.mesLabel}</span>
-                      <div className="h-6 flex-1 overflow-hidden rounded-md bg-[#FFFBEB]">
-                        <div
-                          className="flex h-full items-center justify-end rounded-md bg-[#C2760C] px-2"
-                          style={{ width: `${Math.max((m.valor / max) * 100, 8)}%` }}
-                        >
-                          <span className="text-[11px] font-semibold text-white">{fmt(m.valor)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-            {previsao.semPrevisao > 0 && (
-              <p className="mt-3 text-[11.5px] text-[#8891AC]">
-                + {fmt(previsao.semPrevisao)} a receber sem data de previsão anotada
-              </p>
-            )}
-          </div>
-        )}
+        {monthKey ? (
+          // ── Modo mês-focado: previsão de recebimento para o mês filtrado ──
+          previsaoLoading ? (
+            <p className="py-20 text-center text-[13px] text-[#8891AC]">Carregando…</p>
+          ) : !previsaoMes || previsaoMes.parcelas.length === 0 ? (
+            <p className="py-20 text-center text-[13px] text-[#8891AC]">Nenhuma parcela prevista para {monthLabel(monthKey)}.</p>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center gap-2">
+                <CalendarClock size={15} className="text-[#8891AC]" />
+                <h2 className="text-[13px] font-semibold text-[#10142B]">Previsão para {monthLabel(monthKey)}</h2>
+              </div>
 
-        {loading ? (
+              {/* KPI row */}
+              <div className="flex gap-4">
+                <KpiCard
+                  icon={Clock3}
+                  eyebrow="Previsto para o mês"
+                  value={previsaoMes.totalPrevisto}
+                  sub={`${previsaoMes.parcelas.length} parcela${previsaoMes.parcelas.length !== 1 ? "s" : ""}`}
+                  accent="#C2760C"
+                />
+                <KpiCard
+                  icon={Layers3}
+                  eyebrow="Contratos"
+                  value={previsaoMes.contratosCount}
+                  sub="com parcela prevista no mês"
+                  accent="#10142B"
+                  format={(n) => String(n)}
+                />
+              </div>
+
+              {/* Table */}
+              <div className="mt-4 overflow-hidden rounded-2xl border border-[#E4E7EE] bg-white">
+                <div className="border-b border-[#E4E7EE] px-5 py-4">
+                  <h2 className="text-[13px] font-semibold text-[#10142B]">Parcelas previstas — {monthLabel(monthKey)}</h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-[13px]">
+                    <thead>
+                      <tr className="border-b border-[#E4E7EE] text-[11px] uppercase tracking-wider text-[#8891AC]">
+                        <th className="px-5 py-3 font-semibold">Empresa</th>
+                        <th className="px-5 py-3 font-semibold">Promotora</th>
+                        <th className="px-5 py-3 font-semibold">Modalidade</th>
+                        <th className="px-5 py-3 font-semibold">Parcela</th>
+                        <th className="px-5 py-3 text-right font-semibold">Valor</th>
+                        <th className="px-5 py-3 text-right font-semibold">Previsto para</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previsaoMes.parcelas.map((p, i) => (
+                        <tr key={`${p.leadId}-${i}`} className="border-b border-[#F0F1F5] last:border-0 hover:bg-[#FAFBFC]">
+                          <td className="px-5 py-3.5 font-medium text-[#10142B]">{p.empresa}</td>
+                          <td className="px-5 py-3.5 text-[#626A85]">
+                            <span className="inline-flex items-center gap-1.5">
+                              <span
+                                className="h-1.5 w-1.5 rounded-full"
+                                style={{ backgroundColor: PROMOTORA_COLORS[p.promotora] || "#C9CDD9" }}
+                              />
+                              {p.promotora}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3.5 text-[#626A85]">{p.modalidade}</td>
+                          <td className="px-5 py-3.5 text-[#626A85]">{p.numero ? `${p.numero}ª parcela` : "Valor único"}</td>
+                          <td className="px-5 py-3.5 text-right text-[#C2760C]">{fmt(p.valor)}</td>
+                          <td className="px-5 py-3.5 text-right text-[#8891AC]">
+                            {p.previsaoRecebimento.split("-").reverse().join("/")}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-[#FAFBFC]">
+                        <td className="px-5 py-3.5 font-semibold text-[#10142B]" colSpan={4}>
+                          Total
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-semibold text-[#C2760C]">
+                          {fmt(previsaoMes.totalPrevisto)}
+                        </td>
+                        <td className="px-5 py-3.5" />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </>
+          )
+        ) : loading ? (
           <p className="py-20 text-center text-[13px] text-[#8891AC]">Carregando…</p>
         ) : contracts.length === 0 ? (
           <p className="py-20 text-center text-[13px] text-[#8891AC]">Nenhum contrato com receita confirmada neste período.</p>
