@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, Trophy, BarChart3, ArrowLeftRight, UserRoundSearch, Building2, Headset, Globe, Cake, HeartPulse, ArrowUp, ArrowDown, Minus, type LucideIcon } from 'lucide-react'
+import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, Trophy, BarChart3, ArrowLeftRight, UserRoundSearch, Building2, Headset, Globe, Cake, HeartPulse, ArrowUp, ArrowDown, type LucideIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, LineChart, Line, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -187,19 +187,28 @@ function prevMonthOf(m: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-interface HeroTrendProps { curr: number; prev: number | null }
-function HeroTrend({ curr, prev }: HeroTrendProps) {
+interface HeroTrendProps {
+  curr: number
+  prev: number | null
+  prevLabel?: string
+  mode?: 'pct' | 'pp'
+  invert?: boolean // quando subir é ruim (ex: cancelamentos)
+}
+function HeroTrend({ curr, prev, prevLabel, mode = 'pct', invert = false }: HeroTrendProps) {
   if (prev === null) return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>sem dado do mês anterior</span>
-  if (prev === 0 && curr === 0) return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>estável</span>
-  const diffPct = prev === 0 ? 100 : Math.round(((curr - prev) / prev) * 1000) / 10
   const isFlat = curr === prev
+  if (isFlat) return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>estável vs mês anterior ({prevLabel ?? prev})</span>
   const isUp = curr > prev
-  const color = isFlat ? 'var(--text-muted)' : isUp ? '#059669' : '#DC2626'
-  const Icon = isFlat ? Minus : isUp ? ArrowUp : ArrowDown
+  const good = invert ? !isUp : isUp
+  const color = good ? '#059669' : '#DC2626'
+  const Icon = isUp ? ArrowUp : ArrowDown
+  const label = mode === 'pp'
+    ? `${isUp ? '+' : ''}${Math.round((curr - prev) * 10) / 10}pp`
+    : prev === 0 ? '+100%' : `${isUp ? '+' : ''}${Math.round(((curr - prev) / prev) * 1000) / 10}%`
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color }}>
-      <Icon size={11} />{isFlat ? 'estável' : `${diffPct > 0 ? '+' : ''}${diffPct}%`}
-      <span style={{ fontWeight: 500, color: 'var(--text-muted)', marginLeft: 2 }}>vs mês anterior ({prev})</span>
+      <Icon size={11} />{label}
+      <span style={{ fontWeight: 500, color: 'var(--text-muted)', marginLeft: 2 }}>vs mês anterior ({prevLabel ?? prev})</span>
     </span>
   )
 }
@@ -253,7 +262,7 @@ export default function KPIs() {
   const [baseDrawer, setBaseDrawer] = useState<string | null>(null)
   const [baseDrawerData, setBaseDrawerData] = useState<BaseDetalhe | null>(null)
   const [baseDrawerLoading, setBaseDrawerLoading] = useState(false)
-  const [prevSummary, setPrevSummary] = useState<{ cap: number; ven: number } | null>(null)
+  const [prevSummary, setPrevSummary] = useState<{ cap: number; ven: number; can: number } | null>(null)
 
   function openBaseDrawer(base: string) {
     setBaseDrawer(base)
@@ -385,6 +394,7 @@ export default function KPIs() {
       .then(r => setPrevSummary({
         cap: r.data.reduce((s, d) => s + d.captacoes, 0),
         ven: r.data.reduce((s, d) => s + d.vendas, 0),
+        can: r.data.reduce((s, d) => s + d.cancelados, 0),
       }))
       .catch(() => setPrevSummary(null))
   }, [month])
@@ -648,11 +658,23 @@ export default function KPIs() {
       </div>
 
       {/* ── Faixa de KPIs agregados ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}>
         {([
           { label: 'Total de Leads', value: totalCap, color: '#2563EB', trend: <HeroTrend curr={totalCap} prev={prevSummary?.cap ?? null} /> },
           { label: 'Vendas Fechadas', value: totalVen, color: '#059669', trend: <HeroTrend curr={totalVen} prev={prevSummary?.ven ?? null} /> },
-          { label: 'Conversão Geral', value: `${taxaConv}%`, color: '#7C3AED', trend: <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{totalCan} cancelamentos ({pctCan}%)</span> },
+          {
+            label: 'Conversão Geral', value: `${taxaConv}%`, color: '#7C3AED',
+            trend: <HeroTrend curr={taxaConv} prev={prevSummary ? (prevSummary.cap > 0 ? Math.round(prevSummary.ven / prevSummary.cap * 1000) / 10 : 0) : null} mode="pp" prevLabel={prevSummary ? `${prevSummary.cap > 0 ? Math.round(prevSummary.ven / prevSummary.cap * 1000) / 10 : 0}%` : undefined} />,
+          },
+          {
+            label: 'Cancelamentos', value: totalCan, color: '#DC2626',
+            trend: (
+              <>
+                <HeroTrend curr={totalCan} prev={prevSummary?.can ?? null} invert />
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{pctCan}% dos leads</div>
+              </>
+            ),
+          },
           { label: 'Bases Ativas', value: basesData.length, color: '#D97706', trend: <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>destaque: {baseTopCapt?.base ?? '—'}</span> },
         ] as const).map(({ label, value, color, trend }) => (
           <div key={label} style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
