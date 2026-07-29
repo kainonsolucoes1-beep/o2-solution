@@ -41,16 +41,25 @@ interface ParcelaMes {
 }
 
 interface PrevisaoMesResumo {
-  mes: string;
+  dateFrom: string;
+  dateTo: string;
   totalPrevisto: number;
   contratosCount: number;
   parcelas: ParcelaMes[];
 }
 
-function monthLabel(mesKey: string) {
-  const [y, m] = mesKey.split("-").map(Number);
+function monthLabel(y: number, m: number) {
   const label = new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+// "Agosto de 2026" quando o intervalo cobre o mes inteiro, senao "01/08/2026 – 20/08/2026"
+function forecastRangeLabel(dateFrom: string, dateTo: string) {
+  const [fy, fm, fd] = dateFrom.split("-").map(Number);
+  const [ty, tm, td] = dateTo.split("-").map(Number);
+  const isFullMonth = fy === ty && fm === tm && fd === 1 && td === new Date(ty, tm, 0).getDate();
+  if (isFullMonth) return monthLabel(fy, fm);
+  return `${dateFrom.split("-").reverse().join("/")} – ${dateTo.split("-").reverse().join("/")}`;
 }
 
 const _now = new Date();
@@ -190,25 +199,20 @@ export default function FinanceiroDashboard() {
   const [previsaoMes, setPrevisaoMes] = useState<PrevisaoMesResumo | null>(null);
   const [previsaoLoading, setPrevisaoLoading] = useState(false);
 
-  // Filtro focado em um mes inteiro (do dia 1 ao ultimo dia do mesmo mes, ex: 01/08 a 31/08)
-  const monthKey = (() => {
-    if (!dateFrom || !dateTo) return null;
-    const [fy, fm, fd] = dateFrom.split("-").map(Number);
-    const [ty, tm, td] = dateTo.split("-").map(Number);
-    if (fy !== ty || fm !== tm || fd !== 1) return null;
-    const lastDay = new Date(ty, tm, 0).getDate();
-    if (td !== lastDay) return null;
-    return dateFrom.slice(0, 7);
-  })();
+  // Com um intervalo de datas definido (De + Ate), a tela mostra a previsao de
+  // recebimento nesse intervalo em vez dos contratos por data de venda. Vale
+  // pra qualquer recorte — mes inteiro ou um pedaco dele (ex: 01/08 a 20/08).
+  const forecastActive = !!dateFrom && !!dateTo;
 
   useEffect(() => {
-    if (!monthKey) { setPrevisaoMes(null); return; }
+    if (!forecastActive) { setPrevisaoMes(null); return; }
     setPrevisaoLoading(true);
-    api.get<PrevisaoMesResumo>(`/api/v1/financeiro/previsao-mes?mes=${monthKey}`)
+    const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
+    api.get<PrevisaoMesResumo>(`/api/v1/financeiro/previsao-periodo?${params}`)
       .then((r) => setPrevisaoMes(r.data))
       .catch(() => setPrevisaoMes(null))
       .finally(() => setPrevisaoLoading(false));
-  }, [monthKey]);
+  }, [forecastActive, dateFrom, dateTo]);
 
   function toggleRow(id: string) {
     setExpandedRows((prev) => {
@@ -227,7 +231,7 @@ export default function FinanceiroDashboard() {
       : `${dateFrom.split("-").reverse().join("/")} – ${dateTo.split("-").reverse().join("/")}`;
 
   useEffect(() => {
-    if (monthKey) return; // modo mes-focado usa /previsao-mes, nao precisa da lista por data de venda
+    if (forecastActive) return; // modo previsao usa /previsao-periodo, nao precisa da lista por data de venda
     setLoading(true);
     const params = new URLSearchParams();
     if (dateFrom) params.set("date_from", dateFrom);
@@ -237,7 +241,7 @@ export default function FinanceiroDashboard() {
       .then((r) => setContracts(r.data))
       .catch(() => setContracts([]))
       .finally(() => setLoading(false));
-  }, [dateFrom, dateTo, monthKey]);
+  }, [dateFrom, dateTo, forecastActive]);
 
   const totals = useMemo(() => {
     const valorContrato = contracts.reduce((s, c) => s + c.valorContrato, 0);
@@ -306,24 +310,24 @@ export default function FinanceiroDashboard() {
           </div>
         </div>
 
-        {monthKey ? (
+        {forecastActive ? (
           // ── Modo mês-focado: previsão de recebimento para o mês filtrado ──
           previsaoLoading ? (
             <p className="py-20 text-center text-[13px] text-[#8891AC]">Carregando…</p>
           ) : !previsaoMes || previsaoMes.parcelas.length === 0 ? (
-            <p className="py-20 text-center text-[13px] text-[#8891AC]">Nenhuma parcela prevista para {monthLabel(monthKey)}.</p>
+            <p className="py-20 text-center text-[13px] text-[#8891AC]">Nenhuma parcela prevista para {forecastRangeLabel(dateFrom, dateTo)}.</p>
           ) : (
             <>
               <div className="mb-3 flex items-center gap-2">
                 <CalendarClock size={15} className="text-[#8891AC]" />
-                <h2 className="text-[13px] font-semibold text-[#10142B]">Previsão para {monthLabel(monthKey)}</h2>
+                <h2 className="text-[13px] font-semibold text-[#10142B]">Previsão para {forecastRangeLabel(dateFrom, dateTo)}</h2>
               </div>
 
               {/* KPI row */}
               <div className="flex gap-4">
                 <KpiCard
                   icon={Clock3}
-                  eyebrow="Previsto para o mês"
+                  eyebrow="Previsto no período"
                   value={previsaoMes.totalPrevisto}
                   sub={`${previsaoMes.parcelas.length} parcela${previsaoMes.parcelas.length !== 1 ? "s" : ""}`}
                   accent="#C2760C"
@@ -332,7 +336,7 @@ export default function FinanceiroDashboard() {
                   icon={Layers3}
                   eyebrow="Contratos"
                   value={previsaoMes.contratosCount}
-                  sub="com parcela prevista no mês"
+                  sub="com parcela prevista no período"
                   accent="#10142B"
                   format={(n) => String(n)}
                 />
@@ -341,7 +345,7 @@ export default function FinanceiroDashboard() {
               {/* Table */}
               <div className="mt-4 overflow-hidden rounded-2xl border border-[#E4E7EE] bg-white">
                 <div className="border-b border-[#E4E7EE] px-5 py-4">
-                  <h2 className="text-[13px] font-semibold text-[#10142B]">Parcelas previstas — {monthLabel(monthKey)}</h2>
+                  <h2 className="text-[13px] font-semibold text-[#10142B]">Parcelas previstas — {forecastRangeLabel(dateFrom, dateTo)}</h2>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-[13px]">

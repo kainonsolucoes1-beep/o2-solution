@@ -65,24 +65,24 @@ def list_contratos(
     ]
 
 
-@router.get("/previsao-mes")
-def previsao_mes(
-    mes: str = Query(..., description="Mes alvo no formato YYYY-MM"),
+@router.get("/previsao-periodo")
+def previsao_periodo(
+    date_from: str = Query(..., description="Inicio do intervalo, YYYY-MM-DD"),
+    date_to: str = Query(..., description="Fim do intervalo (inclusive), YYYY-MM-DD"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Parcelas 'a_receber' com previsao de recebimento dentro do mes informado,
-    usadas quando o filtro de periodo da tela foca em um unico mes."""
+    """Parcelas 'a_receber' com previsao de recebimento dentro do intervalo informado,
+    usadas quando o filtro de periodo da tela tem inicio e fim definidos (qualquer
+    recorte de datas, nao precisa ser um mes inteiro)."""
     if not can_see_financials(current_user):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
 
     try:
-        ano, mes_num = (int(p) for p in mes.split("-"))
+        inicio = datetime.strptime(date_from, "%Y-%m-%d")
+        fim = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Parâmetro 'mes' inválido, use YYYY-MM")
-
-    inicio = datetime(ano, mes_num, 1)
-    fim = datetime(ano + 1, 1, 1) if mes_num == 12 else datetime(ano, mes_num + 1, 1)
+        raise HTTPException(status_code=400, detail="Parâmetros 'date_from'/'date_to' inválidos, use YYYY-MM-DD")
 
     rows = (
         db.query(LeadParcela, Lead)
@@ -90,7 +90,7 @@ def previsao_mes(
         .filter(
             LeadParcela.status == "a_receber",
             LeadParcela.previsao_recebimento >= inicio,
-            LeadParcela.previsao_recebimento < fim,
+            LeadParcela.previsao_recebimento <= fim,
         )
         .order_by(LeadParcela.previsao_recebimento.asc())
         .all()
@@ -110,7 +110,8 @@ def previsao_mes(
     ]
 
     return {
-        "mes": mes,
+        "dateFrom": date_from,
+        "dateTo": date_to,
         "totalPrevisto": round(sum(p["valor"] for p in parcelas), 2),
         "contratosCount": len({p["leadId"] for p in parcelas}),
         "parcelas": parcelas,
