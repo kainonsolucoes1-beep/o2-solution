@@ -230,6 +230,23 @@ function SelectField({ label, value, options, onChange, saving }: { label: strin
   )
 }
 
+function DateField({ label, value, onChange, saving }: { label: string; value: string; onChange: (v: string) => void; saving?: boolean }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+        {label}
+      </span>
+      <input
+        type="date"
+        defaultValue={value}
+        disabled={saving}
+        onBlur={e => e.target.value && e.target.value !== value && onChange(e.target.value)}
+        style={{ fontSize: 13, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: saving ? 'not-allowed' : 'text', opacity: saving ? 0.6 : 1 }}
+      />
+    </div>
+  )
+}
+
 function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
@@ -286,6 +303,7 @@ export default function LeadDetailPage() {
   const [savingConvPoint, setSavingConvPoint] = useState(false)
   const [savingPerception, setSavingPerception] = useState(false)
   const [editingPerception, setEditingPerception] = useState(false)
+  const [savingCreatedAt, setSavingCreatedAt] = useState(false)
   const agendaRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
@@ -371,6 +389,16 @@ export default function LeadDetailPage() {
       })
       .catch(() => setToast({ msg: 'Erro ao atualizar', ok: false }))
       .finally(() => setSaving(false))
+  }
+
+  function handleUpdateCreatedAt(dateStr: string) {
+    if (!id || !dateStr) return
+    setSavingCreatedAt(true)
+    api.post(`/api/v1/leads/${id}/info`, { created_at: dateStr })
+      .then(() => api.get<LeadItem>(`/api/v1/leads/${id}`))
+      .then(r => { setLead(r.data); setToast({ msg: 'Data de criação atualizada', ok: true }) })
+      .catch(() => setToast({ msg: 'Erro ao atualizar a data de criação', ok: false }))
+      .finally(() => setSavingCreatedAt(false))
   }
 
   function handleSaveNote() {
@@ -660,7 +688,18 @@ export default function LeadDetailPage() {
               </div>
               <div style={{ marginTop: 12 }}><PlanField value={lead.current_plan} /></div>
               <div style={{ marginTop: 12 }}><Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} /></div>
-              <div style={{ marginTop: 12 }}><Field label="Data de Criação" value={fmtDate(lead.created_at)} /></div>
+              <div style={{ marginTop: 12 }}>
+                {isAdmin ? (
+                  <DateField
+                    label="Data de Criação"
+                    value={lead.created_at.slice(0, 10)}
+                    saving={savingCreatedAt}
+                    onChange={handleUpdateCreatedAt}
+                  />
+                ) : (
+                  <Field label="Data de Criação" value={fmtDate(lead.created_at)} />
+                )}
+              </div>
             </div>
           </SectionCard>
 

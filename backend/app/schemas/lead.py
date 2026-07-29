@@ -104,6 +104,7 @@ class LeadInfoUpdateRequest(BaseModel):
     modalidade: Optional[str] = None
     conversion_point: Optional[str] = None
     perception: Optional[str] = None
+    created_at: Optional[str] = None  # AAAA-MM-DD — restrito a admin, corrige a "epoca" do lead
 
 
 class LeadInfoUpdateResponse(BaseModel):
@@ -119,6 +120,7 @@ class LeadInfoUpdateResponse(BaseModel):
     modalidade: Optional[str] = None
     conversion_point: Optional[str] = None
     perception: Optional[str] = None
+    created_at: Optional[datetime] = None
 
 
 class NoteCreateRequest(BaseModel):

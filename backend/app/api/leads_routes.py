@@ -386,12 +386,20 @@ def update_lead_info(
         lead.conversion_point = body.conversion_point.strip() or None
     if body.perception is not None:
         lead.perception = body.perception.strip() or None
+    if body.created_at is not None:
+        if not _is_admin(current_user):
+            raise HTTPException(status_code=403, detail="Apenas administradores podem alterar a data de criação do lead")
+        try:
+            lead.created_at = datetime.strptime(body.created_at, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
     db.commit()
     return LeadInfoUpdateResponse(
         success=True, lead_id=lead.id, name=lead.name,
         company=lead.company, email=lead.email, phone=lead.phone, attendant=lead.attendant,
         document=lead.document, origin=lead.origin, modalidade=lead.modalidade,
         conversion_point=lead.conversion_point, perception=lead.perception,
+        created_at=lead.created_at,
     )
 
 
