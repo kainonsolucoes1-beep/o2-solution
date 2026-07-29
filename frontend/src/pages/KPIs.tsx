@@ -195,9 +195,15 @@ interface HeroTrendProps {
   invert?: boolean // quando subir é ruim (ex: cancelamentos)
 }
 function HeroTrend({ curr, prev, prevLabel, mode = 'pct', invert = false }: HeroTrendProps) {
-  if (prev === null) return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>sem dado do mês anterior</span>
+  if (prev === null) return <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>sem dado do mês anterior</div>
   const isFlat = curr === prev
-  if (isFlat) return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>estável vs mês anterior ({prevLabel ?? prev})</span>
+  const compareLine = <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', marginTop: 2 }}>vs mês anterior ({prevLabel ?? prev})</div>
+  if (isFlat) return (
+    <div>
+      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)' }}>Estável</span>
+      {compareLine}
+    </div>
+  )
   const isUp = curr > prev
   const good = invert ? !isUp : isUp
   const color = good ? '#059669' : '#DC2626'
@@ -206,10 +212,12 @@ function HeroTrend({ curr, prev, prevLabel, mode = 'pct', invert = false }: Hero
     ? `${isUp ? '+' : ''}${Math.round((curr - prev) * 10) / 10}pp`
     : prev === 0 ? '+100%' : `${isUp ? '+' : ''}${Math.round(((curr - prev) / prev) * 1000) / 10}%`
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color }}>
-      <Icon size={11} />{label}
-      <span style={{ fontWeight: 500, color: 'var(--text-muted)', marginLeft: 2 }}>vs mês anterior ({prevLabel ?? prev})</span>
-    </span>
+    <div>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color }}>
+        <Icon size={11} />{label}
+      </span>
+      {compareLine}
+    </div>
   )
 }
 
