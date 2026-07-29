@@ -274,7 +274,7 @@ def sync_receita_real(db: Session) -> dict:
 
 
 async def start_receita_sync_scheduler() -> None:
-    """Loop infinito: sincroniza a receita real da planilha a cada 5 minutos."""
+    """Loop infinito: sincroniza a receita real da planilha a cada 2 minutos."""
     from app.database import SessionLocal
     while True:
         try:
@@ -289,4 +289,4 @@ async def start_receita_sync_scheduler() -> None:
                 db.close()
         except Exception as exc:
             logger.error("Erro no scheduler de receita real: %s", exc)
-        await asyncio.sleep(300)
+        await asyncio.sleep(120)
