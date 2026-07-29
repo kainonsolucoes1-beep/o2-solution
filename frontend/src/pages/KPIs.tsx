@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, Trophy, BarChart3, ArrowLeftRight, UserRoundSearch, type LucideIcon } from 'lucide-react'
+import { TrendingUp, ChevronDown, ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, Trophy, BarChart3, ArrowLeftRight, UserRoundSearch, Building2, Headset, Globe, Cake, HeartPulse, ArrowUp, ArrowDown, Minus, type LucideIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, LineChart, Line, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -163,6 +163,47 @@ function card(bg: string, border: string): React.CSSProperties {
   return { background: bg, borderRadius: 12, padding: '20px 24px', border: `1px solid ${border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }
 }
 
+// Identidade visual por indicador: mesmo ícone/cor usado no card fechado e nos destaques internos
+const SECTION_META = {
+  bases:       { color: '#2563EB', bg: '#EFF6FF', icon: Building2 },
+  sdr:         { color: '#7C3AED', bg: '#F5F3FF', icon: Headset },
+  organico:    { color: '#059669', bg: '#ECFDF5', icon: Globe },
+  idades:      { color: '#D97706', bg: '#FFFBEB', icon: Cake },
+  plano_saude: { color: '#DB2777', bg: '#FDF2F8', icon: HeartPulse },
+} as const
+
+function SectionIcon({ section }: { section: keyof typeof SECTION_META }) {
+  const { color, bg, icon: Icon } = SECTION_META[section]
+  return (
+    <div style={{ width: 40, height: 40, borderRadius: 11, background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <Icon size={19} />
+    </div>
+  )
+}
+
+function prevMonthOf(m: string): string {
+  const [y, mo] = m.split('-').map(Number)
+  const d = new Date(y, mo - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+interface HeroTrendProps { curr: number; prev: number | null }
+function HeroTrend({ curr, prev }: HeroTrendProps) {
+  if (prev === null) return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>sem dado do mês anterior</span>
+  if (prev === 0 && curr === 0) return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>estável</span>
+  const diffPct = prev === 0 ? 100 : Math.round(((curr - prev) / prev) * 1000) / 10
+  const isFlat = curr === prev
+  const isUp = curr > prev
+  const color = isFlat ? 'var(--text-muted)' : isUp ? '#059669' : '#DC2626'
+  const Icon = isFlat ? Minus : isUp ? ArrowUp : ArrowDown
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color }}>
+      <Icon size={11} />{isFlat ? 'estável' : `${diffPct > 0 ? '+' : ''}${diffPct}%`}
+      <span style={{ fontWeight: 500, color: 'var(--text-muted)', marginLeft: 2 }}>vs mês anterior ({prev})</span>
+    </span>
+  )
+}
+
 const UNDER_CONSTRUCTION: boolean = true
 
 export default function KPIs() {
@@ -212,6 +253,7 @@ export default function KPIs() {
   const [baseDrawer, setBaseDrawer] = useState<string | null>(null)
   const [baseDrawerData, setBaseDrawerData] = useState<BaseDetalhe | null>(null)
   const [baseDrawerLoading, setBaseDrawerLoading] = useState(false)
+  const [prevSummary, setPrevSummary] = useState<{ cap: number; ven: number } | null>(null)
 
   function openBaseDrawer(base: string) {
     setBaseDrawer(base)
@@ -338,6 +380,13 @@ export default function KPIs() {
       .then(r => setPlanoSaude(r.data))
       .catch(() => setPlanoSaude(null))
       .finally(() => setPlanoSaudeLoading(false))
+    setPrevSummary(null)
+    api.get<FonteData[]>(`/api/v1/kpis/conversao-fonte?month=${prevMonthOf(month)}`)
+      .then(r => setPrevSummary({
+        cap: r.data.reduce((s, d) => s + d.captacoes, 0),
+        ven: r.data.reduce((s, d) => s + d.vendas, 0),
+      }))
+      .catch(() => setPrevSummary(null))
   }, [month])
 
   const sdrRows      = data.filter(d => isSdr(d.fonte))
@@ -579,11 +628,14 @@ export default function KPIs() {
   })
   const acWrap: React.CSSProperties = {
     marginBottom: 12, border: '1px solid var(--border)', borderRadius: 12,
-    overflow: 'hidden', background: 'var(--bg-2)',
+    overflow: 'hidden', background: 'var(--bg-2)', transition: 'box-shadow .15s ease, transform .15s ease',
   }
 
   return UNDER_CONSTRUCTION ? (
     <main className="px-4 md:px-8 xl:px-12 py-6" style={{ maxWidth: 1100 }}>
+      <style>{`
+        .kpi-acc-card:hover { box-shadow: 0 6px 20px -8px rgba(20,30,60,0.16); transform: translateY(-1px); }
+      `}</style>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>KPIs</h1>
@@ -595,14 +647,34 @@ export default function KPIs() {
         />
       </div>
 
+      {/* ── Faixa de KPIs agregados ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+        {([
+          { label: 'Total de Leads', value: totalCap, color: '#2563EB', trend: <HeroTrend curr={totalCap} prev={prevSummary?.cap ?? null} /> },
+          { label: 'Vendas Fechadas', value: totalVen, color: '#059669', trend: <HeroTrend curr={totalVen} prev={prevSummary?.ven ?? null} /> },
+          { label: 'Conversão Geral', value: `${taxaConv}%`, color: '#7C3AED', trend: <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{totalCan} cancelamentos ({pctCan}%)</span> },
+          { label: 'Bases Ativas', value: basesData.length, color: '#D97706', trend: <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>destaque: {baseTopCapt?.base ?? '—'}</span> },
+        ] as const).map(({ label, value, color, trend }) => (
+          <div key={label} style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: color }} />
+            <p style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', margin: '0 0 8px' }}>{label}</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+            <div style={{ marginTop: 7 }}>{trend}</div>
+          </div>
+        ))}
+      </div>
+
       {/* ── Accordion: Performance por Base ── */}
-      <div style={acWrap}>
+      <div className="kpi-acc-card" style={acWrap}>
         <button style={acHd(openSection === 'bases')} onClick={() => setOpenSection(openSection === 'bases' ? null : 'bases')}>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Performance por Base</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
-              {basesLoading ? 'Carregando…' : `${basesData.length} bases · destaque: ${baseTopCapt?.base ?? '—'}`}
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <SectionIcon section="bases" />
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Performance por Base</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+                {basesLoading ? 'Carregando…' : `${basesData.length} bases · destaque: ${baseTopCapt?.base ?? '—'}`}
+              </p>
+            </div>
           </div>
           {openSection === 'bases' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
         </button>
@@ -675,13 +747,16 @@ export default function KPIs() {
       </div>
 
       {/* ── Accordion: SDR ── */}
-      <div style={acWrap}>
+      <div className="kpi-acc-card" style={acWrap}>
         <button style={acHd(openSection === 'sdr')} onClick={() => setOpenSection(openSection === 'sdr' ? null : 'sdr')}>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>SDR</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
-              {loading ? 'Carregando…' : `${sdrFontes.length} operadores · ${sdrTotal.captacoes} leads · ${sdrTotal.vendas} vendas · ${sdrConv}% conversão`}
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <SectionIcon section="sdr" />
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>SDR</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+                {loading ? 'Carregando…' : `${sdrFontes.length} operadores · ${sdrTotal.captacoes} leads · ${sdrTotal.vendas} vendas · ${sdrConv}% conversão`}
+              </p>
+            </div>
           </div>
           {openSection === 'sdr' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
         </button>
@@ -761,13 +836,16 @@ export default function KPIs() {
       </div>
 
       {/* ── Accordion: Orgânico ── */}
-      <div style={acWrap}>
+      <div className="kpi-acc-card" style={acWrap}>
         <button style={acHd(openSection === 'organico')} onClick={() => setOpenSection(openSection === 'organico' ? null : 'organico')}>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Orgânico</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
-              {loading ? 'Carregando…' : `Site · ChatGPT · Orgânico — ${organicTotal.captacoes} leads · ${organicTotal.vendas} vendas · ${organicConv}% conversão`}
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <SectionIcon section="organico" />
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Orgânico</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+                {loading ? 'Carregando…' : `Site · ChatGPT · Orgânico — ${organicTotal.captacoes} leads · ${organicTotal.vendas} vendas · ${organicConv}% conversão`}
+              </p>
+            </div>
           </div>
           {openSection === 'organico' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
         </button>
@@ -853,13 +931,16 @@ export default function KPIs() {
       </div>
 
       {/* ── Accordion: Faixas Etárias ── */}
-      <div style={acWrap}>
+      <div className="kpi-acc-card" style={acWrap}>
         <button style={acHd(openSection === 'idades')} onClick={() => setOpenSection(openSection === 'idades' ? null : 'idades')}>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Faixas Etárias</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
-              {ageBandsLoading ? 'Carregando…' : `${ageComIdade} leads com idade identificada · ${ageSemIdade} sem dados`}
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <SectionIcon section="idades" />
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Faixas Etárias</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+                {ageBandsLoading ? 'Carregando…' : `${ageComIdade} leads com idade identificada · ${ageSemIdade} sem dados`}
+              </p>
+            </div>
           </div>
           {openSection === 'idades' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
         </button>
@@ -945,13 +1026,16 @@ export default function KPIs() {
       </div>
 
       {/* ── Accordion: Plano de Saúde ── */}
-      <div style={acWrap}>
+      <div className="kpi-acc-card" style={acWrap}>
         <button style={acHd(openSection === 'plano_saude')} onClick={() => setOpenSection(openSection === 'plano_saude' ? null : 'plano_saude')}>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Plano de Saúde</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
-              {planoSaudeLoading ? 'Carregando…' : `${planoSaude?.com_informacao ?? 0} leads com informação · ${planoSaude?.sem_informacao ?? 0} sem dados`}
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <SectionIcon section="plano_saude" />
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Plano de Saúde</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+                {planoSaudeLoading ? 'Carregando…' : `${planoSaude?.com_informacao ?? 0} leads com informação · ${planoSaude?.sem_informacao ?? 0} sem dados`}
+              </p>
+            </div>
           </div>
           {openSection === 'plano_saude' ? <ChevronDown size={18} color="var(--text-muted)" /> : <ChevronRight size={18} color="var(--text-muted)" />}
         </button>
