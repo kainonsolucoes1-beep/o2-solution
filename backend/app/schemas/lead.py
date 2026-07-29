@@ -44,6 +44,9 @@ class LeadReportItem(BaseModel):
     value_potential: Optional[float] = None
     receita_real_recebida: Optional[float] = None
     receita_real_a_receber: Optional[float] = None
+    receita_promotora: Optional[str] = None
+    receita_operadora: Optional[str] = None
+    receita_categoria: Optional[str] = None
     is_renutrucao: bool = False
     lost_reason: Optional[str] = None
     lost_message: Optional[str] = None

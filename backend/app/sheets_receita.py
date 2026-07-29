@@ -203,6 +203,8 @@ def sync_receita_real(db: Session) -> dict:
                     lead.receita_titular = None
                     lead.receita_promotora = None
                     lead.receita_modalidade = None
+                    lead.receita_operadora = None
+                    lead.receita_categoria = None
                     lead.receita_data_venda = None
                     db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id).delete()
             continue
@@ -253,6 +255,8 @@ def sync_receita_real(db: Session) -> dict:
         lead.receita_titular = titular
         lead.receita_promotora = _normalize_label(cell("PLATAFORMA").get("formattedValue"), _PROMOTORA_ALIASES)
         lead.receita_modalidade = _normalize_label(cell("MODALIDADE").get("formattedValue"), _MODALIDADE_ALIASES)
+        lead.receita_operadora = (cell("OPERADORA").get("formattedValue") or "").strip() or None
+        lead.receita_categoria = (cell("CATEGORIA").get("formattedValue") or "").strip() or None
         lead.receita_data_venda = data_venda
         matched_names.append(titular)
 

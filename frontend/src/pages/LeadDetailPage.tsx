@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Tag, Activity, CalendarClock, CalendarPlus, StickyNote, History, Pencil, Phone, Mail, Wallet, Lock, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarClock, CalendarPlus, StickyNote, History, Pencil, Phone, Mail, Wallet, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -30,6 +30,9 @@ interface LeadItem {
   value_potential: number | null
   receita_real_recebida: number | null
   receita_real_a_receber: number | null
+  receita_promotora: string | null
+  receita_operadora: string | null
+  receita_categoria: string | null
   modalidade: string | null
   document: string | null
   created_at: string
@@ -590,8 +593,13 @@ export default function LeadDetailPage() {
             const total = recebida + aReceber
             const hasData = total > 0
             const pct = hasData ? Math.round(recebida / total * 100) : 0
+            const vendaDetails: [string, string][] = [
+              ['Plataforma', lead.receita_promotora ?? ''],
+              ['Operadora', lead.receita_operadora ?? ''],
+              ['Categoria', lead.receita_categoria ?? ''],
+            ].filter(([, v]) => v) as [string, string][]
             return (
-              <SectionCard title="Receita Gerada" icon={Wallet}>
+              <SectionCard title="Receita" icon={Wallet}>
                 {hasData ? (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -614,15 +622,27 @@ export default function LeadDetailPage() {
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>{pct}% já recebido</div>
                     </div>
+                    {vendaDetails.length > 0 && (
+                      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-in)' }}>
+                        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85, margin: '0 0 10px' }}>
+                          Detalhes da venda
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {vendaDetails.map(([label, value]) => (
+                            <div key={label} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                              <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>{label}</span>
+                              <span style={{ textAlign: 'right', fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500 }}>{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '10px 0', margin: 0 }}>
                     Nenhuma receita gerada ainda.
                   </p>
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--text-subtle)', background: 'var(--bg-subtle)', borderRadius: 6, padding: '3px 8px', width: 'fit-content', marginTop: 14 }}>
-                  <Lock size={10} /> Visível apenas para Admin e Diretor
-                </div>
               </SectionCard>
             )
           })()}
