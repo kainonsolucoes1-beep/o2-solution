@@ -373,6 +373,7 @@ export default function LeadDetailPage() {
   const [editingPerception, setEditingPerception] = useState(false)
   const [savingCreatedAt, setSavingCreatedAt] = useState(false)
   const [savingOperadoras, setSavingOperadoras] = useState(false)
+  const [savingRealign, setSavingRealign] = useState(false)
   const [editingDetalhes, setEditingDetalhes] = useState(false)
   const [savingDetalhes, setSavingDetalhes] = useState(false)
   const [detalhesDraft, setDetalhesDraft] = useState({ current_plan: '', value_potential: '' })
@@ -468,10 +469,26 @@ export default function LeadDetailPage() {
     if (!id || !dateStr) return
     setSavingCreatedAt(true)
     api.post(`/api/v1/leads/${id}/info`, { created_at: dateStr })
-      .then(() => api.get<LeadItem>(`/api/v1/leads/${id}`))
-      .then(r => { setLead(r.data); setToast({ msg: 'Data de criação atualizada', ok: true }) })
+      .then(() => Promise.all([
+        api.get<LeadItem>(`/api/v1/leads/${id}`),
+        api.get<{ history: StatusHistoryItem[] }>(`/api/v1/leads/${id}/status-history`),
+      ]))
+      .then(([leadRes, histRes]) => {
+        setLead(leadRes.data)
+        setHistory(histRes.data.history)
+        setToast({ msg: 'Data de criação atualizada', ok: true })
+      })
       .catch(() => setToast({ msg: 'Erro ao atualizar a data de criação', ok: false }))
       .finally(() => setSavingCreatedAt(false))
+  }
+
+  function handleRealignHistory() {
+    if (!id) return
+    setSavingRealign(true)
+    api.post<{ history: StatusHistoryItem[] }>(`/api/v1/leads/${id}/realign-history`)
+      .then(r => { setHistory(r.data.history); setToast({ msg: 'Histórico realinhado com a data de criação', ok: true }) })
+      .catch(err => setToast({ msg: err.response?.data?.detail || 'Erro ao corrigir histórico', ok: false }))
+      .finally(() => setSavingRealign(false))
   }
 
   function startEditDetalhes() {
@@ -824,7 +841,18 @@ export default function LeadDetailPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Linha do Tempo · tempo por etapa" icon={History}>
+          <SectionCard title="Linha do Tempo · tempo por etapa" icon={History} action={
+            isAdmin && (
+              <button
+                onClick={handleRealignHistory}
+                disabled={savingRealign}
+                title="Alinha o histórico de status com a Data de Criação, preservando o intervalo entre as etapas"
+                style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: savingRealign ? 'not-allowed' : 'pointer', fontWeight: 500 }}
+              >
+                {savingRealign ? 'Corrigindo…' : 'Corrigir histórico'}
+              </button>
+            )
+          }>
             {loadingHistory ? (
               <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
             ) : timeline.length === 0 ? (

@@ -492,9 +492,15 @@ def update_lead_info(
         if not _is_admin(current_user):
             raise HTTPException(status_code=403, detail="Apenas administradores podem alterar a data de criação do lead")
         try:
-            lead.created_at = datetime.strptime(body.created_at, "%Y-%m-%d")
+            new_created_at = datetime.strptime(body.created_at, "%Y-%m-%d")
         except ValueError:
             raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
+        # lead do passado: desloca o historico de status junto (mesmo delta), pra nao
+        # ficar com "criado ha X meses" seguido de "virou Novo/Fechado hoje"
+        delta = new_created_at - lead.created_at
+        lead.created_at = new_created_at
+        for h in db.query(LeadStatusHistory).filter(LeadStatusHistory.lead_id == lead.id).all():
+            h.changed_at = h.changed_at + delta
     if body.visibility_tag is not None:
         lead.visibility_tag = body.visibility_tag.strip() or None
     if body.operadoras_enviadas is not None:
@@ -528,6 +534,37 @@ def get_status_history(
         .order_by(LeadStatusHistory.changed_at.asc())
         .all()
     )
+    return StatusHistoryResponse(history=rows)
+
+
+@router.post("/leads/{lead_id}/realign-history", response_model=StatusHistoryResponse)
+def realign_lead_history(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Corrige leads do passado cujo historico de status ficou "preso" na data
+    de hoje depois que a Data de Criacao foi corrigida antes desse deslocamento
+    automatico existir. Desloca todo o historico pelo mesmo delta entre a
+    primeira entrada e a Data de Criacao atual, preservando o intervalo entre
+    as etapas."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Apenas administradores podem corrigir o histórico")
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    rows = (
+        db.query(LeadStatusHistory)
+        .filter(LeadStatusHistory.lead_id == lead_id)
+        .order_by(LeadStatusHistory.changed_at.asc())
+        .all()
+    )
+    if not rows:
+        raise HTTPException(status_code=400, detail="Este lead não tem histórico de status para corrigir")
+    delta = lead.created_at - rows[0].changed_at
+    for h in rows:
+        h.changed_at = h.changed_at + delta
+    db.commit()
     return StatusHistoryResponse(history=rows)
 
 
