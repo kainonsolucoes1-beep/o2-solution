@@ -1137,7 +1137,7 @@ export default function LeadsReport() {
                       className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Campo Livre</label>
+                    <label style={labelStyle}>Perfil</label>
                     <input value={newLead.visibility_tag} onChange={e => setNewLead(d => ({ ...d, visibility_tag: e.target.value }))}
                       placeholder="Ex: ADM"
                       className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />

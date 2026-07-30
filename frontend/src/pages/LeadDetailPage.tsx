@@ -595,7 +595,7 @@ export default function LeadDetailPage() {
                 <EditInput label="Telefone"  value={infoDraft.phone}     onChange={v => setInfoDraft(d => ({ ...d, phone: v }))} />
                 <EditInput label="Documento" value={infoDraft.document}  onChange={v => setInfoDraft(d => ({ ...d, document: v }))} />
                 <EditInput label="Atendente" value={infoDraft.attendant} onChange={v => setInfoDraft(d => ({ ...d, attendant: v }))} />
-                <EditInput label="Campo Livre" value={infoDraft.visibility_tag} onChange={v => setInfoDraft(d => ({ ...d, visibility_tag: v }))} />
+                <EditInput label="Perfil" value={infoDraft.visibility_tag} onChange={v => setInfoDraft(d => ({ ...d, visibility_tag: v }))} />
               </div>
             ) : (
               <div className="flex flex-col gap-4">
@@ -604,7 +604,7 @@ export default function LeadDetailPage() {
                 <Field label="Telefone"  value={lead.phone ?? '—'} />
                 <Field label="Documento" value={lead.document ?? '—'} />
                 <Field label="Atendente" value={lead.attendant ?? '—'} />
-                {lead.visibility_tag && <Field label="Campo Livre" value={lead.visibility_tag} />}
+                {lead.visibility_tag && <Field label="Perfil" value={lead.visibility_tag} />}
                 {lead.perception && PERCEPTION_STYLE[lead.perception] && (
                   <div className="flex flex-col gap-2">
                     <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
