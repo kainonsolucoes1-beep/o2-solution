@@ -37,13 +37,15 @@ interface ParcelaMes {
   modalidade: string;
   numero: number | null;
   valor: number;
+  status: "recebido" | "a_receber";
   previsaoRecebimento: string;
 }
 
 interface PrevisaoMesResumo {
   dateFrom: string;
   dateTo: string;
-  totalPrevisto: number;
+  totalRecebido: number;
+  totalAReceber: number;
   contratosCount: number;
   parcelas: ParcelaMes[];
 }
@@ -313,7 +315,7 @@ export default function FinanceiroDashboard() {
         </div>
 
         {forecastActive ? (
-          // ── Modo mês-focado: previsão de recebimento para o mês filtrado ──
+          // ── Modo mês-focado: recebido + a receber no período filtrado (passado ou futuro) ──
           previsaoLoading ? (
             <p className="py-20 text-center text-[13px] text-[#8891AC]">Carregando…</p>
           ) : !previsaoMes || previsaoMes.parcelas.length === 0 ? (
@@ -322,23 +324,30 @@ export default function FinanceiroDashboard() {
             <>
               <div className="mb-3 flex items-center gap-2">
                 <CalendarClock size={15} className="text-[#8891AC]" />
-                <h2 className="text-[13px] font-semibold text-[#10142B]">Previsão para {forecastRangeLabel(dateFrom, dateTo)}</h2>
+                <h2 className="text-[13px] font-semibold text-[#10142B]">{forecastRangeLabel(dateFrom, dateTo)}</h2>
               </div>
 
               {/* KPI row */}
               <div className="flex gap-4">
                 <KpiCard
+                  icon={Wallet}
+                  eyebrow="Recebido no período"
+                  value={previsaoMes.totalRecebido}
+                  sub="Parcelas já confirmadas"
+                  accent="#0E9F6E"
+                />
+                <KpiCard
                   icon={Clock3}
-                  eyebrow="Previsto no período"
-                  value={previsaoMes.totalPrevisto}
-                  sub={`${previsaoMes.parcelas.length} parcela${previsaoMes.parcelas.length !== 1 ? "s" : ""}`}
+                  eyebrow="A receber no período"
+                  value={previsaoMes.totalAReceber}
+                  sub="Parcelas ainda pendentes"
                   accent="#C2760C"
                 />
                 <KpiCard
                   icon={Layers3}
                   eyebrow="Contratos"
                   value={previsaoMes.contratosCount}
-                  sub="com parcela prevista no período"
+                  sub={`${previsaoMes.parcelas.length} parcela${previsaoMes.parcelas.length !== 1 ? "s" : ""}`}
                   accent="#10142B"
                   format={(n) => String(n)}
                 />
@@ -347,7 +356,7 @@ export default function FinanceiroDashboard() {
               {/* Table */}
               <div className="mt-4 overflow-hidden rounded-2xl border border-[#E4E7EE] bg-white">
                 <div className="border-b border-[#E4E7EE] px-5 py-4">
-                  <h2 className="text-[13px] font-semibold text-[#10142B]">Parcelas previstas — {forecastRangeLabel(dateFrom, dateTo)}</h2>
+                  <h2 className="text-[13px] font-semibold text-[#10142B]">Parcelas — {forecastRangeLabel(dateFrom, dateTo)}</h2>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-[13px]">
@@ -358,11 +367,15 @@ export default function FinanceiroDashboard() {
                         <th className="px-5 py-3 font-semibold">Modalidade</th>
                         <th className="px-5 py-3 font-semibold">Parcela</th>
                         <th className="px-5 py-3 text-right font-semibold">Valor</th>
+                        <th className="px-5 py-3 font-semibold">Status</th>
                         <th className="px-5 py-3 text-right font-semibold">Previsto para</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {previsaoMes.parcelas.map((p, i) => (
+                      {previsaoMes.parcelas.map((p, i) => {
+                        const cor = p.status === "recebido" ? "#0E9F6E" : "#C2760C";
+                        const bg = p.status === "recebido" ? "#ECFDF5" : "#FFFBEB";
+                        return (
                         <tr key={`${p.leadId}-${i}`} className="border-b border-[#F0F1F5] last:border-0 hover:bg-[#FAFBFC]">
                           <td className="px-5 py-3.5 font-medium text-[#10142B]">{p.empresa}</td>
                           <td className="px-5 py-3.5 text-[#626A85]">
@@ -376,22 +389,28 @@ export default function FinanceiroDashboard() {
                           </td>
                           <td className="px-5 py-3.5 text-[#626A85]">{p.modalidade}</td>
                           <td className="px-5 py-3.5 text-[#626A85]">{p.numero ? `${p.numero}ª parcela` : "Valor único"}</td>
-                          <td className="px-5 py-3.5 text-right text-[#C2760C]">{fmt(p.valor)}</td>
+                          <td className="px-5 py-3.5 text-right" style={{ color: cor }}>{fmt(p.valor)}</td>
+                          <td className="px-5 py-3.5">
+                            <span className="rounded-full px-2.5 py-1 text-[11px] font-medium" style={{ background: bg, color: cor }}>
+                              {p.status === "recebido" ? "Recebido" : "A receber"}
+                            </span>
+                          </td>
                           <td className="px-5 py-3.5 text-right text-[#8891AC]">
                             {p.previsaoRecebimento.split("-").reverse().join("/")}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                     <tfoot>
                       <tr className="bg-[#FAFBFC]">
                         <td className="px-5 py-3.5 font-semibold text-[#10142B]" colSpan={4}>
                           Total
                         </td>
-                        <td className="px-5 py-3.5 text-right font-semibold text-[#C2760C]">
-                          {fmt(previsaoMes.totalPrevisto)}
+                        <td className="px-5 py-3.5 text-right font-semibold text-[#10142B]">
+                          {fmt(previsaoMes.totalRecebido + previsaoMes.totalAReceber)}
                         </td>
-                        <td className="px-5 py-3.5" />
+                        <td className="px-5 py-3.5" colSpan={2} />
                       </tr>
                     </tfoot>
                   </table>

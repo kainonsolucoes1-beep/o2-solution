@@ -72,9 +72,11 @@ def previsao_periodo(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Parcelas 'a_receber' com previsao de recebimento dentro do intervalo informado,
-    usadas quando o filtro de periodo da tela tem inicio e fim definidos (qualquer
-    recorte de datas, nao precisa ser um mes inteiro)."""
+    """Parcelas (recebidas ou a receber) com previsao de recebimento dentro do
+    intervalo informado, usadas quando o filtro de periodo da tela tem inicio e
+    fim definidos (qualquer recorte de datas, nao precisa ser um mes inteiro).
+    Cobre tanto meses futuros (a receber) quanto meses passados ja quitados
+    (recebido) -- mostra o que aconteceu naquele periodo, nao so o pendente."""
     if not can_see_financials(current_user):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
 
@@ -88,7 +90,6 @@ def previsao_periodo(
         db.query(LeadParcela, Lead)
         .join(Lead, Lead.id == LeadParcela.lead_id)
         .filter(
-            LeadParcela.status == "a_receber",
             LeadParcela.previsao_recebimento >= inicio,
             LeadParcela.previsao_recebimento <= fim,
         )
@@ -104,15 +105,20 @@ def previsao_periodo(
             "modalidade": lead.receita_modalidade or "Sem modalidade",
             "numero": parcela.numero,
             "valor": float(parcela.valor),
+            "status": parcela.status,
             "previsaoRecebimento": parcela.previsao_recebimento.strftime("%Y-%m-%d"),
         }
         for parcela, lead in rows
     ]
 
+    recebido = sum(p["valor"] for p in parcelas if p["status"] == "recebido")
+    a_receber = sum(p["valor"] for p in parcelas if p["status"] == "a_receber")
+
     return {
         "dateFrom": date_from,
         "dateTo": date_to,
-        "totalPrevisto": round(sum(p["valor"] for p in parcelas), 2),
+        "totalRecebido": round(recebido, 2),
+        "totalAReceber": round(a_receber, 2),
         "contratosCount": len({p["leadId"] for p in parcelas}),
         "parcelas": parcelas,
     }
