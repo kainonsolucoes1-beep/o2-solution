@@ -356,7 +356,11 @@ def list_conversion_points(
         .order_by(Lead.conversion_point)
         .all()
     )
-    return [r.conversion_point for r in rows]
+    points = [r.conversion_point for r in rows]
+    if "Adm" not in points:
+        points.append("Adm")
+        points.sort()
+    return points
 
 
 @router.get("/leads/lost-reasons", response_model=List[str])
