@@ -662,10 +662,10 @@ export default function LeadsReport() {
                               />
                             </td>
                           )}
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap', borderTopLeftRadius: isAdmin ? 0 : 10, borderBottomLeftRadius: isAdmin ? 0 : 10 }}>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap', borderTopLeftRadius: isAdmin ? 0 : 10, borderBottomLeftRadius: isAdmin ? 0 : 10 }}>
                             {fmtDate(lead.created_at)}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
                             {lead.updated_at ? fmtDate(lead.updated_at) : '—'}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)' }}>
@@ -691,10 +691,10 @@ export default function LeadsReport() {
                               )}
                             </div>
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
                             {lead.origem ?? '—'}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
                             {lead.modalidade ?? '—'}
                           </td>
                           <td style={{ padding: '12px 16px' }}>
