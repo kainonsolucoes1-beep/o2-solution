@@ -337,7 +337,11 @@ def list_origins(
         .order_by(Lead.origin)
         .all()
     )
-    return [r.origin for r in rows]
+    origins = [r.origin for r in rows]
+    if "ADM" not in origins:
+        origins.append("ADM")
+        origins.sort()
+    return origins
 
 
 @router.get("/leads/conversion-points", response_model=List[str])
