@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronRight, Building2, Layers3, CalendarClock } from "lucide-react";
+import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronUp, ChevronRight, Building2, Layers3, CalendarClock } from "lucide-react";
 import api from "../api";
 
 // ---------------------------------------------------------------------------
@@ -196,6 +196,8 @@ export default function FinanceiroDashboard() {
   const [dateTo, setDateTo] = useState(_today);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [contractsExpanded, setContractsExpanded] = useState(false);
+  const CONTRACTS_VISIBLE = 8;
   const [previsaoMes, setPrevisaoMes] = useState<PrevisaoMesResumo | null>(null);
   const [previsaoLoading, setPrevisaoLoading] = useState(false);
 
@@ -493,7 +495,7 @@ export default function FinanceiroDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {contracts.map((c) => {
+                  {(contractsExpanded ? contracts : contracts.slice(0, CONTRACTS_VISIBLE)).map((c) => {
                     const expanded = expandedRows.has(c.id);
                     const hasParcelas = c.parcelas && c.parcelas.length > 0;
                     return (
@@ -573,6 +575,19 @@ export default function FinanceiroDashboard() {
                     </Fragment>
                     );
                   })}
+                  {contracts.length > CONTRACTS_VISIBLE && (
+                    <tr className="border-b border-[#F0F1F5]">
+                      <td colSpan={8} className="px-5 py-3 text-center">
+                        <button
+                          onClick={() => setContractsExpanded((v) => !v)}
+                          className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#626A85] hover:text-[#39415C]"
+                        >
+                          {contractsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          {contractsExpanded ? "Ver menos" : `Ver mais (${contracts.length - CONTRACTS_VISIBLE})`}
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#FAFBFC]">
