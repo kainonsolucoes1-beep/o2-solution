@@ -262,19 +262,30 @@ export default function VidaSDR() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {data.ranking.leaderboard.map((r, i) => (
-                    <div key={r.nome} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0',
-                      borderBottom: i < data.ranking!.leaderboard.length - 1 ? '1px solid var(--border-lt)' : 'none',
-                      fontWeight: r.voce ? 700 : 500,
-                    }}>
+                  {data.ranking.leaderboard.map((r, i) => {
+                    const clickable = r.nome !== 'o2 Solution'
+                    return (
+                    <div
+                      key={r.nome}
+                      onClick={clickable ? () => navigate(`/leads-report?origem=${encodeURIComponent(r.nome)}`) : undefined}
+                      title={clickable ? `Ver leads de ${r.nome}` : undefined}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0',
+                        borderBottom: i < data.ranking!.leaderboard.length - 1 ? '1px solid var(--border-lt)' : 'none',
+                        fontWeight: r.voce ? 700 : 500,
+                        cursor: clickable ? 'pointer' : 'default',
+                      }}
+                      onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+                    >
                       <span style={{ fontSize: 13, width: 22, flexShrink: 0 }}>{MEDALS[i] ?? `${i + 1}º`}</span>
                       <span style={{ fontSize: 12.5, color: r.voce ? '#3B82F6' : 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {r.voce ? `${r.nome} (você)` : r.nome}
                       </span>
                       <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{fmtBrl(r.receita)}</span>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
