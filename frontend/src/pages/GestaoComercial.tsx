@@ -562,13 +562,16 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
 // ════════════════════════════════════════════════════════════════════════════
 interface OperadorPerf {
   operador: string
+  tipo: 'operador' | 'canal'
   captacoes: number
   cancelados: number
   vendas: number
   receita: number
   conversao: number
+  cancel_rate: number
+  ticket_medio: number
 }
-interface PerformanceHistorico { operadores: OperadorPerf[]; trend: MensalItem[] }
+interface PerformanceHistorico { operadores: OperadorPerf[]; trend: MensalItem[]; trend_por_operador: Record<string, MensalItem[]> }
 
 const convColor = (pct: number) => pct >= 30 ? '#059669' : pct >= 15 ? '#F59E0B' : '#3B82F6'
 function prevMonthStr(month: string) {
@@ -594,7 +597,28 @@ function mergeO2Operadores(rows: OperadorPerf[]): OperadorPerf[] {
   return [...map.values()].map(r => ({
     ...r,
     conversao: r.captacoes > 0 ? +(r.vendas / r.captacoes * 100).toFixed(1) : 0,
+    cancel_rate: r.captacoes > 0 ? +(r.cancelados / r.captacoes * 100).toFixed(1) : 0,
+    ticket_medio: r.vendas > 0 ? r.receita / r.vendas : 0,
   }))
+}
+
+// mesmo merge de O2 acima, aplicado a tendencia mensal por operador (pro grafico comparativo)
+function mergeO2Trend(byOp: Record<string, MensalItem[]>): Record<string, MensalItem[]> {
+  const result: Record<string, MensalItem[]> = {}
+  for (const [op, trend] of Object.entries(byOp)) {
+    const key = O2_PERF_NAMES.has(op.toLowerCase()) ? 'o2 Solution' : op
+    const acc = result[key]
+    if (acc) {
+      trend.forEach((m, i) => {
+        acc[i].captacoes += m.captacoes
+        acc[i].vendas    += m.vendas
+        acc[i].receita   += m.receita
+      })
+    } else {
+      result[key] = trend.map(m => ({ ...m }))
+    }
+  }
+  return result
 }
 
 const ExpandToggle = ({ expanded, hidden, onClick }: { expanded: boolean; hidden: number; onClick: () => void }) => (
@@ -621,11 +645,12 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
   const navigate = useNavigate()
   const [lifetimeData, setLifetimeData] = useState<OperadorPerf[]>([])
   const [trend, setTrend]           = useState<MensalItem[]>([])
+  const [trendPorOperador, setTrendPorOperador] = useState<Record<string, MensalItem[]>>({})
   const [loadingLifetime, setLoadingLifetime] = useState(true)
   const [sortBy, setSortBy]         = useState<'receita' | 'captacoes' | 'vendas' | 'cancelados'>('receita')
-  const [expConv, setExpConv]       = useState(false)
-  const [expRec, setExpRec]         = useState(false)
   const [expRanking, setExpRanking] = useState(false)
+  const [tipoFilter, setTipoFilter]     = useState<'todos' | 'operador' | 'canal'>('todos')
+  const [quickFilter, setQuickFilter]   = useState<'todos' | 'vendas' | 'atencao'>('todos')
   const [perfPopup, setPerfPopup]           = useState<string | null>(null)
   const [perfLeads, setPerfLeads]           = useState<PerfLead[]>([])
   const [perfLoading, setPerfLoading]       = useState(false)
@@ -676,8 +701,12 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
     const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
     if (teamParam) p.set('team', teamParam)
     api.get<PerformanceHistorico>(`/api/v1/gestao-comercial/performance-historico?${p}`)
-      .then(r => { setLifetimeData(mergeO2Operadores(r.data.operadores)); setTrend(r.data.trend) })
-      .catch(() => { setLifetimeData([]); setTrend([]) })
+      .then(r => {
+        setLifetimeData(mergeO2Operadores(r.data.operadores))
+        setTrend(r.data.trend)
+        setTrendPorOperador(mergeO2Trend(r.data.trend_por_operador))
+      })
+      .catch(() => { setLifetimeData([]); setTrend([]); setTrendPorOperador({}) })
       .finally(() => setLoadingLifetime(false))
   }, [dateFrom, dateTo, teamParam])
 
@@ -696,9 +725,50 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
   const topConv    = byConv.filter(r => r.vendas > 0)[0] ?? null
   const byVendas   = [...data].sort((a, b) => b.vendas - a.vendas)
   const atencao    = [...qualified].sort((a, b) => a.conversao - b.conversao)[0] ?? null
-  const maxConv    = Math.max(...data.map(r => r.conversao), 1)
-  const maxRec     = Math.max(...data.map(r => r.receita), 1)
   const sorted     = useMemo(() => [...data].sort((a, b) => b[sortBy] - a[sortBy]), [data, sortBy])
+
+  const filteredSorted = useMemo(() => {
+    let rows = sorted
+    if (tipoFilter !== 'todos') rows = rows.filter(r => r.tipo === tipoFilter)
+    if (quickFilter === 'vendas') rows = rows.filter(r => r.vendas > 0)
+    if (quickFilter === 'atencao') rows = rows.filter(r => r.captacoes >= 3 && r.conversao < avgConv)
+    return rows
+  }, [sorted, tipoFilter, quickFilter, avgConv])
+
+  // ── comparativo por operador (barras agrupadas por mês) — só "operador", canais ficam de fora ──
+  const OPERATOR_CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6']
+  const operadorRows    = useMemo(() => data.filter(r => r.tipo === 'operador'), [data])
+  const topOperadores   = useMemo(() => [...operadorRows].sort((a, b) => b.receita - a.receita).slice(0, 4), [operadorRows])
+  const outrosOperadores = useMemo(
+    () => operadorRows.filter(r => !topOperadores.some(t => t.operador === r.operador)),
+    [operadorRows, topOperadores],
+  )
+  const hasOutros = outrosOperadores.length > 0
+
+  const convChartData = useMemo(() => trend.map((m, i) => {
+    const row: Record<string, string | number> = { mes_label: m.mes_label }
+    topOperadores.forEach(op => {
+      const s = trendPorOperador[op.operador]?.[i]
+      row[op.operador] = s && s.captacoes > 0 ? +(s.vendas / s.captacoes * 100).toFixed(1) : 0
+    })
+    if (hasOutros) {
+      let cap = 0, ven = 0
+      outrosOperadores.forEach(op => { const s = trendPorOperador[op.operador]?.[i]; cap += s?.captacoes ?? 0; ven += s?.vendas ?? 0 })
+      row.Outros = cap > 0 ? +(ven / cap * 100).toFixed(1) : 0
+    }
+    return row
+  }), [trend, trendPorOperador, topOperadores, outrosOperadores, hasOutros])
+
+  const recChartData = useMemo(() => trend.map((m, i) => {
+    const row: Record<string, string | number> = { mes_label: m.mes_label }
+    topOperadores.forEach(op => { row[op.operador] = trendPorOperador[op.operador]?.[i]?.receita ?? 0 })
+    if (hasOutros) {
+      let rec = 0
+      outrosOperadores.forEach(op => { rec += trendPorOperador[op.operador]?.[i]?.receita ?? 0 })
+      row.Outros = rec
+    }
+    return row
+  }), [trend, trendPorOperador, topOperadores, outrosOperadores, hasOutros])
 
   // ── insights ──────────────────────────────────────────────────────────
   const insights = useMemo(() => {
@@ -739,157 +809,189 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
     <>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
 
-      {/* ── Evolução Geral ── */}
-      <div>
-        {secLabel('Evolução Geral')}
-        <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '20px 24px', border: '1px solid var(--border)' }}>
-          <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Captações e vendas por mês, desde o primeiro lead registrado</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={trend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(trend.length / 12) - 1)} />
-              <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
-                formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']} />
-              <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-              <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ── LINHA 2: Destaques ── */}
-      <div>
-        {secLabel('Destaque')}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-          {byReceita[0] && (
-            <div onClick={() => openPerfModal(`Leads de ${byReceita[0].operador}`, byReceita[0].operador)} style={{ background: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', borderRadius: 14, padding: 20, border: '1px solid #6EE7B7', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #6EE7B755' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
-              <p style={{ fontSize: 11, color: '#059669', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>🏆 Maior Receita</p>
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#065F46', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byReceita[0].operador}</p>
-              <p style={{ fontSize: 28, fontWeight: 800, color: '#059669', margin: '0 0 4px', lineHeight: 1 }}>{fmtBrl(byReceita[0].receita)}</p>
-              <p style={{ fontSize: 11, color: '#047857' }}>{byReceita[0].vendas} vendas · {byReceita[0].conversao}% conv.</p>
+      {/* ── Alertas (insights, no topo, compactos) ── */}
+      {(insights.length > 0 || totalCap > 0) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          {insights.map((ins, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: ins.type === 'ok' ? '#F0FDF4' : '#FFFBEB', border: `1px solid ${ins.type === 'ok' ? '#BBF7D0' : '#FDE68A'}`, borderRadius: 10, padding: '9px 14px', fontSize: 12.5 }}>
+              <span style={{ fontSize: 14, flexShrink: 0 }}>{ins.type === 'ok' ? '✅' : '⚠️'}</span>
+              <span style={{ color: ins.type === 'ok' ? '#166534' : '#92400E' }}>{ins.text}</span>
             </div>
-          )}
-          {topConv ? (
-            <div onClick={() => openPerfModal(`Leads de ${topConv.operador}`, topConv.operador)} style={{ background: 'linear-gradient(135deg,#F5F3FF,#EDE9FE)', borderRadius: 14, padding: 20, border: '1px solid #C4B5FD', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #C4B5FD55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
-              <p style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>🎯 Maior Conversão</p>
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#4C1D95', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{topConv.operador}</p>
-              <p style={{ fontSize: 36, fontWeight: 800, color: '#7C3AED', margin: '0 0 4px', lineHeight: 1 }}>{topConv.conversao}%</p>
-              <p style={{ fontSize: 11, color: '#6D28D9' }}>{topConv.captacoes} captações · {topConv.vendas} vendas</p>
-            </div>
-          ) : (
-            <div style={{ background: '#FAFAF9', borderRadius: 14, padding: 20, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 600 }}>🎯 Ninguém converteu ainda</p>
-            </div>
-          )}
-          {byVendas[0] && (
-            <div onClick={() => openPerfModal(`Vendas de ${byVendas[0].operador}`, byVendas[0].operador, 'venda')} style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', borderRadius: 14, padding: 20, border: '1px solid #93C5FD', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #93C5FD55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
-              <p style={{ fontSize: 11, color: '#2563EB', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>💼 Mais Vendas</p>
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#1E3A8A', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byVendas[0].operador}</p>
-              <p style={{ fontSize: 36, fontWeight: 800, color: '#2563EB', margin: '0 0 4px', lineHeight: 1 }}>{byVendas[0].vendas}</p>
-              <p style={{ fontSize: 11, color: '#1D4ED8' }}>{fmtBrl(byVendas[0].receita)} em receita</p>
-            </div>
-          )}
-          {atencao ? (
-            <div onClick={() => openPerfModal(`Leads de ${atencao.operador}`, atencao.operador)} style={{ background: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', borderRadius: 14, padding: 20, border: '1px solid #FCD34D', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #FCD34D55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
-              <p style={{ fontSize: 11, color: '#D97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>⚠️ Precisa de Atenção</p>
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#78350F', margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{atencao.operador}</p>
-              <p style={{ fontSize: 36, fontWeight: 800, color: '#D97706', margin: '0 0 4px', lineHeight: 1 }}>{atencao.conversao}%</p>
-              <p style={{ fontSize: 11, color: '#92400E' }}>{atencao.captacoes} captações · {atencao.vendas} vendas</p>
-            </div>
-          ) : (
-            <div style={{ background: '#F0FDF4', borderRadius: 14, padding: 20, border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <p style={{ fontSize: 13, color: '#166534', textAlign: 'center', fontWeight: 600 }}>✅ Todos acima da média</p>
+          ))}
+          {totalCap > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '9px 14px', fontSize: 12.5, color: '#1E3A8A' }}>
+              Média da equipe: <b>{avgConv}%</b>&nbsp;conversão
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Evolução Geral + Destaques lado a lado ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, alignItems: 'stretch' }}>
+        <div>
+          {secLabel('Evolução Geral')}
+          <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '20px 24px', border: '1px solid var(--border)' }}>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Captações e vendas por mês, desde o primeiro lead registrado</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={trend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(trend.length / 12) - 1)} />
+                <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                  formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']} />
+                <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div>
+          {secLabel('Destaques')}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 10, height: 'calc(100% - 26px)' }}>
+            {byReceita[0] && (
+              <div onClick={() => openPerfModal(`Leads de ${byReceita[0].operador}`, byReceita[0].operador)} style={{ background: 'linear-gradient(135deg,#ECFDF5,#D1FAE5)', borderRadius: 12, padding: '12px 14px', border: '1px solid #6EE7B7', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'center', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #6EE7B755' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
+                <p style={{ fontSize: 9.5, color: '#059669', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', margin: '0 0 4px' }}>🏆 Maior Receita</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#065F46', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byReceita[0].operador}</p>
+                <p style={{ fontSize: 18, fontWeight: 800, color: '#059669', margin: '0 0 2px', lineHeight: 1 }}>{fmtBrl(byReceita[0].receita)}</p>
+                <p style={{ fontSize: 10, color: '#047857' }}>{byReceita[0].vendas} vendas · {byReceita[0].conversao}% conv.</p>
+              </div>
+            )}
+            {topConv ? (
+              <div onClick={() => openPerfModal(`Leads de ${topConv.operador}`, topConv.operador)} style={{ background: 'linear-gradient(135deg,#F5F3FF,#EDE9FE)', borderRadius: 12, padding: '12px 14px', border: '1px solid #C4B5FD', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'center', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #C4B5FD55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
+                <p style={{ fontSize: 9.5, color: '#7C3AED', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', margin: '0 0 4px' }}>🎯 Maior Conversão</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#4C1D95', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{topConv.operador}</p>
+                <p style={{ fontSize: 18, fontWeight: 800, color: '#7C3AED', margin: '0 0 2px', lineHeight: 1 }}>{topConv.conversao}%</p>
+                <p style={{ fontSize: 10, color: '#6D28D9' }}>{topConv.captacoes} captações · {topConv.vendas} vendas</p>
+              </div>
+            ) : (
+              <div style={{ background: '#FAFAF9', borderRadius: 12, padding: 14, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 600 }}>🎯 Ninguém converteu ainda</p>
+              </div>
+            )}
+            {byVendas[0] && (
+              <div onClick={() => openPerfModal(`Vendas de ${byVendas[0].operador}`, byVendas[0].operador, 'venda')} style={{ background: 'linear-gradient(135deg,#EFF6FF,#DBEAFE)', borderRadius: 12, padding: '12px 14px', border: '1px solid #93C5FD', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'center', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #93C5FD55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
+                <p style={{ fontSize: 9.5, color: '#2563EB', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', margin: '0 0 4px' }}>💼 Mais Vendas</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#1E3A8A', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{byVendas[0].operador}</p>
+                <p style={{ fontSize: 18, fontWeight: 800, color: '#2563EB', margin: '0 0 2px', lineHeight: 1 }}>{byVendas[0].vendas}</p>
+                <p style={{ fontSize: 10, color: '#1D4ED8' }}>{fmtBrl(byVendas[0].receita)} em receita</p>
+              </div>
+            )}
+            {atencao ? (
+              <div onClick={() => openPerfModal(`Leads de ${atencao.operador}`, atencao.operador)} style={{ background: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)', borderRadius: 12, padding: '12px 14px', border: '1px solid #FCD34D', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'center', transition: 'transform 120ms, box-shadow 120ms' }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px #FCD34D55' }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
+                <p style={{ fontSize: 9.5, color: '#D97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', margin: '0 0 4px' }}>⚠️ Precisa de Atenção</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#78350F', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{atencao.operador}</p>
+                <p style={{ fontSize: 18, fontWeight: 800, color: '#D97706', margin: '0 0 2px', lineHeight: 1 }}>{atencao.conversao}%</p>
+                <p style={{ fontSize: 10, color: '#92400E' }}>{atencao.captacoes} captações · {atencao.vendas} vendas</p>
+              </div>
+            ) : (
+              <div style={{ background: '#F0FDF4', borderRadius: 12, padding: 14, border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <p style={{ fontSize: 12, color: '#166534', textAlign: 'center', fontWeight: 600 }}>✅ Todos acima da média</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* ── LINHA 3: Comparativo ── */}
+      {/* ── Comparativo da Equipe: barras agrupadas por mês, cor fixa por operador ── */}
       <div>
         {secLabel('Comparativo da Equipe')}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
           <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '20px 24px', border: '1px solid var(--border)' }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', margin: '0 0 18px' }}>Conversão por Operador</p>
-            {(() => {
-              const sorted = [...data].sort((a, b) => b.conversao - a.conversao)
-              const rows = expConv ? sorted : sorted.slice(0, 3)
-              return (
-                <>
-                  {rows.map(r => (
-                    <div key={r.operador} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-                      <span style={{ width: 86, fontSize: 12, color: 'var(--text-2)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.operador}</span>
-                      <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 22, overflow: 'hidden' }}>
-                        <div style={{ width: `${maxConv > 0 ? r.conversao / maxConv * 100 : 0}%`, minWidth: r.conversao > 0 ? 40 : 0, height: '100%', borderRadius: 6, background: convColor(r.conversao), display: 'flex', alignItems: 'center', paddingLeft: 8, transition: 'width 600ms ease' }}>
-                          {r.conversao > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{r.conversao}%</span>}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {sorted.length > 3 && <ExpandToggle expanded={expConv} hidden={sorted.length - 3} onClick={() => setExpConv(v => !v)} />}
-                </>
-              )
-            })()}
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', margin: '0 0 4px' }}>Conversão por Operador</p>
+            <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '0 0 14px' }}>% de conversão por mês — só operadores, canais ficam de fora</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={convChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(convChartData.length / 12) - 1)} />
+                <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} unit="%" />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => `${val}%`} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                {topOperadores.map((op, i) => (
+                  <Bar key={op.operador} dataKey={op.operador} fill={OPERATOR_CHART_COLORS[i]} radius={[3, 3, 0, 0]} />
+                ))}
+                {hasOutros && <Bar dataKey="Outros" fill="#9CA3AF" radius={[3, 3, 0, 0]} />}
+              </BarChart>
+            </ResponsiveContainer>
           </div>
 
           <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '20px 24px', border: '1px solid var(--border)' }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', margin: '0 0 18px' }}>Receita por Operador</p>
-            {(() => {
-              const sorted = [...data].sort((a, b) => b.receita - a.receita)
-              const rows = expRec ? sorted : sorted.slice(0, 3)
-              return (
-                <>
-                  {rows.map(r => (
-                    <div key={r.operador} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-                      <span style={{ width: 86, fontSize: 12, color: 'var(--text-2)', textAlign: 'right', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.operador}</span>
-                      <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 22, overflow: 'hidden' }}>
-                        <div style={{ width: `${maxRec > 0 ? r.receita / maxRec * 100 : 0}%`, minWidth: r.receita > 0 ? 40 : 0, height: '100%', borderRadius: 6, background: '#059669', display: 'flex', alignItems: 'center', paddingLeft: 8, transition: 'width 600ms ease' }}>
-                          {r.receita > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{fmtBrl(r.receita)}</span>}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {sorted.length > 3 && <ExpandToggle expanded={expRec} hidden={sorted.length - 3} onClick={() => setExpRec(v => !v)} />}
-                </>
-              )
-            })()}
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', margin: '0 0 4px' }}>Receita por Operador</p>
+            <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '0 0 14px' }}>Receita em R$ por mês — mesma cor por pessoa nos dois gráficos</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={recChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(recChartData.length / 12) - 1)} />
+                <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => fmtBrl(val)} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                {topOperadores.map((op, i) => (
+                  <Bar key={op.operador} dataKey={op.operador} fill={OPERATOR_CHART_COLORS[i]} radius={[3, 3, 0, 0]} />
+                ))}
+                {hasOutros && <Bar dataKey="Outros" fill="#9CA3AF" radius={[3, 3, 0, 0]} />}
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* ── LINHA 4: Ranking ── */}
+      {/* ── Ranking de Operadores: tabela filtrável ── */}
       <div>
         {secLabel('Ranking de Operadores')}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-          {([
-            { key: 'receita', label: 'Receita' },
-            { key: 'captacoes', label: 'Captações' },
-            { key: 'vendas', label: 'Vendas' },
-            { key: 'cancelados', label: 'Cancelamentos' },
-          ] as const).map(o => (
-            <button key={o.key} onClick={() => setSortBy(o.key)} style={{
-              fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 20,
-              border: `1px solid ${sortBy === o.key ? '#2563EB' : 'var(--border)'}`,
-              background: sortBy === o.key ? '#2563EB' : 'var(--bg-card)',
-              color: sortBy === o.key ? '#fff' : 'var(--text-muted)', cursor: 'pointer',
-            }}>
-              Por {o.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
+          <select value={tipoFilter} onChange={e => setTipoFilter(e.target.value as 'todos' | 'operador' | 'canal')} style={{ fontSize: 12, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-in, var(--border))', background: 'var(--bg-card)', color: 'var(--text-2)' }}>
+            <option value="todos">Tipo: Todos</option>
+            <option value="operador">Só operadores</option>
+            <option value="canal">Só canais</option>
+          </select>
+          <div style={{ display: 'flex', border: '1px solid var(--border-in, var(--border))', borderRadius: 8, overflow: 'hidden' }}>
+            {([
+              { key: 'todos', label: 'Todos' },
+              { key: 'vendas', label: 'Só com vendas' },
+              { key: 'atencao', label: 'Precisam de atenção' },
+            ] as const).map((o, i) => (
+              <button key={o.key} onClick={() => setQuickFilter(o.key)} style={{
+                fontSize: 12, fontWeight: 600, padding: '7px 12px', border: 'none', cursor: 'pointer',
+                borderRight: i < 2 ? '1px solid var(--border-in, var(--border))' : 'none',
+                background: quickFilter === o.key ? '#2563EB' : 'var(--bg-card)',
+                color: quickFilter === o.key ? '#fff' : 'var(--text-muted)',
+              }}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
+            {([
+              { key: 'receita', label: 'Receita' },
+              { key: 'captacoes', label: 'Captações' },
+              { key: 'vendas', label: 'Vendas' },
+              { key: 'cancelados', label: 'Cancelamentos' },
+            ] as const).map(o => (
+              <button key={o.key} onClick={() => setSortBy(o.key)} style={{
+                fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 20,
+                border: `1px solid ${sortBy === o.key ? '#2563EB' : 'var(--border)'}`,
+                background: sortBy === o.key ? '#2563EB' : 'var(--bg-card)',
+                color: sortBy === o.key ? '#fff' : 'var(--text-muted)', cursor: 'pointer',
+              }}>
+                Por {o.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div style={{ background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--bg-hover)' }}>
-                {(['Operador', 'Captações', 'Cancelados', 'Vendas', 'Receita', 'Conversão'] as const).map((h, i) => (
+                {(['Operador', 'Tipo', 'Captações', 'Cancelados', 'Taxa Cancel.', 'Vendas', 'Ticket Médio', 'Conversão'] as const).map((h, i) => (
                   <th key={h} style={{ padding: '11px 16px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i === 0 ? 'left' : 'center', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {(expRanking ? sorted : sorted.slice(0, 3)).map((r, i) => (
+              {(expRanking ? filteredSorted : filteredSorted.slice(0, 3)).map((r, i) => (
                 <tr key={r.operador}
                   onClick={() => openPerfModal(`Histórico de ${r.operador}`, r.operador, undefined, true)}
                   style={{
@@ -900,10 +1002,16 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent'}
                 >
                   <td style={{ padding: '11px 16px', fontSize: 13, fontWeight: 700, color: '#2563EB' }}>{r.operador}</td>
+                  <td style={{ padding: '11px 16px', textAlign: 'center' }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: r.tipo === 'operador' ? '#2563EB' : 'var(--text-muted)', background: r.tipo === 'operador' ? '#EFF6FF' : 'var(--bg-subtle)' }}>
+                      {r.tipo === 'operador' ? 'Operador' : 'Canal'}
+                    </span>
+                  </td>
                   <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.captacoes}</td>
                   <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: r.cancelados > 0 ? 700 : 400, color: r.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{r.cancelados}</td>
+                  <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>{r.cancel_rate}%</td>
                   <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: r.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{r.vendas}</td>
-                  <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontWeight: 700, color: 'var(--text-1)' }}>{fmtBrl(r.receita)}</td>
+                  <td style={{ padding: '11px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.ticket_medio > 0 ? fmtBrl(r.ticket_medio) : '—'}</td>
                   <td style={{ padding: '11px 16px', textAlign: 'center' }}>
                     <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 99, color: convColor(r.conversao), background: convColor(r.conversao) + '15' }}>{r.conversao}%</span>
                   </td>
@@ -911,28 +1019,14 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
               ))}
             </tbody>
           </table>
-          {sorted.length > 3 && (
+          </div>
+          {filteredSorted.length > 3 && (
             <div style={{ padding: '10px 16px' }}>
-              <ExpandToggle expanded={expRanking} hidden={sorted.length - 3} onClick={() => setExpRanking(v => !v)} />
+              <ExpandToggle expanded={expRanking} hidden={filteredSorted.length - 3} onClick={() => setExpRanking(v => !v)} />
             </div>
           )}
         </div>
       </div>
-
-      {/* ── LINHA 5: Insights ── */}
-      {insights.length > 0 && (
-        <div>
-          {secLabel('Insights')}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {insights.map((ins, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, background: ins.type === 'ok' ? '#F0FDF4' : '#FFFBEB', border: `1px solid ${ins.type === 'ok' ? '#BBF7D0' : '#FDE68A'}`, borderRadius: 10, padding: '12px 16px' }}>
-                <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>{ins.type === 'ok' ? '✅' : '⚠️'}</span>
-                <span style={{ fontSize: 13, color: ins.type === 'ok' ? '#166534' : '#92400E', lineHeight: 1.5 }}>{ins.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
     </div>
 

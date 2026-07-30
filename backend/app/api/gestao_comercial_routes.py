@@ -522,30 +522,50 @@ def performance_historico(
         ven = counts["vendas"]
         operadores.append({
             "operador": op,
+            "tipo": "canal" if _is_organico(op) else "operador",
             "captacoes": cap,
             "cancelados": counts["cancelados"],
             "vendas": ven,
             "receita": counts["receita"],
             "conversao": round(ven / cap * 100, 1) if cap > 0 else 0.0,
+            "cancel_rate": round(counts["cancelados"] / cap * 100, 1) if cap > 0 else 0.0,
+            "ticket_medio": round(counts["receita"] / ven, 2) if ven > 0 else 0.0,
         })
     operadores.sort(key=lambda x: x["receita"], reverse=True)
 
     if not leads:
-        return {"operadores": operadores, "trend": []}
+        return {"operadores": operadores, "trend": [], "trend_por_operador": {}}
 
     monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0})
-    for _, status, value, created_at in leads:
+    monthly_por_operador: dict = defaultdict(lambda: defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0}))
+    for origin, status, value, created_at in leads:
+        op = (origin or "").strip()
+        if not op:
+            continue
         key = f"{created_at.year}-{created_at.month:02d}"
+        s = (status or "").lower()
         monthly[key]["captacoes"] += 1
-        if (status or "").lower() in venda_set:
+        m_op = monthly_por_operador[op][key]
+        m_op["captacoes"] += 1
+        if s in venda_set:
             monthly[key]["vendas"] += 1
             monthly[key]["receita"] += float(value or 0)
+            m_op["vendas"] += 1
+            m_op["receita"] += float(value or 0)
 
     earliest = min(l.created_at for l in leads)
     latest = max(l.created_at for l in leads)
-    trend = []
+    meses_ordenados = []
     year, mon = earliest.year, earliest.month
     while (year, mon) <= (latest.year, latest.month):
+        meses_ordenados.append((year, mon))
+        mon += 1
+        if mon > 12:
+            mon = 1
+            year += 1
+
+    trend = []
+    for year, mon in meses_ordenados:
         key = f"{year}-{mon:02d}"
         m = monthly.get(key, {"captacoes": 0, "vendas": 0, "receita": 0.0})
         trend.append({
@@ -555,12 +575,25 @@ def performance_historico(
             "vendas": m["vendas"],
             "receita": m["receita"],
         })
-        mon += 1
-        if mon > 12:
-            mon = 1
-            year += 1
 
-    return {"operadores": operadores, "trend": trend}
+    # tendencia mensal so para quem e "operador" (canais ficam de fora do grafico comparativo)
+    trend_por_operador = {}
+    for op, counts in data.items():
+        if _is_organico(op):
+            continue
+        por_mes = monthly_por_operador.get(op, {})
+        trend_por_operador[op] = [
+            {
+                "mes": f"{year}-{mon:02d}",
+                "mes_label": f"{MESES_ABREV[mon]}/{str(year)[2:]}",
+                "captacoes": por_mes.get(f"{year}-{mon:02d}", {}).get("captacoes", 0),
+                "vendas": por_mes.get(f"{year}-{mon:02d}", {}).get("vendas", 0),
+                "receita": por_mes.get(f"{year}-{mon:02d}", {}).get("receita", 0.0),
+            }
+            for year, mon in meses_ordenados
+        ]
+
+    return {"operadores": operadores, "trend": trend, "trend_por_operador": trend_por_operador}
 
 
 @router.get("/conversion-points")
