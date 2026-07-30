@@ -305,7 +305,7 @@ function OperadorasField({ value, saving, onChange }: { value: string | null; sa
 function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1">
       <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         Plano Atual
       </span>
@@ -783,41 +783,31 @@ export default function LeadDetailPage() {
               </button>
             )
           }>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '16px 20px', marginTop: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '28px 20px', marginTop: 8, alignItems: 'start' }}>
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
-              <div style={{ marginTop: 12 }}>
-                <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPointOptions} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
-              </div>
-              <div style={{ marginTop: 12 }}>
-                {editingDetalhes ? (
-                  <EditInput label="Plano Atual" value={detalhesDraft.current_plan} onChange={v => setDetalhesDraft(d => ({ ...d, current_plan: v }))} />
-                ) : (
-                  <PlanField value={lead.current_plan} />
-                )}
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <OperadorasField value={lead.operadoras_enviadas} saving={savingOperadoras} onChange={v => handleQuickUpdate('operadoras_enviadas', v)} />
-              </div>
-              <div style={{ marginTop: 12 }}>
-                {editingDetalhes ? (
-                  <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => setDetalhesDraft(d => ({ ...d, value_potential: v }))} />
-                ) : (
-                  <Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} />
-                )}
-              </div>
-              <div style={{ marginTop: 12 }}>
-                {isAdmin ? (
-                  <DateField
-                    label="Data de Criação"
-                    value={lead.created_at.slice(0, 10)}
-                    saving={savingCreatedAt}
-                    onChange={handleUpdateCreatedAt}
-                  />
-                ) : (
-                  <Field label="Data de Criação" value={fmtDate(lead.created_at)} />
-                )}
-              </div>
+              <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPointOptions} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
+              {editingDetalhes ? (
+                <EditInput label="Plano Atual" value={detalhesDraft.current_plan} onChange={v => setDetalhesDraft(d => ({ ...d, current_plan: v }))} />
+              ) : (
+                <PlanField value={lead.current_plan} />
+              )}
+              <OperadorasField value={lead.operadoras_enviadas} saving={savingOperadoras} onChange={v => handleQuickUpdate('operadoras_enviadas', v)} />
+              {editingDetalhes ? (
+                <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => setDetalhesDraft(d => ({ ...d, value_potential: v }))} />
+              ) : (
+                <Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} />
+              )}
+              {isAdmin ? (
+                <DateField
+                  label="Data de Criação"
+                  value={lead.created_at.slice(0, 10)}
+                  saving={savingCreatedAt}
+                  onChange={handleUpdateCreatedAt}
+                />
+              ) : (
+                <Field label="Data de Criação" value={fmtDate(lead.created_at)} />
+              )}
             </div>
           </SectionCard>
 
