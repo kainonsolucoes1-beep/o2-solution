@@ -368,6 +368,7 @@ export default function LeadDetailPage() {
   const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', email: '', phone: '', attendant: '', document: '', visibility_tag: '' })
   const [origins, setOrigins]             = useState<string[]>([])
   const [conversionPoints, setConversionPoints] = useState<string[]>([])
+  const [modalidades, setModalidades]     = useState<string[]>(['PF', 'PME'])
   const [savingOrigin, setSavingOrigin]   = useState(false)
   const [savingModalidade, setSavingModalidade] = useState(false)
   const [savingConvPoint, setSavingConvPoint] = useState(false)
@@ -393,6 +394,7 @@ export default function LeadDetailPage() {
     api.get<Me>('/api/v1/auth/me').then(r => setMe(r.data)).catch(() => {})
     api.get<string[]>('/api/v1/leads/origins').then(r => setOrigins(r.data)).catch(() => {})
     api.get<string[]>('/api/v1/leads/conversion-points').then(r => setConversionPoints(r.data)).catch(() => {})
+    api.get<string[]>('/api/v1/leads/modalidades').then(r => setModalidades(r.data)).catch(() => {})
     api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`)
       .then(r => setNotes(r.data.notes))
       .finally(() => setLoadingNotes(false))
@@ -870,7 +872,7 @@ export default function LeadDetailPage() {
           }>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '28px 20px', marginTop: 8, alignItems: 'start' }}>
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
-              <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
+              <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={modalidades} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
               <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPointOptions} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
               {editingDetalhes ? (
                 <EditInput label="Plano Atual" value={detalhesDraft.current_plan} onChange={v => setDetalhesDraft(d => ({ ...d, current_plan: v }))} />

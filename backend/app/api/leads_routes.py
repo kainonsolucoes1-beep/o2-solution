@@ -392,7 +392,12 @@ def list_modalidades(
         .order_by(Lead.modalidade)
         .all()
     )
-    return [r.modalidade for r in rows]
+    modalidades = [r.modalidade for r in rows]
+    for fixa in ("PF", "PME", "Odonto PF", "Odonto PME"):
+        if fixa not in modalidades:
+            modalidades.append(fixa)
+    modalidades.sort()
+    return modalidades
 
 
 @router.get("/leads/{lead_id}", response_model=LeadReportItem)
