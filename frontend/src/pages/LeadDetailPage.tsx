@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Tag, Activity, CalendarClock, CalendarPlus, StickyNote, History, Pencil, Phone, Mail, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarClock, CalendarPlus, StickyNote, History, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -255,6 +255,7 @@ const OPERADORAS_OPTIONS = [
 ]
 
 function OperadorasField({ value, saving, onChange }: { value: string | null; saving?: boolean; onChange: (v: string) => void }) {
+  const [expanded, setExpanded] = useState(false)
   const selected = new Set((value ?? '').split(',').map(s => s.trim()).filter(Boolean))
   function toggle(op: string) {
     const next = new Set(selected)
@@ -263,29 +264,40 @@ function OperadorasField({ value, saving, onChange }: { value: string | null; sa
   }
   return (
     <div className="flex flex-col gap-2">
-      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
-        Operadoras Enviadas
-      </span>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, opacity: saving ? 0.6 : 1, pointerEvents: saving ? 'none' : 'auto' }}>
-        {OPERADORAS_OPTIONS.map(op => {
-          const active = selected.has(op)
-          return (
-            <button
-              key={op}
-              onClick={() => toggle(op)}
-              style={{
-                fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 99,
-                border: `1px solid ${active ? '#2563EB' : 'var(--border-in)'}`,
-                background: active ? '#EFF6FF' : 'var(--bg-input)',
-                color: active ? '#2563EB' : 'var(--text-2)',
-                cursor: 'pointer',
-              }}
-            >
-              {op}
-            </button>
-          )
-        })}
-      </div>
+      <button
+        onClick={() => setExpanded(v => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+      >
+        {expanded ? <ChevronDown size={12} color="var(--text-3b)" /> : <ChevronRight size={12} color="var(--text-3b)" />}
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+          Operadoras Enviadas{selected.size > 0 ? ` (${selected.size})` : ''}
+        </span>
+      </button>
+      {!expanded && selected.size > 0 && (
+        <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{[...selected].join(', ')}</span>
+      )}
+      {expanded && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, opacity: saving ? 0.6 : 1, pointerEvents: saving ? 'none' : 'auto' }}>
+          {OPERADORAS_OPTIONS.map(op => {
+            const active = selected.has(op)
+            return (
+              <button
+                key={op}
+                onClick={() => toggle(op)}
+                style={{
+                  fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 99,
+                  border: `1px solid ${active ? '#2563EB' : 'var(--border-in)'}`,
+                  background: active ? '#EFF6FF' : 'var(--bg-input)',
+                  color: active ? '#2563EB' : 'var(--text-2)',
+                  cursor: 'pointer',
+                }}
+              >
+                {op}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
