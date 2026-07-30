@@ -43,6 +43,24 @@ interface ReportResponse {
   leads: LeadItem[]
 }
 
+interface ReportStats {
+  total: number
+  fechados: number
+  perdidos: number
+  quentes: number
+}
+
+const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#059669', '#DC2626', '#EA580C', '#0891B2', '#DB2777']
+function avatarColor(name: string) {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/)
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
+}
+
 type SortKey = keyof LeadItem
 
 const LIMIT = 10
@@ -187,6 +205,7 @@ export default function LeadsReport() {
   const [search, setSearch]       = useState(() => searchParams.get('search') ?? storedFilters.search ?? '')
   const [page, setPage]           = useState(1)
   const [report, setReport]       = useState<ReportResponse | null>(null)
+  const [stats, setStats]         = useState<ReportStats | null>(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? storedFilters.statusFilter ?? '')
@@ -340,6 +359,10 @@ export default function LeadsReport() {
           else setError('Erro ao buscar leads. Tente novamente.')
         })
         .finally(() => setLoading(false))
+
+      api.get<ReportStats>('/api/v1/leads/report-stats', { params })
+        .then(r => setStats(r.data))
+        .catch(() => setStats(null))
     },
     [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, closedSubStatus, teamFilter, search, vencidosFilter, isAdmin, navigate],
   )
@@ -463,7 +486,12 @@ export default function LeadsReport() {
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Relatório de Leads</h1>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Relatório de Leads</h1>
+              {report && (
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-subtle)' }}>{report.total} lead{report.total !== 1 ? 's' : ''}</span>
+              )}
+            </div>
             {vencidosFilter && (
               <p style={{ fontSize: 13, color: '#EF4444', marginTop: 2, fontWeight: 500 }}>
                 ⚠️ Exibindo leads vencidos — sem atenção nas últimas 24h
@@ -519,6 +547,26 @@ export default function LeadsReport() {
             </button>
           </div>
         </div>
+
+        {stats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+            {([
+              { label: 'Total',     value: stats.total,     accent: '#2563EB' },
+              { label: 'Fechados',  value: stats.fechados,  accent: '#059669' },
+              { label: 'Perdidos',  value: stats.perdidos,  accent: '#DC2626' },
+              { label: 'Quentes',   value: stats.quentes,   accent: '#EA580C' },
+            ] as const).map(s => (
+              <div key={s.label} style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: s.accent }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.accent, flexShrink: 0 }} />
+                  {s.label}
+                </div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {error && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}
 
@@ -621,7 +669,15 @@ export default function LeadsReport() {
                             {lead.updated_at ? fmtDate(lead.updated_at) : '—'}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{
+                                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 12, fontWeight: 700, color: '#fff',
+                                background: avatarColor(lead.name),
+                              }}>
+                                {initials(lead.name)}
+                              </span>
                               {lead.name}
                               {lead.is_renutrucao && (
                                 <span style={{

@@ -222,6 +222,98 @@ def leads_by_period(
     return LeadsReportResponse(total=total, page=page, limit=limit, leads=leads)
 
 
+@router.get("/leads/report-stats")
+def leads_report_stats(
+    date_from: str = Query(..., description="YYYY-MM-DD"),
+    date_to: str = Query(..., description="YYYY-MM-DD"),
+    origem: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    perception: Optional[str] = Query(None),
+    modalidade: Optional[str] = Query(None),
+    conversion_point: Optional[str] = Query(None),
+    lost_reason: Optional[str] = Query(None),
+    team: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    vencidos: bool = Query(False),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Contagens (total/fechados/perdidos/quentes) para os cards de resumo do
+    Relatorio de Leads, respeitando os mesmos filtros de /leads/by-period."""
+    try:
+        start = datetime.strptime(date_from, "%Y-%m-%d")
+        end = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
+
+    cutoff_24h = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+    admin = _is_admin(current_user)
+    my_name = current_user.first_name or current_user.username
+
+    _active_statuses = ("pending", "novo", "new", "qualificado", "qualified", "proposal_sent")
+    _active_filter = or_(
+        func.lower(Lead.status).in_([s.lower() for s in _active_statuses]),
+        Lead.perception.in_(["Quente", "Morno"]),
+    )
+
+    def _base_query(q):
+        if vencidos:
+            q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
+        q = q.filter(Lead.created_at >= start, Lead.created_at < end)
+        if not admin:
+            q = q.filter(Lead.origin == my_name)
+        elif origem:
+            parts = [s.strip() for s in origem.split(',') if s.strip()]
+            if len(parts) == 1:
+                q = q.filter(Lead.origin == parts[0])
+            else:
+                q = q.filter(Lead.origin.in_(parts))
+        if status:
+            statuses = [s.strip().lower() for s in status.split(',')]
+            q = q.filter(func.lower(Lead.status).in_(statuses))
+        if perception:
+            percs = [p.strip() for p in perception.split(',')]
+            q = q.filter(Lead.perception.in_(percs))
+        if modalidade:
+            parts = [s.strip() for s in modalidade.split(',') if s.strip()]
+            if len(parts) == 1:
+                q = q.filter(Lead.modalidade == parts[0])
+            else:
+                q = q.filter(Lead.modalidade.in_(parts))
+        if conversion_point:
+            q = q.filter(Lead.conversion_point.ilike(conversion_point))
+        if lost_reason:
+            parts = [s.strip() for s in lost_reason.split(',') if s.strip()]
+            if len(parts) == 1:
+                q = q.filter(Lead.lost_reason == parts[0])
+            else:
+                q = q.filter(Lead.lost_reason.in_(parts))
+        if team:
+            parts = [s.strip() for s in team.split(',') if s.strip()]
+            if len(parts) == 1:
+                q = q.filter(Lead.team == parts[0])
+            else:
+                q = q.filter(Lead.team.in_(parts))
+        if search:
+            term = search.strip()
+            digits = re.sub(r"\D", "", term)
+            conditions = [Lead.name.ilike(f"%{term}%"), Lead.email.ilike(f"%{term}%")]
+            if digits:
+                conditions.append(func.regexp_replace(Lead.phone, r'\D', '', 'g').ilike(f"%{digits}%"))
+                conditions.append(Lead.document.ilike(f"%{digits}%"))
+            q = q.filter(or_(*conditions))
+        return q
+
+    fechados_set = [s.lower() for s in ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")]
+
+    total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
+    fechados = _base_query(db.query(func.count(Lead.id))).filter(func.lower(Lead.status).in_(fechados_set)).scalar() or 0
+    perdidos = _base_query(db.query(func.count(Lead.id))).filter(func.lower(Lead.status) == "sale_not_performed").scalar() or 0
+    quentes = _base_query(db.query(func.count(Lead.id))).filter(Lead.perception == "Quente").scalar() or 0
+
+    return {"total": total, "fechados": fechados, "perdidos": perdidos, "quentes": quentes}
+
+
 @router.get("/users", response_model=List[OperatorInfo])
 def list_operators(
     current_user: User = Depends(get_current_user),
