@@ -226,11 +226,11 @@ export default function LeadsReport() {
   const [newLeadError, setNewLeadError] = useState('')
   const [newLead, setNewLead] = useState({
     name: '', company: '', email: '', phone: '', document: '',
-    origin: '', modalidade: '', conversion_point: '', value_potential: '', attendant: '', notes: '',
+    origin: '', modalidade: '', conversion_point: '', value_potential: '', attendant: '', notes: '', visibility_tag: '',
   })
 
   function resetNewLead() {
-    setNewLead({ name: '', company: '', email: '', phone: '', document: '', origin: '', modalidade: '', conversion_point: '', value_potential: '', attendant: '', notes: '' })
+    setNewLead({ name: '', company: '', email: '', phone: '', document: '', origin: '', modalidade: '', conversion_point: '', value_potential: '', attendant: '', notes: '', visibility_tag: '' })
     setNewLeadError('')
   }
 
@@ -250,6 +250,7 @@ export default function LeadsReport() {
       value_potential: newLead.value_potential ? Number(newLead.value_potential) : null,
       attendant: newLead.attendant.trim() || null,
       notes: newLead.notes.trim() || null,
+      visibility_tag: newLead.visibility_tag.trim() || null,
     })
       .then(r => {
         setNewLeadOpen(false)
@@ -1133,6 +1134,12 @@ export default function LeadsReport() {
                   <div className="flex flex-col gap-1">
                     <label style={labelStyle}>Atendente</label>
                     <input value={newLead.attendant} onChange={e => setNewLead(d => ({ ...d, attendant: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Campo Livre</label>
+                    <input value={newLead.visibility_tag} onChange={e => setNewLead(d => ({ ...d, visibility_tag: e.target.value }))}
+                      placeholder="Ex: ADM"
                       className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
                   </div>
                   <div className="flex flex-col gap-1" style={{ gridColumn: '1 / -1' }}>

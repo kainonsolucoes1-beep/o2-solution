@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 from app.schemas import UserLogin, TokenResponse, UserResponse
-from app.security import verify_password, create_access_token, verify_token
+from app.security import verify_password, create_access_token, verify_token, can_see_restricted_leads
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -41,7 +41,10 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
+
+    # liga o filtro global de leads ADM-only pro resto da sessao desta requisicao
+    db.info["restrict_admin_leads"] = not can_see_restricted_leads(user)
+
     return user
 
 @router.post("/login", response_model=TokenResponse)

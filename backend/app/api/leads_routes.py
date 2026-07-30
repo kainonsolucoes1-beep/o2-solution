@@ -409,6 +409,7 @@ def get_lead(
         receita_promotora=lead.receita_promotora if show_fin else None,
         receita_operadora=lead.receita_operadora if show_fin else None,
         receita_categoria=lead.receita_categoria if show_fin else None,
+        visibility_tag=lead.visibility_tag,
         is_renutrucao=bool(lead.is_renutrucao),
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
         modalidade=lead.modalidade, current_plan=lead.current_plan, document=lead.document,
@@ -485,13 +486,15 @@ def update_lead_info(
             lead.created_at = datetime.strptime(body.created_at, "%Y-%m-%d")
         except ValueError:
             raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
+    if body.visibility_tag is not None:
+        lead.visibility_tag = body.visibility_tag.strip() or None
     db.commit()
     return LeadInfoUpdateResponse(
         success=True, lead_id=lead.id, name=lead.name,
         company=lead.company, email=lead.email, phone=lead.phone, attendant=lead.attendant,
         document=lead.document, origin=lead.origin, modalidade=lead.modalidade,
         conversion_point=lead.conversion_point, perception=lead.perception,
-        created_at=lead.created_at,
+        created_at=lead.created_at, visibility_tag=lead.visibility_tag,
     )
 
 

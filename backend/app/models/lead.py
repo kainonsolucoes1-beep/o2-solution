@@ -46,6 +46,7 @@ class Lead(Base):
     receita_modalidade = Column(String(255), nullable=True)
     receita_operadora = Column(String(255), nullable=True)
     receita_categoria = Column(String(255), nullable=True)
+    visibility_tag = Column(String(50), nullable=True)
     receita_data_venda = Column(TIMESTAMP, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())

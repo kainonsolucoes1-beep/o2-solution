@@ -17,6 +17,7 @@ class LeadCreate(BaseModel):
     modalidade: Optional[str] = None
     conversion_point: Optional[str] = None
     attendant: Optional[str] = None
+    visibility_tag: Optional[str] = None
 
 
 class LeadResponse(LeadCreate):
@@ -47,6 +48,7 @@ class LeadReportItem(BaseModel):
     receita_promotora: Optional[str] = None
     receita_operadora: Optional[str] = None
     receita_categoria: Optional[str] = None
+    visibility_tag: Optional[str] = None
     is_renutrucao: bool = False
     lost_reason: Optional[str] = None
     lost_message: Optional[str] = None
@@ -105,6 +107,7 @@ class LeadInfoUpdateRequest(BaseModel):
     conversion_point: Optional[str] = None
     perception: Optional[str] = None
     created_at: Optional[str] = None  # AAAA-MM-DD — restrito a admin, corrige a "epoca" do lead
+    visibility_tag: Optional[str] = None  # "ADM" restringe a visualizacao do lead
 
 
 class LeadInfoUpdateResponse(BaseModel):
@@ -121,6 +124,7 @@ class LeadInfoUpdateResponse(BaseModel):
     conversion_point: Optional[str] = None
     perception: Optional[str] = None
     created_at: Optional[datetime] = None
+    visibility_tag: Optional[str] = None
 
 
 class NoteCreateRequest(BaseModel):

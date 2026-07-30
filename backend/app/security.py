@@ -33,6 +33,15 @@ def can_see_financials(user) -> bool:
     return user.role in FINANCIAL_ROLES
 
 
+RESTRICTED_LEAD_ROLES = ("admin", "diretor", "financeiro", "supervisor")
+
+
+def can_see_restricted_leads(user) -> bool:
+    """Leads marcados com visibility_tag='ADM' so aparecem (em qualquer tela,
+    relatorio ou agregado) para quem tem um desses perfis."""
+    return user.role in RESTRICTED_LEAD_ROLES
+
+
 def verify_token(token: str) -> Optional[str]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

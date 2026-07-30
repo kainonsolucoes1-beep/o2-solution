@@ -33,6 +33,7 @@ interface LeadItem {
   receita_promotora: string | null
   receita_operadora: string | null
   receita_categoria: string | null
+  visibility_tag: string | null
   modalidade: string | null
   document: string | null
   created_at: string
@@ -295,7 +296,7 @@ export default function LeadDetailPage() {
   const [, setTick]                       = useState(0)
   const [editingInfo, setEditingInfo]     = useState(false)
   const [savingInfo, setSavingInfo]       = useState(false)
-  const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', email: '', phone: '', attendant: '', document: '' })
+  const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', email: '', phone: '', attendant: '', document: '', visibility_tag: '' })
   const [origins, setOrigins]             = useState<string[]>([])
   const [conversionPoints, setConversionPoints] = useState<string[]>([])
   const [savingOrigin, setSavingOrigin]   = useState(false)
@@ -360,6 +361,7 @@ export default function LeadDetailPage() {
     setInfoDraft({
       name: lead.name ?? '', company: lead.company ?? '', email: lead.email ?? '',
       phone: lead.phone ?? '', attendant: lead.attendant ?? '', document: lead.document ?? '',
+      visibility_tag: lead.visibility_tag ?? '',
     })
     setEditingInfo(true)
   }
@@ -593,6 +595,7 @@ export default function LeadDetailPage() {
                 <EditInput label="Telefone"  value={infoDraft.phone}     onChange={v => setInfoDraft(d => ({ ...d, phone: v }))} />
                 <EditInput label="Documento" value={infoDraft.document}  onChange={v => setInfoDraft(d => ({ ...d, document: v }))} />
                 <EditInput label="Atendente" value={infoDraft.attendant} onChange={v => setInfoDraft(d => ({ ...d, attendant: v }))} />
+                <EditInput label="Campo Livre" value={infoDraft.visibility_tag} onChange={v => setInfoDraft(d => ({ ...d, visibility_tag: v }))} />
               </div>
             ) : (
               <div className="flex flex-col gap-4">
@@ -601,6 +604,7 @@ export default function LeadDetailPage() {
                 <Field label="Telefone"  value={lead.phone ?? '—'} />
                 <Field label="Documento" value={lead.document ?? '—'} />
                 <Field label="Atendente" value={lead.attendant ?? '—'} />
+                {lead.visibility_tag && <Field label="Campo Livre" value={lead.visibility_tag} />}
                 {lead.perception && PERCEPTION_STYLE[lead.perception] && (
                   <div className="flex flex-col gap-2">
                     <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
