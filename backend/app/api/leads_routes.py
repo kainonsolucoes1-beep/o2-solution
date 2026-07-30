@@ -412,7 +412,8 @@ def get_lead(
         visibility_tag=lead.visibility_tag,
         is_renutrucao=bool(lead.is_renutrucao),
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
-        modalidade=lead.modalidade, current_plan=lead.current_plan, document=lead.document,
+        modalidade=lead.modalidade, current_plan=lead.current_plan,
+        operadoras_enviadas=lead.operadoras_enviadas, document=lead.document,
         tracking_campaign=lead.tracking_campaign, tracking_medium=lead.tracking_medium,
         tracking_term=lead.tracking_term, tracking_format=lead.tracking_format,
         fbclid=lead.fbclid, gclid=lead.gclid,
@@ -488,6 +489,8 @@ def update_lead_info(
             raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
     if body.visibility_tag is not None:
         lead.visibility_tag = body.visibility_tag.strip() or None
+    if body.operadoras_enviadas is not None:
+        lead.operadoras_enviadas = body.operadoras_enviadas.strip() or None
     db.commit()
     return LeadInfoUpdateResponse(
         success=True, lead_id=lead.id, name=lead.name,
@@ -495,6 +498,7 @@ def update_lead_info(
         document=lead.document, origin=lead.origin, modalidade=lead.modalidade,
         conversion_point=lead.conversion_point, perception=lead.perception,
         created_at=lead.created_at, visibility_tag=lead.visibility_tag,
+        operadoras_enviadas=lead.operadoras_enviadas,
     )
 
 

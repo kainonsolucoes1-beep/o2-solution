@@ -48,6 +48,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_operadora VARCHAR(255)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_categoria VARCHAR(255)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS visibility_tag VARCHAR(50)"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS operadoras_enviadas TEXT"))
     _conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS previsao_recebimento TIMESTAMP"))
     _conn.commit()
 

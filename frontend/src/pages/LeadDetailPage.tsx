@@ -34,6 +34,7 @@ interface LeadItem {
   receita_operadora: string | null
   receita_categoria: string | null
   visibility_tag: string | null
+  operadoras_enviadas: string | null
   modalidade: string | null
   document: string | null
   created_at: string
@@ -248,6 +249,47 @@ function DateField({ label, value, onChange, saving }: { label: string; value: s
   )
 }
 
+const OPERADORAS_OPTIONS = [
+  'Amil', 'Bradesco', 'Hapvida', 'Medsenior', 'Prevent Senior', 'Trasmontano', 'SulAmérica',
+  'Alice', 'Bio Vida', 'Porto Saúde', 'Porto Bairros', 'Select',
+]
+
+function OperadorasField({ value, saving, onChange }: { value: string | null; saving?: boolean; onChange: (v: string) => void }) {
+  const selected = new Set((value ?? '').split(',').map(s => s.trim()).filter(Boolean))
+  function toggle(op: string) {
+    const next = new Set(selected)
+    next.has(op) ? next.delete(op) : next.add(op)
+    onChange([...next].join(','))
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
+        Operadoras Enviadas
+      </span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, opacity: saving ? 0.6 : 1, pointerEvents: saving ? 'none' : 'auto' }}>
+        {OPERADORAS_OPTIONS.map(op => {
+          const active = selected.has(op)
+          return (
+            <button
+              key={op}
+              onClick={() => toggle(op)}
+              style={{
+                fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 99,
+                border: `1px solid ${active ? '#2563EB' : 'var(--border-in)'}`,
+                background: active ? '#EFF6FF' : 'var(--bg-input)',
+                color: active ? '#2563EB' : 'var(--text-2)',
+                cursor: 'pointer',
+              }}
+            >
+              {op}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
@@ -305,6 +347,7 @@ export default function LeadDetailPage() {
   const [savingPerception, setSavingPerception] = useState(false)
   const [editingPerception, setEditingPerception] = useState(false)
   const [savingCreatedAt, setSavingCreatedAt] = useState(false)
+  const [savingOperadoras, setSavingOperadoras] = useState(false)
   const agendaRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
@@ -379,9 +422,9 @@ export default function LeadDetailPage() {
       .finally(() => setSavingInfo(false))
   }
 
-  function handleQuickUpdate(field: 'origem' | 'modalidade' | 'conversion_point' | 'perception', value: string) {
+  function handleQuickUpdate(field: 'origem' | 'modalidade' | 'conversion_point' | 'perception' | 'operadoras_enviadas', value: string) {
     if (!id) return
-    const setSaving = field === 'origem' ? setSavingOrigin : field === 'modalidade' ? setSavingModalidade : field === 'conversion_point' ? setSavingConvPoint : setSavingPerception
+    const setSaving = field === 'origem' ? setSavingOrigin : field === 'modalidade' ? setSavingModalidade : field === 'conversion_point' ? setSavingConvPoint : field === 'operadoras_enviadas' ? setSavingOperadoras : setSavingPerception
     const apiField = field === 'origem' ? 'origin' : field
     setSaving(true)
     api.post(`/api/v1/leads/${id}/info`, { [apiField]: value })
@@ -687,10 +730,13 @@ export default function LeadDetailPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '16px 20px', marginTop: 8 }}>
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
-              <div style={{ gridColumn: '1 / -1', marginTop: 12, maxWidth: 320 }}>
+              <div style={{ marginTop: 12 }}>
                 <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPointOptions} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
               </div>
               <div style={{ marginTop: 12 }}><PlanField value={lead.current_plan} /></div>
+              <div style={{ marginTop: 12 }}>
+                <OperadorasField value={lead.operadoras_enviadas} saving={savingOperadoras} onChange={v => handleQuickUpdate('operadoras_enviadas', v)} />
+              </div>
               <div style={{ marginTop: 12 }}><Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} /></div>
               <div style={{ marginTop: 12 }}>
                 {isAdmin ? (
