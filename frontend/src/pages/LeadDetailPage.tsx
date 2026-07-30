@@ -274,7 +274,7 @@ function OperadorasField({ value, saving, onChange }: { value: string | null; sa
         </span>
       </button>
       {!expanded && selected.size > 0 && (
-        <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{[...selected].join(', ')}</span>
+        <span style={{ fontSize: 12.5, color: 'var(--text-2)', marginLeft: 17 }}>{[...selected].join(', ')}</span>
       )}
       {expanded && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, opacity: saving ? 0.6 : 1, pointerEvents: saving ? 'none' : 'auto' }}>
