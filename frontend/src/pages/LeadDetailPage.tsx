@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Tag, Activity, CalendarClock, CalendarPlus, StickyNote, History, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarClock, CalendarPlus, StickyNote, History, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, MoreVertical, Trash2, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -165,14 +165,14 @@ function SectionCard({ title, icon: Icon, action, children }: { title?: string; 
   const { dark } = useTheme()
   return (
     <div style={{
-      border: `1px solid ${dark ? 'var(--border-lt)' : 'var(--border-in)'}`,
+      border: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.05)'}`,
       borderRadius: 14, padding: '18px 20px', background: 'var(--bg-card)',
-      boxShadow: dark ? '0 1px 3px rgba(0,0,0,0.04)' : '0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04)',
+      boxShadow: dark ? '0 1px 3px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.12)' : '0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.06)',
     }}>
       {title && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, margin: '0 0 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            {Icon && <Icon size={14} color="#2563EB" strokeWidth={2.5} />}
+            {Icon && <Icon size={14} color="var(--text-3b)" strokeWidth={2.25} />}
             <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
               {title}
             </p>
@@ -186,12 +186,13 @@ function SectionCard({ title, icon: Icon, action, children }: { title?: string; 
 }
 
 function Field({ label, value, small }: { label: string; value: string; small?: boolean }) {
+  const empty = value === '—' || value === 'Não informado' || value === 'Não definido'
   return (
     <div className="flex flex-col gap-1">
       <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
         {label}
       </span>
-      <span style={{ fontSize: small ? 12 : 13.5, color: value === '—' ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: value === '—' ? 400 : 500 }}>
+      <span style={{ fontSize: small ? 12 : 13.5, color: empty ? 'var(--text-subtle)' : 'var(--text-2)', fontWeight: empty ? 400 : 500, fontStyle: empty ? 'italic' : 'normal' }}>
         {value}
       </span>
     </div>
@@ -323,7 +324,7 @@ function PlanField({ value }: { value: string | null }) {
         Plano Atual
       </span>
       {!value ? (
-        <span style={{ fontSize: 13.5, color: 'var(--text-subtle)' }}>—</span>
+        <span style={{ fontSize: 13.5, color: 'var(--text-subtle)', fontStyle: 'italic' }}>Não informado</span>
       ) : semPlano ? (
         <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'rgba(220,38,38,0.12)', color: '#DC2626', padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700 }}>
           Não possui plano
@@ -353,6 +354,7 @@ export default function LeadDetailPage() {
   const [toast, setToast]                 = useState<{ msg: string; ok: boolean } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting]           = useState(false)
+  const [menuOpen, setMenuOpen]           = useState(false)
   const [history, setHistory]             = useState<StatusHistoryItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
   const [schedules, setSchedules]         = useState<ScheduleItem[]>([])
@@ -602,7 +604,7 @@ export default function LeadDetailPage() {
   const mailHref = lead.email ? `mailto:${lead.email}` : null
   const actionBtnStyle = (enabled: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 10,
-    fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', background: 'var(--bg-card)',
+    fontSize: 13, fontWeight: 600, border: '1px solid var(--border-in)', background: 'var(--bg-card)',
     color: 'var(--text-2)', textDecoration: 'none', cursor: enabled ? 'pointer' : 'not-allowed',
     opacity: enabled ? 1 : 0.4, boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
   })
@@ -661,7 +663,7 @@ export default function LeadDetailPage() {
           <a href={telHref ?? undefined} style={actionBtnStyle(!!telHref)} onClick={e => { if (!telHref) e.preventDefault() }}>
             <Phone size={15} /> Ligar
           </a>
-          <a href={waHref ?? undefined} target="_blank" rel="noreferrer" style={{ ...actionBtnStyle(!!waHref), borderColor: waHref ? '#86EFAC' : 'var(--border)', color: waHref ? '#16A34A' : 'var(--text-2)', background: waHref ? '#F0FDF4' : 'var(--bg-card)' }} onClick={e => { if (!waHref) e.preventDefault() }}>
+          <a href={waHref ?? undefined} target="_blank" rel="noreferrer" style={actionBtnStyle(!!waHref)} onClick={e => { if (!waHref) e.preventDefault() }}>
             <WhatsAppIcon /> WhatsApp
           </a>
           <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
@@ -673,8 +675,61 @@ export default function LeadDetailPage() {
           >
             <CalendarPlus size={15} /> Agendar
           </button>
+          {isAdmin && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setMenuOpen(v => !v)}
+                title="Mais opções"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, border: '1px solid var(--border-in)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <MoreVertical size={16} />
+              </button>
+              {menuOpen && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setMenuOpen(false)} />
+                  <div style={{ position: 'absolute', right: 0, top: 44, zIndex: 100, background: 'var(--bg-card)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 10, boxShadow: '0 8px 24px rgba(15,23,42,0.14)', minWidth: 160, overflow: 'hidden' }}>
+                    <button
+                      onClick={() => { setMenuOpen(false); setConfirmDelete(true) }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#DC2626', textAlign: 'left' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      <Trash2 size={14} /> Excluir lead
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {confirmDelete && (
+        <div onClick={() => !deleting && setConfirmDelete(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', padding: 24 }}>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 8px' }}>Excluir este lead?</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px' }}>
+              Esta ação não pode ser desfeita. O lead e todo o histórico associado (notas, agendamentos, status) serão excluídos permanentemente.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border-in)', cursor: deleting ? 'not-allowed' : 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#DC2626', color: 'white', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
+              >
+                {deleting ? 'Excluindo…' : 'Sim, excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] gap-5 items-start">
         <div className="flex flex-col gap-5">
@@ -710,11 +765,11 @@ export default function LeadDetailPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                <Field label="Empresa"   value={lead.company ?? '—'} />
-                <Field label="E-mail"    value={lead.email ?? '—'} small />
-                <Field label="Telefone"  value={lead.phone ?? '—'} />
-                <Field label="Documento" value={lead.document ?? '—'} />
-                <Field label="Atendente" value={lead.attendant ?? '—'} />
+                <Field label="Empresa"   value={lead.company ?? 'Não informado'} />
+                <Field label="E-mail"    value={lead.email ?? 'Não informado'} small />
+                <Field label="Telefone"  value={lead.phone ?? 'Não informado'} />
+                <Field label="Documento" value={lead.document ?? 'Não informado'} />
+                <Field label="Atendente" value={lead.attendant ?? 'Não informado'} />
                 {lead.visibility_tag && <Field label="Perfil" value={lead.visibility_tag} />}
                 {lead.perception && PERCEPTION_STYLE[lead.perception] && (
                   <div className="flex flex-col gap-2">
@@ -826,7 +881,7 @@ export default function LeadDetailPage() {
               {editingDetalhes ? (
                 <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => setDetalhesDraft(d => ({ ...d, value_potential: v }))} />
               ) : (
-                <Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} />
+                <Field label="Valor da Cotação" value={lead.value_potential ? fmtBRL(lead.value_potential) : 'Não informado'} />
               )}
               {isAdmin ? (
                 <DateField
@@ -991,7 +1046,7 @@ export default function LeadDetailPage() {
                       {PERCEPTION_STYLE[lead.perception].label}
                     </span>
                   ) : (
-                    <span style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não definida</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'italic' }}>Não definida</span>
                   )}
                   <button
                     onClick={() => setEditingPerception(true)}
@@ -1035,7 +1090,7 @@ export default function LeadDetailPage() {
                       type="datetime-local"
                       value={scheduleInput}
                       onChange={e => setScheduleInput(e.target.value)}
-                      style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)' }}
+                      style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
                     />
                     <button
                       onClick={handleSchedule}
@@ -1122,35 +1177,6 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
-      {isAdmin && (
-        <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
-          {!confirmDelete ? (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: 'none', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer' }}
-            >
-              Excluir lead
-            </button>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 13, color: '#EF4444', fontWeight: 500 }}>Confirmar exclusão?</span>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#EF4444', color: 'white', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
-              >
-                {deleting ? 'Excluindo…' : 'Sim, excluir'}
-              </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}
-              >
-                Cancelar
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
     </div>
   )
