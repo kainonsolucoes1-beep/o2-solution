@@ -110,6 +110,8 @@ class LeadInfoUpdateRequest(BaseModel):
     created_at: Optional[str] = None  # AAAA-MM-DD — restrito a admin, corrige a "epoca" do lead
     visibility_tag: Optional[str] = None  # "ADM" restringe a visualizacao do lead
     operadoras_enviadas: Optional[str] = None  # lista separada por virgula
+    current_plan: Optional[str] = None
+    value_potential: Optional[float] = None
 
 
 class LeadInfoUpdateResponse(BaseModel):
@@ -125,6 +127,8 @@ class LeadInfoUpdateResponse(BaseModel):
     modalidade: Optional[str] = None
     conversion_point: Optional[str] = None
     perception: Optional[str] = None
+    current_plan: Optional[str] = None
+    value_potential: Optional[float] = None
     created_at: Optional[datetime] = None
     operadoras_enviadas: Optional[str] = None
     visibility_tag: Optional[str] = None

@@ -360,6 +360,9 @@ export default function LeadDetailPage() {
   const [editingPerception, setEditingPerception] = useState(false)
   const [savingCreatedAt, setSavingCreatedAt] = useState(false)
   const [savingOperadoras, setSavingOperadoras] = useState(false)
+  const [editingDetalhes, setEditingDetalhes] = useState(false)
+  const [savingDetalhes, setSavingDetalhes] = useState(false)
+  const [detalhesDraft, setDetalhesDraft] = useState({ current_plan: '', value_potential: '' })
   const agendaRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
@@ -456,6 +459,29 @@ export default function LeadDetailPage() {
       .then(r => { setLead(r.data); setToast({ msg: 'Data de criação atualizada', ok: true }) })
       .catch(() => setToast({ msg: 'Erro ao atualizar a data de criação', ok: false }))
       .finally(() => setSavingCreatedAt(false))
+  }
+
+  function startEditDetalhes() {
+    if (!lead) return
+    setDetalhesDraft({
+      current_plan: lead.current_plan ?? '',
+      value_potential: lead.value_potential != null ? String(lead.value_potential) : '',
+    })
+    setEditingDetalhes(true)
+  }
+
+  function handleSaveDetalhes() {
+    if (!id) return
+    setSavingDetalhes(true)
+    const payload: { current_plan: string | null; value_potential?: number } = {
+      current_plan: detalhesDraft.current_plan.trim() || null,
+    }
+    if (detalhesDraft.value_potential.trim()) payload.value_potential = Number(detalhesDraft.value_potential)
+    api.post(`/api/v1/leads/${id}/info`, payload)
+      .then(() => api.get<LeadItem>(`/api/v1/leads/${id}`))
+      .then(r => { setLead(r.data); setEditingDetalhes(false); setToast({ msg: 'Detalhes atualizados com sucesso', ok: true }) })
+      .catch(() => setToast({ msg: 'Erro ao atualizar detalhes', ok: false }))
+      .finally(() => setSavingDetalhes(false))
   }
 
   function handleSaveNote() {
@@ -738,18 +764,48 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Detalhes do Lead" icon={Tag}>
+          <SectionCard title="Detalhes do Lead" icon={Tag} action={
+            editingDetalhes ? (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setEditingDetalhes(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button onClick={handleSaveDetalhes} disabled={savingDetalhes} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingDetalhes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                  {savingDetalhes ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            ) : (
+              <button onClick={startEditDetalhes} title="Editar detalhes" style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, padding: 2, opacity: 0.7, transition: 'opacity 150ms, color 150ms' }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#3B82F6' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.color = 'var(--text-subtle)' }}
+              >
+                <Pencil size={12} /> Editar
+              </button>
+            )
+          }>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '16px 20px', marginTop: 8 }}>
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={['PF', 'PME']} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
               <div style={{ marginTop: 12 }}>
                 <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPointOptions} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
               </div>
-              <div style={{ marginTop: 12 }}><PlanField value={lead.current_plan} /></div>
+              <div style={{ marginTop: 12 }}>
+                {editingDetalhes ? (
+                  <EditInput label="Plano Atual" value={detalhesDraft.current_plan} onChange={v => setDetalhesDraft(d => ({ ...d, current_plan: v }))} />
+                ) : (
+                  <PlanField value={lead.current_plan} />
+                )}
+              </div>
               <div style={{ marginTop: 12 }}>
                 <OperadorasField value={lead.operadoras_enviadas} saving={savingOperadoras} onChange={v => handleQuickUpdate('operadoras_enviadas', v)} />
               </div>
-              <div style={{ marginTop: 12 }}><Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} /></div>
+              <div style={{ marginTop: 12 }}>
+                {editingDetalhes ? (
+                  <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => setDetalhesDraft(d => ({ ...d, value_potential: v }))} />
+                ) : (
+                  <Field label="Valor da Cotação" value={fmtBRL(lead.value_potential)} />
+                )}
+              </div>
               <div style={{ marginTop: 12 }}>
                 {isAdmin ? (
                   <DateField

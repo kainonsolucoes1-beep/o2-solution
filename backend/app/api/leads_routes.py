@@ -499,6 +499,10 @@ def update_lead_info(
         lead.visibility_tag = body.visibility_tag.strip() or None
     if body.operadoras_enviadas is not None:
         lead.operadoras_enviadas = body.operadoras_enviadas.strip() or None
+    if body.current_plan is not None:
+        lead.current_plan = body.current_plan.strip() or None
+    if body.value_potential is not None:
+        lead.value_potential = body.value_potential
     db.commit()
     return LeadInfoUpdateResponse(
         success=True, lead_id=lead.id, name=lead.name,
@@ -507,6 +511,8 @@ def update_lead_info(
         conversion_point=lead.conversion_point, perception=lead.perception,
         created_at=lead.created_at, visibility_tag=lead.visibility_tag,
         operadoras_enviadas=lead.operadoras_enviadas,
+        current_plan=lead.current_plan,
+        value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
     )
 
 
