@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Tag, Activity, CalendarClock, CalendarPlus, StickyNote, History, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, MoreVertical, Trash2, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarPlus, History, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, MoreVertical, Trash2, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -70,6 +70,12 @@ interface Me {
   role: string
 }
 
+// evento unificado do feed de Atividade: mudanca de status, nota ou agendamento, todos numa so linha do tempo
+type ActivityEvent =
+  | { kind: 'status'; at: string; status: string | null; by: string | null; isCreation: boolean; durationMs: number; ongoing: boolean }
+  | { kind: 'note'; at: string; content: string; by: string }
+  | { kind: 'schedule'; at: string; scheduledAt: string; by: string | null; active: boolean }
+
 const PERCEPTION_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   'Quente': { bg: 'rgba(220,38,38,0.12)',  color: '#DC2626', label: 'Quente' },
   'Morno':  { bg: 'rgba(217,119,6,0.12)',  color: '#D97706', label: 'Morno' },
@@ -124,9 +130,13 @@ function fmtDate(iso: string) {
   })
 }
 
+function fmtDateOnly(iso: string) {
+  return new Date(parseUTC(iso)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 function fmtBRL(n: number | null) {
   if (n == null || n === 0) return '—'
-  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function fmtDuration(ms: number) {
@@ -148,6 +158,10 @@ function fmtClock(ms: number) {
   const s = totalSec % 60
   if (h >= 24) return fmtDuration(ms)
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+function fmtRelative(iso: string) {
+  return `há ${fmtDuration(Date.now() - parseUTC(iso))}`
 }
 
 function _normalizePlan(v: string) {
@@ -182,6 +196,19 @@ function SectionCard({ title, icon: Icon, action, children }: { title?: string; 
       )}
       {children}
     </div>
+  )
+}
+
+function KpiCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <SectionCard>
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 7 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 19, fontWeight: 800, color: accent ? '#2563EB' : 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
+        {value}
+      </div>
+    </SectionCard>
   )
 }
 
@@ -601,6 +628,24 @@ export default function LeadDetailPage() {
     })
   })()
 
+  // ── Atividade: timeline de status + notas + agendamentos, unificados por data (mais recente primeiro) ──
+  const activity: ActivityEvent[] = [
+    ...timeline.map(t => ({ kind: 'status' as const, at: t.at, status: t.status, by: t.by, isCreation: t.isCreation, durationMs: t.durationMs, ongoing: t.ongoing })),
+    ...notes.map(n => ({ kind: 'note' as const, at: n.created_at, content: n.content, by: n.created_by })),
+    ...schedules.map(s => ({ kind: 'schedule' as const, at: s.created_at, scheduledAt: s.scheduled_at, by: s.created_by, active: s.is_active })),
+  ].sort((a, b) => parseUTC(b.at) - parseUTC(a.at))
+
+  const loadingActivity = loadingNotes || loadingHistory || loadingSchedules
+  const lastActivityAt = activity.length > 0 ? activity[0].at : lead.created_at
+
+  const kpis = [
+    { label: 'Valor da Cotação', value: fmtBRL(lead.value_potential), accent: true },
+    { label: 'Tempo no Funil', value: fmtDuration(Date.now() - parseUTC(lead.created_at)) },
+    { label: 'Interações', value: String(notes.length + history.length + schedules.length) },
+    { label: 'Agendamentos', value: String(schedules.length) },
+    { label: 'Última Alteração', value: fmtRelative(lastActivityAt) },
+  ]
+
   const telHref = lead.phone ? `tel:${lead.phone.replace(/\D/g, '')}` : null
   const waHref = 'https://app.hbcconecta.com.br/index.html#/atendimentos/chat/'
   const mailHref = lead.email ? `mailto:${lead.email}` : null
@@ -629,7 +674,7 @@ export default function LeadDetailPage() {
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
           <button
             onClick={() => navigate(-1)}
@@ -648,15 +693,10 @@ export default function LeadDetailPage() {
           </div>
           <div style={{ minWidth: 0 }}>
             <p style={{ fontSize: 21, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em', overflowWrap: 'break-word' }}>{lead.name}</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 9 }}>
-              <span style={{ background: sStyle.bg, color: sStyle.color, padding: '4px 13px', borderRadius: 99, fontSize: 12.5, fontWeight: 700 }}>
-                {statusLabel(status)}
-              </span>
-              {history.length > 0 && statusLabel(status) !== 'Venda Realizada' && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '4px 12px', borderRadius: 99, fontVariantNumeric: 'tabular-nums' }}>
-                  ⏱ {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
-                </span>
-              )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginTop: 8, fontSize: 12, color: 'var(--text-subtle)' }}>
+              <span>Lead desde <b style={{ color: 'var(--text-2)', fontWeight: 700 }}>{fmtDateOnly(lead.created_at)}</b></span>
+              <span>Última interação <b style={{ color: 'var(--text-2)', fontWeight: 700 }}>{fmtRelative(lastActivityAt)}</b></span>
+              <span>Consultor <b style={{ color: 'var(--text-2)', fontWeight: 700 }}>{lead.attendant ?? 'Não informado'}</b></span>
             </div>
           </div>
         </div>
@@ -733,7 +773,12 @@ export default function LeadDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] gap-5 items-start">
+      {/* KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" style={{ marginBottom: 20 }}>
+        {kpis.map(k => <KpiCard key={k.label} label={k.label} value={k.value} accent={k.accent} />)}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
         <div className="flex flex-col gap-5">
 
           <SectionCard title="Informações" icon={User} action={
@@ -773,18 +818,55 @@ export default function LeadDetailPage() {
                 <Field label="Documento" value={lead.document ?? 'Não informado'} />
                 <Field label="Atendente" value={lead.attendant ?? 'Não informado'} />
                 {lead.visibility_tag && <Field label="Perfil" value={lead.visibility_tag} />}
-                {lead.perception && PERCEPTION_STYLE[lead.perception] && (
-                  <div className="flex flex-col gap-2">
-                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85 }}>
-                      Percepção
-                    </span>
-                    <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: PERCEPTION_STYLE[lead.perception].bg, color: PERCEPTION_STYLE[lead.perception].color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
-                      {PERCEPTION_STYLE[lead.perception].label}
-                    </span>
-                  </div>
-                )}
               </div>
             )}
+          </SectionCard>
+
+          <SectionCard title="Detalhes do Lead" icon={Tag} action={
+            editingDetalhes ? (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setEditingDetalhes(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button onClick={handleSaveDetalhes} disabled={savingDetalhes} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingDetalhes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                  {savingDetalhes ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            ) : (
+              <button onClick={startEditDetalhes} title="Editar detalhes" style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, padding: 2, opacity: 0.7, transition: 'opacity 150ms, color 150ms' }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#3B82F6' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.color = 'var(--text-subtle)' }}
+              >
+                <Pencil size={12} /> Editar
+              </button>
+            )
+          }>
+            <div className="flex flex-col gap-4">
+              <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
+              <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={modalidades} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
+              <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPointOptions} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
+              {editingDetalhes ? (
+                <EditInput label="Plano Atual" value={detalhesDraft.current_plan} onChange={v => setDetalhesDraft(d => ({ ...d, current_plan: v }))} />
+              ) : (
+                <PlanField value={lead.current_plan} />
+              )}
+              <OperadorasField value={lead.operadoras_enviadas} saving={savingOperadoras} onChange={v => handleQuickUpdate('operadoras_enviadas', v)} />
+              {editingDetalhes ? (
+                <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => setDetalhesDraft(d => ({ ...d, value_potential: v }))} />
+              ) : (
+                <Field label="Valor da Cotação" value={lead.value_potential ? fmtBRL(lead.value_potential) : 'Não informado'} />
+              )}
+              {isAdmin ? (
+                <DateField
+                  label="Data de Criação"
+                  value={lead.created_at.slice(0, 10)}
+                  saving={savingCreatedAt}
+                  onChange={handleUpdateCreatedAt}
+                />
+              ) : (
+                <Field label="Data de Criação" value={fmtDate(lead.created_at)} />
+              )}
+            </div>
           </SectionCard>
 
           {canSeeFinancials && (() => {
@@ -851,116 +933,7 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Detalhes do Lead" icon={Tag} action={
-            editingDetalhes ? (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setEditingDetalhes(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  Cancelar
-                </button>
-                <button onClick={handleSaveDetalhes} disabled={savingDetalhes} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingDetalhes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                  {savingDetalhes ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
-            ) : (
-              <button onClick={startEditDetalhes} title="Editar detalhes" style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, padding: 2, opacity: 0.7, transition: 'opacity 150ms, color 150ms' }}
-                onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#3B82F6' }}
-                onMouseLeave={e => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.color = 'var(--text-subtle)' }}
-              >
-                <Pencil size={12} /> Editar
-              </button>
-            )
-          }>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '28px 20px', marginTop: 8, alignItems: 'start' }}>
-              <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
-              <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={modalidades} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
-              <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPointOptions} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
-              {editingDetalhes ? (
-                <EditInput label="Plano Atual" value={detalhesDraft.current_plan} onChange={v => setDetalhesDraft(d => ({ ...d, current_plan: v }))} />
-              ) : (
-                <PlanField value={lead.current_plan} />
-              )}
-              <OperadorasField value={lead.operadoras_enviadas} saving={savingOperadoras} onChange={v => handleQuickUpdate('operadoras_enviadas', v)} />
-              {editingDetalhes ? (
-                <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => setDetalhesDraft(d => ({ ...d, value_potential: v }))} />
-              ) : (
-                <Field label="Valor da Cotação" value={lead.value_potential ? fmtBRL(lead.value_potential) : 'Não informado'} />
-              )}
-              {isAdmin ? (
-                <DateField
-                  label="Data de Criação"
-                  value={lead.created_at.slice(0, 10)}
-                  saving={savingCreatedAt}
-                  onChange={handleUpdateCreatedAt}
-                />
-              ) : (
-                <Field label="Data de Criação" value={fmtDate(lead.created_at)} />
-              )}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Notas" icon={StickyNote}>
-            <div className="flex flex-col gap-3">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <textarea
-                  value={noteText}
-                  onChange={e => setNoteText(e.target.value)}
-                  placeholder="Adicione uma nota..."
-                  rows={3}
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: 8,
-                    border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-2)',
-                    background: 'var(--bg-input)',
-                    resize: 'vertical', outline: 'none', fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                  }}
-                  onFocus={e => (e.currentTarget.style.borderColor = '#3B82F6')}
-                  onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-                />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                  <button
-                    onClick={handleSaveNote}
-                    disabled={savingNote || !noteText.trim()}
-                    style={{
-                      background: savingNote || !noteText.trim() ? 'var(--bg-subtle)' : '#2563EB',
-                      color: savingNote || !noteText.trim() ? 'var(--text-subtle)' : 'white',
-                      border: 'none', borderRadius: 8,
-                      padding: '7px 16px', fontSize: 13, fontWeight: 500,
-                      cursor: savingNote || !noteText.trim() ? 'not-allowed' : 'pointer',
-                      transition: 'background 150ms',
-                    }}
-                  >
-                    {savingNote ? 'Salvando…' : 'Salvar Nota'}
-                  </button>
-                </div>
-              </div>
-
-              {loadingNotes ? (
-                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando notas…</p>
-              ) : notes.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhuma nota ainda.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {notes.map(note => (
-                    <div key={note.id} style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-3b)', fontWeight: 700 }}>{note.created_by}</span>
-                        <span>{fmtDate(note.created_at)}</span>
-                      </div>
-                      <p style={{ fontSize: 13, color: 'var(--text-2)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {note.content}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </SectionCard>
-
-        </div>
-
-        <div className="flex flex-col gap-5">
-
-          <SectionCard title="Status" icon={Activity}>
+          <SectionCard title="Ação Rápida" icon={Activity}>
             {editingStatus ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {STATUS_OPTIONS.map(opt => {
@@ -993,10 +966,15 @@ export default function LeadDetailPage() {
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ background: sStyle.bg, color: sStyle.color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
                   {statusLabel(status)}
                 </span>
+                {history.length > 0 && statusLabel(status) !== 'Venda Realizada' && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '4px 12px', borderRadius: 99, fontVariantNumeric: 'tabular-nums' }}>
+                    ⏱ {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
+                  </span>
+                )}
                 <button
                   onClick={() => setEditingStatus(true)}
                   style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
@@ -1059,71 +1037,63 @@ export default function LeadDetailPage() {
                 </div>
               )}
             </div>
-          </SectionCard>
 
-          <div ref={agendaRef}>
-          <SectionCard title="Agendamento" icon={CalendarClock}>
-            <div className="flex flex-col gap-2">
-              {loadingSchedules ? (
-                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
-              ) : (
-                <>
-                  {(() => {
-                    const active = schedules.find(s => s.is_active)
-                    return active ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'rgba(37,99,235,0.12)', color: '#2563EB', padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
-                          Agendado para {fmtDate(active.scheduled_at)}
-                        </span>
-                        <button
-                          onClick={handleCancelSchedule}
-                          disabled={cancelingSchedule}
-                          style={{ fontSize: 12, color: '#DC2626', background: 'none', border: 'none', cursor: cancelingSchedule ? 'not-allowed' : 'pointer', fontWeight: 500 }}
-                        >
-                          {cancelingSchedule ? 'Removendo…' : 'Remover'}
-                        </button>
-                      </div>
-                    ) : (
-                      <span style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum agendamento ativo.</span>
-                    )
-                  })()}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <input
-                      type="datetime-local"
-                      value={scheduleInput}
-                      onChange={e => setScheduleInput(e.target.value)}
-                      style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
-                    />
-                    <button
-                      onClick={handleSchedule}
-                      disabled={savingSchedule || !scheduleInput}
-                      style={{
-                        background: savingSchedule || !scheduleInput ? 'var(--bg-subtle)' : '#2563EB',
-                        color: savingSchedule || !scheduleInput ? 'var(--text-subtle)' : 'white',
-                        border: 'none', borderRadius: 8,
-                        padding: '7px 16px', fontSize: 13, fontWeight: 500,
-                        cursor: savingSchedule || !scheduleInput ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      {savingSchedule ? 'Salvando…' : schedules.some(s => s.is_active) ? 'Reagendar' : 'Agendar'}
-                    </button>
-                  </div>
-                  {schedules.length > 1 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
-                      {schedules.filter(s => !s.is_active).map(s => (
-                        <span key={s.id} style={{ fontSize: 11, color: 'var(--text-subtle)', textDecoration: 'line-through' }}>
-                          {fmtDate(s.scheduled_at)}{s.created_by ? ` · ${s.created_by}` : ''}
-                        </span>
-                      ))}
+            <div ref={agendaRef} style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85, display: 'block', marginBottom: 8 }}>
+                Agendamento
+              </span>
+              <div className="flex flex-col gap-2">
+                {loadingSchedules ? (
+                  <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
+                ) : (
+                  <>
+                    {(() => {
+                      const active = schedules.find(s => s.is_active)
+                      return active ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'rgba(37,99,235,0.12)', color: '#2563EB', padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700 }}>
+                            Agendado para {fmtDate(active.scheduled_at)}
+                          </span>
+                          <button
+                            onClick={handleCancelSchedule}
+                            disabled={cancelingSchedule}
+                            style={{ fontSize: 12, color: '#DC2626', background: 'none', border: 'none', cursor: cancelingSchedule ? 'not-allowed' : 'pointer', fontWeight: 500 }}
+                          >
+                            {cancelingSchedule ? 'Removendo…' : 'Remover'}
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum agendamento ativo.</span>
+                      )
+                    })()}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input
+                        type="datetime-local"
+                        value={scheduleInput}
+                        onChange={e => setScheduleInput(e.target.value)}
+                        style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
+                      />
+                      <button
+                        onClick={handleSchedule}
+                        disabled={savingSchedule || !scheduleInput}
+                        style={{
+                          background: savingSchedule || !scheduleInput ? 'var(--bg-subtle)' : '#2563EB',
+                          color: savingSchedule || !scheduleInput ? 'var(--text-subtle)' : 'white',
+                          border: 'none', borderRadius: 8,
+                          padding: '7px 16px', fontSize: 13, fontWeight: 500,
+                          cursor: savingSchedule || !scheduleInput ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {savingSchedule ? 'Salvando…' : schedules.some(s => s.is_active) ? 'Reagendar' : 'Agendar'}
+                      </button>
                     </div>
-                  )}
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           </SectionCard>
-          </div>
 
-          <SectionCard title="Linha do Tempo · tempo por etapa" icon={History} action={
+          <SectionCard title="Atividade" icon={History} action={
             isAdmin && (
               <button
                 onClick={handleRealignHistory}
@@ -1135,45 +1105,105 @@ export default function LeadDetailPage() {
               </button>
             )
           }>
-            {loadingHistory ? (
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
-            ) : timeline.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem histórico registrado.</p>
-            ) : (
-              <div style={{ position: 'relative', paddingLeft: 20 }}>
-                <div style={{ position: 'absolute', left: 6, top: 8, bottom: 8, width: 2, background: 'var(--border)', borderRadius: 2 }} />
-                {timeline.map((item, i) => {
-                  const c = statusColor(item.status)
-                  const isVendaRealizada = statusLabel(item.status) === 'Venda Realizada'
-                  return (
-                    <div key={i} style={{ position: 'relative', marginBottom: i < timeline.length - 1 ? 18 : 0 }}>
-                      <div style={{
-                        position: 'absolute', left: -17, top: 4,
-                        width: 10, height: 10, borderRadius: '50%',
-                        background: c.color, border: '2px solid var(--bg-card)',
-                        boxShadow: `0 0 0 2px ${c.color}`,
-                      }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, background: c.bg, color: c.color, padding: '2px 10px', borderRadius: 99 }}>
-                          {item.isCreation ? `Criado como ${statusLabel(item.status)}` : statusLabel(item.status)}
-                        </span>
-                        {!(item.ongoing && isVendaRealizada) && (
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, color: item.ongoing ? c.color : 'var(--text-subtle)',
-                            background: item.ongoing ? c.bg : 'var(--bg-hover)', padding: '2px 8px', borderRadius: 99,
-                          }}>
-                            {fmtDuration(item.durationMs)}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>
-                        {fmtDate(item.at)}{item.by ? ` · ${item.by}` : ''}
-                      </div>
-                    </div>
-                  )
-                })}
+            <div className="flex flex-col gap-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <textarea
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  placeholder="Adicione uma nota..."
+                  rows={3}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 8,
+                    border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-2)',
+                    background: 'var(--bg-input)',
+                    resize: 'vertical', outline: 'none', fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={e => (e.currentTarget.style.borderColor = '#3B82F6')}
+                  onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <button
+                    onClick={handleSaveNote}
+                    disabled={savingNote || !noteText.trim()}
+                    style={{
+                      background: savingNote || !noteText.trim() ? 'var(--bg-subtle)' : '#2563EB',
+                      color: savingNote || !noteText.trim() ? 'var(--text-subtle)' : 'white',
+                      border: 'none', borderRadius: 8,
+                      padding: '7px 16px', fontSize: 13, fontWeight: 500,
+                      cursor: savingNote || !noteText.trim() ? 'not-allowed' : 'pointer',
+                      transition: 'background 150ms',
+                    }}
+                  >
+                    {savingNote ? 'Salvando…' : 'Salvar Nota'}
+                  </button>
+                </div>
               </div>
-            )}
+
+              {loadingActivity ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
+              ) : activity.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem atividade registrada.</p>
+              ) : (
+                <div style={{ position: 'relative', paddingLeft: 20 }}>
+                  <div style={{ position: 'absolute', left: 6, top: 8, bottom: 8, width: 2, background: 'var(--border)', borderRadius: 2 }} />
+                  {activity.map((ev, i) => {
+                    const isLast = i === activity.length - 1
+                    if (ev.kind === 'status') {
+                      const c = statusColor(ev.status)
+                      const isVendaRealizada = statusLabel(ev.status) === 'Venda Realizada'
+                      return (
+                        <div key={`s-${i}`} style={{ position: 'relative', marginBottom: isLast ? 0 : 18 }}>
+                          <div style={{ position: 'absolute', left: -17, top: 4, width: 10, height: 10, borderRadius: '50%', background: c.color, border: '2px solid var(--bg-card)', boxShadow: `0 0 0 2px ${c.color}` }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, background: c.bg, color: c.color, padding: '2px 10px', borderRadius: 99 }}>
+                              {ev.isCreation ? `Criado como ${statusLabel(ev.status)}` : statusLabel(ev.status)}
+                            </span>
+                            {!(ev.ongoing && isVendaRealizada) && (
+                              <span style={{
+                                fontSize: 11, fontWeight: 700, color: ev.ongoing ? c.color : 'var(--text-subtle)',
+                                background: ev.ongoing ? c.bg : 'var(--bg-hover)', padding: '2px 8px', borderRadius: 99,
+                              }}>
+                                {fmtDuration(ev.durationMs)}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>
+                            {fmtDate(ev.at)}{ev.by ? ` · ${ev.by}` : ''}
+                          </div>
+                        </div>
+                      )
+                    }
+                    if (ev.kind === 'note') {
+                      return (
+                        <div key={`n-${i}`} style={{ position: 'relative', marginBottom: isLast ? 0 : 18 }}>
+                          <div style={{ position: 'absolute', left: -17, top: 4, width: 10, height: 10, borderRadius: '50%', background: '#94A3B8', border: '2px solid var(--bg-card)', boxShadow: '0 0 0 2px #94A3B8' }} />
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>{ev.by}</div>
+                          <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '3px 0 0', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {ev.content}
+                          </p>
+                          <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>{fmtDate(ev.at)}</div>
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={`a-${i}`} style={{ position: 'relative', marginBottom: isLast ? 0 : 18 }}>
+                        <div style={{ position: 'absolute', left: -17, top: 4, width: 10, height: 10, borderRadius: '50%', background: '#2563EB', border: '2px solid var(--bg-card)', boxShadow: '0 0 0 2px #2563EB' }} />
+                        <span style={{ fontSize: 12, fontWeight: 600, background: '#EFF6FF', color: '#2563EB', padding: '2px 10px', borderRadius: 99 }}>
+                          {ev.active ? 'Agendamento ativo' : 'Agendamento'}
+                        </span>
+                        <div style={{ fontSize: 12.5, color: 'var(--text-2)', marginTop: 4 }}>
+                          Retorno marcado para {fmtDate(ev.scheduledAt)}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>
+                          {fmtDate(ev.at)}{ev.by ? ` · ${ev.by}` : ''}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </SectionCard>
 
         </div>
