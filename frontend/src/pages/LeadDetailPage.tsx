@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Tag, Activity, CalendarPlus, CalendarClock, History, StickyNote, Pencil, Phone, Mail, Wallet, Building2, FileText, User2, Clock3, ChevronDown, ChevronRight, MoreVertical, Trash2, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarPlus, CalendarClock, History, StickyNote, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, MoreVertical, Trash2, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -175,18 +175,18 @@ function initials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-function SectionCard({ title, icon: Icon, action, children }: { title?: string; icon?: LucideIcon; action?: ReactNode; children: ReactNode }) {
+function SectionCard({ title, icon: Icon, action, compact, children }: { title?: string; icon?: LucideIcon; action?: ReactNode; compact?: boolean; children: ReactNode }) {
   const { dark } = useTheme()
   return (
     <div style={{
-      border: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.05)'}`,
-      borderRadius: 14, padding: '18px 20px', background: 'var(--bg-card)',
-      boxShadow: dark ? '0 1px 3px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.12)' : '0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.06)',
+      border: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.04)'}`,
+      borderRadius: 14, padding: compact ? '11px 15px' : '18px 20px', background: 'var(--bg-card)',
+      boxShadow: dark ? '0 1px 2px rgba(0,0,0,0.14)' : '0 1px 2px rgba(15,23,42,0.05)',
     }}>
       {title && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, margin: '0 0 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            {Icon && <Icon size={14} color="var(--text-3b)" strokeWidth={2.25} />}
+            {Icon && <Icon size={14} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.55 }} />}
             <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
               {title}
             </p>
@@ -199,13 +199,27 @@ function SectionCard({ title, icon: Icon, action, children }: { title?: string; 
   )
 }
 
+function CardSubHeader({ icon: Icon, title, action }: { icon?: LucideIcon; title: string; action?: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        {Icon && <Icon size={13} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.5 }} />}
+        <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, opacity: 0.75 }}>
+          {title}
+        </p>
+      </div>
+      {action}
+    </div>
+  )
+}
+
 function KpiCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <SectionCard>
-      <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 7 }}>
+    <SectionCard compact>
+      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75, marginBottom: 5 }}>
         {label}
       </div>
-      <div style={{ fontSize: 19, fontWeight: 800, color: accent ? '#2563EB' : 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: accent ? '#2563EB' : 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
         {value}
       </div>
     </SectionCard>
@@ -216,7 +230,7 @@ function Field({ label, value, small }: { label: string; value: string; small?: 
   const empty = value === '—' || value === 'Não informado' || value === 'Não definido'
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
         {label}
       </span>
       <span style={{ fontSize: small ? 12.5 : 14, color: empty ? 'var(--text-subtle)' : 'var(--text-1)', fontWeight: empty ? 400 : 600, fontStyle: empty ? 'italic' : 'normal' }}>
@@ -240,17 +254,19 @@ function EditPencil({ onClick, title }: { onClick: () => void; title?: string })
   )
 }
 
-function ProfileRow({ icon: Icon, label, value, empty }: { icon: LucideIcon; label: string; value: string; empty?: boolean }) {
+function ProfileRow({ icon: Icon, label, value, empty }: { icon?: LucideIcon; label: string; value: string; empty?: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-      <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
-        <Icon size={13} color="var(--text-3b)" strokeWidth={2} />
-      </div>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: Icon ? 12 : 0 }}>
+      {Icon && (
+        <div style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+          <Icon size={12} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.55 }} />
+        </div>
+      )}
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: empty ? 400 : 600, color: empty ? 'var(--text-subtle)' : 'var(--text-1)', fontStyle: empty ? 'italic' : 'normal', overflowWrap: 'break-word' }}>
           {value}
         </div>
-        <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65, marginTop: 2 }}>
+        <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5, marginTop: 2 }}>
           {label}
         </div>
       </div>
@@ -261,7 +277,7 @@ function ProfileRow({ icon: Icon, label, value, empty }: { icon: LucideIcon; lab
 function EditInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
         {label}
       </span>
       <input
@@ -276,7 +292,7 @@ function EditInput({ label, value, onChange }: { label: string; value: string; o
 function SelectField({ label, value, options, onChange, saving }: { label: string; value: string; options: string[]; onChange: (v: string) => void; saving?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
         {label}
       </span>
       <select
@@ -295,7 +311,7 @@ function SelectField({ label, value, options, onChange, saving }: { label: strin
 function DateField({ label, value, onChange, saving }: { label: string; value: string; onChange: (v: string) => void; saving?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
         {label}
       </span>
       <input
@@ -329,7 +345,7 @@ function OperadorasField({ value, saving, onChange }: { value: string | null; sa
         style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
       >
         {expanded ? <ChevronDown size={12} color="var(--text-3b)" /> : <ChevronRight size={12} color="var(--text-3b)" />}
-        <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+        <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
           Operadoras Enviadas{selected.size > 0 ? ` (${selected.size})` : ''}
         </span>
       </button>
@@ -379,7 +395,7 @@ function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
         Plano Atual
       </span>
       {!value ? (
@@ -816,20 +832,21 @@ export default function LeadDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Perfil" icon={User} action={
-            editingInfo ? (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setEditingInfo(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  Cancelar
-                </button>
-                <button onClick={handleSaveInfo} disabled={savingInfo} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingInfo ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                  {savingInfo ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
-            ) : (
-              <EditPencil onClick={startEditInfo} title="Editar perfil" />
-            )
-          }>
+          <SectionCard>
+            <CardSubHeader icon={User} title="Perfil" action={
+              editingInfo ? (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => setEditingInfo(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={handleSaveInfo} disabled={savingInfo} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingInfo ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                    {savingInfo ? 'Salvando…' : 'Salvar'}
+                  </button>
+                </div>
+              ) : (
+                <EditPencil onClick={startEditInfo} title="Editar perfil" />
+              )
+            } />
             {editingInfo ? (
               <div className="flex flex-col gap-4">
                 <EditInput label="Nome"      value={infoDraft.name}      onChange={v => setInfoDraft(d => ({ ...d, name: v }))} />
@@ -841,31 +858,32 @@ export default function LeadDetailPage() {
                 <EditInput label="Perfil" value={infoDraft.visibility_tag} onChange={v => setInfoDraft(d => ({ ...d, visibility_tag: v }))} />
               </div>
             ) : (
-              <div className="flex flex-col gap-5">
-                <ProfileRow icon={Building2} label="Empresa"   value={lead.company ?? 'Não informado'} empty={!lead.company} />
-                <ProfileRow icon={Mail}      label="E-mail"    value={lead.email ?? 'Não informado'} empty={!lead.email} />
-                <ProfileRow icon={Phone}     label="Telefone"  value={lead.phone ?? 'Não informado'} empty={!lead.phone} />
-                <ProfileRow icon={FileText}  label="Documento" value={lead.document ?? 'Não informado'} empty={!lead.document} />
-                <ProfileRow icon={User2}     label="Atendente" value={lead.attendant ?? 'Não informado'} empty={!lead.attendant} />
-                {lead.visibility_tag && <ProfileRow icon={Tag} label="Perfil" value={lead.visibility_tag} />}
+              <div className="flex flex-col gap-4">
+                <ProfileRow label="Empresa"   value={lead.company ?? 'Não informado'} empty={!lead.company} />
+                <ProfileRow icon={Mail}  label="E-mail"    value={lead.email ?? 'Não informado'} empty={!lead.email} />
+                <ProfileRow icon={Phone} label="Telefone"  value={lead.phone ?? 'Não informado'} empty={!lead.phone} />
+                <ProfileRow label="Documento" value={lead.document ?? 'Não informado'} empty={!lead.document} />
+                <ProfileRow label="Atendente" value={lead.attendant ?? 'Não informado'} empty={!lead.attendant} />
+                {lead.visibility_tag && <ProfileRow label="Perfil" value={lead.visibility_tag} />}
               </div>
             )}
-          </SectionCard>
 
-          <SectionCard title="Detalhes do Lead" icon={Tag} action={
-            editingDetalhes ? (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setEditingDetalhes(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  Cancelar
-                </button>
-                <button onClick={handleSaveDetalhes} disabled={savingDetalhes} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingDetalhes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                  {savingDetalhes ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
-            ) : (
-              <EditPencil onClick={startEditDetalhes} title="Editar detalhes" />
-            )
-          }>
+            <div style={{ margin: '20px 0 16px', borderTop: '1px solid var(--border-lt)' }} />
+
+            <CardSubHeader icon={Tag} title="Detalhes do Lead" action={
+              editingDetalhes ? (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => setEditingDetalhes(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={handleSaveDetalhes} disabled={savingDetalhes} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingDetalhes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                    {savingDetalhes ? 'Salvando…' : 'Salvar'}
+                  </button>
+                </div>
+              ) : (
+                <EditPencil onClick={startEditDetalhes} title="Editar detalhes" />
+              )
+            } />
             <div className="flex flex-col gap-4">
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={modalidades} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
@@ -931,13 +949,13 @@ export default function LeadDetailPage() {
                     </div>
                     {vendaDetails.length > 0 && (
                       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-in)' }}>
-                        <p style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65, margin: '0 0 10px' }}>
+                        <p style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5, margin: '0 0 10px' }}>
                           Detalhes da venda
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                           {vendaDetails.map(([label, value]) => (
                             <div key={label} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                              <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>{label}</span>
+                              <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>{label}</span>
                               <span style={{ textAlign: 'right', fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500 }}>{value}</span>
                             </div>
                           ))}
@@ -954,54 +972,60 @@ export default function LeadDetailPage() {
         <div className="flex flex-col gap-5">
 
           <SectionCard title="Ação Rápida" icon={Activity}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              {editingStatus ? (
-                <>
-                  {STATUS_OPTIONS.map(opt => {
-                    const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
-                    const active = status === opt.value
-                    return (
-                      <button
-                        key={opt.value}
-                        disabled={savingStatus}
-                        onClick={() => handleStatusChange(opt.value)}
-                        style={{
-                          background: active ? s.color : s.bg,
-                          color: active ? 'white' : s.color,
-                          border: `1.5px solid ${s.color}`,
-                          padding: '4px 14px', borderRadius: 99,
-                          fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
-                          opacity: savingStatus ? 0.6 : 1,
-                          transition: 'all 150ms', textTransform: 'capitalize',
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    )
-                  })}
-                  <button
-                    onClick={() => setEditingStatus(false)}
-                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                  >
-                    Cancelar
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span style={{ background: sStyle.bg, color: sStyle.color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
-                    {statusLabel(status)}
-                  </span>
-                  {history.length > 0 && statusLabel(status) !== 'Venda Realizada' && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '4px 12px', borderRadius: 99, fontVariantNumeric: 'tabular-nums' }}>
-                      ⏱ {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
-                    </span>
-                  )}
-                  <EditPencil onClick={() => setEditingStatus(true)} title="Editar status" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
 
-                  <span style={{ width: 1, height: 18, background: 'var(--border)' }} />
+              <div>
+                <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
+                  Status
+                </div>
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                  {editingStatus ? (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {STATUS_OPTIONS.map(opt => {
+                        const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
+                        const active = status === opt.value
+                        return (
+                          <button
+                            key={opt.value}
+                            disabled={savingStatus}
+                            onClick={() => handleStatusChange(opt.value)}
+                            style={{
+                              background: active ? s.color : s.bg,
+                              color: active ? 'white' : s.color,
+                              border: `1.5px solid ${s.color}`,
+                              padding: '4px 14px', borderRadius: 99,
+                              fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
+                              opacity: savingStatus ? 0.6 : 1,
+                              transition: 'all 150ms', textTransform: 'capitalize',
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        )
+                      })}
+                      <button
+                        onClick={() => setEditingStatus(false)}
+                        style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ background: sStyle.bg, color: sStyle.color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
+                        {statusLabel(status)}
+                      </span>
+                      {history.length > 0 && statusLabel(status) !== 'Venda Realizada' && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '3px 10px', borderRadius: 99, fontVariantNumeric: 'tabular-nums' }}>
+                          {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
+                        </span>
+                      )}
+                      <EditPencil onClick={() => setEditingStatus(true)} title="Editar status" />
+                    </div>
+                  )}
 
                   {editingPerception ? (
-                    <>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                       {Object.keys(PERCEPTION_STYLE).map(key => {
                         const s = PERCEPTION_STYLE[key]
                         const active = lead.perception === key
@@ -1030,9 +1054,9 @@ export default function LeadDetailPage() {
                       >
                         Cancelar
                       </button>
-                    </>
+                    </div>
                   ) : (
-                    <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {lead.perception && PERCEPTION_STYLE[lead.perception] ? (
                         <span style={{ background: PERCEPTION_STYLE[lead.perception].bg, color: PERCEPTION_STYLE[lead.perception].color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
                           {PERCEPTION_STYLE[lead.perception].label}
@@ -1041,73 +1065,77 @@ export default function LeadDetailPage() {
                         <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'italic' }}>Sem temperatura</span>
                       )}
                       <EditPencil onClick={() => setEditingPerception(true)} title="Editar temperatura" />
-                    </>
+                    </div>
                   )}
-                </>
-              )}
-            </div>
+                </div>
+              </div>
 
-            <div ref={agendaRef} style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-lt)' }}>
-              {editingSchedule ? (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input
-                    type="datetime-local"
-                    value={scheduleInput}
-                    onChange={e => setScheduleInput(e.target.value)}
-                    style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
-                  />
-                  <button
-                    onClick={handleSchedule}
-                    disabled={savingSchedule || !scheduleInput}
-                    style={{
-                      background: savingSchedule || !scheduleInput ? 'var(--bg-subtle)' : '#2563EB',
-                      color: savingSchedule || !scheduleInput ? 'var(--text-subtle)' : 'white',
-                      border: 'none', borderRadius: 8,
-                      padding: '7px 16px', fontSize: 13, fontWeight: 500,
-                      cursor: savingSchedule || !scheduleInput ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {savingSchedule ? 'Salvando…' : activeSchedule ? 'Reagendar' : 'Agendar'}
-                  </button>
-                  <button
-                    onClick={() => setEditingSchedule(false)}
-                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                  >
-                    Cancelar
-                  </button>
+              <div ref={agendaRef}>
+                <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
+                  Próximo Passo
                 </div>
-              ) : loadingSchedules ? (
-                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <CalendarClock size={13} color="var(--text-3b)" />
-                    {activeSchedule ? (
-                      <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>Próximo passo: <b style={{ fontWeight: 700 }}>{fmtDate(activeSchedule.scheduled_at)}</b></span>
-                    ) : (
-                      <span style={{ fontSize: 12.5, color: 'var(--text-subtle)', fontStyle: 'italic' }}>Sem próximo passo agendado</span>
-                    )}
-                    <EditPencil onClick={() => setEditingSchedule(true)} title={activeSchedule ? 'Reagendar' : 'Agendar'} />
-                    {activeSchedule && (
+                <div style={{ marginTop: 8 }}>
+                  {editingSchedule ? (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input
+                        type="datetime-local"
+                        value={scheduleInput}
+                        onChange={e => setScheduleInput(e.target.value)}
+                        style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
+                      />
                       <button
-                        onClick={handleCancelSchedule}
-                        disabled={cancelingSchedule}
-                        style={{ fontSize: 11.5, color: '#DC2626', background: 'none', border: 'none', cursor: cancelingSchedule ? 'not-allowed' : 'pointer', fontWeight: 500 }}
+                        onClick={handleSchedule}
+                        disabled={savingSchedule || !scheduleInput}
+                        style={{
+                          background: savingSchedule || !scheduleInput ? 'var(--bg-subtle)' : '#2563EB',
+                          color: savingSchedule || !scheduleInput ? 'var(--text-subtle)' : 'white',
+                          border: 'none', borderRadius: 8,
+                          padding: '7px 16px', fontSize: 13, fontWeight: 500,
+                          cursor: savingSchedule || !scheduleInput ? 'not-allowed' : 'pointer',
+                        }}
                       >
-                        {cancelingSchedule ? 'Removendo…' : 'Remover'}
+                        {savingSchedule ? 'Salvando…' : activeSchedule ? 'Reagendar' : 'Agendar'}
                       </button>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <Clock3 size={13} color="var(--text-3b)" />
-                    <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>Último contato <b style={{ fontWeight: 700 }}>{fmtRelative(lastActivityAt)}</b></span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <User2 size={13} color="var(--text-3b)" />
-                    <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>Responsável <b style={{ fontWeight: 700 }}>{lead.attendant ?? 'Não informado'}</b></span>
-                  </div>
+                      <button
+                        onClick={() => setEditingSchedule(false)}
+                        style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : loadingSchedules ? (
+                    <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {activeSchedule ? (
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{fmtDate(activeSchedule.scheduled_at)}</span>
+                      ) : (
+                        <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'italic' }}>Nada agendado</span>
+                      )}
+                      <EditPencil onClick={() => setEditingSchedule(true)} title={activeSchedule ? 'Reagendar' : 'Agendar'} />
+                      {activeSchedule && (
+                        <button
+                          onClick={handleCancelSchedule}
+                          disabled={cancelingSchedule}
+                          style={{ fontSize: 11.5, color: '#DC2626', background: 'none', border: 'none', cursor: cancelingSchedule ? 'not-allowed' : 'pointer', fontWeight: 500 }}
+                        >
+                          {cancelingSchedule ? 'Removendo…' : 'Remover'}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+
+              <div>
+                <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
+                  Responsável
+                </div>
+                <div style={{ marginTop: 8, fontSize: 13.5, fontWeight: 600, color: lead.attendant ? 'var(--text-1)' : 'var(--text-subtle)', fontStyle: lead.attendant ? 'normal' : 'italic' }}>
+                  {lead.attendant ?? 'Não informado'}
+                </div>
+              </div>
+
             </div>
           </SectionCard>
 
