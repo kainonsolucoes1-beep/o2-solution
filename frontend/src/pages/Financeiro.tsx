@@ -410,8 +410,8 @@ export default function FinanceiroDashboard() {
                         <th className="px-5 py-3 font-semibold">Promotora</th>
                         <th className="px-5 py-3 font-semibold">Modalidade</th>
                         <th className="px-5 py-3 font-semibold">Parcela</th>
-                        <th className="px-5 py-3 text-right font-semibold">Valor</th>
-                        <th className="px-5 py-3 font-semibold">Status</th>
+                        <th className="px-5 py-3 text-center font-semibold">Valor</th>
+                        <th className="px-5 py-3 text-center font-semibold">Status</th>
                         <th className="px-5 py-3 text-right font-semibold">Previsto para</th>
                       </tr>
                     </thead>
@@ -433,9 +433,9 @@ export default function FinanceiroDashboard() {
                           </td>
                           <td className="px-5 py-3.5 text-[#626A85]">{p.modalidade}</td>
                           <td className="px-5 py-3.5 text-[#626A85]">{p.numero ? `${p.numero}ª parcela` : "Valor único"}</td>
-                          <td className="px-5 py-3.5 text-right" style={{ color: cor }}>{fmt(p.valor)}</td>
-                          <td className="px-5 py-3.5">
-                            <span className="rounded-full px-2.5 py-1 text-[11px] font-medium" style={{ background: bg, color: cor }}>
+                          <td className="px-5 py-3.5 text-center" style={{ color: cor }}>{fmt(p.valor)}</td>
+                          <td className="px-5 py-3.5 text-center">
+                            <span className="inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium" style={{ background: bg, color: cor }}>
                               {p.status === "recebido" ? "Recebido" : "A receber"}
                             </span>
                           </td>
@@ -451,7 +451,7 @@ export default function FinanceiroDashboard() {
                         <td className="px-5 py-3.5 font-semibold text-[#10142B]" colSpan={4}>
                           Total
                         </td>
-                        <td className="px-5 py-3.5 text-right font-semibold text-[#10142B]">
+                        <td className="px-5 py-3.5 text-center font-semibold text-[#10142B]">
                           {fmt(previsaoMes.totalRecebido + previsaoMes.totalAReceber)}
                         </td>
                         <td className="px-5 py-3.5" colSpan={2} />
