@@ -257,6 +257,22 @@ export default function FinanceiroDashboard() {
   const byPromotora = useMemo(() => aggregate(contracts, "promotora"), [contracts]);
   const byModalidade = useMemo(() => aggregate(contracts, "modalidade", "count"), [contracts]);
 
+  const previsaoByPromotora = useMemo(() => {
+    const map: Record<string, number> = {};
+    (previsaoMes?.parcelas || []).forEach((p) => {
+      map[p.promotora] = (map[p.promotora] || 0) + p.valor;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [previsaoMes]);
+
+  const previsaoByModalidade = useMemo(() => {
+    const map: Record<string, number> = {};
+    (previsaoMes?.parcelas || []).forEach((p) => {
+      map[p.modalidade] = (map[p.modalidade] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [previsaoMes]);
+
   return (
     <div className="min-h-full w-full bg-[#F6F7FB] p-8">
       <div className="mx-auto max-w-[1180px]">
@@ -351,6 +367,34 @@ export default function FinanceiroDashboard() {
                   accent="#10142B"
                   format={(n) => String(n)}
                 />
+              </div>
+
+              {/* Breakdown */}
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-[#E4E7EE] bg-white p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Building2 size={15} className="text-[#8891AC]" />
+                    <h2 className="text-[13px] font-semibold text-[#10142B]">Por promotora</h2>
+                  </div>
+                  <Donut
+                    data={previsaoByPromotora}
+                    colors={PROMOTORA_COLORS}
+                    centerLabel={`${previsaoByPromotora.length}`}
+                    centerSub="promotoras"
+                  />
+                </div>
+                <div className="rounded-2xl border border-[#E4E7EE] bg-white p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <Layers3 size={15} className="text-[#8891AC]" />
+                    <h2 className="text-[13px] font-semibold text-[#10142B]">Por modalidade</h2>
+                  </div>
+                  <Donut
+                    data={previsaoByModalidade}
+                    colors={MODALIDADE_COLORS}
+                    centerLabel={`${previsaoByModalidade.length}`}
+                    centerSub="modalidades"
+                  />
+                </div>
               </div>
 
               {/* Table */}
