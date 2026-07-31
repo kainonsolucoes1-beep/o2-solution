@@ -10,4 +10,18 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// Token expirado/invalido: qualquer 401 derruba a sessao e manda pro login de
+// verdade, em vez de deixar cada tela lidar com isso do jeito dela (o que
+// fazia menus sumirem e telas ficarem "vazias" ate um reload manual).
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
 export default api
