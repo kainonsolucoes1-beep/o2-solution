@@ -50,11 +50,9 @@ interface ReportStats {
   quentes: number
 }
 
-const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#059669', '#DC2626', '#EA580C', '#0891B2', '#DB2777']
-function avatarColor(name: string) {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+// avatar neutro (cinza-azulado) pra todo mundo, em vez de girar por uma paleta saturada
+function avatarColor(_name: string) {
+  return '#94A3B8'
 }
 function initials(name: string) {
   const parts = name.trim().split(/\s+/)
@@ -104,42 +102,38 @@ function loadStoredFilters(): Partial<StoredFilters> {
   }
 }
 
-const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  novo: { bg: 'rgba(59,130,246,0.12)', color: '#3B82F6' },
-  new: { bg: 'rgba(59,130,246,0.12)', color: '#3B82F6' },
-  pending: { bg: 'rgba(59,130,246,0.12)', color: '#3B82F6' },
-  qualificado: { bg: 'rgba(124,58,237,0.12)', color: '#7C3AED' },
-  qualified: { bg: 'rgba(124,58,237,0.12)', color: '#7C3AED' },
-  scheduled: { bg: 'rgba(124,58,237,0.12)', color: '#7C3AED' },
-  proposta: { bg: 'rgba(217,119,6,0.12)', color: '#D97706' },
-  proposal_sent: { bg: 'rgba(217,119,6,0.12)', color: '#D97706' },
-  waiting_billing: { bg: 'rgba(13,148,136,0.12)', color: '#0D9488' },
-  sale_performed: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
-  fechado: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
-  closed: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
-  won: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
-  convertido: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
-  converted: { bg: 'rgba(5,150,105,0.12)', color: '#059669' },
-  sale_not_performed: { bg: 'rgba(220,38,38,0.12)', color: '#DC2626' },
+const STATUS_STYLE: Record<string, { color: string }> = {
+  novo: { color: '#3B82F6' },
+  new: { color: '#3B82F6' },
+  pending: { color: '#3B82F6' },
+  qualificado: { color: '#7C3AED' },
+  qualified: { color: '#7C3AED' },
+  scheduled: { color: '#7C3AED' },
+  proposta: { color: '#D97706' },
+  proposal_sent: { color: '#D97706' },
+  waiting_billing: { color: '#0D9488' },
+  sale_performed: { color: '#059669' },
+  fechado: { color: '#059669' },
+  closed: { color: '#059669' },
+  won: { color: '#059669' },
+  convertido: { color: '#059669' },
+  converted: { color: '#059669' },
+  sale_not_performed: { color: '#DC2626' },
 }
 
-const PERCEPTION_STYLE: Record<string, { bg: string; color: string }> = {
-  quente: { bg: '#FEF2F2', color: '#DC2626' },
-  morno: { bg: '#FFFBEB', color: '#D97706' },
-  frio: { bg: '#ECFEFF', color: '#0891B2' },
+const PERCEPTION_STYLE: Record<string, { color: string }> = {
+  quente: { color: '#DC2626' },
+  morno: { color: '#D97706' },
+  frio: { color: '#60A5FA' },
 }
 
 function PerceptionBadge({ perception }: { perception: string | null }) {
   if (!perception) return <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>
-  const s = PERCEPTION_STYLE[perception.toLowerCase()] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
+  const s = PERCEPTION_STYLE[perception.toLowerCase()] ?? { color: '#6B7280' }
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      background: s.bg, color: s.color,
-      padding: '2px 10px', borderRadius: 99,
-      fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-    }}>
-      🌡️ {perception}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+      {perception}
     </span>
   )
 }
@@ -155,16 +149,10 @@ function fmtBRL(n: number | null) {
 
 function StatusBadge({ status }: { status: string | null }) {
   const key = (status ?? 'novo').toLowerCase()
-  const s = STATUS_STYLE[key] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
+  const s = STATUS_STYLE[key] ?? { color: '#6B7280' }
   return (
-    <span
-      style={{
-        background: s.bg, color: s.color,
-        padding: '2px 10px', borderRadius: 99,
-        fontSize: 12, fontWeight: 600,
-        textTransform: 'capitalize', whiteSpace: 'nowrap',
-      }}
-    >
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
       {statusLabel(status)}
     </span>
   )
@@ -552,10 +540,10 @@ export default function LeadsReport() {
         {stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {([
-              { label: 'Total',     value: stats.total,     accent: '#2563EB' },
-              { label: 'Fechados',  value: stats.fechados,  accent: '#059669' },
-              { label: 'Perdidos',  value: stats.perdidos,  accent: '#DC2626' },
-              { label: 'Quentes',   value: stats.quentes,   accent: '#EA580C' },
+              { label: 'Total',     value: stats.total,     accent: '#7C93C4' },
+              { label: 'Fechados',  value: stats.fechados,  accent: '#6FA88C' },
+              { label: 'Perdidos',  value: stats.perdidos,  accent: '#C48787' },
+              { label: 'Quentes',   value: stats.quentes,   accent: '#C4A06F' },
             ] as const).map(s => (
               <div key={s.label} style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: s.accent }} />
