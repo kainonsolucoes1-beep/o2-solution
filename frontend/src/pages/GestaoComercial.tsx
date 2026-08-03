@@ -660,8 +660,8 @@ function DestaqueCard({ accent, label, value, sub, context, onClick }: { accent:
     >
       <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 6px' }}>{label}</p>
       <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 11px', lineHeight: 1.1 }}>{value}</p>
-      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</p>
-      <p style={{ fontSize: 11.5, fontWeight: 400, color: 'var(--text-subtle)', margin: 0 }}>{context}</p>
+      <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</p>
+      <p style={{ fontSize: 11.5, fontWeight: 400, color: 'var(--text-muted)', margin: 0 }}>{context}</p>
     </div>
   )
 }
@@ -847,35 +847,34 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
         ].filter((v): v is { color: string; value: string; label: string } => v !== null)
 
         return (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-lt)', borderRadius: 12, padding: '24px 32px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-              <div>
-                <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 16px' }}>Resumo do período</p>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {indicadores.map((ind, i) => (
-                    <Fragment key={i}>
-                      {i > 0 && <div style={{ width: 1, height: 34, background: 'var(--border-lt)', margin: '0 28px' }} />}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: ind.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: 19, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{ind.value}</span>
-                        </div>
-                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{ind.label}</span>
-                      </div>
-                    </Fragment>
-                  ))}
-                </div>
-              </div>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-lt)', borderRadius: 12, padding: '18px 28px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Resumo do período</p>
               {insights.length > 0 && (
                 <button
                   onClick={() => setInsightsExpanded(v => !v)}
                   aria-expanded={insightsExpanded}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5, fontWeight: 600, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, minHeight: 32, padding: '0 4px' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 500, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, minHeight: 32, padding: '0 4px' }}
                 >
                   {insightsExpanded ? 'Recolher' : 'Ver análise completa'}
-                  <ChevronDown size={14} style={{ transform: insightsExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
+                  <ChevronDown size={12} style={{ transform: insightsExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
                 </button>
               )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', marginTop: 10 }}>
+              {indicadores.map((ind, i) => (
+                <Fragment key={i}>
+                  {i > 0 && <div style={{ width: 1, height: 30, background: 'var(--border-lt)', margin: '0 24px' }} />}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: ind.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 19, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{ind.value}</span>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{ind.label}</span>
+                  </div>
+                </Fragment>
+              ))}
             </div>
 
             {insightsExpanded && insights.length > 0 && (
@@ -894,26 +893,26 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
 
       {/* ── Evolução Geral + Destaques lado a lado ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 20, alignItems: 'stretch', marginTop: 32 }}>
-        <div style={{ background: 'var(--bg-card)', borderRadius: 12, paddingTop: 22, paddingLeft: 24, paddingRight: 24, paddingBottom: 36, border: '1px solid var(--border-lt)' }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 12, paddingTop: 20, paddingLeft: 24, paddingRight: 24, paddingBottom: 24, border: '1px solid var(--border-lt)' }}>
           <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Captações × Vendas</p>
-          <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Evolução mensal desde o primeiro lead registrado</p>
-          <ResponsiveContainer width="100%" height={264}>
+          <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: '0 0 12px' }}>Evolução mensal desde o primeiro lead registrado</p>
+          <ResponsiveContainer width="100%" height={280}>
             <LineChart data={trend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.6} vertical={false} />
               <XAxis dataKey="mes_label" tick={{ fontSize: 11, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(trend.length / 12) - 1)} />
               <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
                 formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']} />
-              <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 14 }} />
+              <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
               <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2.25} dot={false} />
               <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2.25} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        <div>
+        <div style={{ paddingTop: 20 }}>
           {secLabel('Destaques')}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 14, height: 'calc(100% - 27px)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 14, height: 'calc(100% - 47px)' }}>
             {byReceita[0] && (
               <DestaqueCard
                 accent="#10B981" label="Maior receita" value={fmtBrl(byReceita[0].receita)}
@@ -961,12 +960,12 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
 
           <div style={{ background: 'var(--bg-card)', borderRadius: 14, paddingTop: 20, paddingLeft: 20, paddingRight: 20, paddingBottom: 18, border: '1px solid var(--border-lt)' }}>
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Conversão por operador</p>
-            <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-subtle)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>% de conversão por mês — só operadores, canais ficam de fora</p>
+            <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>% de conversão por mês — só operadores, canais ficam de fora</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={convChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.5} vertical={false} />
-                <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(convChartData.length / 12) - 1)} />
-                <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} unit="%" />
+                <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#64748B' }} interval={Math.max(0, Math.ceil(convChartData.length / 12) - 1)} />
+                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} unit="%" />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => `${val}%`} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
                 {topOperadores.map((op, i) => (
@@ -979,12 +978,12 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
 
           <div style={{ background: 'var(--bg-card)', borderRadius: 14, paddingTop: 20, paddingLeft: 20, paddingRight: 20, paddingBottom: 18, border: '1px solid var(--border-lt)' }}>
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Receita por operador</p>
-            <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-subtle)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Receita em R$ por mês — mesma cor por pessoa nos dois gráficos</p>
+            <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Receita em R$ por mês — mesma cor por pessoa nos dois gráficos</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={recChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.5} vertical={false} />
-                <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(recChartData.length / 12) - 1)} />
-                <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
+                <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#64748B' }} interval={Math.max(0, Math.ceil(recChartData.length / 12) - 1)} />
+                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => fmtBrl(val)} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
                 {topOperadores.map((op, i) => (
@@ -1026,7 +1025,8 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginLeft: 'auto' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Ordenar</span>
             {([
               { key: 'receita', label: 'Receita' },
               { key: 'captacoes', label: 'Captações' },
@@ -1035,12 +1035,12 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
             ] as const).map(o => (
               <button key={o.key} onClick={() => setSortBy(o.key)}
                 onMouseEnter={e => { if (sortBy !== o.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
-                onMouseLeave={e => { if (sortBy !== o.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)' }}
+                onMouseLeave={e => { if (sortBy !== o.key) (e.currentTarget as HTMLElement).style.background = sortBy === o.key ? '#EFF6FF' : 'var(--bg-card)' }}
                 style={{
                   height: 34, fontSize: 12, fontWeight: 600, padding: '0 14px', borderRadius: 8,
-                  border: `1px solid ${sortBy === o.key ? '#2563EB' : 'var(--border-lt)'}`,
-                  background: sortBy === o.key ? '#2563EB' : 'var(--bg-card)',
-                  color: sortBy === o.key ? '#fff' : 'var(--text-muted)', cursor: 'pointer',
+                  border: `1px solid ${sortBy === o.key ? '#BFDBFE' : 'var(--border-lt)'}`,
+                  background: sortBy === o.key ? '#EFF6FF' : 'var(--bg-card)',
+                  color: sortBy === o.key ? '#2563EB' : 'var(--text-muted)', cursor: 'pointer',
                   transition: 'background 150ms, border-color 150ms',
                 }}>
                 Por {o.label}
@@ -1543,7 +1543,7 @@ export default function GestaoComercial() {
   const maxCap      = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1400, margin: '0 auto' }}>
+    <div style={{ padding: '28px 32px', maxWidth: 1360, margin: '0 auto' }}>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Gestão Comercial</h1>
         <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginTop: 4 }}>Acompanhe resultados, pipeline e performance da equipe</p>
