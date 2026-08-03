@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, Cell,
@@ -624,7 +624,10 @@ function mergeO2Trend(byOp: Record<string, MensalItem[]>): Record<string, Mensal
 const ExpandToggle = ({ expanded, hidden, onClick }: { expanded: boolean; hidden: number; onClick: () => void }) => (
   <button
     onClick={onClick}
-    style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', padding: 0 }}
+    aria-expanded={expanded}
+    style={{ display: 'flex', alignItems: 'center', gap: 4, minHeight: 36, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', padding: '0 4px', transition: 'color 150ms' }}
+    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)' }}
+    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)' }}
   >
     <ChevronDown size={14} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
     {expanded ? 'Ver menos' : `Ver mais (${hidden})`}
@@ -646,8 +649,8 @@ function DestaqueCard({ accent, label, value, sub, context, onClick }: { accent:
     <div
       onClick={onClick}
       style={{
-        background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px',
-        border: '1px solid var(--border-lt)', borderLeft: `3px solid ${accent}`,
+        background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px', minHeight: 116,
+        border: '1px solid var(--border-lt)', borderLeft: `2px solid ${accent}`,
         cursor: onClick ? 'pointer' : 'default',
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         transition: 'background 150ms',
@@ -655,10 +658,10 @@ function DestaqueCard({ accent, label, value, sub, context, onClick }: { accent:
       onMouseEnter={onClick ? e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' } : undefined}
       onMouseLeave={onClick ? e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)' } : undefined}
     >
-      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 8px' }}>{label}</p>
-      <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 8px', lineHeight: 1 }}>{value}</p>
-      <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</p>
-      <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>{context}</p>
+      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 6px' }}>{label}</p>
+      <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 11px', lineHeight: 1.1 }}>{value}</p>
+      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</p>
+      <p style={{ fontSize: 11.5, fontWeight: 400, color: 'var(--text-subtle)', margin: 0 }}>{context}</p>
     </div>
   )
 }
@@ -822,7 +825,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
   }, [data, byVendas, atencao, avgConv, avgTicket, byConv, totalVendas, melhorMesReceita, melhorMesVendas])
 
   const secLabel = (txt: string) => (
-    <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 14px' }}>{txt}</p>
+    <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 16px' }}>{txt}</p>
   )
 
   if (loading) return <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
@@ -833,72 +836,75 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
 
   return (
     <>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Resumo do período (insights compactos, com detalhe expansível) ── */}
-      {(insights.length > 0 || totalCap > 0) && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-lt)', borderRadius: 12, padding: '24px 32px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-            <div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 16px' }}>Resumo do período</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                {numOportunidades > 0 && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-1)', background: 'var(--bg-subtle)', borderRadius: 999, padding: '7px 14px' }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
-                    {numOportunidades} oportunidade{numOportunidades !== 1 ? 's' : ''}
-                  </span>
-                )}
-                {numAtencao > 0 && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-1)', background: 'var(--bg-subtle)', borderRadius: 999, padding: '7px 14px' }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
-                    {numAtencao} ponto{numAtencao !== 1 ? 's' : ''} de atenção
-                  </span>
-                )}
-                {totalCap > 0 && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-1)', background: 'var(--bg-subtle)', borderRadius: 999, padding: '7px 14px' }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
-                    Média da equipe: {avgConv}% de conversão
-                  </span>
-                )}
+      {(insights.length > 0 || totalCap > 0) && (() => {
+        const indicadores = [
+          numOportunidades > 0 ? { color: '#10B981', value: String(numOportunidades), label: `Oportunidade${numOportunidades !== 1 ? 's' : ''}` } : null,
+          numAtencao > 0 ? { color: '#F59E0B', value: String(numAtencao), label: 'Pontos de atenção' } : null,
+          totalCap > 0 ? { color: '#3B82F6', value: `${avgConv}%`, label: 'Conversão média' } : null,
+        ].filter((v): v is { color: string; value: string; label: string } => v !== null)
+
+        return (
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-lt)', borderRadius: 12, padding: '24px 32px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 16px' }}>Resumo do período</p>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {indicadores.map((ind, i) => (
+                    <Fragment key={i}>
+                      {i > 0 && <div style={{ width: 1, height: 34, background: 'var(--border-lt)', margin: '0 28px' }} />}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: ind.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 19, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{ind.value}</span>
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{ind.label}</span>
+                      </div>
+                    </Fragment>
+                  ))}
+                </div>
               </div>
+              {insights.length > 0 && (
+                <button
+                  onClick={() => setInsightsExpanded(v => !v)}
+                  aria-expanded={insightsExpanded}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5, fontWeight: 600, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, minHeight: 32, padding: '0 4px' }}
+                >
+                  {insightsExpanded ? 'Recolher' : 'Ver análise completa'}
+                  <ChevronDown size={14} style={{ transform: insightsExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
+                </button>
+              )}
             </div>
-            {insights.length > 0 && (
-              <button
-                onClick={() => setInsightsExpanded(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5, fontWeight: 600, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0 }}
-              >
-                {insightsExpanded ? 'Recolher' : 'Ver análise completa'}
-                <ChevronDown size={14} style={{ transform: insightsExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
-              </button>
+
+            {insightsExpanded && insights.length > 0 && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #E8EDF3', display: 'flex', flexDirection: 'column', gap: 9 }}>
+                {insights.map((ins, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, lineHeight: 1.45, color: '#475569', maxWidth: 640 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: ins.type === 'ok' ? '#10B981' : '#F59E0B', flexShrink: 0, marginTop: 6 }} />
+                    <span>{ins.text}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-
-          {insightsExpanded && insights.length > 0 && (
-            <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid var(--border-lt)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {insights.map((ins, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, color: 'var(--text-2)', maxWidth: 640 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: ins.type === 'ok' ? '#10B981' : '#F59E0B', flexShrink: 0, marginTop: 6 }} />
-                  <span>{ins.text}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Evolução Geral + Destaques lado a lado ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, alignItems: 'stretch' }}>
-        <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: '24px 28px', border: '1px solid var(--border-lt)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 20, alignItems: 'stretch', marginTop: 32 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 12, paddingTop: 22, paddingLeft: 24, paddingRight: 24, paddingBottom: 36, border: '1px solid var(--border-lt)' }}>
           <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Captações × Vendas</p>
-          <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: '0 0 24px' }}>Evolução mensal desde o primeiro lead registrado</p>
-          <ResponsiveContainer width="100%" height={240}>
+          <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Evolução mensal desde o primeiro lead registrado</p>
+          <ResponsiveContainer width="100%" height={264}>
             <LineChart data={trend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.7} />
-              <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(trend.length / 12) - 1)} />
-              <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.6} vertical={false} />
+              <XAxis dataKey="mes_label" tick={{ fontSize: 11, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(trend.length / 12) - 1)} />
+              <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
                 formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']} />
-              <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 14 }} />
               <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2.25} dot={false} />
               <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2.25} dot={false} />
             </LineChart>
@@ -907,7 +913,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
 
         <div>
           {secLabel('Destaques')}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 10, height: 'calc(100% - 27px)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 14, height: 'calc(100% - 27px)' }}>
             {byReceita[0] && (
               <DestaqueCard
                 accent="#10B981" label="Maior receita" value={fmtBrl(byReceita[0].receita)}
@@ -922,7 +928,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                 onClick={() => openPerfModal(`Leads de ${topConv.operador}`, topConv.operador)}
               />
             ) : (
-              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, minHeight: 116, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 500 }}>Ninguém converteu ainda</p>
               </div>
             )}
@@ -940,7 +946,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                 onClick={() => openPerfModal(`Leads de ${atencao.operador}`, atencao.operador)}
               />
             ) : (
-              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, minHeight: 116, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 500 }}>Todos acima da média</p>
               </div>
             )}
@@ -949,20 +955,20 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
       </div>
 
       {/* ── Comparativo da Equipe: barras agrupadas por mês, cor fixa por operador ── */}
-      <div>
+      <div style={{ marginTop: 40 }}>
         {secLabel('Comparativo da equipe')}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
-          <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '24px 28px', border: '1px solid var(--border-lt)' }}>
-            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Conversão por operador</p>
-            <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: '0 0 24px' }}>% de conversão por mês — só operadores, canais ficam de fora</p>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 14, paddingTop: 20, paddingLeft: 20, paddingRight: 20, paddingBottom: 18, border: '1px solid var(--border-lt)' }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Conversão por operador</p>
+            <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-subtle)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>% de conversão por mês — só operadores, canais ficam de fora</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={convChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.7} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.5} vertical={false} />
                 <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(convChartData.length / 12) - 1)} />
                 <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} unit="%" />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => `${val}%`} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
                 {topOperadores.map((op, i) => (
                   <Bar key={op.operador} dataKey={op.operador} fill={OPERATOR_CHART_COLORS[i]} radius={[3, 3, 0, 0]} />
                 ))}
@@ -971,16 +977,16 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
             </ResponsiveContainer>
           </div>
 
-          <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '24px 28px', border: '1px solid var(--border-lt)' }}>
-            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Receita por operador</p>
-            <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: '0 0 24px' }}>Receita em R$ por mês — mesma cor por pessoa nos dois gráficos</p>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 14, paddingTop: 20, paddingLeft: 20, paddingRight: 20, paddingBottom: 18, border: '1px solid var(--border-lt)' }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Receita por operador</p>
+            <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-subtle)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Receita em R$ por mês — mesma cor por pessoa nos dois gráficos</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={recChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.7} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.5} vertical={false} />
                 <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(recChartData.length / 12) - 1)} />
                 <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => fmtBrl(val)} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
                 {topOperadores.map((op, i) => (
                   <Bar key={op.operador} dataKey={op.operador} fill={OPERATOR_CHART_COLORS[i]} radius={[3, 3, 0, 0]} />
                 ))}
@@ -992,55 +998,63 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
       </div>
 
       {/* ── Ranking de Operadores: tabela filtrável ── */}
-      <div>
+      <div style={{ marginTop: 40 }}>
         {secLabel('Ranking de operadores')}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-          <select value={tipoFilter} onChange={e => setTipoFilter(e.target.value as 'todos' | 'operador' | 'canal')} style={{ fontSize: 12, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-in, var(--border))', background: 'var(--bg-card)', color: 'var(--text-2)' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
+          <select value={tipoFilter} onChange={e => setTipoFilter(e.target.value as 'todos' | 'operador' | 'canal')} style={{ height: 34, fontSize: 12, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-lt)', background: 'var(--bg-card)', color: 'var(--text-2)', cursor: 'pointer' }}>
             <option value="todos">Tipo: Todos</option>
             <option value="operador">Só operadores</option>
             <option value="canal">Só canais</option>
           </select>
-          <div style={{ display: 'flex', border: '1px solid var(--border-in, var(--border))', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', height: 34, border: '1px solid var(--border-lt)', borderRadius: 8, overflow: 'hidden' }}>
             {([
               { key: 'todos', label: 'Todos' },
               { key: 'vendas', label: 'Só com vendas' },
               { key: 'atencao', label: 'Precisam de atenção' },
             ] as const).map((o, i) => (
-              <button key={o.key} onClick={() => setQuickFilter(o.key)} style={{
-                fontSize: 12, fontWeight: 600, padding: '7px 12px', border: 'none', cursor: 'pointer',
-                borderRight: i < 2 ? '1px solid var(--border-in, var(--border))' : 'none',
-                background: quickFilter === o.key ? '#2563EB' : 'var(--bg-card)',
-                color: quickFilter === o.key ? '#fff' : 'var(--text-muted)',
-              }}>
+              <button key={o.key} onClick={() => setQuickFilter(o.key)}
+                onMouseEnter={e => { if (quickFilter !== o.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                onMouseLeave={e => { if (quickFilter !== o.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)' }}
+                style={{
+                  fontSize: 12, fontWeight: 600, padding: '0 14px', border: 'none', cursor: 'pointer',
+                  borderRight: i < 2 ? '1px solid var(--border-lt)' : 'none',
+                  background: quickFilter === o.key ? '#2563EB' : 'var(--bg-card)',
+                  color: quickFilter === o.key ? '#fff' : 'var(--text-muted)',
+                  transition: 'background 150ms',
+                }}>
                 {o.label}
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
             {([
               { key: 'receita', label: 'Receita' },
               { key: 'captacoes', label: 'Captações' },
               { key: 'vendas', label: 'Vendas' },
               { key: 'cancelados', label: 'Cancelamentos' },
             ] as const).map(o => (
-              <button key={o.key} onClick={() => setSortBy(o.key)} style={{
-                fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 20,
-                border: `1px solid ${sortBy === o.key ? '#2563EB' : 'var(--border)'}`,
-                background: sortBy === o.key ? '#2563EB' : 'var(--bg-card)',
-                color: sortBy === o.key ? '#fff' : 'var(--text-muted)', cursor: 'pointer',
-              }}>
+              <button key={o.key} onClick={() => setSortBy(o.key)}
+                onMouseEnter={e => { if (sortBy !== o.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                onMouseLeave={e => { if (sortBy !== o.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)' }}
+                style={{
+                  height: 34, fontSize: 12, fontWeight: 600, padding: '0 14px', borderRadius: 8,
+                  border: `1px solid ${sortBy === o.key ? '#2563EB' : 'var(--border-lt)'}`,
+                  background: sortBy === o.key ? '#2563EB' : 'var(--bg-card)',
+                  color: sortBy === o.key ? '#fff' : 'var(--text-muted)', cursor: 'pointer',
+                  transition: 'background 150ms, border-color 150ms',
+                }}>
                 Por {o.label}
               </button>
             ))}
           </div>
         </div>
-        <div style={{ background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--border-lt)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-lt)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: 'var(--bg-hover)' }}>
+              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid var(--border-lt)' }}>
                 {(['Operador', 'Tipo', 'Captações', 'Cancelados', 'Taxa Cancel.', 'Vendas', 'Ticket Médio', 'Conversão'] as const).map((h, i) => (
-                  <th key={h} style={{ padding: '13px 16px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i === 0 ? 'left' : 'center', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '12px 16px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: i === 0 ? 'left' : 'center', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1049,25 +1063,26 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                 <tr key={r.operador}
                   onClick={() => openPerfModal(`Histórico de ${r.operador}`, r.operador, undefined, true)}
                   style={{
-                    borderTop: '1px solid var(--border-lt)', cursor: 'pointer',
+                    borderTop: i === 0 ? 'none' : '1px solid var(--border-lt)', cursor: 'pointer',
                     background: i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent',
+                    transition: 'background 150ms',
                   }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F0F9FF'}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent'}
                 >
-                  <td style={{ padding: '13px 16px', fontSize: 13, fontWeight: 700, color: '#2563EB' }}>{r.operador}</td>
-                  <td style={{ padding: '13px 16px', textAlign: 'center' }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: r.tipo === 'operador' ? '#2563EB' : 'var(--text-muted)', background: r.tipo === 'operador' ? '#EFF6FF' : 'var(--bg-subtle)' }}>
+                  <td style={{ padding: '15px 16px', fontSize: 13, fontWeight: 700, color: '#2563EB' }}>{r.operador}</td>
+                  <td style={{ padding: '15px 16px', textAlign: 'center' }}>
+                    <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 600, padding: '4px 8px', borderRadius: 999, color: r.tipo === 'operador' ? '#2563EB' : 'var(--text-muted)', background: r.tipo === 'operador' ? '#EFF6FF' : 'var(--bg-subtle)' }}>
                       {r.tipo === 'operador' ? 'Operador' : 'Canal'}
                     </span>
                   </td>
-                  <td style={{ padding: '13px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.captacoes}</td>
-                  <td style={{ padding: '13px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: r.cancelados > 0 ? 700 : 400, color: r.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{r.cancelados}</td>
-                  <td style={{ padding: '13px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>{r.cancel_rate}%</td>
-                  <td style={{ padding: '13px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: r.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{r.vendas}</td>
-                  <td style={{ padding: '13px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.ticket_medio > 0 ? fmtBrl(r.ticket_medio) : '—'}</td>
-                  <td style={{ padding: '13px 16px', textAlign: 'center' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 99, color: convColor(r.conversao), background: convColor(r.conversao) + '15' }}>{r.conversao}%</span>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.captacoes}</td>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: r.cancelados > 0 ? 700 : 400, color: r.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{r.cancelados}</td>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>{r.cancel_rate}%</td>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: r.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{r.vendas}</td>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.ticket_medio > 0 ? fmtBrl(r.ticket_medio) : '—'}</td>
+                  <td style={{ padding: '15px 16px', textAlign: 'center' }}>
+                    <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 999, color: convColor(r.conversao), background: convColor(r.conversao) + '15' }}>{r.conversao}%</span>
                   </td>
                 </tr>
               ))}
@@ -1075,7 +1090,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
           </table>
           </div>
           {filteredSorted.length > 3 && (
-            <div style={{ padding: '10px 16px' }}>
+            <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-lt)' }}>
               <ExpandToggle expanded={expRanking} hidden={filteredSorted.length - 3} onClick={() => setExpRanking(v => !v)} />
             </div>
           )}
@@ -1534,7 +1549,7 @@ export default function GestaoComercial() {
         <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginTop: 4 }}>Acompanhe resultados, pipeline e performance da equipe</p>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, marginBottom: 28, borderBottom: '2px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '2px solid var(--border)' }}>
         {TABS.map(tab => {
           const active = activeTab === tab
           return (
@@ -1550,7 +1565,7 @@ export default function GestaoComercial() {
       </div>
 
       {/* ── FILTRO GLOBAL ── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8, position: 'relative' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16, position: 'relative' }}>
         {(activeTab === 'Visão Geral' || activeTab === 'Pipeline' || activeTab === 'Performance') && (
           <button
             onClick={() => setShowComparison(true)}
