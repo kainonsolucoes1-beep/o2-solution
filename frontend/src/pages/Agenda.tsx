@@ -64,6 +64,7 @@ export default function Agenda() {
   const [items, setItems] = useState<AgendaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [dayPopover, setDayPopover] = useState<{ date: Date; items: AgendaItem[] } | null>(null)
+  const [viewFilter, setViewFilter] = useState<'hoje' | 'semana' | 'mes'>('mes')
 
   useEffect(() => {
     const year = cursor.getFullYear()
@@ -114,17 +115,21 @@ export default function Agenda() {
   const todayKey = dateKey(today)
   const now = Date.now()
 
+  const currentWeekKeys = useMemo(() => {
+    const w = weeks.find(week => week.some(d => d && dateKey(d) === todayKey))
+    return new Set((w ?? []).filter((d): d is Date => !!d).map(d => dateKey(d)))
+  }, [weeks, todayKey])
+
   const stats = useMemo(() => {
     let hoje = 0, semana = 0, vencidos = 0
-    const todayWeek = weeks.find(w => w.some(d => d && dateKey(d) === todayKey))
     for (const it of items) {
       const key = dateKey(new Date(parseUTC(it.scheduled_at)))
       if (key === todayKey) hoje++
-      if (todayWeek && todayWeek.some(d => d && dateKey(d) === key)) semana++
+      if (currentWeekKeys.has(key)) semana++
       if (parseUTC(it.scheduled_at) < now) vencidos++
     }
     return { hoje, semana, vencidos }
-  }, [items, weeks, todayKey, now])
+  }, [items, currentWeekKeys, todayKey, now])
 
   return (
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
@@ -158,12 +163,29 @@ export default function Agenda() {
             {MONTHS[cursor.getMonth()]} de {cursor.getFullYear()}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={() => { const d = new Date(); d.setDate(1); setCursor(d) }}
-              style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}
-            >
-              Hoje
-            </button>
+            <div style={{ display: 'flex', gap: 3, background: 'var(--bg-subtle)', padding: 3, borderRadius: 9 }}>
+              {([
+                { key: 'hoje', label: 'Hoje' },
+                { key: 'semana', label: 'Esta Semana' },
+                { key: 'mes', label: 'Este Mês' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => {
+                    setViewFilter(opt.key)
+                    if (opt.key !== 'mes') { const d = new Date(); d.setDate(1); setCursor(d) }
+                  }}
+                  style={{
+                    fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                    background: viewFilter === opt.key ? '#2563EB' : 'transparent',
+                    color: viewFilter === opt.key ? '#fff' : 'var(--text-muted)',
+                    transition: 'all 150ms',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))}
               style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
@@ -187,7 +209,12 @@ export default function Agenda() {
           weeks.map((week, wi) => (
             <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {week.map((day, di) => {
-                const dayItems = day ? (byDay[dateKey(day)] ?? []) : []
+                const dKey = day ? dateKey(day) : null
+                const matchesFilter = !dKey ? false
+                  : viewFilter === 'hoje' ? dKey === todayKey
+                  : viewFilter === 'semana' ? currentWeekKeys.has(dKey)
+                  : true
+                const dayItems = matchesFilter ? (byDay[dKey!] ?? []) : []
                 const isToday = !!day && dateKey(day) === todayKey
                 const visible = dayItems.slice(0, MAX_VISIBLE)
                 const hiddenCount = dayItems.length - visible.length
@@ -210,7 +237,7 @@ export default function Agenda() {
                           {day.getDate()}
                         </span>
                       ) : (
-                        <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', fontWeight: 500 }}>{day.getDate()}</span>
+                        <span style={{ fontSize: 11.5, color: 'var(--text-2)', fontWeight: 700 }}>{day.getDate()}</span>
                       )
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
