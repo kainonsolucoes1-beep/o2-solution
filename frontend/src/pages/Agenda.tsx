@@ -120,34 +120,12 @@ export default function Agenda() {
     return new Set((w ?? []).filter((d): d is Date => !!d).map(d => dateKey(d)))
   }, [weeks, todayKey])
 
-  const stats = useMemo(() => {
-    let hoje = 0, semana = 0, vencidos = 0
-    for (const it of items) {
-      const key = dateKey(new Date(parseUTC(it.scheduled_at)))
-      if (key === todayKey) hoje++
-      if (currentWeekKeys.has(key)) semana++
-      if (parseUTC(it.scheduled_at) < now) vencidos++
-    }
-    return { hoje, semana, vencidos }
-  }, [items, currentWeekKeys, todayKey, now])
-
   return (
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Agenda / Calendário</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Leads agendados por data</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, border: '1px solid #BFDBFE', background: '#EFF6FF', color: '#1D4ED8' }}>
-            Hoje <span style={{ fontSize: 15, fontWeight: 800 }}>{stats.hoje}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, border: '1px solid #A7F3D0', background: '#ECFDF5', color: '#059669' }}>
-            Esta semana <span style={{ fontSize: 15, fontWeight: 800 }}>{stats.semana}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, border: '1px solid #FECACA', background: '#FEF2F2', color: '#DC2626' }}>
-            Vencidos <span style={{ fontSize: 15, fontWeight: 800 }}>{stats.vencidos}</span>
-          </div>
         </div>
       </div>
 
@@ -163,28 +141,32 @@ export default function Agenda() {
             {MONTHS[cursor.getMonth()]} de {cursor.getFullYear()}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 3, background: 'var(--bg-subtle)', padding: 3, borderRadius: 9 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
               {([
-                { key: 'hoje', label: 'Hoje' },
-                { key: 'semana', label: 'Esta Semana' },
-                { key: 'mes', label: 'Este Mês' },
-              ] as const).map(opt => (
-                <button
-                  key={opt.key}
-                  onClick={() => {
-                    setViewFilter(opt.key)
-                    if (opt.key !== 'mes') { const d = new Date(); d.setDate(1); setCursor(d) }
-                  }}
-                  style={{
-                    fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                    background: viewFilter === opt.key ? '#2563EB' : 'transparent',
-                    color: viewFilter === opt.key ? '#fff' : 'var(--text-muted)',
-                    transition: 'all 150ms',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
+                { key: 'hoje',   label: 'Hoje',         bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', solid: '#2563EB' },
+                { key: 'semana', label: 'Esta Semana',  bg: '#ECFDF5', border: '#A7F3D0', text: '#059669', solid: '#059669' },
+                { key: 'mes',    label: 'Este Mês',     bg: '#FEF2F2', border: '#FECACA', text: '#DC2626', solid: '#DC2626' },
+              ] as const).map(opt => {
+                const active = viewFilter === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => {
+                      setViewFilter(opt.key)
+                      if (opt.key !== 'mes') { const d = new Date(); d.setDate(1); setCursor(d) }
+                    }}
+                    style={{
+                      fontSize: 12.5, fontWeight: 700, padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
+                      border: `1px solid ${active ? opt.solid : opt.border}`,
+                      background: active ? opt.solid : opt.bg,
+                      color: active ? '#fff' : opt.text,
+                      transition: 'all 150ms',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
             </div>
             <button
               onClick={() => setCursor(c => new Date(c.getFullYear(), c.getMonth() + 1, 1))}
