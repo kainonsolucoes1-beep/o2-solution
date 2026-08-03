@@ -229,7 +229,7 @@ function Field({ label, value, small }: { label: string; value: string; small?: 
       <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
         {label}
       </span>
-      <span style={{ fontSize: small ? 12.5 : 14, color: empty ? 'var(--text-subtle)' : 'var(--text-1)', fontWeight: empty ? 400 : 600, fontStyle: empty ? 'italic' : 'normal' }}>
+      <span style={{ fontSize: small ? 12.5 : 14, color: empty ? 'var(--text-subtle)' : 'var(--text-1)', fontWeight: empty ? 400 : 600 }}>
         {value}
       </span>
     </div>
@@ -376,7 +376,7 @@ function PlanField({ value }: { value: string | null }) {
         Plano Atual
       </span>
       {!value ? (
-        <span style={{ fontSize: 13.5, color: 'var(--text-subtle)', fontStyle: 'italic' }}>Não informado</span>
+        <span style={{ fontSize: 13.5, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Não informado</span>
       ) : semPlano ? (
         <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'rgba(220,38,38,0.12)', color: '#DC2626', padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700 }}>
           Não possui plano
@@ -1038,7 +1038,7 @@ export default function LeadDetailPage() {
                           {PERCEPTION_STYLE[lead.perception].label}
                         </span>
                       ) : (
-                        <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'italic' }}>Sem temperatura</span>
+                        <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Sem temperatura</span>
                       )}
                       <EditPencil onClick={() => setEditingPerception(true)} title="Editar temperatura" />
                     </div>
@@ -1086,7 +1086,7 @@ export default function LeadDetailPage() {
                       {activeSchedule ? (
                         <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{fmtDate(activeSchedule.scheduled_at)}</span>
                       ) : (
-                        <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'italic' }}>Nada agendado</span>
+                        <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Nada agendado</span>
                       )}
                       <EditPencil onClick={() => setEditingSchedule(true)} title={activeSchedule ? 'Reagendar' : 'Agendar'} />
                       {activeSchedule && (
@@ -1107,7 +1107,7 @@ export default function LeadDetailPage() {
                 <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
                   Responsável
                 </div>
-                <div style={{ marginTop: 8, fontSize: 13.5, fontWeight: 600, color: lead.attendant ? 'var(--text-1)' : 'var(--text-subtle)', fontStyle: lead.attendant ? 'normal' : 'italic' }}>
+                <div style={{ marginTop: 8, fontSize: 13.5, fontWeight: 600, color: lead.attendant ? 'var(--text-1)' : 'var(--text-subtle)' }}>
                   {lead.attendant ?? 'Não informado'}
                 </div>
               </div>
@@ -1232,7 +1232,7 @@ export default function LeadDetailPage() {
                           <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
                             <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{ev.by ?? 'Sistema'}</b> agendou um retorno para{' '}
                             <b style={{ color: '#2563EB', fontWeight: 700 }}>{fmtDate(ev.scheduledAt)}</b>
-                            {!ev.active && <span style={{ color: 'var(--text-subtle)', fontStyle: 'italic' }}> (substituído)</span>}
+                            {!ev.active && <span style={{ color: 'var(--text-subtle)', fontStyle: 'normal' }}> (substituído)</span>}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 5 }}>{fmtDate(ev.at)}</div>
                         </div>
