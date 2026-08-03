@@ -972,7 +972,7 @@ export default function LeadDetailPage() {
                 <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
                   Status
                 </div>
-                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ marginTop: 8 }}>
                   {editingStatus ? (
                     statusSubMenu === 'fechado' ? (
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1077,7 +1077,14 @@ export default function LeadDetailPage() {
                       <EditPencil onClick={() => { setEditingStatus(true); setStatusSubMenu(null) }} title="Editar status" />
                     </div>
                   )}
+                </div>
+              </div>
 
+              <div>
+                <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
+                  Temperatura
+                </div>
+                <div style={{ marginTop: 8 }}>
                   {editingPerception ? (
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                       {Object.keys(PERCEPTION_STYLE).map(key => {
@@ -1126,7 +1133,7 @@ export default function LeadDetailPage() {
 
               <div ref={agendaRef}>
                 <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
-                  Próximo Passo
+                  Agendar
                 </div>
                 <div style={{ marginTop: 8 }}>
                   {editingSchedule ? (
@@ -1178,15 +1185,6 @@ export default function LeadDetailPage() {
                       )}
                     </div>
                   )}
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
-                  Responsável
-                </div>
-                <div style={{ marginTop: 8, fontSize: 13.5, fontWeight: 600, color: lead.attendant ? 'var(--text-1)' : 'var(--text-subtle)' }}>
-                  {lead.attendant ?? 'Não informado'}
                 </div>
               </div>
 
