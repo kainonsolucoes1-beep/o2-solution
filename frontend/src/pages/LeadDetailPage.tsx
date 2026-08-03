@@ -863,7 +863,6 @@ export default function LeadDetailPage() {
                 <ProfileRow icon={Mail}  label="E-mail"    value={lead.email ?? 'Não informado'} empty={!lead.email} />
                 <ProfileRow icon={Phone} label="Telefone"  value={lead.phone ?? 'Não informado'} empty={!lead.phone} />
                 <ProfileRow label="Documento" value={lead.document ?? 'Não informado'} empty={!lead.document} />
-                <ProfileRow label="Atendente" value={lead.attendant ?? 'Não informado'} empty={!lead.attendant} />
                 {lead.visibility_tag && <ProfileRow label="Perfil" value={lead.visibility_tag} />}
               </div>
             )}
