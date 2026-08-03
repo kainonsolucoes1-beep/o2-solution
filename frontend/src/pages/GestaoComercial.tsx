@@ -658,10 +658,14 @@ function DestaqueCard({ accent, label, value, sub, context, onClick }: { accent:
       onMouseEnter={onClick ? e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' } : undefined}
       onMouseLeave={onClick ? e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)' } : undefined}
     >
-      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 6px' }}>{label}</p>
-      <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 11px', lineHeight: 1.1 }}>{value}</p>
-      <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</p>
-      <p style={{ fontSize: 11.5, fontWeight: 400, color: 'var(--text-muted)', margin: 0 }}>{context}</p>
+      <div>
+        <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 6px' }}>{label}</p>
+        <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1.1 }}>{value}</p>
+      </div>
+      <div style={{ marginTop: 18 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</p>
+        <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-2)', margin: 0 }}>{context}</p>
+      </div>
     </div>
   )
 }
