@@ -219,7 +219,7 @@ function KpiCard({ icon: Icon, label, value, caption, accent }: { icon: LucideIc
   return (
     <SectionCard compact>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {label}
         </div>
         <div style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -242,7 +242,7 @@ function Field({ label, value, small }: { label: string; value: string; small?: 
   const empty = value === '—' || value === 'Não informado' || value === 'Não definido'
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {label}
       </span>
       <span style={{ fontSize: small ? 12.5 : 14, color: empty ? 'var(--text-subtle)' : 'var(--text-1)', fontWeight: empty ? 400 : 600 }}>
@@ -270,7 +270,7 @@ function EditPencil({ onClick, title }: { onClick: () => void; title?: string })
 function EditInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {label}
       </span>
       <input
@@ -285,7 +285,7 @@ function EditInput({ label, value, onChange }: { label: string; value: string; o
 function SelectField({ label, value, options, onChange, saving }: { label: string; value: string; options: string[]; onChange: (v: string) => void; saving?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {label}
       </span>
       <select
@@ -304,7 +304,7 @@ function SelectField({ label, value, options, onChange, saving }: { label: strin
 function DateField({ label, value, onChange, saving }: { label: string; value: string; onChange: (v: string) => void; saving?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {label}
       </span>
       <input
@@ -338,7 +338,7 @@ function OperadorasField({ value, saving, onChange }: { value: string | null; sa
         style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
       >
         {expanded ? <ChevronDown size={12} color="var(--text-3b)" /> : <ChevronRight size={12} color="var(--text-3b)" />}
-        <span style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+        <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Operadoras Enviadas{selected.size > 0 ? ` (${selected.size})` : ''}
         </span>
       </button>
@@ -388,7 +388,7 @@ function PlanField({ value }: { value: string | null }) {
   const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Plano Atual
       </span>
       {!value ? (
@@ -937,13 +937,13 @@ export default function LeadDetailPage() {
                     </div>
                     {vendaDetails.length > 0 && (
                       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-in)' }}>
-                        <p style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65, margin: '0 0 10px' }}>
+                        <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>
                           Detalhes da venda
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                           {vendaDetails.map(([label, value]) => (
                             <div key={label} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                              <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>{label}</span>
+                              <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
                               <span style={{ textAlign: 'right', fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500 }}>{value}</span>
                             </div>
                           ))}
@@ -963,7 +963,7 @@ export default function LeadDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
 
               <div>
-                <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Status
                 </div>
                 <div style={{ marginTop: 8 }}>
@@ -1075,7 +1075,7 @@ export default function LeadDetailPage() {
               </div>
 
               <div>
-                <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Temperatura
                 </div>
                 <div style={{ marginTop: 8 }}>
@@ -1126,7 +1126,7 @@ export default function LeadDetailPage() {
               </div>
 
               <div ref={agendaRef}>
-                <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Agendar
                 </div>
                 <div style={{ marginTop: 8 }}>
