@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Tag, Activity, CalendarPlus, CalendarClock, History, StickyNote, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, MoreVertical, Trash2, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarPlus, CalendarClock, Clock3, MessageCircle, History, StickyNote, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, MoreVertical, Trash2, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -199,29 +199,25 @@ function SectionCard({ title, icon: Icon, action, compact, children }: { title?:
   )
 }
 
-function CardSubHeader({ icon: Icon, title, action }: { icon?: LucideIcon; title: string; action?: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, marginBottom: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        {Icon && <Icon size={13} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.5 }} />}
-        <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, opacity: 0.75 }}>
-          {title}
-        </p>
-      </div>
-      {action}
-    </div>
-  )
-}
-
-function KpiCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function KpiCard({ icon: Icon, label, value, caption, accent }: { icon: LucideIcon; label: string; value: string; caption?: string; accent?: boolean }) {
   return (
     <SectionCard compact>
-      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75, marginBottom: 5 }}>
-        {label}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75 }}>
+          {label}
+        </div>
+        <div style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={13} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.6 }} />
+        </div>
       </div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: accent ? '#2563EB' : 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: accent ? '#2563EB' : 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginTop: 6 }}>
         {value}
       </div>
+      {caption && (
+        <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>
+          {caption}
+        </div>
+      )}
     </SectionCard>
   )
 }
@@ -254,25 +250,6 @@ function EditPencil({ onClick, title }: { onClick: () => void; title?: string })
   )
 }
 
-function ProfileRow({ icon: Icon, label, value, empty }: { icon?: LucideIcon; label: string; value: string; empty?: boolean }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: Icon ? 12 : 0 }}>
-      {Icon && (
-        <div style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
-          <Icon size={12} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.55 }} />
-        </div>
-      )}
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: empty ? 400 : 600, color: empty ? 'var(--text-subtle)' : 'var(--text-1)', fontStyle: empty ? 'italic' : 'normal', overflowWrap: 'break-word' }}>
-          {value}
-        </div>
-        <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5, marginTop: 2 }}>
-          {label}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function EditInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
@@ -688,13 +665,15 @@ export default function LeadDetailPage() {
   const loadingActivity = loadingNotes || loadingHistory || loadingSchedules
   const lastActivityAt = activity.length > 0 ? activity[0].at : lead.created_at
   const activeSchedule = schedules.find(s => s.is_active)
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const interacoes7d = activity.filter(ev => parseUTC(ev.at) >= sevenDaysAgo).length
 
   const kpis = [
-    { label: 'Valor da Cotação', value: fmtBRL(lead.value_potential), accent: true },
-    { label: 'Tempo no Funil', value: fmtDuration(Date.now() - parseUTC(lead.created_at)) },
-    { label: 'Interações', value: String(notes.length + history.length + schedules.length) },
-    { label: 'Agendamentos', value: String(schedules.length) },
-    { label: 'Última Alteração', value: fmtRelative(lastActivityAt) },
+    { icon: Wallet, label: 'Valor da Cotação', value: fmtBRL(lead.value_potential), caption: lead.value_potential ? undefined : 'Não informado', accent: true },
+    { icon: Clock3, label: 'Tempo no Funil', value: fmtDuration(Date.now() - parseUTC(lead.created_at)), caption: 'Desde a criação' },
+    { icon: MessageCircle, label: 'Interações', value: String(interacoes7d), caption: 'Últimos 7 dias' },
+    { icon: CalendarClock, label: 'Agendamentos', value: activeSchedule ? '1' : '0', caption: 'Pendentes' },
+    { icon: History, label: 'Última Alteração', value: fmtRelative(lastActivityAt), caption: fmtDate(lastActivityAt) },
   ]
 
   const telHref = lead.phone ? `tel:${lead.phone.replace(/\D/g, '')}` : null
@@ -826,27 +805,26 @@ export default function LeadDetailPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" style={{ marginBottom: 20 }}>
-        {kpis.map(k => <KpiCard key={k.label} label={k.label} value={k.value} accent={k.accent} />)}
+        {kpis.map(k => <KpiCard key={k.label} icon={k.icon} label={k.label} value={k.value} caption={k.caption} accent={k.accent} />)}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
         <div className="flex flex-col gap-5">
 
-          <SectionCard>
-            <CardSubHeader icon={User} title="Perfil" action={
-              editingInfo ? (
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setEditingInfo(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                    Cancelar
-                  </button>
-                  <button onClick={handleSaveInfo} disabled={savingInfo} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingInfo ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                    {savingInfo ? 'Salvando…' : 'Salvar'}
-                  </button>
-                </div>
-              ) : (
-                <EditPencil onClick={startEditInfo} title="Editar perfil" />
-              )
-            } />
+          <SectionCard title="Perfil" icon={User} action={
+            editingInfo ? (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setEditingInfo(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button onClick={handleSaveInfo} disabled={savingInfo} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingInfo ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                  {savingInfo ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            ) : (
+              <EditPencil onClick={startEditInfo} title="Editar perfil" />
+            )
+          }>
             {editingInfo ? (
               <div className="flex flex-col gap-4">
                 <EditInput label="Nome"      value={infoDraft.name}      onChange={v => setInfoDraft(d => ({ ...d, name: v }))} />
@@ -859,30 +837,29 @@ export default function LeadDetailPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                <ProfileRow label="Empresa"   value={lead.company ?? 'Não informado'} empty={!lead.company} />
-                <ProfileRow icon={Mail}  label="E-mail"    value={lead.email ?? 'Não informado'} empty={!lead.email} />
-                <ProfileRow icon={Phone} label="Telefone"  value={lead.phone ?? 'Não informado'} empty={!lead.phone} />
-                <ProfileRow label="Documento" value={lead.document ?? 'Não informado'} empty={!lead.document} />
-                {lead.visibility_tag && <ProfileRow label="Perfil" value={lead.visibility_tag} />}
+                <Field label="Empresa"   value={lead.company ?? 'Não informado'} />
+                <Field label="E-mail"    value={lead.email ?? 'Não informado'} small />
+                <Field label="Telefone"  value={lead.phone ?? 'Não informado'} />
+                <Field label="Documento" value={lead.document ?? 'Não informado'} />
+                {lead.visibility_tag && <Field label="Perfil" value={lead.visibility_tag} />}
               </div>
             )}
+          </SectionCard>
 
-            <div style={{ margin: '20px 0 16px', borderTop: '1px solid var(--border-lt)' }} />
-
-            <CardSubHeader icon={Tag} title="Detalhes do Lead" action={
-              editingDetalhes ? (
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setEditingDetalhes(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                    Cancelar
-                  </button>
-                  <button onClick={handleSaveDetalhes} disabled={savingDetalhes} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingDetalhes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                    {savingDetalhes ? 'Salvando…' : 'Salvar'}
-                  </button>
-                </div>
-              ) : (
-                <EditPencil onClick={startEditDetalhes} title="Editar detalhes" />
-              )
-            } />
+          <SectionCard title="Detalhes do Lead" icon={Tag} action={
+            editingDetalhes ? (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setEditingDetalhes(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button onClick={handleSaveDetalhes} disabled={savingDetalhes} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingDetalhes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                  {savingDetalhes ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            ) : (
+              <EditPencil onClick={startEditDetalhes} title="Editar detalhes" />
+            )
+          }>
             <div className="flex flex-col gap-4">
               <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
               <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={modalidades} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
