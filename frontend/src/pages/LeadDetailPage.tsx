@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Tag, Activity, CalendarPlus, CalendarClock, Clock3, MessageCircle, History, StickyNote, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, MoreVertical, Trash2, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, User, Tag, Activity, CalendarClock, Clock3, MessageCircle, History, StickyNote, Pencil, Phone, Mail, Wallet, ChevronDown, ChevronRight, MoreVertical, Trash2, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -759,12 +759,6 @@ export default function LeadDetailPage() {
           <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
             <Mail size={15} /> E-mail
           </a>
-          <button
-            onClick={() => agendaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-            style={{ ...actionBtnStyle(true), background: '#2563EB', borderColor: '#2563EB', color: '#fff', boxShadow: '0 2px 8px rgba(37,99,235,0.3)' }}
-          >
-            <CalendarPlus size={15} /> Agendar
-          </button>
           {isAdmin && (
             <div style={{ position: 'relative' }}>
               <button
