@@ -683,6 +683,7 @@ export default function LeadDetailPage() {
   const loadingActivity = loadingNotes || loadingHistory || loadingSchedules
   const lastActivityAt = activity.length > 0 ? activity[0].at : lead.created_at
   const activeSchedule = schedules.find(s => s.is_active)
+  const acaoRapidaEditing = editingStatus || editingPerception || editingSchedule
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const interacoes7d = activity.filter(ev => parseUTC(ev.at) >= sevenDaysAgo).length
 
@@ -959,7 +960,18 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Ação Rápida" icon={Activity}>
+          <SectionCard title="Ação Rápida" icon={Activity} action={
+            <EditPencil
+              onClick={() => {
+                const next = !acaoRapidaEditing
+                setEditingStatus(next)
+                setEditingPerception(next)
+                setEditingSchedule(next)
+                if (next) setStatusSubMenu(null)
+              }}
+              title={acaoRapidaEditing ? 'Concluir edição' : 'Editar'}
+            />
+          }>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
 
               <div>
@@ -1068,7 +1080,6 @@ export default function LeadDetailPage() {
                           {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
                         </span>
                       )}
-                      <EditPencil onClick={() => { setEditingStatus(true); setStatusSubMenu(null) }} title="Editar status" />
                     </div>
                   )}
                 </div>
@@ -1119,7 +1130,6 @@ export default function LeadDetailPage() {
                       ) : (
                         <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Sem temperatura</span>
                       )}
-                      <EditPencil onClick={() => setEditingPerception(true)} title="Editar temperatura" />
                     </div>
                   )}
                 </div>
@@ -1167,7 +1177,6 @@ export default function LeadDetailPage() {
                       ) : (
                         <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Nada agendado</span>
                       )}
-                      <EditPencil onClick={() => setEditingSchedule(true)} title={activeSchedule ? 'Reagendar' : 'Agendar'} />
                       {activeSchedule && (
                         <button
                           onClick={handleCancelSchedule}
