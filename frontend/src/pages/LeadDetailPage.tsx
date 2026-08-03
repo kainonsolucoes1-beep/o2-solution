@@ -883,20 +883,16 @@ export default function LeadDetailPage() {
                 <PlanField value={lead.current_plan} />
               )}
               <OperadorasField value={lead.operadoras_enviadas} saving={savingOperadoras} onChange={v => handleQuickUpdate('operadoras_enviadas', v)} />
-              {editingDetalhes ? (
+              {editingDetalhes && (
                 <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => setDetalhesDraft(d => ({ ...d, value_potential: v }))} />
-              ) : (
-                <Field label="Valor da Cotação" value={lead.value_potential ? fmtBRL(lead.value_potential) : 'Não informado'} />
               )}
-              {isAdmin ? (
+              {editingDetalhes && isAdmin && (
                 <DateField
                   label="Data de Criação"
                   value={lead.created_at.slice(0, 10)}
                   saving={savingCreatedAt}
                   onChange={handleUpdateCreatedAt}
                 />
-              ) : (
-                <Field label="Data de Criação" value={fmtDate(lead.created_at)} />
               )}
             </div>
           </SectionCard>
