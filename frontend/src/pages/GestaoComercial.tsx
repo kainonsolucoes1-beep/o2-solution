@@ -649,20 +649,20 @@ function DestaqueCard({ accent, label, value, sub, context, onClick }: { accent:
     <div
       onClick={onClick}
       style={{
-        background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px', minHeight: 116,
+        background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px', minHeight: 140,
         border: '1px solid var(--border-lt)', borderLeft: `2px solid ${accent}`,
         cursor: onClick ? 'pointer' : 'default',
-        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
         transition: 'background 150ms',
       }}
       onMouseEnter={onClick ? e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' } : undefined}
       onMouseLeave={onClick ? e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)' } : undefined}
     >
-      <div>
+      <div style={{ height: 48 }}>
         <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 6px' }}>{label}</p>
         <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1.1 }}>{value}</p>
       </div>
-      <div style={{ marginTop: 18 }}>
+      <div style={{ minHeight: 34 }}>
         <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</p>
         <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-2)', margin: 0 }}>{context}</p>
       </div>
@@ -931,7 +931,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                 onClick={() => openPerfModal(`Leads de ${topConv.operador}`, topConv.operador)}
               />
             ) : (
-              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, minHeight: 116, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, minHeight: 140, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 500 }}>Ninguém converteu ainda</p>
               </div>
             )}
@@ -949,7 +949,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                 onClick={() => openPerfModal(`Leads de ${atencao.operador}`, atencao.operador)}
               />
             ) : (
-              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, minHeight: 116, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, minHeight: 140, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 500 }}>Todos acima da média</p>
               </div>
             )}
