@@ -88,6 +88,7 @@ class BulkDeleteResponse(BaseModel):
 
 class StatusUpdateRequest(BaseModel):
     status: str
+    lost_reason: Optional[str] = None
 
 
 class StatusUpdateResponse(BaseModel):

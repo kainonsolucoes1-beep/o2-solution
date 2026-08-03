@@ -91,6 +91,22 @@ const STATUS_OPTIONS = [
   { value: 'proposta',    label: 'Proposta' },
   { value: 'fechado',     label: 'Fechado' },
   { value: 'convertido',  label: 'Convertido' },
+  { value: 'sale_not_performed', label: 'Perdido' },
+]
+
+const CLOSED_SUB_OPTIONS = [
+  { value: 'waiting_billing', label: 'Aguardando Faturamento' },
+  { value: 'sale_performed',  label: 'Venda Realizada' },
+]
+
+const LOST_REASONS = [
+  'Cliente não retornou contato',
+  'Dados incorretos',
+  'Finalizado automaticamente',
+  'Preço',
+  'Sem interesse',
+  'Sem perfil',
+  'Sem retorno',
 ]
 
 // mesmas cores usadas nos cards do funil (Pipeline.tsx)
@@ -398,6 +414,7 @@ export default function LeadDetailPage() {
   const [me, setMe]                       = useState<Me | null>(null)
   const [status, setStatus]               = useState('novo')
   const [editingStatus, setEditingStatus] = useState(false)
+  const [statusSubMenu, setStatusSubMenu] = useState<'fechado' | 'perdido' | null>(null)
   const [savingStatus, setSavingStatus]   = useState(false)
   const [notes, setNotes]                 = useState<Note[]>([])
   const [loadingNotes, setLoadingNotes]   = useState(true)
@@ -470,13 +487,14 @@ export default function LeadDetailPage() {
     return () => clearInterval(t)
   }, [])
 
-  function handleStatusChange(newStatus: string) {
+  function handleStatusChange(newStatus: string, lostReason?: string) {
     if (!id) return
     setSavingStatus(true)
-    api.post(`/api/v1/leads/${id}/status`, { status: newStatus })
+    api.post(`/api/v1/leads/${id}/status`, { status: newStatus, ...(lostReason ? { lost_reason: lostReason } : {}) })
       .then(() => {
         setStatus(newStatus)
         setEditingStatus(false)
+        setStatusSubMenu(null)
         setToast({ msg: 'Status atualizado com sucesso', ok: true })
         return api.get<{ history: StatusHistoryItem[] }>(`/api/v1/leads/${id}/status-history`)
       })
@@ -954,38 +972,98 @@ export default function LeadDetailPage() {
                 <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.5 }}>
                   Status
                 </div>
-                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {editingStatus ? (
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {STATUS_OPTIONS.map(opt => {
-                        const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
-                        const active = status === opt.value
-                        return (
-                          <button
-                            key={opt.value}
-                            disabled={savingStatus}
-                            onClick={() => handleStatusChange(opt.value)}
-                            style={{
-                              background: active ? s.color : s.bg,
-                              color: active ? 'white' : s.color,
-                              border: `1.5px solid ${s.color}`,
-                              padding: '4px 14px', borderRadius: 99,
-                              fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
-                              opacity: savingStatus ? 0.6 : 1,
-                              transition: 'all 150ms', textTransform: 'capitalize',
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        )
-                      })}
-                      <button
-                        onClick={() => setEditingStatus(false)}
-                        style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
+                    statusSubMenu === 'fechado' ? (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {CLOSED_SUB_OPTIONS.map(opt => {
+                          const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
+                          return (
+                            <button
+                              key={opt.value}
+                              disabled={savingStatus}
+                              onClick={() => handleStatusChange(opt.value)}
+                              style={{
+                                background: s.bg, color: s.color, border: `1.5px solid ${s.color}`,
+                                padding: '4px 14px', borderRadius: 99,
+                                fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
+                                opacity: savingStatus ? 0.6 : 1, transition: 'all 150ms',
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          )
+                        })}
+                        <button
+                          onClick={() => setStatusSubMenu(null)}
+                          style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                        >
+                          Voltar
+                        </button>
+                      </div>
+                    ) : statusSubMenu === 'perdido' ? (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {LOST_REASONS.map(reason => {
+                          const s = STATUS_STYLE.sale_not_performed
+                          return (
+                            <button
+                              key={reason}
+                              disabled={savingStatus}
+                              onClick={() => handleStatusChange('sale_not_performed', reason)}
+                              style={{
+                                background: s.bg, color: s.color, border: `1.5px solid ${s.color}`,
+                                padding: '4px 14px', borderRadius: 99,
+                                fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
+                                opacity: savingStatus ? 0.6 : 1, transition: 'all 150ms',
+                              }}
+                            >
+                              {reason}
+                            </button>
+                          )
+                        })}
+                        <button
+                          onClick={() => setStatusSubMenu(null)}
+                          style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                        >
+                          Voltar
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {STATUS_OPTIONS.map(opt => {
+                          const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
+                          const active = status === opt.value
+                          return (
+                            <button
+                              key={opt.value}
+                              disabled={savingStatus}
+                              onClick={() => {
+                                if (opt.value === 'fechado') { setStatusSubMenu('fechado'); return }
+                                if (opt.value === 'sale_not_performed') { setStatusSubMenu('perdido'); return }
+                                handleStatusChange(opt.value)
+                              }}
+                              style={{
+                                background: active ? s.color : s.bg,
+                                color: active ? 'white' : s.color,
+                                border: `1.5px solid ${s.color}`,
+                                padding: '4px 14px', borderRadius: 99,
+                                fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
+                                opacity: savingStatus ? 0.6 : 1,
+                                transition: 'all 150ms', textTransform: 'capitalize',
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          )
+                        })}
+                        <button
+                          onClick={() => setEditingStatus(false)}
+                          style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    )
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ background: sStyle.bg, color: sStyle.color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
@@ -996,7 +1074,7 @@ export default function LeadDetailPage() {
                           {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
                         </span>
                       )}
-                      <EditPencil onClick={() => setEditingStatus(true)} title="Editar status" />
+                      <EditPencil onClick={() => { setEditingStatus(true); setStatusSubMenu(null) }} title="Editar status" />
                     </div>
                   )}
 

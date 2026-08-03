@@ -450,6 +450,8 @@ def update_lead_status(
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     prev_status = lead.status
     lead.status = body.status
+    if body.lost_reason is not None:
+        lead.lost_reason = body.lost_reason.strip() or None
     lead.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     history = LeadStatusHistory(
         lead_id=lead.id,
