@@ -661,6 +661,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
   const [loadingLifetime, setLoadingLifetime] = useState(true)
   const [sortBy, setSortBy]         = useState<'receita' | 'captacoes' | 'vendas' | 'cancelados'>('receita')
   const [expRanking, setExpRanking] = useState(false)
+  const [expLeaderboard, setExpLeaderboard] = useState(false)
   const [insightsExpanded, setInsightsExpanded] = useState(true)
   const [tipoFilter, setTipoFilter]     = useState<'todos' | 'operador' | 'canal'>('todos')
   const [quickFilter, setQuickFilter]   = useState<'todos' | 'vendas' | 'atencao'>('todos')
@@ -931,7 +932,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
           </div>
 
           <div>
-            {byReceita.map((row, idx) => {
+            {(expLeaderboard ? byReceita : byReceita.slice(0, 3)).map((row, idx, visible) => {
               const barWidth = byReceita[0].receita > 0 ? Math.round(row.receita / byReceita[0].receita * 100) : 0
               return (
                 <div key={row.operador}
@@ -942,7 +943,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                   className="grid grid-cols-1 md:grid-cols-[minmax(0,1.15fr)_minmax(140px,1fr)_minmax(160px,1fr)] items-center"
                   style={{
                     gap: 14, padding: '14px 18px', cursor: 'pointer',
-                    borderBottom: idx < byReceita.length - 1 ? '1px solid #E7EBEF' : 'none',
+                    borderBottom: idx < visible.length - 1 ? '1px solid #E7EBEF' : 'none',
                     background: 'transparent',
                     transition: 'background 150ms',
                   }}
@@ -983,6 +984,11 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
               )
             })}
           </div>
+          {byReceita.length > 3 && (
+            <div style={{ padding: '10px 16px', borderTop: '1px solid #E7EBEF' }}>
+              <ExpandToggle expanded={expLeaderboard} hidden={byReceita.length - 3} onClick={() => setExpLeaderboard(v => !v)} />
+            </div>
+          )}
         </div>
       </div>
 
