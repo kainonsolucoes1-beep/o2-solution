@@ -1,7 +1,7 @@
 export default function DateField({ label, value, onChange, saving }: { label: string; value: string; onChange: (v: string) => void; saving?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.035em' }}>
         {label}
       </span>
       <input

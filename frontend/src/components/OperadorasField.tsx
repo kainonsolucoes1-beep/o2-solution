@@ -21,7 +21,7 @@ export default function OperadorasField({ value, saving, onChange }: { value: st
         style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
       >
         {expanded ? <ChevronDown size={12} color="var(--text-3b)" /> : <ChevronRight size={12} color="var(--text-3b)" />}
-        <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.035em' }}>
           Operadoras Enviadas{selected.size > 0 ? ` (${selected.size})` : ''}
         </span>
       </button>

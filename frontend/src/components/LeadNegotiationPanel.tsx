@@ -57,7 +57,7 @@ export default function LeadNegotiationPanel({
       <div className="flex flex-col gap-4">
         {perceptionLabel && perceptionStyle ? (
           <div className="flex flex-col gap-1">
-            <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Temperatura</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.035em' }}>Temperatura</span>
             <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: perceptionStyle.bg, color: perceptionStyle.color, padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700 }}>
               {perceptionLabel}
             </span>
