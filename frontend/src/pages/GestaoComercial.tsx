@@ -602,25 +602,6 @@ function mergeO2Operadores(rows: OperadorPerf[]): OperadorPerf[] {
   }))
 }
 
-// mesmo merge de O2 acima, aplicado a tendencia mensal por operador (pro grafico comparativo)
-function mergeO2Trend(byOp: Record<string, MensalItem[]>): Record<string, MensalItem[]> {
-  const result: Record<string, MensalItem[]> = {}
-  for (const [op, trend] of Object.entries(byOp)) {
-    const key = O2_PERF_NAMES.has(op.toLowerCase()) ? 'o2 Solution' : op
-    const acc = result[key]
-    if (acc) {
-      trend.forEach((m, i) => {
-        acc[i].captacoes += m.captacoes
-        acc[i].vendas    += m.vendas
-        acc[i].receita   += m.receita
-      })
-    } else {
-      result[key] = trend.map(m => ({ ...m }))
-    }
-  }
-  return result
-}
-
 const ExpandToggle = ({ expanded, hidden, onClick }: { expanded: boolean; hidden: number; onClick: () => void }) => (
   <button
     onClick={onClick}
@@ -677,7 +658,6 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
   const navigate = useNavigate()
   const [lifetimeData, setLifetimeData] = useState<OperadorPerf[]>([])
   const [trend, setTrend]           = useState<MensalItem[]>([])
-  const [trendPorOperador, setTrendPorOperador] = useState<Record<string, MensalItem[]>>({})
   const [loadingLifetime, setLoadingLifetime] = useState(true)
   const [sortBy, setSortBy]         = useState<'receita' | 'captacoes' | 'vendas' | 'cancelados'>('receita')
   const [expRanking, setExpRanking] = useState(false)
@@ -737,9 +717,8 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
       .then(r => {
         setLifetimeData(mergeO2Operadores(r.data.operadores))
         setTrend(r.data.trend)
-        setTrendPorOperador(mergeO2Trend(r.data.trend_por_operador))
       })
-      .catch(() => { setLifetimeData([]); setTrend([]); setTrendPorOperador({}) })
+      .catch(() => { setLifetimeData([]); setTrend([]) })
       .finally(() => setLoadingLifetime(false))
   }, [dateFrom, dateTo, teamParam])
 
@@ -767,41 +746,6 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
     if (quickFilter === 'atencao') rows = rows.filter(r => r.captacoes >= 3 && r.conversao < avgConv)
     return rows
   }, [sorted, tipoFilter, quickFilter, avgConv])
-
-  // ── comparativo por operador (barras agrupadas por mês) — só "operador", canais ficam de fora ──
-  const OPERATOR_CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6']
-  const operadorRows    = useMemo(() => data.filter(r => r.tipo === 'operador'), [data])
-  const topOperadores   = useMemo(() => [...operadorRows].sort((a, b) => b.receita - a.receita).slice(0, 4), [operadorRows])
-  const outrosOperadores = useMemo(
-    () => operadorRows.filter(r => !topOperadores.some(t => t.operador === r.operador)),
-    [operadorRows, topOperadores],
-  )
-  const hasOutros = outrosOperadores.length > 0
-
-  const convChartData = useMemo(() => trend.map((m, i) => {
-    const row: Record<string, string | number> = { mes_label: m.mes_label }
-    topOperadores.forEach(op => {
-      const s = trendPorOperador[op.operador]?.[i]
-      row[op.operador] = s && s.captacoes > 0 ? +(s.vendas / s.captacoes * 100).toFixed(1) : 0
-    })
-    if (hasOutros) {
-      let cap = 0, ven = 0
-      outrosOperadores.forEach(op => { const s = trendPorOperador[op.operador]?.[i]; cap += s?.captacoes ?? 0; ven += s?.vendas ?? 0 })
-      row.Outros = cap > 0 ? +(ven / cap * 100).toFixed(1) : 0
-    }
-    return row
-  }), [trend, trendPorOperador, topOperadores, outrosOperadores, hasOutros])
-
-  const recChartData = useMemo(() => trend.map((m, i) => {
-    const row: Record<string, string | number> = { mes_label: m.mes_label }
-    topOperadores.forEach(op => { row[op.operador] = trendPorOperador[op.operador]?.[i]?.receita ?? 0 })
-    if (hasOutros) {
-      let rec = 0
-      outrosOperadores.forEach(op => { rec += trendPorOperador[op.operador]?.[i]?.receita ?? 0 })
-      row.Outros = rec
-    }
-    return row
-  }), [trend, trendPorOperador, topOperadores, outrosOperadores, hasOutros])
 
   // ── insights ──────────────────────────────────────────────────────────
   const insights = useMemo(() => {
@@ -971,45 +915,73 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
         </div>
       </div>
 
-      {/* ── Comparativo da Equipe: barras agrupadas por mês, cor fixa por operador ── */}
+      {/* ── Comparativo da Equipe: leaderboard editorial, uma barra por operador/canal ── */}
       <div style={{ marginTop: 20 }}>
-        {secLabel('Comparativo da equipe')}
-        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 16 }}>
-
-          <div style={{ background: 'var(--bg-card)', borderRadius: 9, paddingTop: 17, paddingLeft: 17, paddingRight: 17, paddingBottom: 17, border: '1px solid #DFE4E9' }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Conversão por operador</p>
-            <p title="% de conversão por mês — só operadores, canais ficam de fora" style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>% de conversão por mês — só operadores, canais ficam de fora</p>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={convChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="4 4" stroke="#E9EDF1" vertical={false} />
-                <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#64748B' }} interval={Math.max(0, Math.ceil(convChartData.length / 12) - 1)} />
-                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} unit="%" />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => `${val}%`} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
-                {topOperadores.map((op, i) => (
-                  <Bar key={op.operador} dataKey={op.operador} fill={OPERATOR_CHART_COLORS[i]} radius={[3, 3, 0, 0]} />
-                ))}
-                {hasOutros && <Bar dataKey="Outros" fill="#9CA3AF" radius={[3, 3, 0, 0]} />}
-              </BarChart>
-            </ResponsiveContainer>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid #DFE4E9', borderRadius: 9, overflow: 'hidden' }}>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between" style={{ gap: 10, padding: '14px 18px', borderBottom: '1px solid #E7EBEF' }}>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 650, color: 'var(--text-1)', margin: '0 0 3px' }}>Quem performou melhor no período?</p>
+              <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Comparação consolidada entre receita, conversão e posição relativa à média da equipe</p>
+              <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '4px 0 0' }}>Barras proporcionais à maior receita do período.</p>
+            </div>
+            <div style={{ flexShrink: 0 }}>
+              <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Referência</span>
+              <b style={{ fontSize: 12, fontWeight: 650, color: 'var(--text-2)' }}>Média da equipe: {avgConv}% de conversão</b>
+            </div>
           </div>
 
-          <div style={{ background: 'var(--bg-card)', borderRadius: 9, paddingTop: 17, paddingLeft: 17, paddingRight: 17, paddingBottom: 17, border: '1px solid #DFE4E9' }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Receita por operador</p>
-            <p title="Receita em R$ por mês — mesma cor por pessoa nos dois gráficos" style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Receita em R$ por mês — mesma cor por pessoa nos dois gráficos</p>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={recChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="4 4" stroke="#E9EDF1" vertical={false} />
-                <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#64748B' }} interval={Math.max(0, Math.ceil(recChartData.length / 12) - 1)} />
-                <YAxis tick={{ fontSize: 10, fill: '#64748B' }} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => fmtBrl(val)} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
-                {topOperadores.map((op, i) => (
-                  <Bar key={op.operador} dataKey={op.operador} fill={OPERATOR_CHART_COLORS[i]} radius={[3, 3, 0, 0]} />
-                ))}
-                {hasOutros && <Bar dataKey="Outros" fill="#9CA3AF" radius={[3, 3, 0, 0]} />}
-              </BarChart>
-            </ResponsiveContainer>
+          <div>
+            {byReceita.map((row, idx) => {
+              const barWidth = byReceita[0].receita > 0 ? Math.round(row.receita / byReceita[0].receita * 100) : 0
+              return (
+                <div key={row.operador}
+                  onClick={() => openPerfModal(`Histórico de ${row.operador}`, row.operador, undefined, true)}
+                  tabIndex={0}
+                  role="button"
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPerfModal(`Histórico de ${row.operador}`, row.operador, undefined, true) } }}
+                  className="grid grid-cols-1 md:grid-cols-[minmax(0,1.15fr)_minmax(140px,1fr)_minmax(160px,1fr)] items-center"
+                  style={{
+                    gap: 14, padding: '14px 18px', cursor: 'pointer',
+                    borderBottom: idx < byReceita.length - 1 ? '1px solid #E7EBEF' : 'none',
+                    background: 'transparent',
+                    transition: 'background 150ms',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                >
+                  <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <span style={{
+                      width: 24, height: 24, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 6,
+                      fontSize: 10, fontWeight: 750, border: '1px solid #E5E9ED',
+                      color: '#687684', background: '#F1F3F5',
+                    }}>{idx + 1}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <b style={{ display: 'block', overflow: 'hidden', color: 'var(--text-1)', fontSize: 13, fontWeight: 680, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.operador}</b>
+                      <span style={{ display: 'inline-block', marginTop: 3, fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4, color: row.tipo === 'operador' ? '#2563EB' : 'var(--text-muted)', background: row.tipo === 'operador' ? '#EFF6FF' : 'var(--bg-subtle)' }}>
+                        {row.tipo === 'operador' ? 'Operador' : 'Canal'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ minWidth: 0 }} aria-label={`Apoio visual normalizado para ${row.operador}; não representa uma métrica adicional`}>
+                    <div style={{ height: 9, background: '#EDF0F3', borderRadius: 5, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${barWidth}%`, background: '#10B981', opacity: 0.84, borderRadius: 5 }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '74px 1fr', gap: 14 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: '0 0 3px', color: '#8995A1', fontSize: 9, fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Conversão</p>
+                      <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{row.conversao}%</p>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: '0 0 3px', color: '#8995A1', fontSize: 9, fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Receita</p>
+                      <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtBrl(row.receita)}</p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
