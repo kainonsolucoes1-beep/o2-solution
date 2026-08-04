@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   LineChart, Line, BarChart, Bar, Cell,
@@ -652,8 +652,8 @@ function DestaqueCard({ accent, label, value, sub, context, onClick }: { accent:
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
       style={{
-        background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px', minHeight: 140,
-        border: '1px solid var(--border-lt)', borderLeft: `2px solid ${accent}`,
+        background: 'var(--bg-card)', borderRadius: 9, padding: '16px 18px', minHeight: 140,
+        border: '1px solid #DFE4E9', borderLeft: `2px solid ${accent}`,
         cursor: onClick ? 'pointer' : 'default',
         display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
         transition: 'background 150ms',
@@ -665,7 +665,7 @@ function DestaqueCard({ accent, label, value, sub, context, onClick }: { accent:
         <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 6px' }}>{label}</p>
         <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1.1 }}>{value}</p>
       </div>
-      <div style={{ minHeight: 34 }}>
+      <div style={{ minHeight: 34, marginTop: 8, paddingTop: 9, borderTop: '1px solid #EEF2F6' }}>
         <p title={sub} style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</p>
         <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-2)', margin: 0 }}>{context}</p>
       </div>
@@ -831,8 +831,8 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
     return list
   }, [data, byVendas, atencao, avgConv, avgTicket, byConv, totalVendas, melhorMesReceita, melhorMesVendas])
 
-  const secLabel = (txt: string) => (
-    <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 16px' }}>{txt}</p>
+  const secLabel = (txt: string, compact?: boolean) => (
+    <p style={{ fontSize: compact ? 14 : 15, fontWeight: compact ? 650 : 600, color: 'var(--text-1)', margin: '0 0 16px' }}>{txt}</p>
   )
 
   if (loading) return <p style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
@@ -845,23 +845,38 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
     <>
     <div style={{ display: 'flex', flexDirection: 'column' }}>
 
-      {/* ── Resumo do período (insights compactos, com detalhe expansível) ── */}
+      {/* ── Resumo do período (faixa única, com detalhe expansível) ── */}
       {(insights.length > 0 || totalCap > 0) && (() => {
         const indicadores = [
-          numOportunidades > 0 ? { color: '#10B981', value: String(numOportunidades), label: `Oportunidade${numOportunidades !== 1 ? 's' : ''}` } : null,
-          numAtencao > 0 ? { color: '#F59E0B', value: String(numAtencao), label: 'Pontos de atenção' } : null,
-          totalCap > 0 ? { color: '#3B82F6', value: `${avgConv}%`, label: 'Conversão média' } : null,
-        ].filter((v): v is { color: string; value: string; label: string } => v !== null)
+          numOportunidades > 0 ? { value: numOportunidades, label: `oportunidade${numOportunidades !== 1 ? 's' : ''}` } : null,
+          numAtencao > 0 ? { value: numAtencao, label: `ponto${numAtencao !== 1 ? 's' : ''} de atenção` } : null,
+          totalCap > 0 ? { value: `${avgConv}%`, label: 'conversão média' } : null,
+        ].filter((v): v is NonNullable<typeof v> => v !== null)
 
         return (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-lt)', borderRadius: 12, padding: '18px 28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Resumo do período</p>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid #DFE4E9', borderRadius: 9, padding: '12px 16px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] items-center" style={{ gap: 22 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2563EB', flexShrink: 0 }} />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 650, color: 'var(--text-1)', margin: 0 }}>Resumo do período</p>
+                  <p style={{ fontSize: 10, color: 'var(--text-subtle)', margin: '3px 0 0' }}>Leitura automática dos principais movimentos</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 22, flexWrap: 'wrap' }}>
+                {indicadores.map((ind, i) => (
+                  <span key={i} style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    <b style={{ color: 'var(--text-1)' }}>{ind.value}</b> {ind.label}
+                  </span>
+                ))}
+              </div>
+
               {insights.length > 0 && (
                 <button
                   onClick={() => setInsightsExpanded(v => !v)}
                   aria-expanded={insightsExpanded}
-                  style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 500, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, minHeight: 32, padding: '0 4px' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, minHeight: 32, padding: '0 4px', justifySelf: 'end' }}
                 >
                   {insightsExpanded ? 'Recolher' : 'Ver análise completa'}
                   <ChevronDown size={12} style={{ transform: insightsExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
@@ -869,23 +884,8 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
               )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
-              {indicadores.map((ind, i) => (
-                <Fragment key={i}>
-                  {i > 0 && <div style={{ width: 1, height: 30, background: 'var(--border-lt)', margin: '0 24px' }} />}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: ind.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 19, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{ind.value}</span>
-                    </div>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{ind.label}</span>
-                  </div>
-                </Fragment>
-              ))}
-            </div>
-
             {insightsExpanded && insights.length > 0 && (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #E8EDF3', display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #E8EDF3', display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {insights.map((ins, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, lineHeight: 1.45, color: '#475569', maxWidth: 640 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: ins.type === 'ok' ? '#10B981' : '#F59E0B', flexShrink: 0, marginTop: 6 }} />
@@ -899,18 +899,29 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
       })()}
 
       {/* ── Evolução Geral + Destaques lado a lado ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.53fr_1fr]" style={{ gap: 20, alignItems: 'stretch', marginTop: 32 }}>
-        <div style={{ background: 'var(--bg-card)', borderRadius: 12, paddingTop: 20, paddingLeft: 24, paddingRight: 24, paddingBottom: 24, border: '1px solid var(--border-lt)' }}>
-          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Captações × Vendas</p>
-          <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: '0 0 12px' }}>Evolução mensal desde o primeiro lead registrado</p>
+      <div className="grid grid-cols-1 lg:grid-cols-[1.53fr_1fr]" style={{ gap: 20, alignItems: 'stretch', marginTop: 20 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 9, paddingTop: 17, paddingLeft: 17, paddingRight: 17, paddingBottom: 20, border: '1px solid #DFE4E9' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 650, color: 'var(--text-1)', margin: '0 0 3px' }}>Captações × Vendas</p>
+              <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: 0 }}>Evolução mensal desde o primeiro lead registrado</p>
+            </div>
+            <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} /> Captações
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981', flexShrink: 0 }} /> Vendas
+              </span>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={trend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.6} vertical={false} />
+              <CartesianGrid strokeDasharray="4 4" stroke="#E9EDF1" vertical={false} />
               <XAxis dataKey="mes_label" tick={{ fontSize: 11, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(trend.length / 12) - 1)} />
               <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
                 formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']} />
-              <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
               <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2.25} dot={false} />
               <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2.25} dot={false} />
             </LineChart>
@@ -918,8 +929,8 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
         </div>
 
         <div style={{ paddingTop: 20 }}>
-          {secLabel('Destaques')}
-          <div className="grid grid-cols-2 grid-rows-2 lg:h-[calc(100%-47px)]" style={{ gap: 14 }}>
+          {secLabel('Destaques', true)}
+          <div className="grid grid-cols-2 grid-rows-2 gap-x-2 gap-y-1.5 lg:h-[calc(100%-47px)]">
             {byReceita[0] && (
               <DestaqueCard
                 accent="#10B981" label="Maior receita" value={fmtBrl(byReceita[0].receita)}
@@ -929,18 +940,18 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
             )}
             {topConv ? (
               <DestaqueCard
-                accent="#2563EB" label="Maior conversão" value={`${topConv.conversao}%`}
+                accent="#6366F1" label="Maior conversão" value={`${topConv.conversao}%`}
                 sub={topConv.operador} context={`${topConv.captacoes} captações · ${topConv.vendas} vendas`}
                 onClick={() => openPerfModal(`Leads de ${topConv.operador}`, topConv.operador)}
               />
             ) : (
-              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, minHeight: 140, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 9, padding: 16, minHeight: 140, border: '1px solid #DFE4E9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 500 }}>Ninguém converteu ainda</p>
               </div>
             )}
             {byVendas[0] && (
               <DestaqueCard
-                accent="#8B5CF6" label="Mais vendas" value={String(byVendas[0].vendas)}
+                accent="#2563EB" label="Mais vendas" value={String(byVendas[0].vendas)}
                 sub={byVendas[0].operador} context={`${fmtBrl(byVendas[0].receita)} em receita`}
                 onClick={() => openPerfModal(`Vendas de ${byVendas[0].operador}`, byVendas[0].operador, 'venda')}
               />
@@ -952,7 +963,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                 onClick={() => openPerfModal(`Leads de ${atencao.operador}`, atencao.operador)}
               />
             ) : (
-              <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 16, minHeight: 140, border: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 9, padding: 16, minHeight: 140, border: '1px solid #DFE4E9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', fontWeight: 500 }}>Todos acima da média</p>
               </div>
             )}
@@ -961,16 +972,16 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
       </div>
 
       {/* ── Comparativo da Equipe: barras agrupadas por mês, cor fixa por operador ── */}
-      <div style={{ marginTop: 40 }}>
+      <div style={{ marginTop: 20 }}>
         {secLabel('Comparativo da equipe')}
         <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 16 }}>
 
-          <div style={{ background: 'var(--bg-card)', borderRadius: 14, paddingTop: 20, paddingLeft: 20, paddingRight: 20, paddingBottom: 18, border: '1px solid var(--border-lt)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 9, paddingTop: 17, paddingLeft: 17, paddingRight: 17, paddingBottom: 17, border: '1px solid #DFE4E9' }}>
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Conversão por operador</p>
             <p title="% de conversão por mês — só operadores, canais ficam de fora" style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>% de conversão por mês — só operadores, canais ficam de fora</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={convChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.5} vertical={false} />
+                <CartesianGrid strokeDasharray="4 4" stroke="#E9EDF1" vertical={false} />
                 <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#64748B' }} interval={Math.max(0, Math.ceil(convChartData.length / 12) - 1)} />
                 <YAxis tick={{ fontSize: 10, fill: '#64748B' }} unit="%" />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => `${val}%`} />
@@ -983,12 +994,12 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
             </ResponsiveContainer>
           </div>
 
-          <div style={{ background: 'var(--bg-card)', borderRadius: 14, paddingTop: 20, paddingLeft: 20, paddingRight: 20, paddingBottom: 18, border: '1px solid var(--border-lt)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 9, paddingTop: 17, paddingLeft: 17, paddingRight: 17, paddingBottom: 17, border: '1px solid #DFE4E9' }}>
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 3px' }}>Receita por operador</p>
             <p title="Receita em R$ por mês — mesma cor por pessoa nos dois gráficos" style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', margin: '0 0 16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Receita em R$ por mês — mesma cor por pessoa nos dois gráficos</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={recChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" strokeOpacity={0.5} vertical={false} />
+                <CartesianGrid strokeDasharray="4 4" stroke="#E9EDF1" vertical={false} />
                 <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#64748B' }} interval={Math.max(0, Math.ceil(recChartData.length / 12) - 1)} />
                 <YAxis tick={{ fontSize: 10, fill: '#64748B' }} />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }} formatter={(val: number) => fmtBrl(val)} />
@@ -1004,15 +1015,15 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
       </div>
 
       {/* ── Ranking de Operadores: tabela filtrável ── */}
-      <div style={{ marginTop: 40 }}>
+      <div style={{ marginTop: 20 }}>
         {secLabel('Ranking de operadores')}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-          <select value={tipoFilter} onChange={e => setTipoFilter(e.target.value as 'todos' | 'operador' | 'canal')} style={{ height: 34, fontSize: 12, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-lt)', background: 'var(--bg-card)', color: 'var(--text-2)', cursor: 'pointer' }}>
+          <select value={tipoFilter} onChange={e => setTipoFilter(e.target.value as 'todos' | 'operador' | 'canal')} style={{ height: 34, fontSize: 12, padding: '0 12px', borderRadius: 6, border: '1px solid #DFE4E9', background: 'var(--bg-card)', color: 'var(--text-2)', cursor: 'pointer' }}>
             <option value="todos">Tipo: Todos</option>
             <option value="operador">Só operadores</option>
             <option value="canal">Só canais</option>
           </select>
-          <div style={{ display: 'flex', height: 34, border: '1px solid var(--border-lt)', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', height: 34, border: '1px solid #DFE4E9', borderRadius: 6, overflow: 'hidden' }}>
             {([
               { key: 'todos', label: 'Todos' },
               { key: 'vendas', label: 'Só com vendas' },
@@ -1020,12 +1031,12 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
             ] as const).map((o, i) => (
               <button key={o.key} onClick={() => setQuickFilter(o.key)}
                 onMouseEnter={e => { if (quickFilter !== o.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
-                onMouseLeave={e => { if (quickFilter !== o.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg-card)' }}
+                onMouseLeave={e => { if (quickFilter !== o.key) (e.currentTarget as HTMLElement).style.background = quickFilter === o.key ? '#EFF6FF' : 'var(--bg-card)' }}
                 style={{
                   fontSize: 12, fontWeight: 600, padding: '0 14px', border: 'none', cursor: 'pointer',
-                  borderRight: i < 2 ? '1px solid var(--border-lt)' : 'none',
-                  background: quickFilter === o.key ? '#2563EB' : 'var(--bg-card)',
-                  color: quickFilter === o.key ? '#fff' : 'var(--text-muted)',
+                  borderRight: i < 2 ? '1px solid #DFE4E9' : 'none',
+                  background: quickFilter === o.key ? '#EFF6FF' : 'var(--bg-card)',
+                  color: quickFilter === o.key ? '#2563EB' : 'var(--text-muted)',
                   transition: 'background 150ms',
                 }}>
                 {o.label}
@@ -1044,8 +1055,8 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                 onMouseEnter={e => { if (sortBy !== o.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
                 onMouseLeave={e => { if (sortBy !== o.key) (e.currentTarget as HTMLElement).style.background = sortBy === o.key ? '#EFF6FF' : 'var(--bg-card)' }}
                 style={{
-                  height: 34, fontSize: 12, fontWeight: 600, padding: '0 14px', borderRadius: 8,
-                  border: `1px solid ${sortBy === o.key ? '#BFDBFE' : 'var(--border-lt)'}`,
+                  height: 34, fontSize: 12, fontWeight: 600, padding: '0 14px', borderRadius: 6,
+                  border: `1px solid ${sortBy === o.key ? '#BFDBFE' : '#DFE4E9'}`,
                   background: sortBy === o.key ? '#EFF6FF' : 'var(--bg-card)',
                   color: sortBy === o.key ? '#2563EB' : 'var(--text-muted)', cursor: 'pointer',
                   transition: 'background 150ms, border-color 150ms',
@@ -1055,13 +1066,13 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
             ))}
           </div>
         </div>
-        <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-lt)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 9, border: '1px solid #DFE4E9', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }} tabIndex={0} role="region" aria-label="Tabela de ranking de operadores, role horizontalmente para ver todas as colunas">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Ranking de operadores">
+          <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }} aria-label="Ranking de operadores">
             <thead>
-              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid var(--border-lt)' }}>
+              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #DFE4E9' }}>
                 {(['Operador', 'Tipo', 'Captações', 'Cancelados', 'Taxa Cancel.', 'Vendas', 'Ticket Médio', 'Conversão'] as const).map((h, i) => (
-                  <th key={h} scope="col" style={{ padding: '12px 16px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: i === 0 ? 'left' : 'center', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} scope="col" style={{ padding: '12px 16px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: i < 2 ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1073,7 +1084,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                   role="button"
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPerfModal(`Histórico de ${r.operador}`, r.operador, undefined, true) } }}
                   style={{
-                    borderTop: i === 0 ? 'none' : '1px solid var(--border-lt)', cursor: 'pointer',
+                    borderTop: i === 0 ? 'none' : '1px solid #DFE4E9', cursor: 'pointer',
                     background: i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent',
                     transition: 'background 150ms',
                   }}
@@ -1081,17 +1092,17 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = i % 2 === 1 ? 'var(--bg-subtle, rgba(0,0,0,0.015))' : 'transparent'}
                 >
                   <td style={{ padding: '15px 16px', fontSize: 13, fontWeight: 700, color: '#2563EB' }}>{r.operador}</td>
-                  <td style={{ padding: '15px 16px', textAlign: 'center' }}>
-                    <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 600, padding: '4px 8px', borderRadius: 999, color: r.tipo === 'operador' ? '#2563EB' : 'var(--text-muted)', background: r.tipo === 'operador' ? '#EFF6FF' : 'var(--bg-subtle)' }}>
+                  <td style={{ padding: '15px 16px', textAlign: 'left' }}>
+                    <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 600, padding: '4px 8px', borderRadius: 4, color: r.tipo === 'operador' ? '#2563EB' : 'var(--text-muted)', background: r.tipo === 'operador' ? '#EFF6FF' : 'var(--bg-subtle)' }}>
                       {r.tipo === 'operador' ? 'Operador' : 'Canal'}
                     </span>
                   </td>
-                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.captacoes}</td>
-                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: r.cancelados > 0 ? 700 : 400, color: r.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{r.cancelados}</td>
-                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>{r.cancel_rate}%</td>
-                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: r.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{r.vendas}</td>
-                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.ticket_medio > 0 ? fmtBrl(r.ticket_medio) : '—'}</td>
-                  <td style={{ padding: '15px 16px', textAlign: 'center' }}>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.captacoes}</td>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: r.cancelados > 0 ? 700 : 400, color: r.cancelados > 0 ? '#EF4444' : 'var(--text-muted)' }}>{r.cancelados}</td>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>{r.cancel_rate}%</td>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: r.vendas > 0 ? '#059669' : 'var(--text-muted)' }}>{r.vendas}</td>
+                  <td style={{ padding: '15px 16px', fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-2)' }}>{r.ticket_medio > 0 ? fmtBrl(r.ticket_medio) : '—'}</td>
+                  <td style={{ padding: '15px 16px', textAlign: 'right' }}>
                     <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 999, color: convColor(r.conversao), background: convColor(r.conversao) + '15' }}>{r.conversao}%</span>
                   </td>
                 </tr>
@@ -1100,7 +1111,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
           </table>
           </div>
           {filteredSorted.length > 3 && (
-            <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border-lt)' }}>
+            <div style={{ padding: '10px 16px', borderTop: '1px solid #DFE4E9' }}>
               <ExpandToggle expanded={expRanking} hidden={filteredSorted.length - 3} onClick={() => setExpRanking(v => !v)} />
             </div>
           )}
