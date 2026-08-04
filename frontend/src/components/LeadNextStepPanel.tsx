@@ -1,16 +1,8 @@
 import type { RefObject } from 'react'
-import { Activity } from 'lucide-react'
+import { Phone, Mail } from 'lucide-react'
 import { statusLabel } from '../utils/statusLabel'
 import { fmtDate } from '../utils/leadFormat'
-import { STATUS_STYLE } from '../utils/leadStatus'
-import SectionCard from './SectionCard'
-import EditPencil from './EditPencil'
-
-const PERCEPTION_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  'Quente': { bg: 'rgba(220,38,38,0.12)',  color: '#DC2626', label: 'Quente' },
-  'Morno':  { bg: 'rgba(217,119,6,0.12)',  color: '#D97706', label: 'Morno' },
-  'Frio':   { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB', label: 'Frio' },
-}
+import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
 
 const STATUS_OPTIONS = [
   { value: 'novo',        label: 'Novo' },
@@ -36,8 +28,34 @@ const LOST_REASONS = [
   'Sem retorno',
 ]
 
+function WhatsAppIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.6 6.32A7.85 7.85 0 0 0 12.05 4a7.94 7.94 0 0 0-6.9 11.9L4 20l4.2-1.1a7.9 7.9 0 0 0 3.8 1h.03a7.94 7.94 0 0 0 5.57-13.58zM12.06 18.4h-.02a6.58 6.58 0 0 1-3.36-.92l-.24-.14-2.5.66.67-2.44-.16-.25a6.6 6.6 0 1 1 12.24-3.5 6.56 6.56 0 0 1-6.63 6.6zm3.6-4.94c-.2-.1-1.17-.58-1.35-.64-.18-.07-.31-.1-.45.1-.13.2-.5.64-.62.77-.11.13-.23.15-.42.05-.2-.1-.83-.3-1.58-.97a5.9 5.9 0 0 1-1.1-1.36c-.11-.2 0-.3.09-.4.1-.1.2-.23.3-.35.1-.11.13-.2.2-.32.06-.13.03-.25-.02-.35-.05-.1-.45-1.08-.62-1.48-.16-.4-.33-.33-.45-.34h-.38c-.13 0-.35.05-.53.25s-.7.68-.7 1.66.72 1.93.82 2.06c.1.13 1.4 2.15 3.4 3 .48.2.85.33 1.14.42.48.15.92.13 1.26.08.39-.06 1.17-.48 1.34-.94.16-.46.16-.85.11-.94-.05-.09-.18-.14-.38-.24z"/>
+    </svg>
+  )
+}
+
+const waHref = 'https://app.hbcconecta.com.br/index.html#/atendimentos/chat/'
+
+function actionBtnStyle(enabled: boolean): React.CSSProperties {
+  return {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 34, padding: '0 12px', borderRadius: 7,
+    fontSize: 12, fontWeight: 700, border: '1px solid var(--border-in)', background: 'var(--bg-card)',
+    color: 'var(--text-2)', textDecoration: 'none', cursor: enabled ? 'pointer' : 'not-allowed',
+    opacity: enabled ? 1 : 0.4, whiteSpace: 'nowrap',
+  }
+}
+
+const primaryActionBtnStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 34, padding: '0 12px', borderRadius: 7,
+  fontSize: 12, fontWeight: 700, border: '1px solid #2563EB', background: '#2563EB',
+  color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap',
+}
+
 export default function LeadNextStepPanel({
   editing, onToggleEditing,
+  telHref, mailHref,
   status, sStyle, editingStatus, statusSubMenu, savingStatus, statusDurationLabel,
   onStatusOptionClick, onClosedSubClick, onLostReasonClick, onBackToStatusOptions, onCancelStatusEdit,
   perception, editingPerception, savingPerception, onPerceptionClick, onCancelPerceptionEdit,
@@ -46,6 +64,9 @@ export default function LeadNextStepPanel({
 }: {
   editing: boolean
   onToggleEditing: () => void
+
+  telHref: string | null
+  mailHref: string | null
 
   status: string
   sStyle: { bg: string; color: string }
@@ -78,10 +99,51 @@ export default function LeadNextStepPanel({
   onRemoveSchedule: () => void
 }) {
   return (
-    <SectionCard title="Ação Rápida" icon={Activity} action={
-      <EditPencil onClick={onToggleEditing} title={editing ? 'Concluir edição' : 'Editar'} />
-    }>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+    <section style={{
+      background: 'var(--bg-card)', border: '1px solid #C7D7EC', borderLeft: '3px solid #2563EB',
+      borderRadius: 12, padding: '20px 22px',
+    }}>
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(230px,.7fr)_minmax(0,1.3fr)]" style={{ gap: 20, alignItems: 'center' }}>
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 5px' }}>
+            Próxima etapa da negociação
+          </p>
+          <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>
+            Avançar atendimento
+          </h3>
+          <p style={{ maxWidth: 420, marginTop: 6, color: 'var(--text-subtle)', fontSize: 11, lineHeight: 1.5 }}>
+            Continue o atendimento a partir das ações abaixo.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end" style={{ gap: 7 }}>
+          <button style={primaryActionBtnStyle} onClick={() => { if (!editing) onToggleEditing() }}>
+            Agendar
+          </button>
+          <a href={telHref ?? undefined} style={actionBtnStyle(!!telHref)} onClick={e => { if (!telHref) e.preventDefault() }}>
+            <Phone size={14} /> Ligar
+          </a>
+          <a href={waHref} target="_blank" rel="noreferrer" style={actionBtnStyle(true)}>
+            <WhatsAppIcon size={14} /> WhatsApp
+          </a>
+          <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
+            <Mail size={14} /> Enviar e-mail
+          </a>
+          <button style={actionBtnStyle(true)} onClick={() => { if (!editing) onToggleEditing(); onStatusOptionClick('proposta') }}>
+            Registrar proposta
+          </button>
+          <button style={actionBtnStyle(true)} onClick={() => { if (!editing) onToggleEditing(); onStatusOptionClick('fechado') }}>
+            Finalizar atendimento
+          </button>
+          <button style={actionBtnStyle(true)} onClick={onToggleEditing}>
+            {editing ? 'Concluir edição' : 'Editar ação rápida'}
+          </button>
+        </div>
+      </div>
+
+      {editing && (
+      <div style={{ borderTop: '1px solid var(--border-lt)', marginTop: 18, paddingTop: 15 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 18 }}>
 
         <div>
           <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -297,6 +359,8 @@ export default function LeadNextStepPanel({
         </div>
 
       </div>
-    </SectionCard>
+      </div>
+      )}
+    </section>
   )
 }

@@ -35,3 +35,8 @@ export function fmtClock(ms: number) {
 export function fmtRelative(iso: string) {
   return `há ${fmtDuration(Date.now() - parseUTC(iso))}`
 }
+
+export function fmtBRL(n: number | null) {
+  if (n == null || n === 0) return '—'
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}

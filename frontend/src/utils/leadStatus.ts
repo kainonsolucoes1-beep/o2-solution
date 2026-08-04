@@ -27,3 +27,9 @@ export function statusColor(s: string | null) {
   if (!s) return { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
   return STATUS_STYLE[s.toLowerCase()] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
 }
+
+export const PERCEPTION_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  'Quente': { bg: 'rgba(220,38,38,0.12)',  color: '#DC2626', label: 'Quente' },
+  'Morno':  { bg: 'rgba(217,119,6,0.12)',  color: '#D97706', label: 'Morno' },
+  'Frio':   { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB', label: 'Frio' },
+}

@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { User, Tag, CalendarClock, Clock3, MessageCircle, History, Wallet, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react'
+import { Wallet } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
-import { fmtDate, fmtDateOnly, fmtDuration, fmtClock, fmtRelative } from '../utils/leadFormat'
-import { STATUS_STYLE } from '../utils/leadStatus'
+import { fmtDate, fmtDateOnly, fmtDuration, fmtClock, fmtRelative, fmtBRL } from '../utils/leadFormat'
+import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
 import { useTheme } from '../ThemeContext'
 import LeadDetailHeader from '../components/LeadDetailHeader'
 import LeadNextStepPanel from '../components/LeadNextStepPanel'
 import LeadActivityTimeline from '../components/LeadActivityTimeline'
+import LeadNegotiationPanel from '../components/LeadNegotiationPanel'
+import LeadCurrentStatusPanel from '../components/LeadCurrentStatusPanel'
+import LeadRegistrationPanel from '../components/LeadRegistrationPanel'
 import SectionCard from '../components/SectionCard'
-import EditPencil from '../components/EditPencil'
 
 interface LeadItem {
   id: string
@@ -75,191 +77,10 @@ export type ActivityEvent =
   | { kind: 'note'; at: string; content: string; by: string }
   | { kind: 'schedule'; at: string; scheduledAt: string; by: string | null; active: boolean }
 
+export type ActivityFilter = 'Todos' | 'Status' | 'Notas'
+
 // pontos de conversao fixos, disponiveis mesmo sem nenhum lead ainda usar esse valor
 const EXTRA_CONVERSION_POINTS = ['Campanha WhatsApp']
-
-function fmtBRL(n: number | null) {
-  if (n == null || n === 0) return '—'
-  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function _normalizePlan(v: string) {
-  return v.trim().toLowerCase()
-}
-
-function KpiCard({ icon: Icon, label, value, caption, accent }: { icon: LucideIcon; label: string; value: string; caption?: string; accent?: boolean }) {
-  return (
-    <SectionCard compact>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {label}
-        </div>
-        <div style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={13} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.6 }} />
-        </div>
-      </div>
-      <div style={{ fontSize: 20, fontWeight: 800, color: accent ? '#2563EB' : 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginTop: 6 }}>
-        {value}
-      </div>
-      {caption && (
-        <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 3 }}>
-          {caption}
-        </div>
-      )}
-    </SectionCard>
-  )
-}
-
-function Field({ label, value, small }: { label: string; value: string; small?: boolean }) {
-  const empty = value === '—' || value === 'Não informado' || value === 'Não definido'
-  return (
-    <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {label}
-      </span>
-      <span style={{ fontSize: small ? 12.5 : 14, color: empty ? 'var(--text-subtle)' : 'var(--text-1)', fontWeight: empty ? 400 : 600 }}>
-        {value}
-      </span>
-    </div>
-  )
-}
-
-function EditInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {label}
-      </span>
-      <input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        style={{ fontSize: 13, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box' }}
-      />
-    </div>
-  )
-}
-
-function SelectField({ label, value, options, onChange, saving }: { label: string; value: string; options: string[]; onChange: (v: string) => void; saving?: boolean }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {label}
-      </span>
-      <select
-        value={value}
-        disabled={saving}
-        onChange={e => onChange(e.target.value)}
-        style={{ fontSize: 13, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}
-      >
-        {!options.includes(value) && <option value={value}>{value || '—'}</option>}
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
-  )
-}
-
-function DateField({ label, value, onChange, saving }: { label: string; value: string; onChange: (v: string) => void; saving?: boolean }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {label}
-      </span>
-      <input
-        type="date"
-        defaultValue={value}
-        disabled={saving}
-        onBlur={e => e.target.value && e.target.value !== value && onChange(e.target.value)}
-        style={{ fontSize: 13, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: saving ? 'not-allowed' : 'text', opacity: saving ? 0.6 : 1 }}
-      />
-    </div>
-  )
-}
-
-const OPERADORAS_OPTIONS = [
-  'Amil', 'Bradesco', 'Hapvida', 'Medsenior', 'Prevent Senior', 'Trasmontano', 'SulAmérica',
-  'Alice', 'Bio Vida', 'Porto Saúde', 'Porto Bairros', 'Select',
-]
-
-function OperadorasField({ value, saving, onChange }: { value: string | null; saving?: boolean; onChange: (v: string) => void }) {
-  const [expanded, setExpanded] = useState(false)
-  const selected = new Set((value ?? '').split(',').map(s => s.trim()).filter(Boolean))
-  function toggle(op: string) {
-    const next = new Set(selected)
-    next.has(op) ? next.delete(op) : next.add(op)
-    onChange([...next].join(','))
-  }
-  return (
-    <div className="flex flex-col gap-2">
-      <button
-        onClick={() => setExpanded(v => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-      >
-        {expanded ? <ChevronDown size={12} color="var(--text-3b)" /> : <ChevronRight size={12} color="var(--text-3b)" />}
-        <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Operadoras Enviadas{selected.size > 0 ? ` (${selected.size})` : ''}
-        </span>
-      </button>
-      {!expanded && selected.size > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginLeft: 17 }}>
-          {[...selected].map(op => (
-            <span
-              key={op}
-              style={{
-                fontSize: 12.5, fontWeight: 700, textDecoration: 'underline',
-                color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE',
-                borderRadius: 99, padding: '3px 12px',
-              }}
-            >
-              {op}
-            </span>
-          ))}
-        </div>
-      )}
-      {expanded && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, opacity: saving ? 0.6 : 1, pointerEvents: saving ? 'none' : 'auto' }}>
-          {OPERADORAS_OPTIONS.map(op => {
-            const active = selected.has(op)
-            return (
-              <button
-                key={op}
-                onClick={() => toggle(op)}
-                style={{
-                  fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 99,
-                  border: `1px solid ${active ? '#2563EB' : 'var(--border-in)'}`,
-                  background: active ? '#EFF6FF' : 'var(--bg-input)',
-                  color: active ? '#2563EB' : 'var(--text-2)',
-                  cursor: 'pointer',
-                }}
-              >
-                {op}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PlanField({ value }: { value: string | null }) {
-  const semPlano = value != null && _normalizePlan(value) === 'não possui plano'
-  return (
-    <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Plano Atual
-      </span>
-      {!value ? (
-        <span style={{ fontSize: 13.5, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Não informado</span>
-      ) : semPlano ? (
-        <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'rgba(220,38,38,0.12)', color: '#DC2626', padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700 }}>
-          Não possui plano
-        </span>
-      ) : (
-        <span style={{ fontSize: 13.5, color: 'var(--text-2)', fontWeight: 500 }}>{value}</span>
-      )}
-    </div>
-  )
-}
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -276,6 +97,7 @@ export default function LeadDetailPage() {
   const [notes, setNotes]                 = useState<Note[]>([])
   const [loadingNotes, setLoadingNotes]   = useState(true)
   const [noteText, setNoteText]           = useState('')
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('Todos')
   const [savingNote, setSavingNote]       = useState(false)
   const [toast, setToast]                 = useState<{ msg: string; ok: boolean } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -540,6 +362,9 @@ export default function LeadDetailPage() {
     ...schedules.map(s => ({ kind: 'schedule' as const, at: s.created_at, scheduledAt: s.scheduled_at, by: s.created_by, active: s.is_active })),
   ].sort((a, b) => parseUTC(b.at) - parseUTC(a.at))
 
+  const visibleActivity = activityFilter === 'Todos' ? activity
+    : activity.filter(ev => activityFilter === 'Status' ? ev.kind === 'status' : ev.kind === 'note')
+
   const loadingActivity = loadingNotes || loadingHistory || loadingSchedules
   const lastActivityAt = activity.length > 0 ? activity[0].at : lead.created_at
   const activeSchedule = schedules.find(s => s.is_active)
@@ -547,19 +372,15 @@ export default function LeadDetailPage() {
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const interacoes7d = activity.filter(ev => parseUTC(ev.at) >= sevenDaysAgo).length
 
-  const kpis = [
-    { icon: Wallet, label: 'Valor da Cotação', value: fmtBRL(lead.value_potential), caption: lead.value_potential ? undefined : 'Não informado', accent: true },
-    { icon: Clock3, label: 'Tempo no Funil', value: fmtDuration(Date.now() - parseUTC(lead.created_at)), caption: 'Desde a criação' },
-    { icon: MessageCircle, label: 'Interações', value: String(interacoes7d), caption: 'Últimos 7 dias' },
-    { icon: CalendarClock, label: 'Agendamentos', value: activeSchedule ? '1' : '0', caption: 'Pendentes' },
-    { icon: History, label: 'Última Alteração', value: fmtRelative(lastActivityAt), caption: fmtDate(lastActivityAt) },
-  ]
+  const perception = lead.perception && PERCEPTION_STYLE[lead.perception] ? PERCEPTION_STYLE[lead.perception] : null
+  const funnelTimeLabel = fmtDuration(Date.now() - parseUTC(lead.created_at))
+  const scheduleLabel = activeSchedule ? fmtDate(activeSchedule.scheduled_at) : 'Nada agendado'
 
   const telHref = lead.phone ? `tel:${lead.phone.replace(/\D/g, '')}` : null
   const mailHref = lead.email ? `mailto:${lead.email}` : null
 
   return (
-    <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%', ...(dark ? {} : { ['--bg-input' as string]: '#FBFCFE' }) } as React.CSSProperties}>
+    <div style={{ background: dark ? 'transparent' : '#F6F7F9', minHeight: '100%', ...(dark ? {} : { ['--bg-input' as string]: '#FBFCFE' }) } as React.CSSProperties}>
     <div style={{ maxWidth: 1440, margin: '0 auto', padding: '20px 24px 60px' }}>
       {toast && (
         <div
@@ -577,11 +398,14 @@ export default function LeadDetailPage() {
 
       <LeadDetailHeader
         name={lead.name}
-        sinceLabel={fmtDateOnly(lead.created_at)}
-        lastInteractionLabel={fmtRelative(lastActivityAt)}
+        statusLabel={statusLabel(status)}
+        sStyle={sStyle}
+        perceptionLabel={perception?.label ?? null}
+        perceptionStyle={perception}
+        phoneLabel={lead.phone ?? 'Não informado'}
+        emailLabel={lead.email ?? 'Não informado'}
         attendantLabel={lead.attendant ?? 'Não informado'}
-        telHref={telHref}
-        mailHref={mailHref}
+        origemLabel={lead.origem ?? 'Não informado'}
         isAdmin={isAdmin}
         menuOpen={menuOpen}
         onToggleMenu={() => setMenuOpen(v => !v)}
@@ -617,86 +441,138 @@ export default function LeadDetailPage() {
         </div>
       )}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" style={{ marginBottom: 20 }}>
-        {kpis.map(k => <KpiCard key={k.label} icon={k.icon} label={k.label} value={k.value} caption={k.caption} accent={k.accent} />)}
-      </div>
+      <LeadNextStepPanel
+        editing={acaoRapidaEditing}
+        telHref={telHref}
+        mailHref={mailHref}
+        onToggleEditing={() => {
+          const next = !acaoRapidaEditing
+          setEditingStatus(next)
+          setEditingPerception(next)
+          setEditingSchedule(next)
+          if (next) setStatusSubMenu(null)
+        }}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
-        <div className="flex flex-col gap-5">
+        status={status}
+        sStyle={sStyle}
+        editingStatus={editingStatus}
+        statusSubMenu={statusSubMenu}
+        savingStatus={savingStatus}
+        statusDurationLabel={statusDurationLabel}
+        onStatusOptionClick={value => {
+          if (value === 'fechado') { setStatusSubMenu('fechado'); return }
+          if (value === 'sale_not_performed') { setStatusSubMenu('perdido'); return }
+          handleStatusChange(value)
+        }}
+        onClosedSubClick={value => handleStatusChange(value)}
+        onLostReasonClick={reason => handleStatusChange('sale_not_performed', reason)}
+        onBackToStatusOptions={() => setStatusSubMenu(null)}
+        onCancelStatusEdit={() => setEditingStatus(false)}
 
-          <SectionCard title="Perfil" icon={User} action={
-            editingInfo ? (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setEditingInfo(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  Cancelar
-                </button>
-                <button onClick={handleSaveInfo} disabled={savingInfo} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingInfo ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                  {savingInfo ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
-            ) : (
-              <EditPencil onClick={startEditInfo} title="Editar perfil" />
-            )
-          }>
-            {editingInfo ? (
-              <div className="flex flex-col gap-4">
-                <EditInput label="Nome"      value={infoDraft.name}      onChange={v => setInfoDraft(d => ({ ...d, name: v }))} />
-                <EditInput label="Empresa"   value={infoDraft.company}   onChange={v => setInfoDraft(d => ({ ...d, company: v }))} />
-                <EditInput label="Email"     value={infoDraft.email}     onChange={v => setInfoDraft(d => ({ ...d, email: v }))} />
-                <EditInput label="Telefone"  value={infoDraft.phone}     onChange={v => setInfoDraft(d => ({ ...d, phone: v }))} />
-                <EditInput label="Documento" value={infoDraft.document}  onChange={v => setInfoDraft(d => ({ ...d, document: v }))} />
-                <EditInput label="Atendente" value={infoDraft.attendant} onChange={v => setInfoDraft(d => ({ ...d, attendant: v }))} />
-                <EditInput label="Perfil" value={infoDraft.visibility_tag} onChange={v => setInfoDraft(d => ({ ...d, visibility_tag: v }))} />
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                <Field label="Empresa"   value={lead.company ?? 'Não informado'} />
-                <Field label="E-mail"    value={lead.email ?? 'Não informado'} small />
-                <Field label="Telefone"  value={lead.phone ?? 'Não informado'} />
-                <Field label="Documento" value={lead.document ?? 'Não informado'} />
-                {lead.visibility_tag && <Field label="Perfil" value={lead.visibility_tag} />}
-              </div>
-            )}
-          </SectionCard>
+        perception={lead.perception}
+        editingPerception={editingPerception}
+        savingPerception={savingPerception}
+        onPerceptionClick={key => { handleQuickUpdate('perception', key); setEditingPerception(false) }}
+        onCancelPerceptionEdit={() => setEditingPerception(false)}
 
-          <SectionCard title="Detalhes do Lead" icon={Tag} action={
-            editingDetalhes ? (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setEditingDetalhes(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  Cancelar
-                </button>
-                <button onClick={handleSaveDetalhes} disabled={savingDetalhes} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingDetalhes ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                  {savingDetalhes ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
-            ) : (
-              <EditPencil onClick={startEditDetalhes} title="Editar detalhes" />
-            )
-          }>
-            <div className="flex flex-col gap-4">
-              <SelectField label="Origem" value={lead.origem ?? ''} options={origins} saving={savingOrigin} onChange={v => handleQuickUpdate('origem', v)} />
-              <SelectField label="Modalidade" value={lead.modalidade ?? ''} options={modalidades} saving={savingModalidade} onChange={v => handleQuickUpdate('modalidade', v)} />
-              <SelectField label="Ponto de Conversão" value={lead.conversion_point ?? ''} options={conversionPointOptions} saving={savingConvPoint} onChange={v => handleQuickUpdate('conversion_point', v)} />
-              {editingDetalhes ? (
-                <EditInput label="Plano Atual" value={detalhesDraft.current_plan} onChange={v => setDetalhesDraft(d => ({ ...d, current_plan: v }))} />
-              ) : (
-                <PlanField value={lead.current_plan} />
-              )}
-              <OperadorasField value={lead.operadoras_enviadas} saving={savingOperadoras} onChange={v => handleQuickUpdate('operadoras_enviadas', v)} />
-              {editingDetalhes && (
-                <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => setDetalhesDraft(d => ({ ...d, value_potential: v }))} />
-              )}
-              {editingDetalhes && isAdmin && (
-                <DateField
-                  label="Data de Criação"
-                  value={lead.created_at.slice(0, 10)}
-                  saving={savingCreatedAt}
-                  onChange={handleUpdateCreatedAt}
-                />
-              )}
-            </div>
-          </SectionCard>
+        agendaRef={agendaRef}
+        editingSchedule={editingSchedule}
+        scheduleInput={scheduleInput}
+        onScheduleInputChange={setScheduleInput}
+        savingSchedule={savingSchedule}
+        loadingSchedules={loadingSchedules}
+        activeSchedule={activeSchedule}
+        cancelingSchedule={cancelingSchedule}
+        onSaveSchedule={handleSchedule}
+        onCancelScheduleEdit={() => setEditingSchedule(false)}
+        onRemoveSchedule={handleCancelSchedule}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] items-start" style={{ marginTop: 16, gap: 16 }}>
+        <div>
+          <LeadActivityTimeline
+            isAdmin={isAdmin}
+            savingRealign={savingRealign}
+            onRealignHistory={handleRealignHistory}
+            noteText={noteText}
+            onNoteTextChange={setNoteText}
+            savingNote={savingNote}
+            onSaveNote={handleSaveNote}
+            loadingActivity={loadingActivity}
+            activity={visibleActivity}
+            filter={activityFilter}
+            onFilterChange={setActivityFilter}
+          />
+        </div>
+
+        <div className="flex flex-col" style={{ gap: 12 }}>
+
+          <div style={{ marginBottom: -4 }}>
+            <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>
+              Consulta auxiliar
+            </p>
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>
+              Contexto da venda
+            </p>
+          </div>
+
+          <LeadNegotiationPanel
+            perceptionLabel={perception?.label ?? null}
+            perceptionStyle={perception}
+            modalidade={lead.modalidade ?? ''}
+            modalidadeOptions={modalidades}
+            savingModalidade={savingModalidade}
+            onModalidadeChange={v => handleQuickUpdate('modalidade', v)}
+            planoAtual={lead.current_plan}
+            valorCotacaoLabel={fmtBRL(lead.value_potential)}
+            operadoras={lead.operadoras_enviadas}
+            savingOperadoras={savingOperadoras}
+            onOperadorasChange={v => handleQuickUpdate('operadoras_enviadas', v)}
+            editingDetalhes={editingDetalhes}
+            savingDetalhes={savingDetalhes}
+            detalhesDraft={detalhesDraft}
+            onDraftChange={(field, value) => setDetalhesDraft(d => ({ ...d, [field]: value }))}
+            onStartEdit={startEditDetalhes}
+            onCancelEdit={() => setEditingDetalhes(false)}
+            onSaveEdit={handleSaveDetalhes}
+            isAdmin={isAdmin}
+            createdAtValue={lead.created_at.slice(0, 10)}
+            savingCreatedAt={savingCreatedAt}
+            onUpdateCreatedAt={handleUpdateCreatedAt}
+          />
+
+          <LeadCurrentStatusPanel
+            attendantLabel={lead.attendant ?? 'Não informado'}
+            lastInteractionLabel={fmtRelative(lastActivityAt)}
+            funnelTimeLabel={funnelTimeLabel}
+            scheduleLabel={scheduleLabel}
+            interactionsLabel={String(interacoes7d)}
+            lastChangeLabel={fmtRelative(lastActivityAt)}
+            lastChangeDate={fmtDate(lastActivityAt)}
+            statusDurationLabel={statusDurationLabel}
+          />
+
+          <LeadRegistrationPanel
+            origem={lead.origem ?? ''}
+            origemOptions={origins}
+            savingOrigem={savingOrigin}
+            onOrigemChange={v => handleQuickUpdate('origem', v)}
+            conversionPoint={lead.conversion_point ?? ''}
+            conversionPointOptions={conversionPointOptions}
+            savingConversionPoint={savingConvPoint}
+            onConversionPointChange={v => handleQuickUpdate('conversion_point', v)}
+            leadSinceLabel={fmtDateOnly(lead.created_at)}
+            documentoLabel={lead.document ?? 'Não informado'}
+            empresaLabel={lead.company ?? 'Não informado'}
+            visibilityTag={lead.visibility_tag}
+            editingInfo={editingInfo}
+            savingInfo={savingInfo}
+            infoDraft={infoDraft}
+            onDraftChange={(field, value) => setInfoDraft(d => ({ ...d, [field]: value }))}
+            onStartEdit={startEditInfo}
+            onCancelEdit={() => setEditingInfo(false)}
+            onSaveEdit={handleSaveInfo}
+          />
 
           {canSeeFinancials && (() => {
             const recebida = lead.receita_real_recebida ?? 0
@@ -752,67 +628,6 @@ export default function LeadDetailPage() {
               </SectionCard>
             )
           })()}
-
-        </div>
-
-        <div className="flex flex-col gap-5">
-
-          <LeadNextStepPanel
-            editing={acaoRapidaEditing}
-            onToggleEditing={() => {
-              const next = !acaoRapidaEditing
-              setEditingStatus(next)
-              setEditingPerception(next)
-              setEditingSchedule(next)
-              if (next) setStatusSubMenu(null)
-            }}
-
-            status={status}
-            sStyle={sStyle}
-            editingStatus={editingStatus}
-            statusSubMenu={statusSubMenu}
-            savingStatus={savingStatus}
-            statusDurationLabel={statusDurationLabel}
-            onStatusOptionClick={value => {
-              if (value === 'fechado') { setStatusSubMenu('fechado'); return }
-              if (value === 'sale_not_performed') { setStatusSubMenu('perdido'); return }
-              handleStatusChange(value)
-            }}
-            onClosedSubClick={value => handleStatusChange(value)}
-            onLostReasonClick={reason => handleStatusChange('sale_not_performed', reason)}
-            onBackToStatusOptions={() => setStatusSubMenu(null)}
-            onCancelStatusEdit={() => setEditingStatus(false)}
-
-            perception={lead.perception}
-            editingPerception={editingPerception}
-            savingPerception={savingPerception}
-            onPerceptionClick={key => { handleQuickUpdate('perception', key); setEditingPerception(false) }}
-            onCancelPerceptionEdit={() => setEditingPerception(false)}
-
-            agendaRef={agendaRef}
-            editingSchedule={editingSchedule}
-            scheduleInput={scheduleInput}
-            onScheduleInputChange={setScheduleInput}
-            savingSchedule={savingSchedule}
-            loadingSchedules={loadingSchedules}
-            activeSchedule={activeSchedule}
-            cancelingSchedule={cancelingSchedule}
-            onSaveSchedule={handleSchedule}
-            onCancelScheduleEdit={() => setEditingSchedule(false)}
-            onRemoveSchedule={handleCancelSchedule}
-          />
-
-          <LeadActivityTimeline
-            isAdmin={isAdmin}
-            savingRealign={savingRealign}
-            onRealignHistory={handleRealignHistory}
-            noteText={noteText}
-            onNoteTextChange={setNoteText}
-            savingNote={savingNote}
-            onSaveNote={handleSaveNote}
-            loadingActivity={loadingActivity}
-            activity={activity}
-          />
 
         </div>
       </div>
