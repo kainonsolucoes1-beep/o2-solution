@@ -1,11 +1,16 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { User, Tag, Activity, CalendarClock, Clock3, MessageCircle, History, StickyNote, Pencil, Wallet, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react'
+import { User, Tag, Activity, CalendarClock, Clock3, MessageCircle, History, StickyNote, Wallet, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
+import { fmtDate, fmtDateOnly, fmtDuration, fmtClock, fmtRelative } from '../utils/leadFormat'
+import { STATUS_STYLE, statusColor } from '../utils/leadStatus'
 import { useTheme } from '../ThemeContext'
 import LeadDetailHeader from '../components/LeadDetailHeader'
+import LeadNextStepPanel from '../components/LeadNextStepPanel'
+import SectionCard from '../components/SectionCard'
+import EditPencil from '../components/EditPencil'
 
 interface LeadItem {
   id: string
@@ -69,136 +74,16 @@ type ActivityEvent =
   | { kind: 'note'; at: string; content: string; by: string }
   | { kind: 'schedule'; at: string; scheduledAt: string; by: string | null; active: boolean }
 
-const PERCEPTION_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  'Quente': { bg: 'rgba(220,38,38,0.12)',  color: '#DC2626', label: 'Quente' },
-  'Morno':  { bg: 'rgba(217,119,6,0.12)',  color: '#D97706', label: 'Morno' },
-  'Frio':   { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB', label: 'Frio' },
-}
-
 // pontos de conversao fixos, disponiveis mesmo sem nenhum lead ainda usar esse valor
 const EXTRA_CONVERSION_POINTS = ['Campanha WhatsApp']
-
-const STATUS_OPTIONS = [
-  { value: 'novo',        label: 'Novo' },
-  { value: 'qualificado', label: 'Agendado' },
-  { value: 'proposta',    label: 'Proposta' },
-  { value: 'fechado',     label: 'Fechado' },
-  { value: 'convertido',  label: 'Convertido' },
-  { value: 'sale_not_performed', label: 'Perdido' },
-]
-
-const CLOSED_SUB_OPTIONS = [
-  { value: 'waiting_billing', label: 'Aguardando Faturamento' },
-  { value: 'sale_performed',  label: 'Venda Realizada' },
-]
-
-const LOST_REASONS = [
-  'Cliente não retornou contato',
-  'Dados incorretos',
-  'Finalizado automaticamente',
-  'Preço',
-  'Sem interesse',
-  'Sem perfil',
-  'Sem retorno',
-]
-
-// mesmas cores usadas nos cards do funil (Pipeline.tsx)
-const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  novo:                 { bg: '#EFF6FF', color: '#3B82F6' },
-  new:                  { bg: '#EFF6FF', color: '#3B82F6' },
-  pending:              { bg: '#EFF6FF', color: '#3B82F6' },
-  qualificado:          { bg: '#ECFDF5', color: '#10B981' },
-  qualified:            { bg: '#ECFDF5', color: '#10B981' },
-  scheduled:            { bg: '#ECFDF5', color: '#10B981' },
-  proposta:             { bg: '#FFFBEB', color: '#F59E0B' },
-  proposal_sent:        { bg: '#FFFBEB', color: '#F59E0B' },
-  'proposal sent':      { bg: '#FFFBEB', color: '#F59E0B' },
-  negociacao:           { bg: '#F5F3FF', color: '#8B5CF6' },
-  'negociação':         { bg: '#F5F3FF', color: '#8B5CF6' },
-  waiting_billing:      { bg: '#ECFDF5', color: '#059669' },
-  'waiting billing':    { bg: '#ECFDF5', color: '#059669' },
-  fechado:              { bg: '#ECFDF5', color: '#059669' },
-  closed:               { bg: '#ECFDF5', color: '#059669' },
-  won:                  { bg: '#ECFDF5', color: '#059669' },
-  convertido:           { bg: '#ECFDF5', color: '#059669' },
-  sale_performed:       { bg: '#ECFDF5', color: '#059669' },
-  'sale performed':     { bg: '#ECFDF5', color: '#059669' },
-  sale_not_performed:   { bg: '#FEF2F2', color: '#EF4444' },
-  'sale not performed': { bg: '#FEF2F2', color: '#EF4444' },
-}
-
-function statusColor(s: string | null) {
-  if (!s) return { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
-  return STATUS_STYLE[s.toLowerCase()] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
-}
-
-function fmtDate(iso: string) {
-  return new Date(parseUTC(iso)).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
-function fmtDateOnly(iso: string) {
-  return new Date(parseUTC(iso)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
 
 function fmtBRL(n: number | null) {
   if (n == null || n === 0) return '—'
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function fmtDuration(ms: number) {
-  if (ms < 0) ms = 0
-  const totalMin = Math.floor(ms / 60000)
-  const days = Math.floor(totalMin / 1440)
-  const hours = Math.floor((totalMin % 1440) / 60)
-  const min = totalMin % 60
-  if (days > 0) return `${days}d ${hours}h`
-  if (hours > 0) return `${hours}h ${min}min`
-  return `${min}min`
-}
-
-function fmtClock(ms: number) {
-  if (ms < 0) ms = 0
-  const totalSec = Math.floor(ms / 1000)
-  const h = Math.floor(totalSec / 3600)
-  const m = Math.floor((totalSec % 3600) / 60)
-  const s = totalSec % 60
-  if (h >= 24) return fmtDuration(ms)
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
-function fmtRelative(iso: string) {
-  return `há ${fmtDuration(Date.now() - parseUTC(iso))}`
-}
-
 function _normalizePlan(v: string) {
   return v.trim().toLowerCase()
-}
-
-function SectionCard({ title, icon: Icon, action, compact, children }: { title?: string; icon?: LucideIcon; action?: ReactNode; compact?: boolean; children: ReactNode }) {
-  const { dark } = useTheme()
-  return (
-    <div style={{
-      border: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.04)'}`,
-      borderRadius: 14, padding: compact ? '11px 15px' : '18px 20px', background: 'var(--bg-card)',
-      boxShadow: dark ? '0 1px 2px rgba(0,0,0,0.14)' : '0 1px 2px rgba(15,23,42,0.05)',
-    }}>
-      {title && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, margin: '0 0 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            {Icon && <Icon size={14} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.55 }} />}
-            <p style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-              {title}
-            </p>
-          </div>
-          {action}
-        </div>
-      )}
-      {children}
-    </div>
-  )
 }
 
 function KpiCard({ icon: Icon, label, value, caption, accent }: { icon: LucideIcon; label: string; value: string; caption?: string; accent?: boolean }) {
@@ -237,21 +122,6 @@ function Field({ label, value, small }: { label: string; value: string; small?: 
     </div>
   )
 }
-
-function EditPencil({ onClick, title }: { onClick: () => void; title?: string }) {
-  return (
-    <button
-      onClick={onClick}
-      title={title ?? 'Editar'}
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', opacity: 0.7, transition: 'opacity 150ms, color 150ms', flexShrink: 0 }}
-      onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#3B82F6' }}
-      onMouseLeave={e => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.color = 'var(--text-subtle)' }}
-    >
-      <Pencil size={13} />
-    </button>
-  )
-}
-
 
 function EditInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
@@ -641,6 +511,9 @@ export default function LeadDetailPage() {
   }
 
   const sStyle = STATUS_STYLE[(status ?? 'novo').toLowerCase()] ?? { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' }
+  const statusDurationLabel = (history.length > 0 && statusLabel(status) !== 'Venda Realizada')
+    ? fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))
+    : null
 
   // ── Timeline: tempo gasto em cada etapa ──────────────────────────────────
   const timeline = (() => {
@@ -883,239 +756,50 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col gap-5">
 
-          <SectionCard title="Ação Rápida" icon={Activity} action={
-            <EditPencil
-              onClick={() => {
-                const next = !acaoRapidaEditing
-                setEditingStatus(next)
-                setEditingPerception(next)
-                setEditingSchedule(next)
-                if (next) setStatusSubMenu(null)
-              }}
-              title={acaoRapidaEditing ? 'Concluir edição' : 'Editar'}
-            />
-          }>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <LeadNextStepPanel
+            editing={acaoRapidaEditing}
+            onToggleEditing={() => {
+              const next = !acaoRapidaEditing
+              setEditingStatus(next)
+              setEditingPerception(next)
+              setEditingSchedule(next)
+              if (next) setStatusSubMenu(null)
+            }}
 
-              <div>
-                <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Status
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  {editingStatus ? (
-                    statusSubMenu === 'fechado' ? (
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                        {CLOSED_SUB_OPTIONS.map(opt => {
-                          const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
-                          return (
-                            <button
-                              key={opt.value}
-                              disabled={savingStatus}
-                              onClick={() => handleStatusChange(opt.value)}
-                              style={{
-                                background: s.bg, color: s.color, border: `1.5px solid ${s.color}`,
-                                padding: '4px 14px', borderRadius: 99,
-                                fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
-                                opacity: savingStatus ? 0.6 : 1, transition: 'all 150ms',
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          )
-                        })}
-                        <button
-                          onClick={() => setStatusSubMenu(null)}
-                          style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                        >
-                          Voltar
-                        </button>
-                      </div>
-                    ) : statusSubMenu === 'perdido' ? (
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                        {LOST_REASONS.map(reason => {
-                          const s = STATUS_STYLE.sale_not_performed
-                          return (
-                            <button
-                              key={reason}
-                              disabled={savingStatus}
-                              onClick={() => handleStatusChange('sale_not_performed', reason)}
-                              style={{
-                                background: s.bg, color: s.color, border: `1.5px solid ${s.color}`,
-                                padding: '4px 14px', borderRadius: 99,
-                                fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
-                                opacity: savingStatus ? 0.6 : 1, transition: 'all 150ms',
-                              }}
-                            >
-                              {reason}
-                            </button>
-                          )
-                        })}
-                        <button
-                          onClick={() => setStatusSubMenu(null)}
-                          style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                        >
-                          Voltar
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {STATUS_OPTIONS.map(opt => {
-                          const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
-                          const active = status === opt.value
-                          return (
-                            <button
-                              key={opt.value}
-                              disabled={savingStatus}
-                              onClick={() => {
-                                if (opt.value === 'fechado') { setStatusSubMenu('fechado'); return }
-                                if (opt.value === 'sale_not_performed') { setStatusSubMenu('perdido'); return }
-                                handleStatusChange(opt.value)
-                              }}
-                              style={{
-                                background: active ? s.color : s.bg,
-                                color: active ? 'white' : s.color,
-                                border: `1.5px solid ${s.color}`,
-                                padding: '4px 14px', borderRadius: 99,
-                                fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
-                                opacity: savingStatus ? 0.6 : 1,
-                                transition: 'all 150ms', textTransform: 'capitalize',
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          )
-                        })}
-                        <button
-                          onClick={() => setEditingStatus(false)}
-                          style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    )
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ background: sStyle.bg, color: sStyle.color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
-                        {statusLabel(status)}
-                      </span>
-                      {history.length > 0 && statusLabel(status) !== 'Venda Realizada' && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '3px 10px', borderRadius: 99, fontVariantNumeric: 'tabular-nums' }}>
-                          {fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+            status={status}
+            sStyle={sStyle}
+            editingStatus={editingStatus}
+            statusSubMenu={statusSubMenu}
+            savingStatus={savingStatus}
+            statusDurationLabel={statusDurationLabel}
+            onStatusOptionClick={value => {
+              if (value === 'fechado') { setStatusSubMenu('fechado'); return }
+              if (value === 'sale_not_performed') { setStatusSubMenu('perdido'); return }
+              handleStatusChange(value)
+            }}
+            onClosedSubClick={value => handleStatusChange(value)}
+            onLostReasonClick={reason => handleStatusChange('sale_not_performed', reason)}
+            onBackToStatusOptions={() => setStatusSubMenu(null)}
+            onCancelStatusEdit={() => setEditingStatus(false)}
 
-              <div>
-                <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Temperatura
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  {editingPerception ? (
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {Object.keys(PERCEPTION_STYLE).map(key => {
-                        const s = PERCEPTION_STYLE[key]
-                        const active = lead.perception === key
-                        return (
-                          <button
-                            key={key}
-                            disabled={savingPerception}
-                            onClick={() => { handleQuickUpdate('perception', key); setEditingPerception(false) }}
-                            style={{
-                              background: active ? s.color : s.bg,
-                              color: active ? 'white' : s.color,
-                              border: `1.5px solid ${s.color}`,
-                              padding: '4px 14px', borderRadius: 99,
-                              fontSize: 13, fontWeight: 600, cursor: savingPerception ? 'not-allowed' : 'pointer',
-                              opacity: savingPerception ? 0.6 : 1,
-                              transition: 'all 150ms',
-                            }}
-                          >
-                            {s.label}
-                          </button>
-                        )
-                      })}
-                      <button
-                        onClick={() => setEditingPerception(false)}
-                        style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {lead.perception && PERCEPTION_STYLE[lead.perception] ? (
-                        <span style={{ background: PERCEPTION_STYLE[lead.perception].bg, color: PERCEPTION_STYLE[lead.perception].color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
-                          {PERCEPTION_STYLE[lead.perception].label}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Sem temperatura</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+            perception={lead.perception}
+            editingPerception={editingPerception}
+            savingPerception={savingPerception}
+            onPerceptionClick={key => { handleQuickUpdate('perception', key); setEditingPerception(false) }}
+            onCancelPerceptionEdit={() => setEditingPerception(false)}
 
-              <div ref={agendaRef}>
-                <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Agendar
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  {editingSchedule ? (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <input
-                        type="datetime-local"
-                        value={scheduleInput}
-                        onChange={e => setScheduleInput(e.target.value)}
-                        style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
-                      />
-                      <button
-                        onClick={handleSchedule}
-                        disabled={savingSchedule || !scheduleInput}
-                        style={{
-                          background: savingSchedule || !scheduleInput ? 'var(--bg-subtle)' : '#2563EB',
-                          color: savingSchedule || !scheduleInput ? 'var(--text-subtle)' : 'white',
-                          border: 'none', borderRadius: 8,
-                          padding: '7px 16px', fontSize: 13, fontWeight: 500,
-                          cursor: savingSchedule || !scheduleInput ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {savingSchedule ? 'Salvando…' : activeSchedule ? 'Reagendar' : 'Agendar'}
-                      </button>
-                      <button
-                        onClick={() => setEditingSchedule(false)}
-                        style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : loadingSchedules ? (
-                    <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      {activeSchedule ? (
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{fmtDate(activeSchedule.scheduled_at)}</span>
-                      ) : (
-                        <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Nada agendado</span>
-                      )}
-                      {activeSchedule && (
-                        <button
-                          onClick={handleCancelSchedule}
-                          disabled={cancelingSchedule}
-                          style={{ fontSize: 11.5, color: '#DC2626', background: 'none', border: 'none', cursor: cancelingSchedule ? 'not-allowed' : 'pointer', fontWeight: 500 }}
-                        >
-                          {cancelingSchedule ? 'Removendo…' : 'Remover'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          </SectionCard>
+            agendaRef={agendaRef}
+            editingSchedule={editingSchedule}
+            scheduleInput={scheduleInput}
+            onScheduleInputChange={setScheduleInput}
+            savingSchedule={savingSchedule}
+            loadingSchedules={loadingSchedules}
+            activeSchedule={activeSchedule}
+            cancelingSchedule={cancelingSchedule}
+            onSaveSchedule={handleSchedule}
+            onCancelScheduleEdit={() => setEditingSchedule(false)}
+            onRemoveSchedule={handleCancelSchedule}
+          />
 
           <SectionCard title="Atividade" icon={History} action={
             isAdmin && (
