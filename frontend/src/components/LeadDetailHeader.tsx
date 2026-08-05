@@ -55,34 +55,36 @@ export default function LeadDetailHeader({
         </button>
       </div>
 
-      <div className="flex-1 min-w-0 flex" style={{ alignItems: 'flex-start', gap: 13 }}>
-        <div style={{
-          flexShrink: 0, width: 44, height: 44, borderRadius: '50%',
-          background: 'var(--bg-subtle)', color: '#2563EB',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, fontWeight: 800, letterSpacing: '0.01em',
-        }}>
-          {initials(name)}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 7px' }}>
-            Negociação em andamento
-          </p>
-          <div className="flex items-center flex-wrap" style={{ gap: 10 }}>
-            <p className="text-[18px] sm:text-[26px]" style={{ fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>{name}</p>
-            <div className="flex flex-wrap" style={{ gap: 5, marginTop: 3 }}>
-              <span style={badgeStyle(sStyle)}>{statusLabel}</span>
-              {perceptionLabel && perceptionStyle && <span style={badgeStyle(perceptionStyle)}>{perceptionLabel}</span>}
+      <div className="flex-1 min-w-0">
+        <div className="flex" style={{ alignItems: 'center', gap: 13 }}>
+          <div style={{
+            flexShrink: 0, width: 44, height: 44, borderRadius: '50%',
+            background: 'var(--bg-subtle)', color: '#2563EB',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 14, fontWeight: 800, letterSpacing: '0.01em',
+          }}>
+            {initials(name)}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 7px' }}>
+              Negociação em andamento
+            </p>
+            <div className="flex items-center flex-wrap" style={{ gap: 10 }}>
+              <p className="text-[18px] sm:text-[26px]" style={{ fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>{name}</p>
+              <div className="flex flex-wrap" style={{ gap: 5, marginTop: 3 }}>
+                <span style={badgeStyle(sStyle)}>{statusLabel}</span>
+                {perceptionLabel && perceptionStyle && <span style={badgeStyle(perceptionStyle)}>{perceptionLabel}</span>}
+              </div>
             </div>
           </div>
-          <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-            <dl style={{ display: 'flex', flexDirection: 'column', gap: 5, maxWidth: 520, margin: 0 }}>
-              <ContactRow label="Telefone" value={phoneLabel} />
-              <ContactRow label="E-mail" value={emailLabel} />
-              <ContactRow label="Atendente" value={attendantLabel} />
-              <ContactRow label="Origem" value={origemLabel} />
-            </dl>
-          </div>
+        </div>
+        <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          <dl style={{ display: 'flex', flexDirection: 'column', gap: 5, maxWidth: 520, margin: 0 }}>
+            <ContactRow label="Telefone" value={phoneLabel} />
+            <ContactRow label="E-mail" value={emailLabel} />
+            <ContactRow label="Atendente" value={attendantLabel} />
+            <ContactRow label="Origem" value={origemLabel} />
+          </dl>
         </div>
       </div>
 
