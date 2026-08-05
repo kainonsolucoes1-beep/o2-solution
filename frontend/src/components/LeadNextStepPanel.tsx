@@ -121,7 +121,7 @@ export default function LeadNextStepPanel({
 }) {
   return (
     <section style={{
-      background: 'var(--bg-card)', border: '1px solid #C7D7EC', borderLeft: '3px solid #2563EB',
+      background: 'var(--bg-card)', border: '1px solid #C7D7EC',
       borderRadius: 12, padding: '20px 22px',
     }}>
       <div className="grid grid-cols-1 sm:grid-cols-[minmax(230px,.7fr)_minmax(0,1.3fr)]" style={{ gap: 20, alignItems: 'center' }}>
