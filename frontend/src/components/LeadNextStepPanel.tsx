@@ -1,6 +1,5 @@
 import type { RefObject } from 'react'
 import { Phone, Mail } from 'lucide-react'
-import { statusLabel } from '../utils/statusLabel'
 import { fmtDate } from '../utils/leadFormat'
 import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
 
@@ -54,31 +53,37 @@ const primaryActionBtnStyle: React.CSSProperties = {
 }
 
 export default function LeadNextStepPanel({
-  editing, onToggleEditing,
+  editing, onToggleEditing, onOpenSchedule, onOpenProposta, onOpenFinalizar,
   telHref, mailHref,
-  status, sStyle, editingStatus, statusSubMenu, savingStatus, statusDurationLabel,
+  status, editingStatus, statusSubMenu, savingStatus,
   onStatusOptionClick, onClosedSubClick, onLostReasonClick, onBackToStatusOptions, onCancelStatusEdit,
+  onVendaRealizadaClick, onBackToFinalizar,
   perception, editingPerception, savingPerception, onPerceptionClick, onCancelPerceptionEdit,
   agendaRef, editingSchedule, scheduleInput, onScheduleInputChange, savingSchedule, loadingSchedules,
   activeSchedule, cancelingSchedule, onSaveSchedule, onCancelScheduleEdit, onRemoveSchedule,
+  editingProposta, propostaValor, onPropostaValorChange, savingProposta, onSaveProposta, onCancelPropostaEdit,
+  vendaValor, onVendaValorChange, vendaData, onVendaDataChange, savingVenda, onSaveVenda, faturando, onFaturar,
 }: {
   editing: boolean
   onToggleEditing: () => void
+  onOpenSchedule: () => void
+  onOpenProposta: () => void
+  onOpenFinalizar: () => void
 
   telHref: string | null
   mailHref: string | null
 
   status: string
-  sStyle: { bg: string; color: string }
   editingStatus: boolean
-  statusSubMenu: 'fechado' | 'perdido' | null
+  statusSubMenu: 'fechado' | 'perdido' | 'finalizar' | 'venda_realizada' | null
   savingStatus: boolean
-  statusDurationLabel: string | null
   onStatusOptionClick: (value: string) => void
   onClosedSubClick: (value: string) => void
   onLostReasonClick: (reason: string) => void
   onBackToStatusOptions: () => void
   onCancelStatusEdit: () => void
+  onVendaRealizadaClick: () => void
+  onBackToFinalizar: () => void
 
   perception: string | null
   editingPerception: boolean
@@ -97,6 +102,22 @@ export default function LeadNextStepPanel({
   onSaveSchedule: () => void
   onCancelScheduleEdit: () => void
   onRemoveSchedule: () => void
+
+  editingProposta: boolean
+  propostaValor: string
+  onPropostaValorChange: (value: string) => void
+  savingProposta: boolean
+  onSaveProposta: () => void
+  onCancelPropostaEdit: () => void
+
+  vendaValor: string
+  onVendaValorChange: (value: string) => void
+  vendaData: string
+  onVendaDataChange: (value: string) => void
+  savingVenda: boolean
+  onSaveVenda: () => void
+  faturando: boolean
+  onFaturar: () => void
 }) {
   return (
     <section style={{
@@ -117,7 +138,7 @@ export default function LeadNextStepPanel({
         </div>
 
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end" style={{ gap: 7 }}>
-          <button style={primaryActionBtnStyle} onClick={() => { if (!editing) onToggleEditing() }}>
+          <button style={primaryActionBtnStyle} onClick={onOpenSchedule}>
             Agendar
           </button>
           <a href={telHref ?? undefined} style={actionBtnStyle(!!telHref)} onClick={e => { if (!telHref) e.preventDefault() }}>
@@ -129,12 +150,18 @@ export default function LeadNextStepPanel({
           <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
             <Mail size={14} /> Enviar e-mail
           </a>
-          <button style={actionBtnStyle(true)} onClick={() => { if (!editing) onToggleEditing(); onStatusOptionClick('proposta') }}>
+          <button style={actionBtnStyle(true)} onClick={onOpenProposta}>
             Registrar proposta
           </button>
-          <button style={actionBtnStyle(true)} onClick={() => { if (!editing) onToggleEditing(); onStatusOptionClick('fechado') }}>
-            Finalizar atendimento
-          </button>
+          {status === 'waiting_billing' ? (
+            <button style={primaryActionBtnStyle} onClick={onFaturar} disabled={faturando}>
+              {faturando ? 'Faturando…' : 'Faturar'}
+            </button>
+          ) : (
+            <button style={actionBtnStyle(true)} onClick={onOpenFinalizar}>
+              Finalizar atendimento
+            </button>
+          )}
           <button style={actionBtnStyle(true)} onClick={onToggleEditing}>
             {editing ? 'Concluir edição' : 'Editar ação rápida'}
           </button>
@@ -143,15 +170,123 @@ export default function LeadNextStepPanel({
 
       {editing && (
       <div style={{ borderTop: '1px solid var(--border-lt)', marginTop: 18, paddingTop: 15 }}>
-      <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 18 }}>
+      <div className="flex flex-col sm:flex-row sm:flex-wrap" style={{ gap: 18 }}>
 
-        <div>
+        {editingProposta && (
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Valor da proposta
+          </div>
+          <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="R$ 0,00"
+              value={propostaValor}
+              onChange={e => onPropostaValorChange(e.target.value)}
+              style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box', width: 130 }}
+            />
+            <button
+              onClick={onSaveProposta}
+              disabled={savingProposta || !propostaValor}
+              style={{
+                background: savingProposta || !propostaValor ? 'var(--bg-subtle)' : '#2563EB',
+                color: savingProposta || !propostaValor ? 'var(--text-subtle)' : 'white',
+                border: 'none', borderRadius: 8,
+                padding: '7px 16px', fontSize: 13, fontWeight: 500,
+                cursor: savingProposta || !propostaValor ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {savingProposta ? 'Salvando…' : 'Registrar'}
+            </button>
+            <button
+              onClick={onCancelPropostaEdit}
+              style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+        )}
+
+        {editingStatus && (
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
           <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Status
           </div>
           <div style={{ marginTop: 8 }}>
-            {editingStatus ? (
-              statusSubMenu === 'fechado' ? (
+            {statusSubMenu === 'finalizar' ? (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    onClick={onVendaRealizadaClick}
+                    style={{
+                      background: STATUS_STYLE.sale_performed.bg, color: STATUS_STYLE.sale_performed.color,
+                      border: `1.5px solid ${STATUS_STYLE.sale_performed.color}`,
+                      padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    Venda realizada
+                  </button>
+                  <button
+                    onClick={() => onStatusOptionClick('sale_not_performed')}
+                    style={{
+                      background: STATUS_STYLE.sale_not_performed.bg, color: STATUS_STYLE.sale_not_performed.color,
+                      border: `1.5px solid ${STATUS_STYLE.sale_not_performed.color}`,
+                      padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    Venda não realizada
+                  </button>
+                  <button
+                    onClick={onCancelStatusEdit}
+                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : statusSubMenu === 'venda_realizada' ? (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="Valor final (R$)"
+                    value={vendaValor}
+                    onChange={e => onVendaValorChange(e.target.value)}
+                    style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box', width: 130 }}
+                  />
+                  <input
+                    type="date"
+                    value={vendaData}
+                    onChange={e => onVendaDataChange(e.target.value)}
+                    style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
+                  />
+                  <button
+                    onClick={onSaveVenda}
+                    disabled={savingVenda || !vendaValor || !vendaData}
+                    style={{
+                      background: savingVenda || !vendaValor || !vendaData ? 'var(--bg-subtle)' : '#2563EB',
+                      color: savingVenda || !vendaValor || !vendaData ? 'var(--text-subtle)' : 'white',
+                      border: 'none', borderRadius: 8,
+                      padding: '7px 16px', fontSize: 13, fontWeight: 500,
+                      cursor: savingVenda || !vendaValor || !vendaData ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {savingVenda ? 'Salvando…' : 'Confirmar'}
+                  </button>
+                  <button
+                    onClick={onBackToFinalizar}
+                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    onClick={onCancelStatusEdit}
+                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : statusSubMenu === 'fechado' ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   {CLOSED_SUB_OPTIONS.map(opt => {
                     const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
@@ -236,79 +371,66 @@ export default function LeadNextStepPanel({
                     Cancelar
                   </button>
                 </div>
-              )
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ background: sStyle.bg, color: sStyle.color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
-                  {statusLabel(status)}
-                </span>
-                {statusDurationLabel && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '3px 10px', borderRadius: 99, fontVariantNumeric: 'tabular-nums' }}>
-                    {statusDurationLabel}
-                  </span>
-                )}
-              </div>
-            )}
+              )}
           </div>
         </div>
+        )}
 
-        <div>
+        {editingPerception && (
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
           <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Temperatura
           </div>
           <div style={{ marginTop: 8 }}>
-            {editingPerception ? (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                {Object.keys(PERCEPTION_STYLE).map(key => {
-                  const s = PERCEPTION_STYLE[key]
-                  const active = perception === key
-                  return (
-                    <button
-                      key={key}
-                      disabled={savingPerception}
-                      onClick={() => onPerceptionClick(key)}
-                      style={{
-                        background: active ? s.color : s.bg,
-                        color: active ? 'white' : s.color,
-                        border: `1.5px solid ${s.color}`,
-                        padding: '4px 14px', borderRadius: 99,
-                        fontSize: 13, fontWeight: 600, cursor: savingPerception ? 'not-allowed' : 'pointer',
-                        opacity: savingPerception ? 0.6 : 1,
-                        transition: 'all 150ms',
-                      }}
-                    >
-                      {s.label}
-                    </button>
-                  )
-                })}
-                <button
-                  onClick={onCancelPerceptionEdit}
-                  style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                >
-                  Cancelar
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {perception && PERCEPTION_STYLE[perception] ? (
-                  <span style={{ background: PERCEPTION_STYLE[perception].bg, color: PERCEPTION_STYLE[perception].color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }}>
-                    {PERCEPTION_STYLE[perception].label}
-                  </span>
-                ) : (
-                  <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Sem temperatura</span>
-                )}
-              </div>
-            )}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {Object.keys(PERCEPTION_STYLE).map(key => {
+                const s = PERCEPTION_STYLE[key]
+                const active = perception === key
+                return (
+                  <button
+                    key={key}
+                    disabled={savingPerception}
+                    onClick={() => onPerceptionClick(key)}
+                    style={{
+                      background: active ? s.color : s.bg,
+                      color: active ? 'white' : s.color,
+                      border: `1.5px solid ${s.color}`,
+                      padding: '4px 14px', borderRadius: 99,
+                      fontSize: 13, fontWeight: 600, cursor: savingPerception ? 'not-allowed' : 'pointer',
+                      opacity: savingPerception ? 0.6 : 1,
+                      transition: 'all 150ms',
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                )
+              })}
+              <button
+                onClick={onCancelPerceptionEdit}
+                style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
+        )}
 
-        <div ref={agendaRef}>
+        {editingSchedule && (
+        <div ref={agendaRef} style={{ flex: '1 1 200px', minWidth: 0 }}>
           <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Agendar
           </div>
           <div style={{ marginTop: 8 }}>
-            {editingSchedule ? (
+            {loadingSchedules ? (
+              <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
+            ) : (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {activeSchedule && (
+                  <span style={{ fontSize: 12, color: 'var(--text-subtle)', width: '100%' }}>
+                    Agendado para {fmtDate(activeSchedule.scheduled_at)}
+                  </span>
+                )}
                 <input
                   type="datetime-local"
                   value={scheduleInput}
@@ -328,22 +450,6 @@ export default function LeadNextStepPanel({
                 >
                   {savingSchedule ? 'Salvando…' : activeSchedule ? 'Reagendar' : 'Agendar'}
                 </button>
-                <button
-                  onClick={onCancelScheduleEdit}
-                  style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                >
-                  Cancelar
-                </button>
-              </div>
-            ) : loadingSchedules ? (
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                {activeSchedule ? (
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{fmtDate(activeSchedule.scheduled_at)}</span>
-                ) : (
-                  <span style={{ fontSize: 13, color: 'var(--text-subtle)', fontStyle: 'normal' }}>Nada agendado</span>
-                )}
                 {activeSchedule && (
                   <button
                     onClick={onRemoveSchedule}
@@ -353,10 +459,17 @@ export default function LeadNextStepPanel({
                     {cancelingSchedule ? 'Removendo…' : 'Remover'}
                   </button>
                 )}
+                <button
+                  onClick={onCancelScheduleEdit}
+                  style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                >
+                  Cancelar
+                </button>
               </div>
             )}
           </div>
         </div>
+        )}
 
       </div>
       </div>

@@ -16,6 +16,7 @@ from app.schemas.lead import (
     BulkDeleteRequest, BulkDeleteResponse,
     StatusUpdateRequest, StatusUpdateResponse,
     LeadInfoUpdateRequest, LeadInfoUpdateResponse,
+    LeadVendaRequest, LeadVendaResponse, LeadFaturarResponse,
     NoteCreateRequest, NoteCreateResponse,
     NoteResponse, NotesListResponse,
     StatusHistoryItem, StatusHistoryResponse,
@@ -527,6 +528,45 @@ def update_lead_info(
         current_plan=lead.current_plan,
         value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
     )
+
+
+@router.post("/leads/{lead_id}/venda", response_model=LeadVendaResponse)
+def registrar_venda(
+    lead_id: str,
+    body: LeadVendaRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Registra o valor final e a data da venda fechada; o valor entra como
+    'a receber' ate o faturamento (ver /faturar)."""
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    try:
+        data_venda = datetime.strptime(body.data_venda, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
+    lead.receita_real_a_receber = body.valor
+    lead.receita_data_venda = data_venda
+    db.commit()
+    return LeadVendaResponse(success=True, lead_id=lead.id)
+
+
+@router.post("/leads/{lead_id}/faturar", response_model=LeadFaturarResponse)
+def faturar_venda(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Move o valor pendente (a receber) para recebido, concluindo o faturamento."""
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    pendente = lead.receita_real_a_receber or 0
+    lead.receita_real_recebida = (lead.receita_real_recebida or 0) + pendente
+    lead.receita_real_a_receber = 0
+    db.commit()
+    return LeadFaturarResponse(success=True, lead_id=lead.id)
 
 
 @router.get("/leads/{lead_id}/status-history", response_model=StatusHistoryResponse)

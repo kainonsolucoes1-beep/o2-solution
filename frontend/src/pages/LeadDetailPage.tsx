@@ -92,7 +92,7 @@ export default function LeadDetailPage() {
   const [me, setMe]                       = useState<Me | null>(null)
   const [status, setStatus]               = useState('novo')
   const [editingStatus, setEditingStatus] = useState(false)
-  const [statusSubMenu, setStatusSubMenu] = useState<'fechado' | 'perdido' | null>(null)
+  const [statusSubMenu, setStatusSubMenu] = useState<'fechado' | 'perdido' | 'finalizar' | 'venda_realizada' | null>(null)
   const [savingStatus, setSavingStatus]   = useState(false)
   const [notes, setNotes]                 = useState<Note[]>([])
   const [loadingNotes, setLoadingNotes]   = useState(true)
@@ -111,6 +111,14 @@ export default function LeadDetailPage() {
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [cancelingSchedule, setCancelingSchedule] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState(false)
+  const [editingProposta, setEditingProposta] = useState(false)
+  const [propostaValor, setPropostaValor] = useState('')
+  const [savingProposta, setSavingProposta] = useState(false)
+  const [vendaValor, setVendaValor] = useState('')
+  const [vendaData, setVendaData] = useState('')
+  const [savingVenda, setSavingVenda] = useState(false)
+  const [faturando, setFaturando] = useState(false)
+  const [finalizarFlow, setFinalizarFlow] = useState(false)
   const [, setTick]                       = useState(0)
   const [editingInfo, setEditingInfo]     = useState(false)
   const [savingInfo, setSavingInfo]       = useState(false)
@@ -180,6 +188,24 @@ export default function LeadDetailPage() {
       .then(r => setHistory(r.data.history))
       .catch(() => setToast({ msg: 'Erro ao atualizar status', ok: false }))
       .finally(() => setSavingStatus(false))
+  }
+
+  function handleRegistrarVenda() {
+    if (!id || !vendaValor.trim() || !vendaData) return
+    setSavingVenda(true)
+    api.post(`/api/v1/leads/${id}/venda`, { valor: Number(vendaValor), data_venda: vendaData })
+      .then(() => handleStatusChange('waiting_billing'))
+      .catch(() => setToast({ msg: 'Erro ao registrar venda', ok: false }))
+      .finally(() => setSavingVenda(false))
+  }
+
+  function handleFaturar() {
+    if (!id) return
+    setFaturando(true)
+    api.post(`/api/v1/leads/${id}/faturar`)
+      .then(() => handleStatusChange('sale_performed'))
+      .catch(() => setToast({ msg: 'Erro ao faturar', ok: false }))
+      .finally(() => setFaturando(false))
   }
 
   function startEditInfo() {
@@ -338,6 +364,28 @@ export default function LeadDetailPage() {
     ? fmtClock(Date.now() - parseUTC(history[history.length - 1].changed_at))
     : null
 
+  function closeAllEditing() {
+    setEditingStatus(false)
+    setEditingPerception(false)
+    setEditingSchedule(false)
+    setEditingProposta(false)
+    setStatusSubMenu(null)
+    setFinalizarFlow(false)
+  }
+
+  function handleRegistrarProposta() {
+    if (!id) return
+    setSavingProposta(true)
+    const payload: { value_potential?: number } = {}
+    if (propostaValor.trim()) payload.value_potential = Number(propostaValor)
+    api.post(`/api/v1/leads/${id}/info`, payload)
+      .then(() => api.get<LeadItem>(`/api/v1/leads/${id}`))
+      .then(r => { setLead(r.data); setEditingProposta(false) })
+      .then(() => handleStatusChange('proposta'))
+      .catch(() => setToast({ msg: 'Erro ao registrar proposta', ok: false }))
+      .finally(() => setSavingProposta(false))
+  }
+
   // ── Timeline: tempo gasto em cada etapa ──────────────────────────────────
   const timeline = (() => {
     const points = [
@@ -450,15 +498,38 @@ export default function LeadDetailPage() {
           setEditingStatus(next)
           setEditingPerception(next)
           setEditingSchedule(next)
+          setEditingProposta(false)
+          setFinalizarFlow(false)
           if (next) setStatusSubMenu(null)
+        }}
+        onOpenSchedule={() => {
+          setEditingSchedule(true)
+          setEditingStatus(false)
+          setEditingPerception(true)
+          setEditingProposta(false)
+          setStatusSubMenu(null)
+        }}
+        onOpenProposta={() => {
+          setEditingProposta(true)
+          setEditingStatus(false)
+          setEditingPerception(true)
+          setEditingSchedule(true)
+          setStatusSubMenu(null)
+          setPropostaValor(lead?.value_potential != null ? String(lead.value_potential) : '')
+        }}
+        onOpenFinalizar={() => {
+          setEditingStatus(true)
+          setEditingPerception(false)
+          setEditingSchedule(false)
+          setEditingProposta(false)
+          setFinalizarFlow(true)
+          setStatusSubMenu('finalizar')
         }}
 
         status={status}
-        sStyle={sStyle}
         editingStatus={editingStatus}
         statusSubMenu={statusSubMenu}
         savingStatus={savingStatus}
-        statusDurationLabel={statusDurationLabel}
         onStatusOptionClick={value => {
           if (value === 'fechado') { setStatusSubMenu('fechado'); return }
           if (value === 'sale_not_performed') { setStatusSubMenu('perdido'); return }
@@ -466,14 +537,16 @@ export default function LeadDetailPage() {
         }}
         onClosedSubClick={value => handleStatusChange(value)}
         onLostReasonClick={reason => handleStatusChange('sale_not_performed', reason)}
-        onBackToStatusOptions={() => setStatusSubMenu(null)}
-        onCancelStatusEdit={() => setEditingStatus(false)}
+        onBackToStatusOptions={() => setStatusSubMenu(finalizarFlow ? 'finalizar' : null)}
+        onCancelStatusEdit={closeAllEditing}
+        onVendaRealizadaClick={() => setStatusSubMenu('venda_realizada')}
+        onBackToFinalizar={() => setStatusSubMenu('finalizar')}
 
         perception={lead.perception}
         editingPerception={editingPerception}
         savingPerception={savingPerception}
         onPerceptionClick={key => { handleQuickUpdate('perception', key); setEditingPerception(false) }}
-        onCancelPerceptionEdit={() => setEditingPerception(false)}
+        onCancelPerceptionEdit={closeAllEditing}
 
         agendaRef={agendaRef}
         editingSchedule={editingSchedule}
@@ -484,8 +557,24 @@ export default function LeadDetailPage() {
         activeSchedule={activeSchedule}
         cancelingSchedule={cancelingSchedule}
         onSaveSchedule={handleSchedule}
-        onCancelScheduleEdit={() => setEditingSchedule(false)}
+        onCancelScheduleEdit={closeAllEditing}
         onRemoveSchedule={handleCancelSchedule}
+
+        editingProposta={editingProposta}
+        propostaValor={propostaValor}
+        onPropostaValorChange={setPropostaValor}
+        savingProposta={savingProposta}
+        onSaveProposta={handleRegistrarProposta}
+        onCancelPropostaEdit={closeAllEditing}
+
+        vendaValor={vendaValor}
+        onVendaValorChange={setVendaValor}
+        vendaData={vendaData}
+        onVendaDataChange={setVendaData}
+        savingVenda={savingVenda}
+        onSaveVenda={handleRegistrarVenda}
+        faturando={faturando}
+        onFaturar={handleFaturar}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] items-start" style={{ marginTop: 16, gap: 16 }}>

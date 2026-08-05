@@ -135,6 +135,21 @@ class LeadInfoUpdateResponse(BaseModel):
     visibility_tag: Optional[str] = None
 
 
+class LeadVendaRequest(BaseModel):
+    valor: float
+    data_venda: str  # AAAA-MM-DD
+
+
+class LeadVendaResponse(BaseModel):
+    success: bool
+    lead_id: UUID
+
+
+class LeadFaturarResponse(BaseModel):
+    success: bool
+    lead_id: UUID
+
+
 class NoteCreateRequest(BaseModel):
     content: str
 
