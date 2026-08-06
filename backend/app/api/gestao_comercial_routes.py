@@ -732,7 +732,7 @@ def vida_sdr(
         }
 
     status_rows = (
-        db.query(LeadStatusHistory.changed_at, LeadStatusHistory.to_status, Lead.name)
+        db.query(LeadStatusHistory.changed_at, LeadStatusHistory.to_status, Lead.name, Lead.id)
         .join(Lead, Lead.id == LeadStatusHistory.lead_id)
         .filter(Lead.origin.in_(parts))
         .order_by(LeadStatusHistory.changed_at.desc())
@@ -740,7 +740,7 @@ def vida_sdr(
         .all()
     )
     note_rows = (
-        db.query(LeadNote.created_at, LeadNote.content, Lead.name)
+        db.query(LeadNote.created_at, LeadNote.content, Lead.name, Lead.id)
         .join(Lead, Lead.id == LeadNote.lead_id)
         .filter(Lead.origin.in_(parts))
         .order_by(LeadNote.created_at.desc())
@@ -748,7 +748,7 @@ def vida_sdr(
         .all()
     )
     schedule_rows = (
-        db.query(LeadSchedule.created_at, Lead.name)
+        db.query(LeadSchedule.created_at, Lead.name, Lead.id)
         .join(Lead, Lead.id == LeadSchedule.lead_id)
         .filter(Lead.origin.in_(parts), LeadSchedule.is_active.is_(True))
         .order_by(LeadSchedule.created_at.desc())
@@ -757,15 +757,15 @@ def vida_sdr(
     )
 
     atividades = []
-    for changed_at, to_status, nome in status_rows:
-        atividades.append({"tipo": "status", "lead_nome": nome, "detalhe": to_status, "em": changed_at.isoformat()})
-    for created_at, content, nome in note_rows:
+    for changed_at, to_status, nome, lead_id in status_rows:
+        atividades.append({"tipo": "status", "lead_nome": nome, "lead_id": str(lead_id), "detalhe": to_status, "em": changed_at.isoformat()})
+    for created_at, content, nome, lead_id in note_rows:
         resumo = (content or "").strip().replace("\n", " ")
         if len(resumo) > 90:
             resumo = resumo[:87] + "…"
-        atividades.append({"tipo": "nota", "lead_nome": nome, "detalhe": resumo, "em": created_at.isoformat()})
-    for created_at, nome in schedule_rows:
-        atividades.append({"tipo": "agendamento", "lead_nome": nome, "detalhe": None, "em": created_at.isoformat()})
+        atividades.append({"tipo": "nota", "lead_nome": nome, "lead_id": str(lead_id), "detalhe": resumo, "em": created_at.isoformat()})
+    for created_at, nome, lead_id in schedule_rows:
+        atividades.append({"tipo": "agendamento", "lead_nome": nome, "lead_id": str(lead_id), "detalhe": None, "em": created_at.isoformat()})
     atividades.sort(key=lambda a: a["em"], reverse=True)
 
     return {

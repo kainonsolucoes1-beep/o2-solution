@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent, type KeyboardEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -6,15 +6,21 @@ import {
 import {
   ArrowLeft, Users, Loader2, XCircle, Percent, Wallet, Clock3, Handshake,
   Trophy, Download, List, Lock, StickyNote, CalendarClock, ArrowRightLeft, ChevronDown, ChevronUp,
+  type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
 import { statusLabel } from '../utils/statusLabel'
+import SmartPreviewDrawer from '../components/SmartPreviewDrawer'
+import {
+  buildSmartPreview, fetchSmartPreviewRows, needsRowFetch, MOCK_POTENCIAL_TOTAL, MOCK_CUSTO_TOTAL,
+  type SmartPreviewId, type SmartPreview,
+} from '../utils/vidaSdrPreview'
 
 interface TrendItem { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number | null }
 interface RankingEntry { nome: string; receita: number; voce: boolean }
 interface Ranking { posicao: number; total: number; leaderboard: RankingEntry[] }
-interface Atividade { tipo: 'status' | 'nota' | 'agendamento'; lead_nome: string; detalhe: string | null; em: string }
+interface Atividade { tipo: 'status' | 'nota' | 'agendamento'; lead_nome: string; lead_id?: string; detalhe: string | null; em: string }
 interface VidaSdrData {
   captacoes: number
   em_andamento: number
@@ -66,18 +72,24 @@ function relTime(iso: string): string {
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-const EM_ANDAMENTO_STATUSES = 'pending,novo,new,scheduled,qualificado,qualified,proposta,proposal_sent,negociacao'
-const VENDA_STATUSES_CSV    = 'waiting_billing,sale_performed,fechado,closed,won,convertido'
-const CANCELADO_STATUS_CSV  = 'sale_not_performed'
+// Card Operacional (Candidate Freeze "Vida do Agente"). Cada indicador abre um
+// Smart Preview (ver buildSmartPreview em utils/vidaSdrPreview.ts) em vez de
+// navegar direto — a navegação real fica na ação do drawer.
+const OPERACIONAL_CFG = [
+  { key: 'captacoes',        id: 'captacoes' as SmartPreviewId,        label: 'Total de Leads',    icon: Users,    color: '#3B82F6', bg: 'rgba(59,130,246,0.14)', fmt: (v: number) => String(v) },
+  { key: 'em_andamento',     id: 'em_andamento' as SmartPreviewId,     label: 'Em Andamento',      icon: Clock3,   color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', fmt: (v: number) => String(v) },
+  { key: 'vendas',           id: 'vendas' as SmartPreviewId,           label: 'Vendas Realizadas', icon: Handshake,color: '#059669', bg: 'rgba(5,150,105,0.14)',  fmt: (v: number) => String(v) },
+  { key: 'conversao',        id: 'conversao' as SmartPreviewId,        label: 'Conversão Geral',   icon: Percent,  color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: (v: number) => `${v}%` },
+  { key: 'cancelados',       id: 'cancelados' as SmartPreviewId,       label: 'Cancelados',        icon: XCircle,  color: '#EF4444', bg: 'rgba(239,68,68,0.14)',  fmt: (v: number) => String(v) },
+] as const
 
-const STAT_CFG = [
-  { key: 'captacoes',        label: 'Total de Leads',    icon: Users,     color: '#3B82F6', bg: 'rgba(59,130,246,0.14)',  fmt: (v: number) => String(v), statusFilter: undefined as string | undefined },
-  { key: 'em_andamento',     label: 'Em Andamento',      icon: Clock3,    color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', fmt: (v: number) => String(v), statusFilter: EM_ANDAMENTO_STATUSES },
-  { key: 'vendas',           label: 'Vendas Realizadas', icon: Handshake, color: '#059669', bg: 'rgba(5,150,105,0.14)',   fmt: (v: number) => String(v), statusFilter: VENDA_STATUSES_CSV },
-  { key: 'conversao',        label: 'Conversão Geral',   icon: Percent,  color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: (v: number) => `${v}%`, statusFilter: VENDA_STATUSES_CSV },
-  { key: 'cancelados',       label: 'Cancelados',        icon: XCircle,  color: '#EF4444', bg: 'rgba(239,68,68,0.14)',  fmt: (v: number) => String(v), statusFilter: CANCELADO_STATUS_CSV },
-  { key: 'receita_recebida', label: 'Receita Recebida',  icon: Wallet,   color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: fmtBrl, statusFilter: VENDA_STATUSES_CSV },
-  { key: 'receita_a_receber',label: 'Receita a Receber', icon: Wallet,   color: '#F59E0B', bg: 'rgba(245,158,11,0.14)', fmt: fmtBrl, statusFilter: VENDA_STATUSES_CSV },
+// Card Financeiro: apenas os 4 itens aprovados no Candidate Freeze. Receita
+// potencial e Custo total ainda não têm fonte real — ver limitações no handoff.
+const FINANCEIRO_CFG = [
+  { key: 'receita_recebida',  id: 'receita_recebida' as SmartPreviewId,  label: 'Receita Recebida',  icon: Wallet, color: '#10B981', bg: 'rgba(16,185,129,0.14)', simulated: false },
+  { key: 'receita_a_receber', id: 'receita_a_receber' as SmartPreviewId, label: 'Receita a Receber',  icon: Wallet, color: '#F59E0B', bg: 'rgba(245,158,11,0.14)', simulated: false },
+  { key: 'receita_potencial', id: 'receita_potencial' as SmartPreviewId, label: 'Receita Potencial',  icon: Wallet, color: '#7C3AED', bg: 'rgba(124,58,237,0.14)', simulated: true },
+  { key: 'custo_total',       id: 'custo_total' as SmartPreviewId,       label: 'Custo Total',        icon: Wallet, color: '#DC2626', bg: 'rgba(220,38,38,0.14)',  simulated: true },
 ] as const
 
 const ATIVIDADE_CFG = {
@@ -85,6 +97,35 @@ const ATIVIDADE_CFG = {
   nota:         { color: '#8B5CF6', Icon: StickyNote },
   agendamento:  { color: '#F59E0B', Icon: CalendarClock },
 } as const
+
+function StatCard({ label, icon: Icon, color, bg, value, simulated, onOpen }: {
+  label: string; icon: LucideIcon; color: string; bg: string; value: string; simulated?: boolean
+  onOpen: (trigger: HTMLElement) => void
+}) {
+  return (
+    <div
+      role="button" tabIndex={0}
+      onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e.currentTarget)}
+      onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(e.currentTarget) } }}
+      style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '18px 20px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${color}33` }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(15,23,42,0.06)' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {label}{simulated && <em style={{ marginLeft: 6, fontStyle: 'normal', fontWeight: 700, color: '#7C3AED' }}>· estimativa</em>}
+        </span>
+        <div style={{ width: 28, height: 28, borderRadius: 8, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon size={14} color={color} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        <p style={{ fontSize: 27, fontWeight: 800, color, margin: 0, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+        <span style={{ fontSize: 10.5, color, fontWeight: 600, marginBottom: 2 }}>Ver detalhes →</span>
+      </div>
+    </div>
+  )
+}
 
 export default function VidaSDR() {
   const { origens } = useParams<{ origens: string }>()
@@ -96,6 +137,10 @@ export default function VidaSDR() {
   const [loading, setLoading] = useState(true)
   const [showAllAtividades, setShowAllAtividades] = useState(false)
 
+  const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null)
+  const [preview, setPreview] = useState<SmartPreview | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+
   useEffect(() => {
     if (!origens) return
     setLoading(true)
@@ -105,14 +150,30 @@ export default function VidaSDR() {
       .finally(() => setLoading(false))
   }, [origens])
 
-  function leadsHref(statusFilter?: string) {
-    const params = new URLSearchParams({ origem: origens || '' })
-    if (data?.primeiro_lead_em) {
-      params.set('date_from', data.primeiro_lead_em.slice(0, 10))
-      params.set('date_to', new Date().toISOString().slice(0, 10))
+  function openPreview(id: SmartPreviewId, context: number, trigger: HTMLElement) {
+    if (!data || !origens) return
+    setDrawerTrigger(trigger)
+    const base = buildSmartPreview(id, context, data, origens)
+    setPreview(base)
+    if (needsRowFetch(id)) {
+      setPreviewLoading(true)
+      fetchSmartPreviewRows(id, origens, data.primeiro_lead_em)
+        .then(rows => setPreview(prev => (prev ? { ...prev, rows } : prev)))
+        .catch(() => setPreview(prev => (prev ? { ...prev, rows: [] } : prev)))
+        .finally(() => setPreviewLoading(false))
     }
-    if (statusFilter) params.set('status', statusFilter)
-    return `/leads-report?${params.toString()}`
+  }
+
+  function closePreview() {
+    setDrawerTrigger(null)
+    setPreview(null)
+    setPreviewLoading(false)
+  }
+
+  function handlePreviewAction() {
+    const target = preview?.target
+    closePreview()
+    if (target) navigate(target)
   }
 
   function exportarCsv() {
@@ -208,31 +269,39 @@ export default function VidaSDR() {
         <p style={{ textAlign: 'center', color: 'var(--text-subtle)', padding: '60px 0' }}>Nenhum lead encontrado para este SDR.</p>
       ) : (
         <>
-          {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
-            {STAT_CFG.filter(({ key }) => data[key as keyof VidaSdrData] != null).map(({ key, label, icon: Icon, color, bg, fmt, statusFilter }) => (
-              <div
-                key={key}
-                onClick={() => navigate(leadsHref(statusFilter))}
-                style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '18px 20px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${color}33` }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(15,23,42,0.06)' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={14} color={color} />
+          {/* Card Operacional + Card Financeiro */}
+          {(() => {
+            const canSeeFinance = data.receita_recebida != null
+            const cancellationRate = data.captacoes ? Math.round((data.cancelados / data.captacoes) * 100) : 0
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? '1.3fr 1fr' : '1fr', gap: 16, marginBottom: 24 }}>
+                <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '20px 22px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+                  <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 14px' }}>Operacional</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                    {OPERACIONAL_CFG.map(({ key, id, label, icon, color, bg, fmt }) => (
+                      <StatCard key={key} label={label} icon={icon} color={color} bg={bg} value={fmt(data[key as keyof VidaSdrData] as number)} onOpen={trigger => openPreview(id, 0, trigger)} />
+                    ))}
+                    <StatCard label="Tx. Cancelamento" icon={XCircle} color="#EF4444" bg="rgba(239,68,68,0.14)" value={`${cancellationRate}%`} onOpen={trigger => openPreview('cancellationRate', 0, trigger)} />
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                  <p style={{ fontSize: 27, fontWeight: 800, color, margin: 0, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmt(data[key as keyof VidaSdrData] as number)}
-                  </p>
-                  <span style={{ fontSize: 10.5, color, fontWeight: 600, marginBottom: 2 }}>Ver leads →</span>
-                </div>
+
+                {canSeeFinance && (
+                  <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '20px 22px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+                    <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 14px' }}>Financeiro</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                      {FINANCEIRO_CFG.map(({ key, id, label, icon, color, bg, simulated }) => {
+                        const value = key === 'receita_recebida' ? fmtBrl(data.receita_recebida || 0)
+                          : key === 'receita_a_receber' ? fmtBrl(data.receita_a_receber || 0)
+                          : key === 'receita_potencial' ? fmtBrl(MOCK_POTENCIAL_TOTAL)
+                          : fmtBrl(MOCK_CUSTO_TOTAL)
+                        return <StatCard key={key} label={label} icon={icon} color={color} bg={bg} value={value} simulated={simulated} onOpen={trigger => openPreview(id, 0, trigger)} />
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            )
+          })()}
 
           {/* Evolução + Ranking */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 16, marginBottom: 24 }}>
@@ -267,8 +336,10 @@ export default function VidaSDR() {
                     return (
                     <div
                       key={r.nome}
-                      onClick={clickable ? () => navigate(`/leads-report?origem=${encodeURIComponent(r.nome)}`) : undefined}
-                      title={clickable ? `Ver leads de ${r.nome}` : undefined}
+                      role={clickable ? 'button' : undefined} tabIndex={clickable ? 0 : undefined}
+                      onClick={clickable ? (e: MouseEvent<HTMLDivElement>) => openPreview('ranking', i, e.currentTarget) : undefined}
+                      onKeyDown={clickable ? (e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPreview('ranking', i, e.currentTarget) } } : undefined}
+                      title={clickable ? `Ver prévia de ${r.nome}` : undefined}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0',
                         borderBottom: i < data.ranking!.leaderboard.length - 1 ? '1px solid var(--border-lt)' : 'none',
@@ -307,7 +378,15 @@ export default function VidaSDR() {
                         : a.tipo === 'nota' ? `${a.lead_nome}: ${a.detalhe}`
                         : `Agendamento criado para ${a.lead_nome}`
                       return (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-lt)' : 'none' }}>
+                        <div
+                          key={i}
+                          role="button" tabIndex={0}
+                          onClick={(e: MouseEvent<HTMLDivElement>) => openPreview('activity', i, e.currentTarget)}
+                          onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPreview('activity', i, e.currentTarget) } }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-lt)' : 'none', cursor: 'pointer' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
+                        >
                           <div style={{ width: 24, height: 24, borderRadius: 7, background: cfg.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <cfg.Icon size={12} color={cfg.color} />
                           </div>
@@ -342,6 +421,16 @@ export default function VidaSDR() {
             </div>
           </div>
         </>
+      )}
+
+      {preview && (
+        <SmartPreviewDrawer
+          preview={preview}
+          loading={previewLoading}
+          trigger={drawerTrigger}
+          onClose={closePreview}
+          onAction={handlePreviewAction}
+        />
       )}
     </div>
   )
