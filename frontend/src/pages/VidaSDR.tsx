@@ -1,12 +1,10 @@
 import { useEffect, useState, type MouseEvent, type KeyboardEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import {
-  ArrowLeft, Users, Loader2, XCircle, Percent, Wallet, Clock3, Handshake,
-  Trophy, Download, List, Lock, StickyNote, CalendarClock, ArrowRightLeft, ChevronDown, ChevronUp,
-  type LucideIcon,
+  ArrowLeft, Loader2, Trophy, Download, List, Lock, StickyNote, CalendarClock, ArrowRightLeft, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
@@ -35,6 +33,11 @@ interface VidaSdrData {
   atividades: Atividade[]
 }
 
+const ACCENT = '#2563EB'
+const ACCENT_SOFT = 'rgba(37,99,235,0.1)'
+const ACCENT_TINT = 'rgba(37,99,235,0.03)'
+const ACCENT_LINE = 'rgba(37,99,235,0.18)'
+
 function fmtBrl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -57,6 +60,35 @@ function mesesAtivo(iso: string) {
   return Math.max(1, months)
 }
 
+type Delta = { text: string; tone: 'good' | 'bad' | 'neutral' }
+
+// Deltas reais (mês atual vs. mês anterior), derivados de data.trend — nunca
+// fabricados. Métricas sem série mensal na API (em_andamento, cancelados,
+// tx. cancelamento, receita a receber/potencial, custo total) ficam sem delta.
+function monthDelta(trend: TrendItem[], key: 'captacoes' | 'vendas' | 'receita', higherIsBetter = true): Delta | null {
+  if (trend.length < 2) return null
+  const prev = trend[trend.length - 2][key]
+  const curr = trend[trend.length - 1][key]
+  if (prev == null || curr == null || prev === 0) return null
+  const pct = Math.round(((curr - prev) / prev) * 100)
+  if (pct === 0) return { text: '— 0%', tone: 'neutral' }
+  const good = higherIsBetter ? pct > 0 : pct < 0
+  return { text: `${pct > 0 ? '↑' : '↓'} ${Math.abs(pct)}%`, tone: good ? 'good' : 'bad' }
+}
+
+function conversionDelta(trend: TrendItem[]): Delta | null {
+  if (trend.length < 2) return null
+  const a = trend[trend.length - 2]
+  const b = trend[trend.length - 1]
+  if (!a.captacoes || !b.captacoes) return null
+  const prevConv = (a.vendas / a.captacoes) * 100
+  const currConv = (b.vendas / b.captacoes) * 100
+  if (prevConv === 0) return null
+  const pct = Math.round(((currConv - prevConv) / prevConv) * 100)
+  if (pct === 0) return { text: '— 0 p.p.', tone: 'neutral' }
+  return { text: `${pct > 0 ? '↑' : '↓'} ${Math.abs(Math.round(currConv - prevConv))} p.p.`, tone: pct > 0 ? 'good' : 'bad' }
+}
+
 function relTime(iso: string): string {
   const ms = Date.now() - parseUTC(iso)
   const min = Math.floor(ms / 60000)
@@ -74,22 +106,23 @@ const MEDALS = ['🥇', '🥈', '🥉']
 
 // Card Operacional (Candidate Freeze "Vida do Agente"). Cada indicador abre um
 // Smart Preview (ver buildSmartPreview em utils/vidaSdrPreview.ts) em vez de
-// navegar direto — a navegação real fica na ação do drawer.
+// navegar direto — a navegação real fica na ação do drawer. Sem ícone/cor por
+// métrica: o Candidate Freeze usa tiles neutros (rótulo, valor, ação).
 const OPERACIONAL_CFG = [
-  { key: 'captacoes',        id: 'captacoes' as SmartPreviewId,        label: 'Total de Leads',    icon: Users,    color: '#3B82F6', bg: 'rgba(59,130,246,0.14)', fmt: (v: number) => String(v) },
-  { key: 'em_andamento',     id: 'em_andamento' as SmartPreviewId,     label: 'Em Andamento',      icon: Clock3,   color: '#8B5CF6', bg: 'rgba(139,92,246,0.14)', fmt: (v: number) => String(v) },
-  { key: 'vendas',           id: 'vendas' as SmartPreviewId,           label: 'Vendas Realizadas', icon: Handshake,color: '#059669', bg: 'rgba(5,150,105,0.14)',  fmt: (v: number) => String(v) },
-  { key: 'conversao',        id: 'conversao' as SmartPreviewId,        label: 'Conversão Geral',   icon: Percent,  color: '#10B981', bg: 'rgba(16,185,129,0.14)', fmt: (v: number) => `${v}%` },
-  { key: 'cancelados',       id: 'cancelados' as SmartPreviewId,       label: 'Cancelados',        icon: XCircle,  color: '#EF4444', bg: 'rgba(239,68,68,0.14)',  fmt: (v: number) => String(v) },
+  { key: 'captacoes',    id: 'captacoes' as SmartPreviewId,    label: 'Total de Leads',    fmt: (v: number) => String(v) },
+  { key: 'em_andamento', id: 'em_andamento' as SmartPreviewId, label: 'Em Andamento',      fmt: (v: number) => String(v) },
+  { key: 'vendas',       id: 'vendas' as SmartPreviewId,       label: 'Vendas Realizadas', fmt: (v: number) => String(v) },
+  { key: 'conversao',    id: 'conversao' as SmartPreviewId,    label: 'Conversão Geral',   fmt: (v: number) => `${v}%` },
+  { key: 'cancelados',   id: 'cancelados' as SmartPreviewId,   label: 'Cancelados',        fmt: (v: number) => String(v) },
 ] as const
 
 // Card Financeiro: apenas os 4 itens aprovados no Candidate Freeze. Receita
 // potencial e Custo total ainda não têm fonte real — ver limitações no handoff.
 const FINANCEIRO_CFG = [
-  { key: 'receita_recebida',  id: 'receita_recebida' as SmartPreviewId,  label: 'Receita Recebida',  icon: Wallet, color: '#10B981', bg: 'rgba(16,185,129,0.14)', simulated: false },
-  { key: 'receita_a_receber', id: 'receita_a_receber' as SmartPreviewId, label: 'Receita a Receber',  icon: Wallet, color: '#F59E0B', bg: 'rgba(245,158,11,0.14)', simulated: false },
-  { key: 'receita_potencial', id: 'receita_potencial' as SmartPreviewId, label: 'Receita Potencial',  icon: Wallet, color: '#7C3AED', bg: 'rgba(124,58,237,0.14)', simulated: true },
-  { key: 'custo_total',       id: 'custo_total' as SmartPreviewId,       label: 'Custo Total',        icon: Wallet, color: '#DC2626', bg: 'rgba(220,38,38,0.14)',  simulated: true },
+  { key: 'receita_recebida',  id: 'receita_recebida' as SmartPreviewId,  label: 'Receita Recebida',  simulated: false },
+  { key: 'receita_a_receber', id: 'receita_a_receber' as SmartPreviewId, label: 'Receita a Receber',  simulated: false },
+  { key: 'receita_potencial', id: 'receita_potencial' as SmartPreviewId, label: 'Receita Potencial',  simulated: true },
+  { key: 'custo_total',       id: 'custo_total' as SmartPreviewId,       label: 'Custo Total',        simulated: true },
 ] as const
 
 const ATIVIDADE_CFG = {
@@ -98,8 +131,14 @@ const ATIVIDADE_CFG = {
   agendamento:  { color: '#F59E0B', Icon: CalendarClock },
 } as const
 
-function StatCard({ label, icon: Icon, color, bg, value, simulated, onOpen }: {
-  label: string; icon: LucideIcon; color: string; bg: string; value: string; simulated?: boolean
+const kickerStyle: import('react').CSSProperties = {
+  display: 'block', color: 'var(--text-subtle)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em',
+}
+
+const DELTA_COLOR: Record<Delta['tone'], string> = { good: '#059669', bad: '#DC2626', neutral: 'var(--text-subtle)' }
+
+function StatCard({ label, value, simulated, financial, delta, onOpen }: {
+  label: string; value: string; simulated?: boolean; financial?: boolean; delta?: Delta | null
   onOpen: (trigger: HTMLElement) => void
 }) {
   return (
@@ -107,22 +146,16 @@ function StatCard({ label, icon: Icon, color, bg, value, simulated, onOpen }: {
       role="button" tabIndex={0}
       onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e.currentTarget)}
       onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(e.currentTarget) } }}
-      style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '18px 20px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)', cursor: 'pointer', transition: 'transform 120ms, box-shadow 120ms' }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${color}33` }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(15,23,42,0.06)' }}
+      style={{ position: 'relative', minWidth: 0, padding: 11, borderRadius: 10, background: financial ? ACCENT_SOFT : 'var(--bg-subtle)', border: '1px solid transparent', textAlign: 'left', cursor: 'pointer', transition: 'border-color 120ms' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-in)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'transparent' }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {label}{simulated && <em style={{ marginLeft: 6, fontStyle: 'normal', fontWeight: 700, color: '#7C3AED' }}>· estimativa</em>}
-        </span>
-        <div style={{ width: 28, height: 28, borderRadius: 8, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon size={14} color={color} />
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <p style={{ fontSize: 27, fontWeight: 800, color, margin: 0, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
-        <span style={{ fontSize: 10.5, color, fontWeight: 600, marginBottom: 2 }}>Ver detalhes →</span>
-      </div>
+      <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 9, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}{simulated && <em style={{ marginLeft: 4, fontStyle: 'normal', fontWeight: 800, color: '#7C3AED' }}>· estimativa</em>}
+      </span>
+      <strong style={{ display: 'block', marginTop: 6, fontSize: 15, lineHeight: 1.1, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
+      {delta && <small style={{ display: 'block', marginTop: 8, fontSize: 9, fontWeight: 800, color: DELTA_COLOR[delta.tone] }}>{delta.text}</small>}
+      <em style={{ display: 'block', marginTop: 8, color: ACCENT, fontSize: 8.5, fontStyle: 'normal', fontWeight: 800, opacity: .8 }}>Ver detalhes →</em>
     </div>
   )
 }
@@ -140,6 +173,7 @@ export default function VidaSDR() {
   const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null)
   const [preview, setPreview] = useState<SmartPreview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [chartMetric, setChartMetric] = useState<'captacoes' | 'vendas' | 'receita'>('vendas')
 
   useEffect(() => {
     if (!origens) return
@@ -201,63 +235,83 @@ export default function VidaSDR() {
     URL.revokeObjectURL(url)
   }
 
+  const canSeeFinance = !!data && data.receita_recebida != null
+  const cancellationRate = data && data.captacoes ? Math.round((data.cancelados / data.captacoes) * 100) : 0
+
+  // Deltas reais mês a mês (ver monthDelta/conversionDelta) — indisponíveis
+  // para as métricas sem série mensal na API (em_andamento, cancelados,
+  // tx. cancelamento, receita a receber/potencial, custo total).
+  const deltas: Partial<Record<string, Delta | null>> = data ? {
+    captacoes: monthDelta(data.trend, 'captacoes'),
+    vendas: monthDelta(data.trend, 'vendas'),
+    conversao: conversionDelta(data.trend),
+    receita_recebida: monthDelta(data.trend, 'receita'),
+  } : {}
+
   return (
-    <div style={{ maxWidth: 1180, margin: '0 auto', padding: '20px 24px 60px' }}>
+    <div style={{ maxWidth: 1180, margin: '0 auto', padding: '16px 24px 60px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <button
         onClick={() => navigate(-1)}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 500, padding: '4px 0', marginBottom: 20 }}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 500, padding: '4px 0', alignSelf: 'flex-start' }}
       >
         <ArrowLeft size={16} /> Voltar
       </button>
 
-      {/* Hero */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap',
-        padding: '26px 30px', borderRadius: 20, marginBottom: 24,
-        background: 'linear-gradient(135deg,#1E3A8A,#2563EB 55%,#3B82F6)', boxShadow: '0 10px 34px rgba(37,99,235,0.28)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+      {/* Cabeçalho — identidade solta no fundo da página, sem card/borda, como no Candidate Freeze */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{
-            flexShrink: 0, width: 62, height: 62, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.16)', border: '2px solid rgba(255,255,255,0.35)',
-            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, fontWeight: 800, letterSpacing: '0.02em',
+            flexShrink: 0, width: 54, height: 54, borderRadius: 16,
+            background: 'linear-gradient(145deg,#1E3A8A,#2563EB)',
+            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, letterSpacing: '0.02em',
           }}>
             {initials(nome)}
           </div>
           <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 5px' }}>
-              Desempenho individual
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <p style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.01em' }}>{nome}</p>
+            <span style={kickerStyle}>Desempenho individual</span>
+            <h1 style={{ fontSize: 28, fontWeight: 800, margin: '4px 0 3px', letterSpacing: '-0.03em', lineHeight: 1.15, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {nome}
               {data?.ranking && (
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#DBEAFE', background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.3)', padding: '3px 9px', borderRadius: 99, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT, background: ACCENT_SOFT, border: `1px solid ${ACCENT_LINE}`, padding: '3px 9px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Trophy size={11} /> #{data.ranking.posicao} de {data.ranking.total}
                 </span>
               )}
-            </div>
+            </h1>
             {data?.primeiro_lead_em && (
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0' }}>
+              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 12.5 }}>
                 Desde {fmtDate(data.primeiro_lead_em)} · {mesesAtivo(data.primeiro_lead_em)} {mesesAtivo(data.primeiro_lead_em) === 1 ? 'mês' : 'meses'} ativo
               </p>
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <button
             onClick={() => navigate(`/leads-report?origem=${encodeURIComponent(origens || '')}`)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.28)', padding: '9px 15px', borderRadius: 10, cursor: 'pointer' }}
+            aria-label="Ver leads"
+            title="Ver leads"
+            style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-subtle)', background: 'transparent', border: 0, borderRadius: 8, cursor: 'pointer' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg-subtle)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-subtle)'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
           >
-            <List size={14} /> Ver leads
+            <List size={14} />
           </button>
           <button
             onClick={exportarCsv}
             disabled={!data}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#1D4ED8', background: '#fff', border: '1px solid #fff', padding: '9px 15px', borderRadius: 10, cursor: data ? 'pointer' : 'default', opacity: data ? 1 : 0.6 }}
+            aria-label="Exportar"
+            title="Exportar"
+            style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-subtle)', background: 'transparent', border: 0, borderRadius: 8, cursor: data ? 'pointer' : 'default', opacity: data ? 1 : 0.5 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-2)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg-subtle)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-subtle)'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
           >
-            <Download size={14} /> Exportar
+            <Download size={14} />
           </button>
+          <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700, marginLeft: 4 }}>
+            Período
+            <select style={{ minWidth: 168, height: 40, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }}>
+              <option>Histórico completo</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -269,156 +323,167 @@ export default function VidaSDR() {
         <p style={{ textAlign: 'center', color: 'var(--text-subtle)', padding: '60px 0' }}>Nenhum lead encontrado para este SDR.</p>
       ) : (
         <>
-          {/* Card Operacional + Card Financeiro */}
-          {(() => {
-            const canSeeFinance = data.receita_recebida != null
-            const cancellationRate = data.captacoes ? Math.round((data.cancelados / data.captacoes) * 100) : 0
-            return (
-              <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? '1.3fr 1fr' : '1fr', gap: 16, marginBottom: 24 }}>
-                <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '20px 22px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
-                  <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 14px' }}>Operacional</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                    {OPERACIONAL_CFG.map(({ key, id, label, icon, color, bg, fmt }) => (
-                      <StatCard key={key} label={label} icon={icon} color={color} bg={bg} value={fmt(data[key as keyof VidaSdrData] as number)} onOpen={trigger => openPreview(id, 0, trigger)} />
-                    ))}
-                    <StatCard label="Tx. Cancelamento" icon={XCircle} color="#EF4444" bg="rgba(239,68,68,0.14)" value={`${cancellationRate}%`} onOpen={trigger => openPreview('cancellationRate', 0, trigger)} />
-                  </div>
-                </div>
-
-                {canSeeFinance && (
-                  <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '20px 22px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
-                    <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 14px' }}>Financeiro</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                      {FINANCEIRO_CFG.map(({ key, id, label, icon, color, bg, simulated }) => {
-                        const value = key === 'receita_recebida' ? fmtBrl(data.receita_recebida || 0)
-                          : key === 'receita_a_receber' ? fmtBrl(data.receita_a_receber || 0)
-                          : key === 'receita_potencial' ? fmtBrl(MOCK_POTENCIAL_TOTAL)
-                          : fmtBrl(MOCK_CUSTO_TOTAL)
-                        return <StatCard key={key} label={label} icon={icon} color={color} bg={bg} value={value} simulated={simulated} onOpen={trigger => openPreview(id, 0, trigger)} />
-                      })}
-                    </div>
-                  </div>
-                )}
+          {/* Operacional + Financeiro, lado a lado (.9fr/1.1fr), como no Candidate Freeze */}
+          <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? '.9fr 1.1fr' : '1fr', gap: 16 }}>
+            <section style={{ padding: 19, border: '1px solid var(--border)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+              <span style={{ ...kickerStyle, marginBottom: 13 }}>Operacional</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 13 }}>
+                {OPERACIONAL_CFG.map(({ key, id, label, fmt }) => (
+                  <StatCard key={key} label={label} value={fmt(data[key as keyof VidaSdrData] as number)} delta={deltas[key]} onOpen={trigger => openPreview(id, 0, trigger)} />
+                ))}
+                <StatCard label="Tx. Cancelamento" value={`${cancellationRate}%`} onOpen={trigger => openPreview('cancellationRate', 0, trigger)} />
               </div>
-            )
-          })()}
+            </section>
 
-          {/* Evolução + Ranking */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 16, marginBottom: 24 }}>
-            <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '22px 26px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
-              <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 2px' }}>Evolução</p>
-              <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '0 0 18px' }}>Captações e vendas por mês, desde o primeiro lead</p>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={data.trend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+            {canSeeFinance && (
+              <section style={{ padding: 19, border: `1px solid ${ACCENT_LINE}`, borderRadius: 16, background: ACCENT_TINT, boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+                <span style={{ ...kickerStyle, marginBottom: 13 }}>Financeiro</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 13 }}>
+                  {FINANCEIRO_CFG.map(({ key, id, label, simulated }) => {
+                    const value = key === 'receita_recebida' ? fmtBrl(data.receita_recebida || 0)
+                      : key === 'receita_a_receber' ? fmtBrl(data.receita_a_receber || 0)
+                      : key === 'receita_potencial' ? fmtBrl(MOCK_POTENCIAL_TOTAL)
+                      : fmtBrl(MOCK_CUSTO_TOTAL)
+                    return <StatCard key={key} label={label} value={value} simulated={simulated} financial delta={deltas[key]} onOpen={trigger => openPreview(id, 0, trigger)} />
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
+
+          {/* Evolução Mensal + Meta, pareados (2fr/.75fr) — não com Ranking, como no Candidate Freeze */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(220px, .75fr)', gap: 16 }}>
+            <section style={{ padding: '20px 20px 6px', border: '1px solid var(--border)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+              <span style={kickerStyle}>Evolução mensal</span>
+              <div style={{ display: 'flex', gap: 5, margin: '14px 0 0', overflowX: 'auto' }}>
+                {(['captacoes', 'vendas', ...(canSeeFinance ? ['receita' as const] : [])] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setChartMetric(m)}
+                    style={{
+                      minHeight: 28, padding: '0 10px', border: `1px solid ${chartMetric === m ? ACCENT : 'var(--border)'}`, borderRadius: 8,
+                      color: chartMetric === m ? ACCENT : 'var(--text-muted)', background: chartMetric === m ? ACCENT_SOFT : 'var(--bg-card)',
+                      fontSize: 10.5, fontWeight: chartMetric === m ? 700 : 500, fontFamily: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer',
+                    }}
+                  >
+                    {m === 'captacoes' ? 'Captações' : m === 'vendas' ? 'Vendas' : 'Receita recebida'}
+                  </button>
+                ))}
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={data.trend} margin={{ top: 14, right: 12, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" />
                   <XAxis dataKey="mes_label" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(data.trend.length / 12) - 1)} />
                   <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
                   <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)' }}
-                    formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']} />
-                  <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="captacoes" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                  <Bar dataKey="vendas"    fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                    formatter={(val: number) => [chartMetric === 'receita' ? fmtBrl(val) : val, chartMetric === 'captacoes' ? 'Captações' : chartMetric === 'vendas' ? 'Vendas' : 'Receita recebida']} />
+                  <Bar dataKey={chartMetric} fill={ACCENT} radius={[4, 4, 0, 0]} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+              <p style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '4px 0 14px', color: 'var(--text-subtle)', fontSize: 9.5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: ACCENT, display: 'inline-block' }} />
+                {chartMetric === 'receita' ? 'Valores financeiros em reais' : 'Valores em volume absoluto'} · desde o primeiro lead
+              </p>
+            </section>
 
-            <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '20px 22px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
-              <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 2px' }}>Ranking do Time</p>
-              <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Por receita recebida (vitalício)</p>
+            <section style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 20, border: '1.5px dashed var(--border-in)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+              <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#7C3AED', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)', padding: '2px 8px', borderRadius: 99 }}>
+                Em breve
+              </span>
+              <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '10px 0 4px' }}>Metas do Mês</p>
+              <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: 0 }}>
+                Depende de cadastrar metas por SDR — combinar formato antes de construir
+              </p>
+            </section>
+          </div>
+
+          {/* Ranking + Atividades, pareados (1fr/1fr), como no Candidate Freeze */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <section style={{ padding: '20px 0', border: '1px solid var(--border)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+              <span style={{ ...kickerStyle, padding: '0 20px' }}>Benchmark</span>
+              <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 0', padding: '0 20px' }}>Ranking do Time</p>
               {!data.ranking ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '18px 0', color: 'var(--text-subtle)', fontSize: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '18px 20px 0', color: 'var(--text-subtle)', fontSize: 12 }}>
                   <Lock size={13} /> Visível apenas para Admin e Diretor
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <ol style={{ listStyle: 'none', margin: '13px 0 0', padding: 0 }}>
                   {data.ranking.leaderboard.map((r, i) => {
                     const clickable = r.nome !== 'o2 Solution'
                     return (
+                    <li key={r.nome}>
                     <div
-                      key={r.nome}
                       role={clickable ? 'button' : undefined} tabIndex={clickable ? 0 : undefined}
                       onClick={clickable ? (e: MouseEvent<HTMLDivElement>) => openPreview('ranking', i, e.currentTarget) : undefined}
                       onKeyDown={clickable ? (e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPreview('ranking', i, e.currentTarget) } } : undefined}
                       title={clickable ? `Ver prévia de ${r.nome}` : undefined}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0',
-                        borderBottom: i < data.ranking!.leaderboard.length - 1 ? '1px solid var(--border-lt)' : 'none',
-                        fontWeight: r.voce ? 700 : 500,
+                        display: 'grid', gridTemplateColumns: '26px 1fr auto auto', alignItems: 'center', gap: 9,
+                        padding: '10px 20px', borderTop: i > 0 ? '1px solid var(--border-lt)' : 'none',
+                        fontSize: 12.5, fontWeight: r.voce ? 700 : 500,
                         cursor: clickable ? 'pointer' : 'default',
                       }}
                       onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
                     >
-                      <span style={{ fontSize: 13, width: 22, flexShrink: 0 }}>{MEDALS[i] ?? `${i + 1}º`}</span>
-                      <span style={{ fontSize: 12.5, color: r.voce ? '#3B82F6' : 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ display: 'grid', width: 24, height: 24, placeItems: 'center', borderRadius: 7, background: 'var(--bg-subtle)', color: 'var(--text-3)', fontWeight: 800, fontSize: 11 }}>{MEDALS[i] ?? `${i + 1}º`}</span>
+                      <span style={{ color: r.voce ? ACCENT : 'var(--text-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {r.voce ? `${r.nome} (você)` : r.nome}
                       </span>
-                      <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{fmtBrl(r.receita)}</span>
+                      <strong style={{ fontSize: 11.5, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(r.receita)}</strong>
+                      {clickable && <em style={{ fontStyle: 'normal', fontWeight: 700, fontSize: 9, color: ACCENT }}>Ver agente →</em>}
                     </div>
+                    </li>
                     )
                   })}
-                </div>
+                </ol>
               )}
-            </div>
-          </div>
+            </section>
 
-          {/* Atividade Recente + Metas (proposta) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 16 }}>
-            <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '20px 22px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
-              <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 2px' }}>Atividade Recente</p>
-              <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Últimas mudanças de status, notas e agendamentos</p>
+            <section style={{ padding: '20px 0', border: '1px solid var(--border)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+              <span style={{ ...kickerStyle, padding: '0 20px' }}>Linha do tempo</span>
+              <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 0', padding: '0 20px' }}>Atividades Recentes</p>
               {data.atividades.length === 0 ? (
-                <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', textAlign: 'center', padding: '18px 0' }}>Nenhuma atividade registrada ainda.</p>
+                <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', textAlign: 'center', padding: '18px 20px 0' }}>Nenhuma atividade registrada ainda.</p>
               ) : (
                 <>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    {(showAllAtividades ? data.atividades : data.atividades.slice(0, 6)).map((a, i, arr) => {
+                  <ul style={{ listStyle: 'none', margin: '13px 0 0', padding: 0 }}>
+                    {(showAllAtividades ? data.atividades : data.atividades.slice(0, 6)).map((a, i) => {
                       const cfg = ATIVIDADE_CFG[a.tipo]
                       const texto = a.tipo === 'status' ? `${a.lead_nome} → ${statusLabel(a.detalhe)}`
                         : a.tipo === 'nota' ? `${a.lead_nome}: ${a.detalhe}`
                         : `Agendamento criado para ${a.lead_nome}`
                       return (
+                        <li key={i}>
                         <div
-                          key={i}
                           role="button" tabIndex={0}
                           onClick={(e: MouseEvent<HTMLDivElement>) => openPreview('activity', i, e.currentTarget)}
                           onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPreview('activity', i, e.currentTarget) } }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-lt)' : 'none', cursor: 'pointer' }}
+                          style={{ display: 'grid', gridTemplateColumns: '30px 1fr auto', alignItems: 'center', gap: 10, padding: '11px 20px', borderTop: i > 0 ? '1px solid var(--border-lt)' : 'none', cursor: 'pointer', fontSize: 12.5 }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
                           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '' }}
                         >
-                          <div style={{ width: 24, height: 24, borderRadius: 7, background: cfg.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <cfg.Icon size={12} color={cfg.color} />
-                          </div>
-                          <span style={{ fontSize: 12.5, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{texto}</span>
-                          <span style={{ fontSize: 11, color: 'var(--text-subtle)', flexShrink: 0 }}>{relTime(a.em)}</span>
+                          <span style={{ display: 'grid', width: 28, height: 28, placeItems: 'center', borderRadius: 8, background: cfg.color + '22' }}>
+                            <cfg.Icon size={13} color={cfg.color} />
+                          </span>
+                          <span style={{ color: 'var(--text-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{texto}</span>
+                          <em style={{ fontStyle: 'normal', color: 'var(--text-subtle)', fontSize: 10.5 }}>{relTime(a.em)}</em>
                         </div>
+                        </li>
                       )
                     })}
-                  </div>
+                  </ul>
                   {data.atividades.length > 6 && (
                     <button
                       onClick={() => setShowAllAtividades(v => !v)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '12px auto 0', background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', fontSize: 12, fontWeight: 600 }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '12px auto 0', background: 'none', border: 'none', cursor: 'pointer', color: ACCENT, fontSize: 12, fontWeight: 600 }}
                     >
                       {showAllAtividades ? <>Mostrar menos <ChevronUp size={13} /></> : <>Ver histórico completo ({data.atividades.length}) <ChevronDown size={13} /></>}
                     </button>
                   )}
                 </>
               )}
-            </div>
-
-            <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: '20px 22px', border: '1.5px dashed var(--border-in)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
-              <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 2px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                Metas do Mês
-                <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#7C3AED', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)', padding: '2px 8px', borderRadius: 99 }}>
-                  Em breve
-                </span>
-              </p>
-              <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '0 0 16px' }}>
-                Depende de cadastrar metas por SDR — combinar formato antes de construir
-              </p>
-            </div>
+            </section>
           </div>
         </>
       )}
