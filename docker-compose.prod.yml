@@ -47,10 +47,26 @@ services:
       args:
         VITE_API_URL: ""
     restart: always
-    ports:
-      - "80:3000"
+    expose:
+      - "3000"
     depends_on:
       - backend
 
+  # ─── Caddy: TLS/HTTPS + proxy reverso ─────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

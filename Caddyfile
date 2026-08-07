@@ -1,0 +1,7 @@
+www.o2sig.com.br {
+    redir https://o2sig.com.br{uri} permanent
+}
+
+o2sig.com.br {
+    reverse_proxy frontend:3000
+}
