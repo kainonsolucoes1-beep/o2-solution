@@ -226,7 +226,12 @@ const UNDER_CONSTRUCTION: boolean = true
 export default function KPIs() {
   const navigate = useNavigate()
   const now = new Date()
-  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  // Abre no mês anterior (já fechado) em vez do mês corrente — no início do
+  // mês, poucos SDRs ainda captaram lead, e a tabela "Vida do SDR" ficava
+  // quase vazia até o usuário voltar manualmente um mês.
+  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const defaultMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`
   const [month, setMonth] = useState(defaultMonth)
   const [data, setData] = useState<FonteData[]>([])
   const [loading, setLoading] = useState(true)
@@ -320,7 +325,7 @@ export default function KPIs() {
   }
 
   // no mês corrente, não mostra semanas/dias futuros (ainda sem dados) como se fossem zero
-  const convCompareElapsedDaily = month === defaultMonth
+  const convCompareElapsedDaily = month === currentMonth
     ? convCompareDaily.filter(d => d.dia <= now.getDate())
     : convCompareDaily
 
