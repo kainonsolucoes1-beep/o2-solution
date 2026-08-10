@@ -350,7 +350,7 @@ export default function VidaSDR() {
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(280px, 1fr)', gap: 18 }}>
             <section style={{ padding: '24px 24px 8px', border: '1px solid var(--border)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
               <span style={kickerStyle}>Evolução mensal</span>
-              <div style={{ display: 'flex', gap: 6, margin: '16px 0 0', overflowX: 'auto' }}>
+              <div style={{ display: 'flex', gap: 6, margin: '16px 0 16px', overflowX: 'auto' }}>
                 {(['captacoes', 'vendas', ...(canSeeFinance ? ['receita' as const] : [])] as const).map(m => (
                   <button
                     key={m}
