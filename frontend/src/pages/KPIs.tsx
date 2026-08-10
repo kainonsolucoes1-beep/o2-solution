@@ -1527,7 +1527,8 @@ function AquisicaoTable({ rows, onOpen }: {
 }) {
   const th: React.CSSProperties = { padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }
   const td: React.CSSProperties = { padding: '14px 16px', textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }
-  const showTempo = rows.some(r => r.tempoMedioDias != null)
+  // Oculto temporariamente: leads não atualizados corretamente no funil inflam a média (chegando a 253 dias)
+  const showTempo = false
   const showReceita = rows.some(r => r.receitaGerada != null)
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
