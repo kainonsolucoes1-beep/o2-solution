@@ -1027,6 +1027,7 @@ export default function KPIs() {
               <AquisicaoTable
                 rows={basesData.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, tempoMedioDias: b.tempo_medio_dias, receitaGerada: b.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('base', label, undefined, trigger)}
+                allowTempo={period !== 'all'}
               />
             )
           )}
@@ -1042,6 +1043,7 @@ export default function KPIs() {
               <AquisicaoTable
                 rows={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.`, tempoMedioDias: f.tempo_medio_dias, receitaGerada: f.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('canal', label, [label], trigger)}
+                allowTempo={period !== 'all'}
               />
             )
           )}
@@ -1070,6 +1072,7 @@ export default function KPIs() {
                     const point = allConvPoints.find(c => c.label === label)
                     openDrawer('conversao', label, point?.origens, trigger)
                   }}
+                  allowTempo={period !== 'all'}
                 />
               )}
             </>
@@ -1086,6 +1089,7 @@ export default function KPIs() {
               <AquisicaoTable
                 rows={modalidadeData.map(m => ({ label: m.modalidade, captacoes: m.captacoes, vendas: m.vendas, conversao: m.conversao, extra: `${m.cancelados} cancel.`, tempoMedioDias: m.tempo_medio_dias, receitaGerada: m.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('modalidade', label, undefined, trigger)}
+                allowTempo={period !== 'all'}
               />
             )
           )}
@@ -1521,14 +1525,15 @@ export default function KPIs() {
 }
 
 // ─── Tabela consolidada da aba Aquisição (Bases / Canais / Pontos de conversão) ─
-function AquisicaoTable({ rows, onOpen }: {
+function AquisicaoTable({ rows, onOpen, allowTempo = true }: {
   rows: { label: string; captacoes: number; vendas: number; conversao: number; extra: string; tempoMedioDias?: number | null; receitaGerada?: number | null }[]
   onOpen: (label: string, trigger: HTMLElement) => void
+  allowTempo?: boolean
 }) {
   const th: React.CSSProperties = { padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }
   const td: React.CSSProperties = { padding: '14px 16px', textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }
-  // Oculto temporariamente: leads não atualizados corretamente no funil inflam a média (chegando a 253 dias)
-  const showTempo = false
+  // Em "todo o período" leads antigos com venda registrada tardiamente distorcem a média (chegando a centenas de dias)
+  const showTempo = allowTempo && rows.some(r => r.tempoMedioDias != null)
   const showReceita = rows.some(r => r.receitaGerada != null)
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
