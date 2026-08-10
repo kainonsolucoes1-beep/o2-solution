@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
   Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays,
-  ClipboardList,
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
@@ -15,7 +14,6 @@ const NAV = [
   { to: '/dashboard',        label: 'Dashboard',        Icon: LayoutDashboard, adminOnly: false },
   { to: '/leads-report',     label: 'Relatório',        Icon: FileText,        adminOnly: false },
   { to: '/gestao-comercial', label: 'Gestão Comercial', Icon: Briefcase,       adminOnly: false },
-  { to: '/relatorio-producao', label: 'Fechamento',      Icon: ClipboardList,   adminOnly: false },
   { to: '/agenda',           label: 'Agenda',           Icon: CalendarDays,    adminOnly: true  },
   { to: '/kpis',             label: 'Performance',      Icon: TrendingUp,      adminOnly: false },
   { to: '/financeiro',       label: 'Financeiro',       Icon: DollarSign,      adminOnly: true  },
