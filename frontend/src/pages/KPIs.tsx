@@ -336,6 +336,9 @@ function FilterableLeadsModal({ title, subtitle, loading, leads, statusFilter, o
 type DrawerKind = 'base' | 'canal' | 'conversao'
 const DRAWER_KIND_LABEL: Record<DrawerKind, string> = { base: 'Análise da base', canal: 'Análise do canal', conversao: 'Análise do ponto de conversão' }
 
+const TEAM_VALUES: Record<'sp' | 'pe', string> = { sp: 'Equipe São Paulo', pe: 'Equipe Pernambuco' }
+const TEAM_LABELS: Record<'sp' | 'pe', string> = { sp: 'São Paulo', pe: 'Recife' }
+
 const MAIN_TABS = [
   { key: 'visao-geral', label: 'Visão geral' },
   { key: 'aquisicao', label: 'Aquisição' },
@@ -355,6 +358,7 @@ export default function KPIs() {
   const [period, setPeriod] = useState<'month' | 'all' | 'range'>('month')
   const [rangeFrom, setRangeFrom] = useState('')
   const [rangeTo, setRangeTo] = useState('')
+  const [team, setTeam] = useState<'all' | 'sp' | 'pe'>('all')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const filtersRef = useRef<HTMLDivElement>(null)
 
@@ -413,15 +417,22 @@ export default function KPIs() {
   const drawerRef = useRef<HTMLDivElement>(null)
 
   function periodParams(): Record<string, string> {
-    if (period === 'all') return { period: 'all' }
-    if (period === 'range' && rangeFrom && rangeTo) return { period: 'range', date_from: rangeFrom, date_to: rangeTo }
-    return { month }
+    const base: Record<string, string> = period === 'all'
+      ? { period: 'all' }
+      : period === 'range' && rangeFrom && rangeTo
+      ? { period: 'range', date_from: rangeFrom, date_to: rangeTo }
+      : { month }
+    if (team !== 'all') base.team = TEAM_VALUES[team]
+    return base
   }
 
   function periodLabel(): string {
-    if (period === 'all') return 'Todo o período'
-    if (period === 'range' && rangeFrom && rangeTo) return `${rangeFrom.split('-').reverse().join('/')} – ${rangeTo.split('-').reverse().join('/')}`
-    return month.split('-').reverse().join('/')
+    const dateLabel = period === 'all'
+      ? 'Todo o período'
+      : period === 'range' && rangeFrom && rangeTo
+      ? `${rangeFrom.split('-').reverse().join('/')} – ${rangeTo.split('-').reverse().join('/')}`
+      : month.split('-').reverse().join('/')
+    return team === 'all' ? dateLabel : `${dateLabel} · ${TEAM_LABELS[team]}`
   }
 
   function openDrawer(kind: DrawerKind, label: string, origens: string[] | undefined, trigger: HTMLElement) {
@@ -490,6 +501,7 @@ export default function KPIs() {
     setConvCompareDailyLoading(true)
     const qp = new URLSearchParams({ month, conv_point: convPoint })
     if (origens.length > 0) qp.set('origens', origens.join(','))
+    if (team !== 'all') qp.set('team', TEAM_VALUES[team])
     api.get<{ date: string; dia: number; captacoes: number; vendas: number }[]>(`/api/v1/kpis/conv-point-diario?${qp}`)
       .then(r => setConvCompareDaily(r.data))
       .catch(() => setConvCompareDaily([]))
@@ -558,7 +570,8 @@ export default function KPIs() {
       .finally(() => setLoading(false))
     setPrevSummary(null)
     if (period === 'month') {
-      api.get<FonteData[]>(`/api/v1/kpis/conversao-fonte?month=${prevMonthOf(month)}`)
+      const prevQs = team !== 'all' ? `&team=${encodeURIComponent(TEAM_VALUES[team])}` : ''
+      api.get<FonteData[]>(`/api/v1/kpis/conversao-fonte?month=${prevMonthOf(month)}${prevQs}`)
         .then(r => setPrevSummary({
           cap: r.data.reduce((s, d) => s + d.captacoes, 0),
           ven: r.data.reduce((s, d) => s + d.vendas, 0),
@@ -604,7 +617,7 @@ export default function KPIs() {
     fetchAges()
     fetchPlano()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, period, rangeFrom, rangeTo])
+  }, [month, period, rangeFrom, rangeTo, team])
 
   // Evolução mensal (Visão Geral) — reaproveita /kpis/conversao-fonte já existente, sem endpoint novo
   function fetchTrend() {
@@ -612,8 +625,9 @@ export default function KPIs() {
     const months = monthsBack(anchor, 6)
     setTrendLoading(true)
     setTrendError(false)
+    const teamQs = team !== 'all' ? `&team=${encodeURIComponent(TEAM_VALUES[team])}` : ''
     Promise.all(months.map(m =>
-      api.get<FonteData[]>(`/api/v1/kpis/conversao-fonte?month=${m}`).then(r => r.data)
+      api.get<FonteData[]>(`/api/v1/kpis/conversao-fonte?month=${m}${teamQs}`).then(r => r.data)
     ))
       .then(results => {
         setTrendMonths(months.map((m, i) => ({
@@ -630,7 +644,7 @@ export default function KPIs() {
   useEffect(() => {
     fetchTrend()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, month, rangeTo])
+  }, [period, month, rangeTo, team])
 
   const totalCap = data.reduce((s, d) => s + d.captacoes, 0)
   const totalVen = data.reduce((s, d) => s + d.vendas, 0)
@@ -765,6 +779,28 @@ export default function KPIs() {
                     style={{ flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-1)', fontSize: 12 }} />
                 </div>
               )}
+              <div style={{ borderTop: '1px solid var(--border-lt)', margin: '2px 0 0', paddingTop: 8 }}>
+                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 6px' }}>Equipe</p>
+                <div style={{ display: 'flex', gap: 4, border: '1px solid var(--border)', borderRadius: 8, padding: 3, background: 'var(--bg-subtle)' }}>
+                  {([
+                    { key: 'sp', label: 'São Paulo' },
+                    { key: 'pe', label: 'Recife' },
+                    { key: 'all', label: 'Ambas' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => setTeam(opt.key)}
+                      style={{
+                        flex: 1, padding: '5px 10px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        background: team === opt.key ? '#DBEAFE' : 'transparent',
+                        color: team === opt.key ? '#2563EB' : 'var(--text-muted)',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>

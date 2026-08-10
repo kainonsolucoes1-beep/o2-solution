@@ -54,12 +54,25 @@ def _resolve_period(
     return dt_from, dt_to
 
 
+def _team_filter(team: str | None) -> list:
+    """Filtro opcional por equipe (São Paulo / Pernambuco / múltiplas, separadas por vírgula)."""
+    if not team:
+        return []
+    parts = [s.strip() for s in team.split(',') if s.strip()]
+    if not parts:
+        return []
+    if len(parts) == 1:
+        return [Lead.team == parts[0]]
+    return [Lead.team.in_(parts)]
+
+
 @router.get("/conversao-fonte")
 def conversao_por_fonte(
     month: str = Query(None),
     period: str = Query(None),
     date_from: str = Query(None),
     date_to: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -70,6 +83,7 @@ def conversao_por_fonte(
         Lead.created_at <= date_to,
         Lead.origin.isnot(None),
         Lead.origin != "",
+        *_team_filter(team),
     ]
 
     leads = (
@@ -364,6 +378,7 @@ def conv_point_detalhe(
     date_to: str = Query(None),
     conv_point: str = Query(...),
     origens: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -373,6 +388,7 @@ def conv_point_detalhe(
         Lead.created_at >= dt_from,
         Lead.created_at <= dt_to,
         Lead.conversion_point.ilike(conv_point),
+        *_team_filter(team),
     ]
     if origens:
         parts = [s.strip() for s in origens.split(',') if s.strip()]
@@ -453,6 +469,7 @@ def conv_point_diario(
     month: str = Query(None),
     conv_point: str = Query(...),
     origens: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -471,6 +488,7 @@ def conv_point_diario(
         Lead.created_at >= dt_from,
         Lead.created_at <= dt_to,
         Lead.conversion_point.ilike(conv_point),
+        *_team_filter(team),
     ]
     if origens:
         parts = [s.strip() for s in origens.split(',') if s.strip()]
@@ -511,6 +529,7 @@ def sdr_detalhe(
     date_to: str = Query(None),
     nome: str = Query(...),
     origens: str = Query(...),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -524,6 +543,7 @@ def sdr_detalhe(
             Lead.created_at >= dt_from,
             Lead.created_at <= dt_to,
             Lead.origin.in_(parts),
+            *_team_filter(team),
         )
         .all()
     )
@@ -597,6 +617,7 @@ def bases_analytics(
     period: str = Query(None),
     date_from: str = Query(None),
     date_to: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -609,6 +630,7 @@ def bases_analytics(
             Lead.created_at <= dt_to,
             Lead.notes.isnot(None),
             Lead.notes.ilike('%Base%'),
+            *_team_filter(team),
         )
         .all()
     )
@@ -653,6 +675,7 @@ def base_detalhe(
     date_from: str = Query(None),
     date_to: str = Query(None),
     base: str = Query(...),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -665,6 +688,7 @@ def base_detalhe(
             Lead.created_at <= dt_to,
             Lead.notes.isnot(None),
             Lead.notes.ilike('%Base%'),
+            *_team_filter(team),
         )
         .all()
     )
@@ -743,6 +767,7 @@ def leads_base(
     date_from: str = Query(None),
     date_to: str = Query(None),
     base: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -755,6 +780,7 @@ def leads_base(
             Lead.created_at <= dt_to,
             Lead.notes.isnot(None),
             Lead.notes.ilike('%Base%'),
+            *_team_filter(team),
         )
         .all()
     )
@@ -850,6 +876,7 @@ def faixas_etarias(
     period: str = Query(None),
     date_from: str = Query(None),
     date_to: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -857,7 +884,7 @@ def faixas_etarias(
 
     leads = (
         db.query(Lead.ages_raw, Lead.notes, Lead.status)
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to)
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_team_filter(team))
         .all()
     )
 
@@ -911,6 +938,7 @@ def leads_faixa_etaria(
     date_from: str = Query(None),
     date_to: str = Query(None),
     faixa: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -918,7 +946,7 @@ def leads_faixa_etaria(
 
     leads = (
         db.query(Lead.name, Lead.ages_raw, Lead.notes, Lead.status, Lead.value_potential)
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to)
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_team_filter(team))
         .all()
     )
 
@@ -959,6 +987,7 @@ def plano_saude(
     period: str = Query(None),
     date_from: str = Query(None),
     date_to: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -966,7 +995,7 @@ def plano_saude(
 
     leads = (
         db.query(Lead.current_plan, Lead.status)
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to)
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_team_filter(team))
         .all()
     )
 
@@ -1025,6 +1054,7 @@ def leads_plano_saude(
     date_from: str = Query(None),
     date_to: str = Query(None),
     plano: str = Query(...),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -1036,6 +1066,7 @@ def leads_plano_saude(
             Lead.created_at >= dt_from,
             Lead.created_at <= dt_to,
             func.lower(Lead.current_plan) == plano.strip().lower(),
+            *_team_filter(team),
         )
         .all()
     )
