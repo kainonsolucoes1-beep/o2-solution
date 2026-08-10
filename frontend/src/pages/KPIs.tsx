@@ -15,6 +15,8 @@ interface BreakdownItem {
   vendas: number
   cancelados: number
   conversao: number
+  tempo_medio_dias: number | null
+  receita_gerada: number | null
 }
 
 interface FonteData {
@@ -23,6 +25,8 @@ interface FonteData {
   vendas: number
   cancelados: number
   conversao: number
+  tempo_medio_dias: number | null
+  receita_gerada: number | null
   breakdown: BreakdownItem[]
 }
 
@@ -42,6 +46,18 @@ interface BaseStat {
   cancelados: number
   conversao: number
   pct_cancelamento: number
+  tempo_medio_dias: number | null
+  receita_gerada: number | null
+}
+
+interface ModalidadeStat {
+  modalidade: string
+  captacoes: number
+  vendas: number
+  cancelados: number
+  conversao: number
+  tempo_medio_dias: number | null
+  receita_gerada: number | null
 }
 
 interface Modalidade { nome: string; count: number; pct: number }
@@ -333,8 +349,8 @@ function FilterableLeadsModal({ title, subtitle, loading, leads, statusFilter, o
   )
 }
 
-type DrawerKind = 'base' | 'canal' | 'conversao'
-const DRAWER_KIND_LABEL: Record<DrawerKind, string> = { base: 'Análise da base', canal: 'Análise do canal', conversao: 'Análise do ponto de conversão' }
+type DrawerKind = 'base' | 'canal' | 'conversao' | 'modalidade'
+const DRAWER_KIND_LABEL: Record<DrawerKind, string> = { base: 'Análise da base', canal: 'Análise do canal', conversao: 'Análise do ponto de conversão', modalidade: 'Análise da modalidade' }
 
 const TEAM_VALUES: Record<'sp' | 'pe', string> = { sp: 'Equipe São Paulo', pe: 'Equipe Pernambuco' }
 const TEAM_LABELS: Record<'sp' | 'pe', string> = { sp: 'São Paulo', pe: 'Recife' }
@@ -363,7 +379,7 @@ export default function KPIs() {
   const filtersRef = useRef<HTMLDivElement>(null)
 
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('visao-geral')
-  const [aquisicaoView, setAquisicaoView] = useState<'bases' | 'canais' | 'conversao'>('bases')
+  const [aquisicaoView, setAquisicaoView] = useState<'bases' | 'canais' | 'conversao' | 'modalidade'>('bases')
 
   const [data, setData] = useState<FonteData[]>([])
   const [loading, setLoading] = useState(true)
@@ -371,6 +387,9 @@ export default function KPIs() {
   const [basesData, setBasesData] = useState<BaseStat[]>([])
   const [basesLoading, setBasesLoading] = useState(true)
   const [basesError, setBasesError] = useState(false)
+  const [modalidadeData, setModalidadeData] = useState<ModalidadeStat[]>([])
+  const [modalidadeLoading, setModalidadeLoading] = useState(true)
+  const [modalidadeError, setModalidadeError] = useState(false)
   const [ageBands, setAgeBands] = useState<AgeBand[]>([])
   const [ageBandsLoading, setAgeBandsLoading] = useState(true)
   const [ageError, setAgeError] = useState(false)
@@ -449,6 +468,9 @@ export default function KPIs() {
       qp.set('conv_point', label)
       if (origens?.length) qp.set('origens', origens.join(','))
       url = `/api/v1/kpis/conv-point-detalhe?${qp}`
+    } else if (kind === 'modalidade') {
+      qp.set('modalidade', label)
+      url = `/api/v1/kpis/modalidade-detalhe?${qp}`
     } else {
       qp.set('nome', label)
       qp.set('origens', origens?.length ? origens.join(',') : label)
@@ -591,6 +613,16 @@ export default function KPIs() {
       .finally(() => setBasesLoading(false))
   }
 
+  function fetchModalidade() {
+    const qs = new URLSearchParams(periodParams()).toString()
+    setModalidadeLoading(true)
+    setModalidadeError(false)
+    api.get<ModalidadeStat[]>(`/api/v1/kpis/modalidade?${qs}`)
+      .then(r => setModalidadeData(r.data))
+      .catch(() => { setModalidadeData([]); setModalidadeError(true) })
+      .finally(() => setModalidadeLoading(false))
+  }
+
   function fetchAges() {
     const qs = new URLSearchParams(periodParams()).toString()
     setAgeBandsLoading(true)
@@ -614,6 +646,7 @@ export default function KPIs() {
   useEffect(() => {
     fetchMain()
     fetchBases()
+    fetchModalidade()
     fetchAges()
     fetchPlano()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -663,7 +696,19 @@ export default function KPIs() {
       const ven = rows.reduce((s, b) => s + b.vendas, 0)
       const can = rows.reduce((s, b) => s + b.cancelados, 0)
       const relevantFontes = data.filter(f => f.breakdown.some(bd => bd.label === label)).map(f => f.fonte)
-      return { label, captacoes: cap, vendas: ven, cancelados: can, conversao: cap > 0 ? +(ven / cap * 100).toFixed(1) : 0, origens: relevantFontes }
+      // tempo médio combinado: média ponderada pelas vendas de cada origem (aproximação a partir das médias já calculadas por origem)
+      const tempoRows = rows.filter(b => b.tempo_medio_dias != null && b.vendas > 0)
+      const tempoPeso = tempoRows.reduce((s, b) => s + b.vendas, 0)
+      const tempoMedio = tempoPeso > 0
+        ? Math.round((tempoRows.reduce((s, b) => s + (b.tempo_medio_dias as number) * b.vendas, 0) / tempoPeso) * 10) / 10
+        : null
+      const receitaGerada = rows.every(b => b.receita_gerada != null)
+        ? Math.round(rows.reduce((s, b) => s + (b.receita_gerada ?? 0), 0) * 100) / 100
+        : null
+      return {
+        label, captacoes: cap, vendas: ven, cancelados: can, conversao: cap > 0 ? +(ven / cap * 100).toFixed(1) : 0,
+        origens: relevantFontes, tempo_medio_dias: tempoMedio, receita_gerada: receitaGerada,
+      }
     })
     .sort((a, b) => b.captacoes - a.captacoes)
 
@@ -957,6 +1002,7 @@ export default function KPIs() {
               { key: 'bases', label: 'Bases' },
               { key: 'canais', label: 'Canais' },
               { key: 'conversao', label: 'Pontos de conversão' },
+              { key: 'modalidade', label: 'Modalidade' },
             ] as const).map(v => (
               <button key={v.key} onClick={() => setAquisicaoView(v.key)}
                 style={{
@@ -979,7 +1025,7 @@ export default function KPIs() {
               <StateBox kind="empty" height={140} message="Nenhuma base encontrada neste período." />
             ) : (
               <AquisicaoTable
-                rows={basesData.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.` }))}
+                rows={basesData.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, tempoMedioDias: b.tempo_medio_dias, receitaGerada: b.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('base', label, undefined, trigger)}
               />
             )
@@ -994,7 +1040,7 @@ export default function KPIs() {
               <StateBox kind="empty" height={140} message="Nenhum canal encontrado neste período." />
             ) : (
               <AquisicaoTable
-                rows={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.` }))}
+                rows={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.`, tempoMedioDias: f.tempo_medio_dias, receitaGerada: f.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('canal', label, [label], trigger)}
               />
             )
@@ -1019,7 +1065,7 @@ export default function KPIs() {
                 <StateBox kind="empty" height={140} message="Nenhum ponto de conversão encontrado neste período." />
               ) : (
                 <AquisicaoTable
-                  rows={allConvPoints.map(c => ({ label: c.label, captacoes: c.captacoes, vendas: c.vendas, conversao: c.conversao, extra: `${c.cancelados} cancel.` }))}
+                  rows={allConvPoints.map(c => ({ label: c.label, captacoes: c.captacoes, vendas: c.vendas, conversao: c.conversao, extra: `${c.cancelados} cancel.`, tempoMedioDias: c.tempo_medio_dias, receitaGerada: c.receita_gerada }))}
                   onOpen={(label, trigger) => {
                     const point = allConvPoints.find(c => c.label === label)
                     openDrawer('conversao', label, point?.origens, trigger)
@@ -1027,6 +1073,21 @@ export default function KPIs() {
                 />
               )}
             </>
+          )}
+
+          {aquisicaoView === 'modalidade' && (
+            modalidadeLoading ? (
+              <StateBox kind="loading" height={140} />
+            ) : modalidadeError ? (
+              <StateBox kind="error" height={140} message="Não foi possível carregar as modalidades." onRetry={fetchModalidade} />
+            ) : modalidadeData.length === 0 ? (
+              <StateBox kind="empty" height={140} message="Nenhuma modalidade encontrada neste período." />
+            ) : (
+              <AquisicaoTable
+                rows={modalidadeData.map(m => ({ label: m.modalidade, captacoes: m.captacoes, vendas: m.vendas, conversao: m.conversao, extra: `${m.cancelados} cancel.`, tempoMedioDias: m.tempo_medio_dias, receitaGerada: m.receita_gerada }))}
+                onOpen={(label, trigger) => openDrawer('modalidade', label, undefined, trigger)}
+              />
+            )
           )}
         </div>
       )}
@@ -1461,45 +1522,55 @@ export default function KPIs() {
 
 // ─── Tabela consolidada da aba Aquisição (Bases / Canais / Pontos de conversão) ─
 function AquisicaoTable({ rows, onOpen }: {
-  rows: { label: string; captacoes: number; vendas: number; conversao: number; extra: string }[]
+  rows: { label: string; captacoes: number; vendas: number; conversao: number; extra: string; tempoMedioDias?: number | null; receitaGerada?: number | null }[]
   onOpen: (label: string, trigger: HTMLElement) => void
 }) {
+  const th: React.CSSProperties = { padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }
+  const td: React.CSSProperties = { padding: '14px 16px', textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }
+  const showTempo = rows.some(r => r.tempoMedioDias != null)
+  const showReceita = rows.some(r => r.receitaGerada != null)
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Origem</th>
-            <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Leads</th>
-            <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Vendas</th>
-            <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Conversão</th>
-            <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Cancelamentos</th>
-            <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Análise</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.label} style={{ borderBottom: '1px solid var(--border-lt)' }}>
-              <td style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{r.label}</td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }}>{r.captacoes}</td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }}>{r.vendas}</td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }}>{r.conversao}%</td>
-              <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: 13, color: 'var(--text-muted)' }}>{r.extra}</td>
-              <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                <button
-                  className="perf-drawer-trigger"
-                  onClick={e => onOpen(r.label, e.currentTarget)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#2563EB', fontSize: 12, fontWeight: 600 }}
-                >
-                  <BarChart3 size={13} />
-                  Ver análise
-                  <ChevronRight size={13} />
-                </button>
-              </td>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: 'left' }}>Origem</th>
+              <th style={th}>Leads</th>
+              <th style={th}>Vendas</th>
+              <th style={th}>Conversão</th>
+              <th style={th}>Cancelamentos</th>
+              {showTempo && <th style={th}>Tempo médio até venda</th>}
+              {showReceita && <th style={th}>Receita gerada</th>}
+              <th style={th}>Análise</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.label} style={{ borderBottom: '1px solid var(--border-lt)' }}>
+                <td style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{r.label}</td>
+                <td style={td}>{r.captacoes}</td>
+                <td style={td}>{r.vendas}</td>
+                <td style={td}>{r.conversao}%</td>
+                <td style={{ ...td, color: 'var(--text-muted)', fontWeight: 400 }}>{r.extra}</td>
+                {showTempo && <td style={td}>{r.tempoMedioDias != null ? `${r.tempoMedioDias} dias` : '—'}</td>}
+                {showReceita && <td style={td}>{r.receitaGerada != null ? fmtBrl(r.receitaGerada) : '—'}</td>}
+                <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  <button
+                    className="perf-drawer-trigger"
+                    onClick={e => onOpen(r.label, e.currentTarget)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#2563EB', fontSize: 12, fontWeight: 600 }}
+                  >
+                    <BarChart3 size={13} />
+                    Ver análise
+                    <ChevronRight size={13} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

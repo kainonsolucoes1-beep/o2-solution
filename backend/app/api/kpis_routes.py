@@ -12,6 +12,7 @@ from app.database import get_db
 from app.lead_utils import extract_base as _extract_base
 from app.models.lead import Lead
 from app.models.user import User
+from app.security import can_see_financials
 
 router = APIRouter(prefix="/api/v1/kpis", tags=["kpis"])
 
@@ -66,6 +67,38 @@ def _team_filter(team: str | None) -> list:
     return [Lead.team.in_(parts)]
 
 
+def _new_acc() -> dict:
+    return {"captacoes": 0, "vendas": 0, "cancelados": 0, "tempo_sum": 0, "tempo_count": 0, "receita_sum": 0.0}
+
+
+def _accumulate(acc: dict, status, created_at, receita_data_venda, receita_real_recebida, venda_set: set, cancelado_set: set) -> None:
+    """Acumula captações/vendas/cancelados + tempo até a venda (dias) + receita real
+    recebida numa linha de agregação (base, canal, ponto de conversão ou modalidade)."""
+    acc["captacoes"] += 1
+    s = (status or "").lower()
+    if s in venda_set:
+        acc["vendas"] += 1
+    elif s in cancelado_set:
+        acc["cancelados"] += 1
+    if created_at and receita_data_venda:
+        acc["tempo_sum"] += (receita_data_venda - created_at).days
+        acc["tempo_count"] += 1
+    if receita_real_recebida:
+        acc["receita_sum"] += float(receita_real_recebida)
+
+
+def _finalize_acc(acc: dict, show_financials: bool) -> dict:
+    cap = acc["captacoes"]
+    return {
+        "captacoes": cap,
+        "vendas": acc["vendas"],
+        "cancelados": acc["cancelados"],
+        "conversao": round(acc["vendas"] / cap * 100, 1) if cap > 0 else 0.0,
+        "tempo_medio_dias": round(acc["tempo_sum"] / acc["tempo_count"], 1) if acc["tempo_count"] > 0 else None,
+        "receita_gerada": round(acc["receita_sum"], 2) if show_financials else None,
+    }
+
+
 @router.get("/conversao-fonte")
 def conversao_por_fonte(
     month: str = Query(None),
@@ -87,7 +120,7 @@ def conversao_por_fonte(
     ]
 
     leads = (
-        db.query(Lead.origin, Lead.status, Lead.conversion_point)
+        db.query(Lead.origin, Lead.status, Lead.conversion_point, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida)
         .filter(*base_filter)
         .all()
     )
@@ -101,6 +134,7 @@ def conversao_por_fonte(
 
     venda_set     = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+    show_fin = can_see_financials(current_user)
 
     rn_by_fonte: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})
     for origin, status in rn_leads:
@@ -112,38 +146,21 @@ def conversao_por_fonte(
         elif s in cancelado_set:
             rn_by_fonte[fonte]["cancelados"] += 1
 
-    data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0, "breakdown": defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})})
+    data: dict = defaultdict(lambda: {"acc": _new_acc(), "breakdown": defaultdict(_new_acc)})
 
-    for origin, status, conv_point in leads:
+    for origin, status, conv_point, created_at, receita_data_venda, receita_real_recebida in leads:
         fonte = (origin or "").strip() or "Sem origem"
-        data[fonte]["captacoes"] += 1
-        s = (status or "").lower()
-        if s in venda_set:
-            data[fonte]["vendas"] += 1
-        elif s in cancelado_set:
-            data[fonte]["cancelados"] += 1
+        _accumulate(data[fonte]["acc"], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
         if conv_point:
             bp = conv_point.strip().lower()
-            data[fonte]["breakdown"][bp]["captacoes"] += 1
-            if s in venda_set:
-                data[fonte]["breakdown"][bp]["vendas"] += 1
-            elif s in cancelado_set:
-                data[fonte]["breakdown"][bp]["cancelados"] += 1
+            _accumulate(data[fonte]["breakdown"][bp], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
     result = []
-    for fonte, counts in sorted(data.items(), key=lambda x: x[1]["captacoes"], reverse=True):
-        cap = counts["captacoes"]
+    for fonte, entry in sorted(data.items(), key=lambda x: x[1]["acc"]["captacoes"], reverse=True):
         breakdown = []
-        for label, bc in sorted(counts["breakdown"].items(), key=lambda x: x[1]["captacoes"], reverse=True):
-            bcap = bc["captacoes"]
-            breakdown.append({
-                "label":      label,
-                "captacoes":  bcap,
-                "vendas":     bc["vendas"],
-                "cancelados": bc["cancelados"],
-                "conversao":  round(bc["vendas"] / bcap * 100, 1) if bcap > 0 else 0.0,
-            })
+        for label, bc in sorted(entry["breakdown"].items(), key=lambda x: x[1]["captacoes"], reverse=True):
+            breakdown.append({"label": label, **_finalize_acc(bc, show_fin)})
         # Inject Renutrição as breakdown item if this fonte has flagged leads
         rn = rn_by_fonte.get(fonte)
         if rn and rn["captacoes"] > 0:
@@ -154,15 +171,10 @@ def conversao_por_fonte(
                 "vendas":     rn["vendas"],
                 "cancelados": rn["cancelados"],
                 "conversao":  round(rn["vendas"] / rn_cap * 100, 1) if rn_cap > 0 else 0.0,
+                "tempo_medio_dias": None,
+                "receita_gerada": None,
             })
-        result.append({
-            "fonte":      fonte,
-            "captacoes":  cap,
-            "vendas":     counts["vendas"],
-            "cancelados": counts["cancelados"],
-            "conversao":  round(counts["vendas"] / cap * 100, 1) if cap > 0 else 0.0,
-            "breakdown":  breakdown,
-        })
+        result.append({"fonte": fonte, **_finalize_acc(entry["acc"], show_fin), "breakdown": breakdown})
 
     return result
 
@@ -624,7 +636,7 @@ def bases_analytics(
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
-        db.query(Lead.notes, Lead.status)
+        db.query(Lead.notes, Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida)
         .filter(
             Lead.created_at >= dt_from,
             Lead.created_at <= dt_to,
@@ -637,35 +649,145 @@ def bases_analytics(
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+    show_fin = can_see_financials(current_user)
 
-    data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})
-    for notes, status in leads:
+    data: dict = defaultdict(_new_acc)
+    for notes, status, created_at, receita_data_venda, receita_real_recebida in leads:
         base = _extract_base(notes)
         if not base:
             continue
-        s = (status or '').lower()
-        data[base]["captacoes"] += 1
-        if s in venda_set:
-            data[base]["vendas"] += 1
-        elif s in cancelado_set:
-            data[base]["cancelados"] += 1
+        _accumulate(data[base], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
     result = []
-    for base, counts in data.items():
-        cap = counts["captacoes"]
-        ven = counts["vendas"]
-        can = counts["cancelados"]
-        result.append({
-            "base": base,
-            "captacoes": cap,
-            "vendas": ven,
-            "cancelados": can,
-            "conversao": round(ven / cap * 100, 1) if cap > 0 else 0.0,
-            "pct_cancelamento": round(can / cap * 100, 1) if cap > 0 else 0.0,
-        })
+    for base, acc in data.items():
+        row = _finalize_acc(acc, show_fin)
+        cap = acc["captacoes"]
+        row["pct_cancelamento"] = round(acc["cancelados"] / cap * 100, 1) if cap > 0 else 0.0
+        result.append({"base": base, **row})
 
     result.sort(key=lambda x: x["captacoes"], reverse=True)
     return result
+
+
+@router.get("/modalidade")
+def modalidade_analytics(
+    month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
+    team: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
+
+    leads = (
+        db.query(Lead.modalidade, Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida)
+        .filter(
+            Lead.created_at >= dt_from,
+            Lead.created_at <= dt_to,
+            *_team_filter(team),
+        )
+        .all()
+    )
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+    show_fin = can_see_financials(current_user)
+
+    data: dict = defaultdict(_new_acc)
+    for modalidade, status, created_at, receita_data_venda, receita_real_recebida in leads:
+        nome = (modalidade or "").strip() or "Não informado"
+        _accumulate(data[nome], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
+
+    result = [{"modalidade": nome, **_finalize_acc(acc, show_fin)} for nome, acc in data.items()]
+    result.sort(key=lambda x: x["captacoes"], reverse=True)
+    return result
+
+
+@router.get("/modalidade-detalhe")
+def modalidade_detalhe(
+    month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
+    modalidade: str = Query(...),
+    team: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
+    target = modalidade.strip().lower()
+
+    filters = [
+        Lead.created_at >= dt_from,
+        Lead.created_at <= dt_to,
+        *_team_filter(team),
+    ]
+    if target == "não informado":
+        filters.append(or_(Lead.modalidade.is_(None), func.trim(Lead.modalidade) == ""))
+    else:
+        filters.append(func.lower(func.trim(Lead.modalidade)) == target)
+
+    leads = (
+        db.query(Lead.status, Lead.value_potential, Lead.current_plan)
+        .filter(*filters)
+        .all()
+    )
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    captacoes = 0
+    vendas = 0
+    cancelados = 0
+    receita = 0.0
+    plano_possui = 0
+    plano_nao_possui = 0
+    plano_sem_info = 0
+
+    for status, value, current_plan in leads:
+        captacoes += 1
+        s = (status or "").lower()
+        is_perdido = s in cancelado_set
+        if s in venda_set:
+            vendas += 1
+        elif is_perdido:
+            cancelados += 1
+
+        if not is_perdido:
+            if value:
+                receita += float(value)
+            plano = (current_plan or "").strip()
+            if not plano:
+                plano_sem_info += 1
+            elif plano.lower() == "não possui plano":
+                plano_nao_possui += 1
+            else:
+                plano_possui += 1
+
+    base_liquida = captacoes - cancelados
+    plano_com_info = plano_possui + plano_nao_possui
+
+    return {
+        "modalidade": modalidade,
+        "captacoes": captacoes,
+        "cancelados": cancelados,
+        "base_liquida": base_liquida,
+        "vendas": vendas,
+        "conversao": round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0,
+        "pct_perda": round(cancelados / captacoes * 100, 1) if captacoes > 0 else 0.0,
+        "receita_potencial": receita,
+        "ticket_medio": round(receita / base_liquida, 2) if base_liquida > 0 else 0.0,
+        "modalidades": [],
+        "plano": {
+            "possui": plano_possui,
+            "nao_possui": plano_nao_possui,
+            "sem_informacao": plano_sem_info,
+            "pct_possui": round(plano_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
+            "pct_nao_possui": round(plano_nao_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
+        },
+    }
 
 
 @router.get("/bases-detalhe")
