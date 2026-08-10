@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 from app.schemas import UserLogin, TokenResponse, UserResponse
-from app.security import verify_password, create_access_token, verify_token, can_see_restricted_leads
+from app.security import verify_password, create_access_token, verify_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -44,6 +44,8 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
 
     # liga o filtro global de leads ADM-only pro resto da sessao desta requisicao
     db.info["restrict_admin_leads"] = not can_see_restricted_leads(user)
+    db.info["restrict_team"] = team_scope(user)
+    db.info["restrict_to_usuario_leads"] = restrict_to_usuario_leads(user)
 
     return user
 

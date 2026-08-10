@@ -369,6 +369,7 @@ def create_user(
         password_hash=hash_password(body.password),
         first_name=body.first_name,
         role=body.role,
+        team=body.team,
     )
     db.add(user)
     db.commit()
@@ -389,6 +390,8 @@ def update_user(
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     if body.role is not None:
         user.role = body.role
+    if body.team is not None:
+        user.team = body.team
     if body.is_active is not None:
         user.is_active = body.is_active
     if body.first_name is not None:

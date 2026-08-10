@@ -15,13 +15,15 @@ interface UserItem {
 }
 
 const EMPTY_FORM = { email: '', username: '', first_name: '', password: '', role: 'usuario' }
-const ROLE_OPTIONS = ['admin', 'diretor', 'financeiro', 'supervisor', 'usuario']
+const ROLE_OPTIONS = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervisor', 'comercial', 'usuario']
 const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
-  admin:      { bg: 'rgba(139,92,246,0.12)', color: '#7C3AED' },
-  diretor:    { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB' },
-  financeiro: { bg: 'rgba(5,150,105,0.12)',  color: '#059669' },
-  supervisor: { bg: 'rgba(217,119,6,0.12)',  color: '#D97706' },
-  usuario:    { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
+  admin:       { bg: 'rgba(139,92,246,0.12)', color: '#7C3AED' },
+  diretor:     { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB' },
+  financeiro:  { bg: 'rgba(5,150,105,0.12)',  color: '#059669' },
+  coordenador: { bg: 'rgba(219,39,119,0.12)', color: '#DB2777' },
+  supervisor:  { bg: 'rgba(217,119,6,0.12)',  color: '#D97706' },
+  comercial:   { bg: 'rgba(8,145,178,0.12)',  color: '#0891B2' },
+  usuario:     { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
 }
 const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '' }
 

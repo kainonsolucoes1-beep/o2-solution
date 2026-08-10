@@ -184,15 +184,19 @@ function ConfiguracoesTab() {
 }
 
 // ── Usuários tab ─────────────────────────────────────────────────────────────
-interface UserItem { id: string; email: string; username: string; first_name: string | null; role: string; is_active: boolean; created_at: string }
-const EMPTY_FORM = { email: '', username: '', first_name: '', password: '', role: 'usuario' }
-const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '' }
-const ROLE_OPTIONS = ['admin', 'diretor', 'supervisor', 'usuario']
+interface UserItem { id: string; email: string; username: string; first_name: string | null; role: string; team: string | null; is_active: boolean; created_at: string }
+const EMPTY_FORM = { email: '', username: '', first_name: '', password: '', role: 'usuario', team: '' }
+const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '', team: '' }
+const ROLE_OPTIONS = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervisor', 'comercial', 'usuario']
+const TEAM_OPTIONS = ['Equipe São Paulo', 'Equipe Pernambuco']
 const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
-  admin:      { bg: 'rgba(139,92,246,0.12)', color: '#7C3AED' },
-  diretor:    { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB' },
-  supervisor: { bg: 'rgba(217,119,6,0.12)',  color: '#D97706' },
-  usuario:    { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
+  admin:       { bg: 'rgba(139,92,246,0.12)', color: '#7C3AED' },
+  diretor:     { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB' },
+  financeiro:  { bg: 'rgba(5,150,105,0.12)',  color: '#059669' },
+  coordenador: { bg: 'rgba(219,39,119,0.12)', color: '#DB2777' },
+  supervisor:  { bg: 'rgba(217,119,6,0.12)',  color: '#D97706' },
+  comercial:   { bg: 'rgba(8,145,178,0.12)',  color: '#0891B2' },
+  usuario:     { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
 }
 function fmtDate(iso: string) { return new Date(parseUTC(iso)).toLocaleDateString('pt-BR') }
 
@@ -253,7 +257,7 @@ function UsuariosTab() {
   }
 
   function openEdit(user: UserItem) {
-    setEditUser(user); setEditForm({ first_name: user.first_name ?? '', email: user.email, username: user.username, password: '' }); setEditError('')
+    setEditUser(user); setEditForm({ first_name: user.first_name ?? '', email: user.email, username: user.username, password: '', team: user.team ?? '' }); setEditError('')
   }
 
   async function handleEdit() {
@@ -265,6 +269,7 @@ function UsuariosTab() {
       if (editForm.email !== editUser.email) payload.email = editForm.email
       if (editForm.username !== editUser.username) payload.username = editForm.username
       if (editForm.password.trim()) payload.password = editForm.password
+      if (editForm.team !== (editUser.team ?? '')) payload.team = editForm.team
       if (Object.keys(payload).length === 0) { setEditUser(null); return }
       const { data } = await api.patch<UserItem>(`/api/v1/admin/users/${editUser.id}`, payload)
       setUsers(u => u.map(x => x.id === data.id ? data : x)); setEditUser(null)
@@ -319,6 +324,9 @@ function UsuariosTab() {
                     <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>{user.username}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: (ROLE_STYLE[user.role] ?? ROLE_STYLE.usuario).bg, color: (ROLE_STYLE[user.role] ?? ROLE_STYLE.usuario).color }}>{user.role}</span>
+                      {user.role === 'supervisor' && user.team && (
+                        <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>{user.team}</div>
+                      )}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: user.is_active ? 'rgba(16,185,129,0.12)' : 'rgba(107,114,128,0.12)', color: user.is_active ? '#10B981' : '#6B7280' }}>{user.is_active ? 'Ativo' : 'Inativo'}</span>
@@ -370,6 +378,14 @@ function UsuariosTab() {
                     style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
                 </div>
               ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Equipe (usado pelo perfil supervisor)</label>
+                <select value={editForm.team} onChange={e => setEditForm(f => ({ ...f, team: e.target.value }))}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
+                  <option value="">Nenhuma</option>
+                  {TEAM_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
               {editError && <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{editError}</p>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
                 <button onClick={() => setEditUser(null)} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Cancelar</button>
@@ -410,6 +426,16 @@ function UsuariosTab() {
                   {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
+              {form.role === 'supervisor' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Equipe</label>
+                  <select value={form.team} onChange={e => setForm(f => ({ ...f, team: e.target.value }))}
+                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
+                    <option value="">Nenhuma</option>
+                    {TEAM_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              )}
               {formError && <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{formError}</p>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
                 <button onClick={() => setShowModal(false)} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Cancelar</button>

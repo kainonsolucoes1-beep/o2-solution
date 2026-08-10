@@ -14,6 +14,7 @@ class User(Base):
     first_name = Column(String(100))
     last_name = Column(String(100))
     role = Column(String(50), default="usuario")
+    team = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())

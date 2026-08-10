@@ -40,10 +40,12 @@ class UserAdminCreate(BaseModel):
     password: str
     first_name: Optional[str] = None
     role: str = "usuario"
+    team: Optional[str] = None
 
 
 class UserAdminUpdate(BaseModel):
     role: Optional[str] = None
+    team: Optional[str] = None
     is_active: Optional[bool] = None
     first_name: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -57,6 +59,7 @@ class UserAdminResponse(BaseModel):
     username: str
     first_name: Optional[str]
     role: str
+    team: Optional[str]
     is_active: bool
     created_at: datetime
 

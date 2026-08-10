@@ -149,6 +149,7 @@ async def startup_event():
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS team VARCHAR(255)"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_real_recebida NUMERIC(12,2)"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_real_a_receber NUMERIC(12,2)"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS team VARCHAR(255)"))
         conn.execute(text("UPDATE users SET role = 'usuario' WHERE role = 'user'"))
         conn.execute(text("UPDATE leads SET modalidade = NULL WHERE modalidade ILIKE '%coparticipa%'"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS atendimentos_json TEXT NOT NULL DEFAULT '{}'"))

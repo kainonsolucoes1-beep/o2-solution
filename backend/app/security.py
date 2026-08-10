@@ -25,21 +25,43 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-FINANCIAL_ROLES = ("admin", "diretor")
+FINANCIAL_ROLES = ("admin", "diretor", "financeiro", "coordenador")
 
 
 def can_see_financials(user) -> bool:
-    """Receita real (recebida/a receber) e dado confidencial: so admin e diretor veem."""
+    """Receita real (recebida/a receber) e dado confidencial: so admin, diretor,
+    financeiro e coordenador veem."""
     return user.role in FINANCIAL_ROLES
 
 
-RESTRICTED_LEAD_ROLES = ("admin", "diretor", "financeiro", "supervisor")
+RESTRICTED_LEAD_ROLES = ("admin", "diretor", "financeiro", "supervisor", "coordenador")
 
 
 def can_see_restricted_leads(user) -> bool:
     """Leads marcados com visibility_tag='ADM' so aparecem (em qualquer tela,
     relatorio ou agregado) para quem tem um desses perfis."""
     return user.role in RESTRICTED_LEAD_ROLES
+
+
+TEAM_SCOPED_ROLES = ("supervisor",)
+
+
+def team_scope(user) -> str | None:
+    """Perfis com visao restrita a propria equipe (ex: supervisor) so veem
+    leads com Lead.team igual ao team cadastrado no proprio usuario.
+    Retorna None quando nao ha restricao de equipe a aplicar."""
+    if user.role in TEAM_SCOPED_ROLES and user.team:
+        return user.team
+    return None
+
+
+COMERCIAL_ROLES = ("comercial",)
+
+
+def restrict_to_usuario_leads(user) -> bool:
+    """Perfil comercial so ve leads pertencentes a contas com role='usuario'
+    (gestao da equipe padrao)."""
+    return user.role in COMERCIAL_ROLES
 
 
 def verify_token(token: str) -> Optional[str]:
