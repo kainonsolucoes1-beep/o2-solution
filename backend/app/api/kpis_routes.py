@@ -19,12 +19,27 @@ VENDA_STATUSES    = ("waiting_billing", "sale_performed", "fechado", "closed", "
 CANCELADO_STATUSES = ("sale_not_performed",)
 
 
-@router.get("/conversao-fonte")
-def conversao_por_fonte(
-    month: str = Query(None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
+def _resolve_period(
+    month: str | None,
+    period: str | None,
+    date_from: str | None,
+    date_to: str | None,
+) -> tuple[datetime, datetime]:
+    """Resolve o intervalo de datas do filtro de período do KPIs.
+
+    Prioridade: period=all > date_from/date_to (intervalo custom) > month (padrão).
+    """
+    if period == "all":
+        return datetime(2000, 1, 1), datetime.utcnow()
+
+    if date_from and date_to:
+        try:
+            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            return dt_from, dt_to
+        except ValueError:
+            pass
+
     if month:
         try:
             year, mon = int(month[:4]), int(month[5:7])
@@ -34,8 +49,21 @@ def conversao_por_fonte(
         now = datetime.utcnow()
         year, mon = now.year, now.month
 
-    date_from = datetime(year, mon, 1)
-    date_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from = datetime(year, mon, 1)
+    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    return dt_from, dt_to
+
+
+@router.get("/conversao-fonte")
+def conversao_por_fonte(
+    month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    date_from, date_to = _resolve_period(month, period, date_from, date_to)
 
     base_filter = [
         Lead.created_at >= date_from,
@@ -128,22 +156,16 @@ def conversao_por_fonte(
 @router.get("/leads-vendas")
 def leads_vendas_por_fonte(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     fonte: str = Query(None),
     conv_point: str = Query(None),
     renutrucao: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            now = datetime.utcnow(); year, mon = now.year, now.month
-    else:
-        now = datetime.utcnow(); year, mon = now.year, now.month
-
-    date_from = datetime(year, mon, 1)
-    date_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    date_from, date_to = _resolve_period(month, period, date_from, date_to)
 
     filters = [
         Lead.created_at >= date_from,
@@ -220,6 +242,7 @@ def renutrucao_stats(
 @router.get("/motivos-cancelamento")
 def motivos_cancelamento(
     month: str = Query(None),
+    period: str = Query(None),
     date_from: str = Query(None),
     date_to: str = Query(None),
     origin: str = Query(None),
@@ -227,23 +250,7 @@ def motivos_cancelamento(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if date_from and date_to:
-        try:
-            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
-            dt_to = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(hours=23, minutes=59, seconds=59)
-        except ValueError:
-            dt_from = datetime(datetime.utcnow().year, datetime.utcnow().month, 1)
-            dt_to = datetime.utcnow()
-    else:
-        if month:
-            try:
-                year, mon = int(month[:4]), int(month[5:7])
-            except (ValueError, IndexError):
-                year, mon = datetime.utcnow().year, datetime.utcnow().month
-        else:
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-        dt_from = datetime(year, mon, 1)
-        dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     filters = [
         Lead.status == "sale_not_performed",
@@ -290,6 +297,7 @@ def motivos_cancelamento(
 @router.get("/leads-conv-point")
 def leads_conv_point(
     month: str = Query(None),
+    period: str = Query(None),
     date_from: str = Query(None),
     date_to: str = Query(None),
     conv_point: str = Query(None),
@@ -299,20 +307,7 @@ def leads_conv_point(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if date_from and date_to:
-        dt_from = datetime.strptime(date_from, "%Y-%m-%d")
-        dt_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-    else:
-        if month:
-            try:
-                year, mon = int(month[:4]), int(month[5:7])
-            except (ValueError, IndexError):
-                year, mon = datetime.utcnow().year, datetime.utcnow().month
-        else:
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-        dt_from = datetime(year, mon, 1)
-        dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     filters = [Lead.created_at >= dt_from, Lead.created_at <= dt_to]
     if conv_point:
@@ -364,21 +359,15 @@ def leads_conv_point(
 @router.get("/conv-point-detalhe")
 def conv_point_detalhe(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     conv_point: str = Query(...),
     origens: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     filters = [
         Lead.created_at >= dt_from,
@@ -517,21 +506,15 @@ def conv_point_diario(
 @router.get("/sdr-detalhe")
 def sdr_detalhe(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     nome: str = Query(...),
     origens: str = Query(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     parts = [s.strip() for s in origens.split(',') if s.strip()]
 
@@ -611,19 +594,13 @@ def sdr_detalhe(
 @router.get("/bases")
 def bases_analytics(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
         db.query(Lead.notes, Lead.status)
@@ -672,20 +649,14 @@ def bases_analytics(
 @router.get("/bases-detalhe")
 def base_detalhe(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     base: str = Query(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
         db.query(Lead.notes, Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan)
@@ -768,20 +739,14 @@ def base_detalhe(
 @router.get("/leads-base")
 def leads_base(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     base: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
         db.query(Lead.name, Lead.notes, Lead.status, Lead.value_potential)
@@ -882,19 +847,13 @@ def _age_band(age: int) -> str:
 @router.get("/faixas-etarias")
 def faixas_etarias(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
         db.query(Lead.ages_raw, Lead.notes, Lead.status)
@@ -948,20 +907,14 @@ def faixas_etarias(
 @router.get("/leads-faixa-etaria")
 def leads_faixa_etaria(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     faixa: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
         db.query(Lead.name, Lead.ages_raw, Lead.notes, Lead.status, Lead.value_potential)
@@ -1003,19 +956,13 @@ def leads_faixa_etaria(
 @router.get("/plano-saude")
 def plano_saude(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
         db.query(Lead.current_plan, Lead.status)
@@ -1074,20 +1021,14 @@ def plano_saude(
 @router.get("/leads-plano-saude")
 def leads_plano_saude(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     plano: str = Query(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
         db.query(Lead.name, Lead.status, Lead.value_potential)
@@ -1125,19 +1066,13 @@ def leads_plano_saude(
 @router.get("/receita-potencial")
 def receita_potencial(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
-    else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
-
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     total = (
         db.query(func.coalesce(func.sum(Lead.value_potential), 0))

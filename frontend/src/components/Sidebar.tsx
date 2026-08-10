@@ -17,7 +17,7 @@ const NAV = [
   { to: '/gestao-comercial', label: 'Gestão Comercial', Icon: Briefcase,       adminOnly: false },
   { to: '/relatorio-producao', label: 'Fechamento',      Icon: ClipboardList,   adminOnly: false },
   { to: '/agenda',           label: 'Agenda',           Icon: CalendarDays,    adminOnly: true  },
-  { to: '/kpis',             label: 'KPIs',             Icon: TrendingUp,      adminOnly: false },
+  { to: '/kpis',             label: 'Performance',      Icon: TrendingUp,      adminOnly: false },
   { to: '/financeiro',       label: 'Financeiro',       Icon: DollarSign,      adminOnly: true  },
   { to: '/telefonia',        label: 'Telefonia',        Icon: Phone,           adminOnly: true  },
   { to: '/settings',         label: 'Configurações',    Icon: Settings,        adminOnly: false },
