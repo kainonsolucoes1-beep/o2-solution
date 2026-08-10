@@ -1549,7 +1549,7 @@ export default function GestaoComercial() {
       </div>
 
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '2px solid var(--border)' }}>
-        {TABS.map(tab => {
+        {TABS.filter(tab => tab !== 'Projeção').map(tab => {
           const active = activeTab === tab
           return (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
