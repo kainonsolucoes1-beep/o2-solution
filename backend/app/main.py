@@ -188,6 +188,12 @@ async def startup_event():
         if not _db.query(_AS).filter(_AS.key == "public_leads_api_key").first():
             _db.add(_AS(key="public_leads_api_key", value=secrets.token_urlsafe(32)))
             _db.commit()
+        if not _db.query(_AS).filter(_AS.key == "public_leads_attendants").first():
+            _db.add(_AS(key="public_leads_attendants", value="Julia,Breno"))
+            _db.commit()
+        if not _db.query(_AS).filter(_AS.key == "public_leads_rr_index").first():
+            _db.add(_AS(key="public_leads_rr_index", value="0"))
+            _db.commit()
         if not _db.query(_AS).filter(_AS.key == "current_plan_backfill_done_v3").first():
             _db.add(_AS(key="current_plan_backfill_done_v3", value="1"))
             _db.commit()

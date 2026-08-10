@@ -34,6 +34,9 @@ function ConfiguracoesTab() {
   const [syncMsg, setSyncMsg]           = useState('')
   const [health, setHealth]             = useState<SyncHealth | null>(null)
   const [healthLoading, setHealthLoading] = useState(true)
+  const [publicApiKey, setPublicApiKey] = useState<string | null>(null)
+  const [publicKeyLoading, setPublicKeyLoading] = useState(true)
+  const [publicKeyCopied, setPublicKeyCopied] = useState(false)
 
   const fetchHealth = useCallback(async () => {
     try { const res = await api.get('/api/v1/admin/sync-status'); setHealth(res.data as SyncHealth) }
@@ -46,6 +49,18 @@ function ConfiguracoesTab() {
     const interval = setInterval(fetchHealth, 30_000)
     return () => clearInterval(interval)
   }, [fetchHealth])
+
+  useEffect(() => {
+    api.get<{ value: string }>('/api/v1/admin/public-leads-api-key')
+      .then(r => setPublicApiKey(r.data.value || null))
+      .catch(() => setPublicApiKey(null))
+      .finally(() => setPublicKeyLoading(false))
+  }, [])
+
+  function copyPublicKey() {
+    if (!publicApiKey) return
+    navigator.clipboard.writeText(publicApiKey).then(() => { setPublicKeyCopied(true); setTimeout(() => setPublicKeyCopied(false), 2000) })
+  }
 
   async function handleSave() {
     if (!accessToken.trim() || !refreshToken.trim()) { setErrorMsg('Preencha os dois campos.'); setStatus('error'); return }
@@ -127,6 +142,30 @@ function ConfiguracoesTab() {
         <button onClick={handleSave} disabled={status === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: status === 'loading' ? '#93C5FD' : '#2563EB', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: status === 'loading' ? 'not-allowed' : 'pointer' }}>
           {status === 'loading' ? 'Salvando...' : 'Salvar Tokens'}
         </button>
+      </div>
+
+      <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Chave de API — Leads públicos (sites)</h2>
+          <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>Use no webhook do Gravity Forms (ou outro formulário externo) para enviar leads direto pro sistema, sem passar pelo Followize.</p>
+        </div>
+        {publicKeyLoading ? (
+          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
+        ) : publicApiKey ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center" style={{ gap: 8 }}>
+              <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{publicApiKey}</code>
+              <button onClick={copyPublicKey} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: publicKeyCopied ? '#10B981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                {publicKeyCopied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>
+              Endpoint: <code>POST /api/v1/public/leads</code> · Header: <code>X-API-Key: &lt;chave acima&gt;</code> · Campos: name, email, phone, company, message, origin, conversion_point.
+            </p>
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar a chave.</p>
+        )}
       </div>
 
       <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
