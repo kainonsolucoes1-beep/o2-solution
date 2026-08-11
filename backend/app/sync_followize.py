@@ -23,6 +23,9 @@ MODALIDADE_MAP = {
     40368: "PME",
 }
 
+# Followize as vezes manda o interesse sem "id" (so com "name") — usado como fallback abaixo
+MODALIDADE_NAME_ALIASES = {"individual": "PF"}
+
 CURRENT_PLAN_MAP = {
     40362: "Amil",
     40361: "Bradesco",
@@ -294,10 +297,19 @@ def _parse_lead_fields(raw: dict) -> dict:
     interests = raw.get("interests") or {}
     _i5_val = ((interests.get("interest_5") or {}).get("name") or "").strip()
     ages_raw = _i5_val if _i5_val and re.match(r'^[\dm,\s]+$', _i5_val) else None
-    _interest_3_id = (interests.get("interest_3") or {}).get("id")
-    modalidade = MODALIDADE_MAP.get(int(_interest_3_id)) if _interest_3_id else None
-    _interest_1_id = (interests.get("interest_1") or {}).get("id")
-    current_plan = CURRENT_PLAN_MAP.get(int(_interest_1_id)) if _interest_1_id else None
+    _interest_3 = interests.get("interest_3") or {}
+    _interest_3_id = _interest_3.get("id")
+    if _interest_3_id:
+        modalidade = MODALIDADE_MAP.get(int(_interest_3_id))
+    else:
+        _interest_3_name = (_interest_3.get("name") or "").strip()
+        modalidade = MODALIDADE_NAME_ALIASES.get(_interest_3_name.lower(), _interest_3_name) or None
+    _interest_1 = interests.get("interest_1") or {}
+    _interest_1_id = _interest_1.get("id")
+    if _interest_1_id:
+        current_plan = CURRENT_PLAN_MAP.get(int(_interest_1_id))
+    else:
+        current_plan = (_interest_1.get("name") or "").strip() or None
 
     tracking_campaign = tracking.get("campaign") or None
     tracking_medium = tracking.get("medium") or None
