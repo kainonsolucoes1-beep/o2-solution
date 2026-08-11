@@ -285,8 +285,8 @@ function SimpleLeadsModal({ title, subtitle, loading, leads, ageMode, onClose }:
 }
 
 // ─── Modal de leads com filtro de status (base / canal / ponto de conversão) ─
-function FilterableLeadsModal({ title, subtitle, loading, leads, statusFilter, onFilter, onClose }: {
-  title: string; subtitle: string; loading: boolean; leads: OrgLead[]
+function FilterableLeadsModal({ title, subtitle, loading, leads, total, statusFilter, onFilter, onClose }: {
+  title: string; subtitle: string; loading: boolean; leads: OrgLead[]; total?: number
   statusFilter: string | null; onFilter: (s: string | null) => void; onClose: () => void
 }) {
   const statusList = [...new Set(leads.map(l => l.status))]
@@ -310,6 +310,11 @@ function FilterableLeadsModal({ title, subtitle, loading, leads, statusFilter, o
             <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
           ) : (
             <>
+              {total !== undefined && total > leads.length && (
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-subtle)', borderRadius: 8, padding: '8px 12px', margin: '0 0 14px' }}>
+                  Exibindo os {leads.length} mais recentes de {total} leads.
+                </p>
+              )}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
                 <button onClick={() => onFilter(null)}
                   style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: statusFilter === null ? '#2563EB' : 'var(--bg-subtle)', color: statusFilter === null ? '#fff' : 'var(--text-muted)' }}>
@@ -406,6 +411,7 @@ export default function KPIs() {
 
   const [orgPopup, setOrgPopup] = useState<string | null>(null)
   const [orgLeads, setOrgLeads] = useState<OrgLead[]>([])
+  const [orgLeadsTotal, setOrgLeadsTotal] = useState(0)
   const [orgLeadsLoading, setOrgLeadsLoading] = useState(false)
   const [orgStatusFilter, setOrgStatusFilter] = useState<string | null>(null)
 
@@ -505,12 +511,14 @@ export default function KPIs() {
       setOrgStatusFilter(null)
       setOrgLeadsLoading(true)
       setOrgLeads([])
+      setOrgLeadsTotal(0)
       const qp = new URLSearchParams(periodParams())
       if (drawer.kind === 'conversao') qp.set('conv_point', drawer.label)
       if (drawer.origens?.length) qp.set('origens', drawer.origens.join(','))
       else if (drawer.kind === 'canal') qp.set('origens', drawer.label)
-      api.get<OrgLead[]>(`/api/v1/kpis/leads-conv-point?${qp}`)
-        .then(r => setOrgLeads(r.data)).catch(() => setOrgLeads([]))
+      api.get<{ leads: OrgLead[]; total: number }>(`/api/v1/kpis/leads-conv-point?${qp}`)
+        .then(r => { setOrgLeads(r.data.leads); setOrgLeadsTotal(r.data.total) })
+        .catch(() => { setOrgLeads([]); setOrgLeadsTotal(0) })
         .finally(() => setOrgLeadsLoading(false))
     }
   }
@@ -1501,7 +1509,7 @@ export default function KPIs() {
       {orgPopup && (
         <FilterableLeadsModal
           title={orgPopup} subtitle={`Leads relacionados · ${periodLabel()}`}
-          loading={orgLeadsLoading} leads={orgLeads}
+          loading={orgLeadsLoading} leads={orgLeads} total={orgLeadsTotal}
           statusFilter={orgStatusFilter} onFilter={setOrgStatusFilter}
           onClose={() => setOrgPopup(null)}
         />

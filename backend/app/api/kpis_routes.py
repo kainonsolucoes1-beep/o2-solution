@@ -351,10 +351,13 @@ def leads_conv_point(
     if status_group == 'venda':
         filters.append(Lead.status.in_(VENDA_STATUSES))
 
+    total = db.query(func.count(Lead.id)).filter(*filters).scalar()
+
     rows = (
         db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential)
         .filter(*filters)
         .order_by(Lead.created_at.desc())
+        .limit(500)
         .all()
     )
 
@@ -379,7 +382,7 @@ def leads_conv_point(
             "valor":  float(l.value_potential) if l.value_potential else None,
             "tipo":   tipo,
         })
-    return result
+    return {"leads": result, "total": total}
 
 
 @router.get("/conv-point-detalhe")
