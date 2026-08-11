@@ -683,8 +683,8 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
     if (origens) p.set('origens', origens)
     if (statusGroup) p.set('status_group', statusGroup)
     if (teamParam) p.set('team', teamParam)
-    api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
-      .then(r => setPerfLeads(r.data)).catch(() => setPerfLeads([]))
+    api.get<{ leads: PerfLead[]; total: number }>(`/api/v1/kpis/leads-conv-point?${p}`)
+      .then(r => setPerfLeads(r.data.leads)).catch(() => setPerfLeads([]))
       .finally(() => setPerfLoading(false))
     if (withTrend && origens) {
       const pt = new URLSearchParams({ origens, date_from: dateFrom, date_to: dateTo })
@@ -1492,8 +1492,8 @@ export default function GestaoComercial() {
     if (convPoint) p.set('conv_point', convPoint)
     else if (origens) p.set('origens', origens)
     if (teamParam) p.set('team', teamParam)
-    api.get<PerfLead[]>(`/api/v1/kpis/leads-conv-point?${p}`)
-      .then(r => setStagePopup(prev => prev ? { ...prev, leads: r.data, loading: false } : null))
+    api.get<{ leads: PerfLead[]; total: number }>(`/api/v1/kpis/leads-conv-point?${p}`)
+      .then(r => setStagePopup(prev => prev ? { ...prev, leads: r.data.leads, loading: false } : null))
       .catch(() => setStagePopup(prev => prev ? { ...prev, leads: [], loading: false } : null))
   }
 
