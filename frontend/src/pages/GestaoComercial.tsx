@@ -970,7 +970,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '74px 1fr', gap: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '74px 1fr', gap: 14, paddingLeft: 36 }}>
                     <div style={{ minWidth: 0 }}>
                       <p style={{ margin: '0 0 3px', color: '#8995A1', fontSize: 9, fontWeight: 750, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Conversão</p>
                       <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>{row.conversao}%</p>
