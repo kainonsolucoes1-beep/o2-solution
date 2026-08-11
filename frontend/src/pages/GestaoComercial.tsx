@@ -20,7 +20,7 @@ type Tab = typeof TABS[number]
 // ── Visão Geral types ────────────────────────────────────────────────────────
 interface Kpis {
   captacoes: number; vendas: number; conversao: number
-  receita_potencial: number; perda_financeira: number; ticket_medio: number | null
+  receita_potencial: number; perda_financeira: number; ticket_medio: number
 }
 interface DiarioItem  { dia: number; captacoes: number; vendas: number }
 interface OrigemItem  { origem: string; captacoes: number; pct: number }
@@ -1215,14 +1215,14 @@ function MonthPanel({ month, untilDay }: { month: string; untilDay?: number }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
         {CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt }) => {
-          const value = kpis ? (kpis as Record<string, number | null>)[key] : 0
+          const value = kpis ? (kpis as Record<string, number>)[key] : 0
           return (
             <div key={key} style={{ background: bg, borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${color}` }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 10, fontWeight: 600, color: sub, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
                 <Icon size={13} color={color} />
               </div>
-              <p style={{ fontSize: 17, fontWeight: 800, color, margin: 0 }}>{loading ? '—' : value == null ? '—' : fmt(value)}</p>
+              <p style={{ fontSize: 17, fontWeight: 800, color, margin: 0 }}>{loading ? '—' : fmt(value)}</p>
             </div>
           )
         })}
@@ -1674,9 +1674,9 @@ export default function GestaoComercial() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
             {MAIN_CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt, clickable, invert }) => {
-              const value = key === 'qualificados' ? qualificados : (kpis ? (kpis as Record<string, number | null>)[key] : 0)
-              const prevValue = key === 'qualificados' ? prevQualificados : (prevKpis ? (prevKpis as Record<string, number | null>)[key] : undefined)
-              const trend = (prevValue != null && value != null) ? pctDiff(value, prevValue) : null
+              const value = key === 'qualificados' ? qualificados : (kpis ? (kpis as Record<string, number>)[key] : 0)
+              const prevValue = key === 'qualificados' ? prevQualificados : (prevKpis ? (prevKpis as Record<string, number>)[key] : undefined)
+              const trend = prevValue !== undefined ? pctDiff(value, prevValue) : null
               const onCardClick = !clickable ? undefined
                 : key === 'qualificados' ? () => navigate(`/leads-report?date_from=${dateFrom}&date_to=${dateTo}&perception=${encodeURIComponent('Quente,Morno')}`)
                 : () => openDrill(KEY_TO_TIPO[key])
@@ -1696,7 +1696,7 @@ export default function GestaoComercial() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color, margin: 0, lineHeight: 1 }}>{loading ? '—' : value == null ? '—' : fmt(value)}</p>
+                    <p style={{ fontSize: 26, fontWeight: 800, color, margin: 0, lineHeight: 1 }}>{loading ? '—' : fmt(value)}</p>
                     {clickable && <span style={{ fontSize: 11, color, fontWeight: 600, marginBottom: 2 }}>Ver detalhes →</span>}
                   </div>
                 </div>
