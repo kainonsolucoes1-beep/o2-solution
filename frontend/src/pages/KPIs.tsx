@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, TrendingUp, TrendingDown,
   BarChart3, ArrowLeftRight, ArrowUp, ArrowDown, SlidersHorizontal, Cake, HeartPulse, Minus,
+  DollarSign, Target,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -363,6 +364,7 @@ const TEAM_LABELS: Record<'sp' | 'pe', string> = { sp: 'São Paulo', pe: 'Recife
 const MAIN_TABS = [
   { key: 'visao-geral', label: 'Visão geral' },
   { key: 'aquisicao', label: 'Aquisição' },
+  { key: 'ranking', label: 'Ranking' },
   { key: 'equipe-sdr', label: 'Equipe SDR' },
   { key: 'perfil-leads', label: 'Perfil dos leads' },
 ] as const
@@ -751,6 +753,28 @@ export default function KPIs() {
     return rows.sort((a, b) => b.captacoes - a.captacoes)
   })()
 
+  const rankingPool = [
+    ...organicFontes.map(f => ({ ...f, tipo: 'canal' as const })),
+    ...sdrDisplayFontes.map(f => ({ ...f, tipo: 'operador' as const })),
+  ].sort((a, b) => b.captacoes - a.captacoes)
+  const rankingQualificado = rankingPool.filter(r => r.captacoes >= 3)
+  const rankTopCap = rankingPool[0]
+  const rankTopReceita = rankingPool.every(r => r.receita_gerada == null)
+    ? undefined
+    : [...rankingPool].filter(r => r.receita_gerada != null).sort((a, b) => (b.receita_gerada as number) - (a.receita_gerada as number))[0]
+  const rankTopConv = rankingQualificado.length > 0
+    ? [...rankingQualificado].sort((a, b) => b.conversao - a.conversao)[0]
+    : undefined
+
+  function openRankRow(row: typeof rankingPool[number], e: React.MouseEvent<HTMLElement>) {
+    if (row.tipo === 'canal') {
+      openDrawer('canal', row.fonte, [row.fonte], e.currentTarget)
+    } else {
+      const origens = (row as FonteData & { _o2Origens?: string[] })._o2Origens?.join(',') ?? row.fonte
+      navigate(`/vida-sdr/${encodeURIComponent(origens)}?nome=${encodeURIComponent(row.fonte)}`)
+    }
+  }
+
   const baseTopCapt: BaseStat | undefined = basesData.length > 0
     ? [...basesData].sort((a, b) => b.captacoes - a.captacoes)[0]
     : undefined
@@ -1103,6 +1127,89 @@ export default function KPIs() {
             )
           )}
         </div>
+      )}
+
+      {/* ── Aba: Ranking ── */}
+      {activeMainTab === 'ranking' && (
+        loading ? (
+          <StateBox kind="loading" height={140} />
+        ) : dataError ? (
+          <StateBox kind="error" height={140} message="Não foi possível carregar o ranking." onRetry={fetchMain} />
+        ) : rankingPool.length === 0 ? (
+          <StateBox kind="empty" height={140} message="Nenhum operador ou canal com captações neste período." />
+        ) : (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
+              {rankTopCap && (
+                <RankingCard
+                  icon={Users} accent="#3B82F6" label="Maior captação"
+                  value={String(rankTopCap.captacoes)} who={rankTopCap.fonte} context="leads captados no período"
+                  onClick={e => openRankRow(rankTopCap, e)}
+                />
+              )}
+              {rankTopReceita && (
+                <RankingCard
+                  icon={DollarSign} accent="#10B981" label="Maior receita"
+                  value={fmtBrl(rankTopReceita.receita_gerada as number)} who={rankTopReceita.fonte}
+                  context={`${rankTopReceita.vendas} venda${rankTopReceita.vendas !== 1 ? 's' : ''} no período`}
+                  onClick={e => openRankRow(rankTopReceita, e)}
+                />
+              )}
+              {rankTopConv && (
+                <RankingCard
+                  icon={Target} accent="#6366F1" label="Maior conversão"
+                  value={`${rankTopConv.conversao}%`} who={rankTopConv.fonte}
+                  context={`${rankTopConv.captacoes} captações · ${rankTopConv.vendas} vendas`}
+                  onClick={e => openRankRow(rankTopConv, e)}
+                />
+              )}
+            </div>
+
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 12px' }}>Ranking completo</p>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Operador / Canal</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Captações</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Vendas</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Conversão</th>
+                      {rankingPool.some(r => r.receita_gerada != null) && (
+                        <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Receita</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rankingPool.map((r, idx) => {
+                      const medalBg = idx === 0 ? '#FEF3C7' : idx === 1 ? 'var(--bg-subtle)' : idx === 2 ? '#FFF1E6' : undefined
+                      const medalColor = idx === 0 ? '#92400E' : idx === 1 ? 'var(--text-muted)' : idx === 2 ? '#9A3412' : 'var(--text-subtle)'
+                      return (
+                        <tr key={r.fonte}
+                          onClick={e => openRankRow(r, e)}
+                          style={{ borderBottom: '1px solid var(--border-lt)', cursor: 'pointer' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                        >
+                          <td style={{ padding: '13px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 6, fontSize: 10, fontWeight: 800, marginRight: 8, background: medalBg ?? 'transparent', color: medalColor }}>{idx + 1}</span>
+                            {r.fonte}
+                          </td>
+                          <td style={{ padding: '13px 16px', textAlign: 'right', fontSize: 13, color: 'var(--text-1)' }}>{r.captacoes}</td>
+                          <td style={{ padding: '13px 16px', textAlign: 'right', fontSize: 13, color: 'var(--text-1)' }}>{r.vendas}</td>
+                          <td style={{ padding: '13px 16px', textAlign: 'right', fontSize: 13, color: 'var(--text-1)' }}>{r.conversao}%</td>
+                          {rankingPool.some(x => x.receita_gerada != null) && (
+                            <td style={{ padding: '13px 16px', textAlign: 'right', fontSize: 13, color: 'var(--text-1)' }}>{r.receita_gerada != null ? fmtBrl(r.receita_gerada) : '—'}</td>
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )
       )}
 
       {/* ── Aba: Equipe SDR ── */}
@@ -1530,6 +1637,31 @@ export default function KPIs() {
         />
       )}
     </main>
+  )
+}
+
+// ─── Cartão de destaque da aba Ranking ──────────────────────────────────────
+function RankingCard({ icon: Icon, accent, label, value, who, context, onClick }: {
+  icon: React.ComponentType<{ size?: number; color?: string }>
+  accent: string; label: string; value: string; who: string; context: string
+  onClick: (e: React.MouseEvent<HTMLDivElement>) => void
+}) {
+  return (
+    <div
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e as unknown as React.MouseEvent<HTMLDivElement>) } }}
+      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: `4px solid ${accent}`, borderRadius: 14, padding: '18px 20px', cursor: 'pointer' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+        <Icon size={14} color={accent} />
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-subtle)' }}>{label}</span>
+      </div>
+      <p style={{ fontSize: 24, fontWeight: 800, color: accent, margin: '0 0 4px' }}>{value}</p>
+      <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 3px' }}>{who}</p>
+      <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0 }}>{context}</p>
+    </div>
   )
 }
 
