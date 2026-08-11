@@ -514,6 +514,7 @@ export default function KPIs() {
       setOrgLeadsTotal(0)
       const qp = new URLSearchParams(periodParams())
       if (drawer.kind === 'conversao') qp.set('conv_point', drawer.label)
+      else if (drawer.kind === 'modalidade') qp.set('modalidade', drawer.label)
       if (drawer.origens?.length) qp.set('origens', drawer.origens.join(','))
       else if (drawer.kind === 'canal') qp.set('origens', drawer.label)
       api.get<{ leads: OrgLead[]; total: number }>(`/api/v1/kpis/leads-conv-point?${qp}`)

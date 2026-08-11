@@ -328,6 +328,7 @@ def leads_conv_point(
     date_to: str = Query(None),
     conv_point: str = Query(None),
     origens: str = Query(None),
+    modalidade: str = Query(None),
     status_group: str = Query(None),
     team: str = Query(None),
     current_user: User = Depends(get_current_user),
@@ -342,6 +343,12 @@ def leads_conv_point(
         parts = [s.strip() for s in origens.split(',') if s.strip()]
         if parts:
             filters.append(Lead.origin.in_(parts))
+    if modalidade:
+        target = modalidade.strip().lower()
+        if target == "não informado":
+            filters.append(or_(Lead.modalidade.is_(None), func.trim(Lead.modalidade) == ""))
+        else:
+            filters.append(func.lower(func.trim(Lead.modalidade)) == target)
     if team:
         parts = [s.strip() for s in team.split(',') if s.strip()]
         if len(parts) == 1:
