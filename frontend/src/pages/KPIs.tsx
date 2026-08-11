@@ -292,7 +292,7 @@ function FilterableLeadsModal({ title, subtitle, loading, leads, total, statusFi
   const statusList = [...new Set(leads.map(l => l.status))]
   const filtered = statusFilter ? leads.filter(l => l.status === statusFilter) : leads
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: 24 }}>
       <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title} style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: 'var(--shadow-md, 0 12px 32px rgba(15,23,42,.16))' }}>
         <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
           <div>
