@@ -104,7 +104,7 @@ def visao_geral(
         # conta vendas pela data em que o status virou venda, nao pela data de captacao
         # (ciclo de fechamento longo faz vendas de leads captados fora do periodo)
         rows = (
-            db.query(LeadStatusHistory.lead_id, Lead.value_potential)
+            db.query(LeadStatusHistory.lead_id)
             .join(Lead, Lead.id == LeadStatusHistory.lead_id)
             .filter(
                 LeadStatusHistory.changed_at >= dt_from,
@@ -114,19 +114,15 @@ def visao_geral(
             )
             .all()
         )
-        venda_valores = {lead_id: float(valor or 0) for lead_id, valor in rows}
-        vendas = len(venda_valores)
-        receita_vendas = sum(venda_valores.values())
+        vendas = len({lead_id for (lead_id,) in rows})
     else:
-        vendas_rows = [v for s, v, _ in leads if (s or "").lower() in venda_set]
-        vendas = len(vendas_rows)
-        receita_vendas = sum(float(v or 0) for v in vendas_rows)
+        vendas = sum(1 for s, _, _ in leads if (s or "").lower() in venda_set)
 
     leads_com_valor = [float(v) for s, v, _ in leads if (s or "").lower() != CANCELADO_STATUS and v]
     receita_potencial = sum(leads_com_valor)
     perda_financeira = sum(float(v or 0) for s, v, _ in leads if (s or "").lower() == CANCELADO_STATUS)
-    # Ticket medio = valor da cotacao (atualizado no fechamento) das vendas / numero de vendas
-    ticket_medio = (receita_vendas / vendas) if vendas > 0 else 0.0
+    # Ticket medio = receita potencial de tudo que esta em esteira (nao cancelado) / total de captacoes
+    ticket_medio = (receita_potencial / captacoes) if captacoes > 0 else 0.0
     conversao = round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0
 
     return {
