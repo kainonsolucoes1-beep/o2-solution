@@ -759,9 +759,10 @@ export default function KPIs() {
   ].sort((a, b) => b.captacoes - a.captacoes)
   const rankingQualificado = rankingPool.filter(r => r.captacoes >= 3)
   const rankTopCap = rankingPool[0]
-  const rankTopReceita = rankingPool.every(r => r.receita_gerada == null)
-    ? undefined
-    : [...rankingPool].filter(r => r.receita_gerada != null).sort((a, b) => (b.receita_gerada as number) - (a.receita_gerada as number))[0]
+  const receitaVisible = rankingPool.some(r => r.receita_gerada != null)
+  const rankTopReceita = rankingPool
+    .filter((r): r is typeof rankingPool[number] & { receita_gerada: number } => r.receita_gerada != null && r.receita_gerada > 0)
+    .sort((a, b) => b.receita_gerada - a.receita_gerada)[0]
   const rankTopConv = rankingQualificado.length > 0
     ? [...rankingQualificado].sort((a, b) => b.conversao - a.conversao)[0]
     : undefined
@@ -1147,13 +1148,19 @@ export default function KPIs() {
                   onClick={e => openRankRow(rankTopCap, e)}
                 />
               )}
-              {rankTopReceita && (
-                <RankingCard
-                  icon={DollarSign} accent="#10B981" label="Maior receita"
-                  value={fmtBrl(rankTopReceita.receita_gerada as number)} who={rankTopReceita.fonte}
-                  context={`${rankTopReceita.vendas} venda${rankTopReceita.vendas !== 1 ? 's' : ''} no período`}
-                  onClick={e => openRankRow(rankTopReceita, e)}
-                />
+              {receitaVisible && (
+                rankTopReceita ? (
+                  <RankingCard
+                    icon={DollarSign} accent="#10B981" label="Maior receita"
+                    value={fmtBrl(rankTopReceita.receita_gerada)} who={rankTopReceita.fonte}
+                    context={`${rankTopReceita.vendas} venda${rankTopReceita.vendas !== 1 ? 's' : ''} no período`}
+                    onClick={e => openRankRow(rankTopReceita, e)}
+                  />
+                ) : (
+                  <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '4px solid var(--border)', borderRadius: 14, padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>Nenhuma receita recebida ainda neste período</p>
+                  </div>
+                )
               )}
               {rankTopConv && (
                 <RankingCard
