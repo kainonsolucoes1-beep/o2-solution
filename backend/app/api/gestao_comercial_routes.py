@@ -90,21 +90,21 @@ def visao_geral(
     dt_from, dt_to = _resolve_range(month, until_day, start, end)
     team_clause = _team_clause(team)
 
-    leads = db.query(Lead.status, Lead.value_potential, Lead.perception).filter(
+    leads = db.query(Lead.status, Lead.value_potential, Lead.perception, Lead.receita_real_recebida).filter(
         Lead.created_at >= dt_from, Lead.created_at <= dt_to, *team_clause,
     ).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
     proposta_set = {s.lower() for s in PROPOSTA_STATUSES}
     captacoes = len(leads)
-    qualificados = sum(1 for _, _, p in leads if p in HOT_WARM_PERCEPTIONS)
-    em_negociacao = sum(1 for s, _, _ in leads if (s or "").lower() in proposta_set)
+    qualificados = sum(1 for _, _, p, _ in leads if p in HOT_WARM_PERCEPTIONS)
+    em_negociacao = sum(1 for s, _, _, _ in leads if (s or "").lower() in proposta_set)
 
     if vendas_por_fechamento:
         # conta vendas pela data em que o status virou venda, nao pela data de captacao
         # (ciclo de fechamento longo faz vendas de leads captados fora do periodo)
         rows = (
-            db.query(LeadStatusHistory.lead_id, Lead.value_potential)
+            db.query(LeadStatusHistory.lead_id, Lead.receita_real_recebida)
             .join(Lead, Lead.id == LeadStatusHistory.lead_id)
             .filter(
                 LeadStatusHistory.changed_at >= dt_from,
@@ -114,15 +114,20 @@ def visao_geral(
             )
             .all()
         )
-        venda_leads = {lead_id: float(value or 0) for lead_id, value in rows}
-        vendas = len(venda_leads)
+        venda_receitas = {lead_id: float(receita or 0) for lead_id, receita in rows}
+        vendas = len(venda_receitas)
+        receita_vendas = sum(venda_receitas.values())
     else:
-        vendas = sum(1 for s, _, _ in leads if (s or "").lower() in venda_set)
+        vendas_rows = [r for s, _, _, r in leads if (s or "").lower() in venda_set]
+        vendas = len(vendas_rows)
+        receita_vendas = sum(float(r or 0) for r in vendas_rows)
 
-    leads_com_valor = [float(v) for s, v, _ in leads if (s or "").lower() != CANCELADO_STATUS and v]
+    leads_com_valor = [float(v) for s, v, _, _ in leads if (s or "").lower() != CANCELADO_STATUS and v]
     receita_potencial = sum(leads_com_valor)
-    perda_financeira = sum(float(v or 0) for s, v, _ in leads if (s or "").lower() == CANCELADO_STATUS)
-    ticket_medio = receita_potencial / len(leads_com_valor) if leads_com_valor else 0.0
+    perda_financeira = sum(float(v or 0) for s, v, _, _ in leads if (s or "").lower() == CANCELADO_STATUS)
+    # Ticket medio = receita real recebida das vendas (todas as origens) / numero de vendas
+    ticket_medio = (receita_vendas / vendas) if vendas > 0 else 0.0
+    ticket_medio = ticket_medio if can_see_financials(current_user) else None
     conversao = round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0
 
     return {
