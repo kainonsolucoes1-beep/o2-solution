@@ -13,6 +13,15 @@ from app.security import can_see_financials
 router = APIRouter(prefix="/api/v1/financeiro", tags=["financeiro"])
 
 
+def _is_atrasado(parcela: LeadParcela) -> bool:
+    """Uma parcela 'a receber' cuja previsao de recebimento ja passou."""
+    return (
+        parcela.status == "a_receber"
+        and parcela.previsao_recebimento is not None
+        and parcela.previsao_recebimento.date() < datetime.utcnow().date()
+    )
+
+
 @router.get("/contratos")
 def list_contratos(
     date_from: Optional[str] = Query(None),
@@ -48,6 +57,7 @@ def list_contratos(
                 "valor": float(r.valor),
                 "status": r.status,
                 "previsaoRecebimento": r.previsao_recebimento.strftime("%Y-%m-%d") if r.previsao_recebimento else None,
+                "atrasado": _is_atrasado(r),
             })
 
     return [
@@ -60,6 +70,7 @@ def list_contratos(
             "recebido": float(lead.receita_real_recebida or 0),
             "aReceber": float(lead.receita_real_a_receber or 0),
             "parcelas": parcelas_by_lead.get(lead.id, []),
+            "temAtraso": any(p["atrasado"] for p in parcelas_by_lead.get(lead.id, [])),
         }
         for lead in leads
     ]
@@ -107,6 +118,7 @@ def previsao_periodo(
             "valor": float(parcela.valor),
             "status": parcela.status,
             "previsaoRecebimento": parcela.previsao_recebimento.strftime("%Y-%m-%d"),
+            "atrasado": _is_atrasado(parcela),
         }
         for parcela, lead in rows
     ]

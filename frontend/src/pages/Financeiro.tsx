@@ -17,6 +17,7 @@ interface Parcela {
   valor: number;
   status: "recebido" | "a_receber";
   previsaoRecebimento: string | null;
+  atrasado: boolean;
 }
 
 interface Contract {
@@ -28,6 +29,7 @@ interface Contract {
   recebido: number;
   aReceber: number;
   parcelas: Parcela[];
+  temAtraso: boolean;
 }
 
 interface ParcelaMes {
@@ -39,6 +41,7 @@ interface ParcelaMes {
   valor: number;
   status: "recebido" | "a_receber";
   previsaoRecebimento: string;
+  atrasado: boolean;
 }
 
 interface PrevisaoMesResumo {
@@ -95,11 +98,18 @@ function aggregate(list: Contract[], key: "promotora" | "modalidade", metric: "v
     .sort((a, b) => b.value - a.value);
 }
 
-function StatusPill({ recebido, valorContrato }: { recebido: number; valorContrato: number }) {
+function StatusPill({ recebido, valorContrato, atrasado }: { recebido: number; valorContrato: number; atrasado?: boolean }) {
   if (valorContrato > 0 && recebido >= valorContrato) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Quitado
+      </span>
+    );
+  }
+  if (atrasado) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-200">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> Em atraso
       </span>
     );
   }
@@ -417,8 +427,8 @@ export default function FinanceiroDashboard() {
                     </thead>
                     <tbody>
                       {previsaoMes.parcelas.map((p, i) => {
-                        const cor = p.status === "recebido" ? "#0E9F6E" : "#C2760C";
-                        const bg = p.status === "recebido" ? "#ECFDF5" : "#FFFBEB";
+                        const cor = p.atrasado ? "#DC2626" : p.status === "recebido" ? "#0E9F6E" : "#C2760C";
+                        const bg = p.atrasado ? "#FEF2F2" : p.status === "recebido" ? "#ECFDF5" : "#FFFBEB";
                         return (
                         <tr key={`${p.leadId}-${i}`} className="border-b border-[#F0F1F5] last:border-0 hover:bg-[#FAFBFC]">
                           <td className="px-5 py-3.5 font-medium text-[#10142B]">{p.empresa}</td>
@@ -436,10 +446,10 @@ export default function FinanceiroDashboard() {
                           <td className="px-5 py-3.5 text-center" style={{ color: cor }}>{fmt(p.valor)}</td>
                           <td className="px-5 py-3.5 text-center">
                             <span className="inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium" style={{ background: bg, color: cor }}>
-                              {p.status === "recebido" ? "Recebido" : "A receber"}
+                              {p.atrasado ? "Atrasado" : p.status === "recebido" ? "Recebido" : "A receber"}
                             </span>
                           </td>
-                          <td className="px-5 py-3.5 text-right text-[#8891AC]">
+                          <td className="px-5 py-3.5 text-right" style={{ color: p.atrasado ? "#DC2626" : "#8891AC" }}>
                             {p.previsaoRecebimento.split("-").reverse().join("/")}
                           </td>
                         </tr>
@@ -592,7 +602,7 @@ export default function FinanceiroDashboard() {
                         {fmt(c.aReceber)}
                       </td>
                       <td className="px-5 py-3.5">
-                        <StatusPill recebido={c.recebido} valorContrato={c.valorContrato} />
+                        <StatusPill recebido={c.recebido} valorContrato={c.valorContrato} atrasado={c.temAtraso} />
                       </td>
                     </tr>
                     {expanded && hasParcelas && (
@@ -603,8 +613,8 @@ export default function FinanceiroDashboard() {
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {c.parcelas.map((p, i) => {
-                              const cor = p.status === "recebido" ? "#0E9F6E" : "#C2760C";
-                              const bg = p.status === "recebido" ? "#ECFDF5" : "#FFFBEB";
+                              const cor = p.atrasado ? "#DC2626" : p.status === "recebido" ? "#0E9F6E" : "#C2760C";
+                              const bg = p.atrasado ? "#FEF2F2" : p.status === "recebido" ? "#ECFDF5" : "#FFFBEB";
                               return (
                                 <div
                                   key={i}
@@ -621,10 +631,10 @@ export default function FinanceiroDashboard() {
                                     {fmt(p.valor)}
                                   </div>
                                   <div className="mt-0.5 text-[10px]" style={{ color: cor }}>
-                                    {p.status === "recebido" ? "Recebido" : "A receber"}
+                                    {p.atrasado ? "Atrasado" : p.status === "recebido" ? "Recebido" : "A receber"}
                                   </div>
                                   {p.status === "a_receber" && p.previsaoRecebimento && (
-                                    <div className="mt-0.5 text-[10px] text-[#8891AC]">
+                                    <div className="mt-0.5 text-[10px]" style={{ color: p.atrasado ? "#DC2626" : "#8891AC" }}>
                                       Previsto: {p.previsaoRecebimento.split("-").reverse().join("/")}
                                     </div>
                                   )}
