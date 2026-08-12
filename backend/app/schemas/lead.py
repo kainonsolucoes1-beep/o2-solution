@@ -15,6 +15,7 @@ class LeadCreate(BaseModel):
     notes: Optional[str] = None
     document: Optional[str] = None
     modalidade: Optional[str] = None
+    categoria: Optional[str] = None
     conversion_point: Optional[str] = None
     attendant: Optional[str] = None
     visibility_tag: Optional[str] = None

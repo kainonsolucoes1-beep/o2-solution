@@ -218,11 +218,11 @@ export default function LeadsReport() {
   const [newLeadError, setNewLeadError] = useState('')
   const [newLead, setNewLead] = useState({
     name: '', company: '', email: '', phone: '', document: '',
-    origin: '', modalidade: '', conversion_point: '', value_potential: '', attendant: '', notes: '', visibility_tag: '',
+    origin: '', modalidade: '', categoria: '', conversion_point: '', value_potential: '', attendant: '', notes: '', visibility_tag: '',
   })
 
   function resetNewLead() {
-    setNewLead({ name: '', company: '', email: '', phone: '', document: '', origin: '', modalidade: '', conversion_point: '', value_potential: '', attendant: '', notes: '', visibility_tag: '' })
+    setNewLead({ name: '', company: '', email: '', phone: '', document: '', origin: '', modalidade: '', categoria: '', conversion_point: '', value_potential: '', attendant: '', notes: '', visibility_tag: '' })
     setNewLeadError('')
   }
 
@@ -238,6 +238,7 @@ export default function LeadsReport() {
       document: newLead.document.trim() || null,
       origin: newLead.origin || null,
       modalidade: newLead.modalidade || null,
+      categoria: newLead.categoria || null,
       conversion_point: newLead.conversion_point || null,
       value_potential: newLead.value_potential ? Number(newLead.value_potential) : null,
       attendant: newLead.attendant.trim() || null,
@@ -1111,6 +1112,15 @@ export default function LeadsReport() {
                     <input list="new-lead-modalidades" value={newLead.modalidade} onChange={e => setNewLead(d => ({ ...d, modalidade: e.target.value }))}
                       className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
                     <datalist id="new-lead-modalidades">{modalidades.map(m => <option key={m} value={m} />)}</datalist>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label style={labelStyle}>Categoria</label>
+                    <input list="new-lead-categorias" value={newLead.categoria} onChange={e => setNewLead(d => ({ ...d, categoria: e.target.value }))}
+                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    <datalist id="new-lead-categorias">
+                      <option value="Com coparticipação" />
+                      <option value="Sem coparticipação" />
+                    </datalist>
                   </div>
                   <div className="flex flex-col gap-1">
                     <label style={labelStyle}>Ponto de Conversão</label>
