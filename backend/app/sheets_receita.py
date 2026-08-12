@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 SPREADSHEET_ID = "1AcNQ5DEgz92IJ4GuuYkwgvr_THnVdKRki-R7c8uTNwY"
 SHEET_TITLE = "UNIFICACAO"
-STATUS_ALVO = "PAGO - FINALIZADO"
+STATUS_ALVO = {"PAGO - FINALIZADO", "EMISSÃO", "BOLETO EMITIDO"}
 CREDS_PATH = os.getenv(
     "GOOGLE_SERVICE_ACCOUNT_PATH",
     os.path.join(os.path.dirname(__file__), "..", "google_service_account.json"),
@@ -150,7 +150,8 @@ def _fetch_rows():
 def sync_receita_real(db: Session) -> dict:
     """Le a aba UNIFICACAO da planilha de vendas e preenche receita_real_recebida/
     receita_real_a_receber dos leads correspondentes (cruzamento por telefone, com
-    fallback por e-mail). So considera linhas com STATUS = 'PAGO - FINALIZADO'."""
+    fallback por e-mail). So considera linhas com STATUS em STATUS_ALVO (venda ja
+    certa: Emissao, Boleto emitido ou Pago-Finalizado)."""
     row_data = _fetch_rows()
     if not row_data:
         return {"matched": 0, "matched_names": [], "unmatched": [], "ambiguous": []}
@@ -192,8 +193,8 @@ def sync_receita_real(db: Session) -> dict:
             candidates = email_map.get(email, [])
 
         status = (cell("STATUS").get("formattedValue") or "").strip().upper()
-        if status != STATUS_ALVO:
-            # deixou de ser "pago - finalizado" (ex: revertido para boleto emitido) —
+        if status not in STATUS_ALVO:
+            # saiu do grupo de status validos (emissao/boleto emitido/pago-finalizado) —
             # zera o que tinha sido marcado antes, senao fica um valor fantasma pra sempre
             if len(candidates) == 1:
                 lead = candidates[0]
