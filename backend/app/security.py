@@ -34,12 +34,13 @@ def can_see_financials(user) -> bool:
     return user.role in FINANCIAL_ROLES
 
 
-RESTRICTED_LEAD_ROLES = ("admin", "diretor", "financeiro", "supervisor", "coordenador")
+RESTRICTED_LEAD_ROLES = ("admin", "diretor", "financeiro", "coordenador")
 
 
 def can_see_restricted_leads(user) -> bool:
     """Leads marcados com visibility_tag='ADM' so aparecem (em qualquer tela,
-    relatorio ou agregado) para quem tem um desses perfis."""
+    relatorio ou agregado) para quem tem um desses perfis. Supervisor
+    deliberadamente de fora -- so diretor/financeiro/coordenador/admin veem."""
     return user.role in RESTRICTED_LEAD_ROLES
 
 
