@@ -32,6 +32,9 @@ function ConfiguracoesTab() {
   const [errorMsg, setErrorMsg]         = useState('')
   const [syncStatus, setSyncStatus]     = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [syncMsg, setSyncMsg]           = useState('')
+  const [receitaSyncStatus, setReceitaSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [receitaSyncMsg, setReceitaSyncMsg] = useState('')
+  const [receitaSyncResult, setReceitaSyncResult] = useState<{ matched: number; unmatched: string[]; ambiguous: string[] } | null>(null)
   const [health, setHealth]             = useState<SyncHealth | null>(null)
   const [healthLoading, setHealthLoading] = useState(true)
   const [publicApiKey, setPublicApiKey] = useState<string | null>(null)
@@ -85,6 +88,19 @@ function ConfiguracoesTab() {
     } catch (err: any) {
       if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login'); return }
       setSyncMsg('Erro ao executar reprocessamento.'); setSyncStatus('error')
+    }
+  }
+
+  async function handleReceitaSync() {
+    setReceitaSyncStatus('loading'); setReceitaSyncMsg(''); setReceitaSyncResult(null)
+    try {
+      const res = await api.post('/api/v1/admin/sync-receita-real')
+      setReceitaSyncResult(res.data as { matched: number; unmatched: string[]; ambiguous: string[] })
+      setReceitaSyncStatus('success')
+    } catch (err: any) {
+      if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login'); return }
+      setReceitaSyncMsg(err.response?.data?.detail || 'Erro ao sincronizar planilha do Financeiro.')
+      setReceitaSyncStatus('error')
     }
   }
 
@@ -177,6 +193,36 @@ function ConfiguracoesTab() {
         {syncStatus === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{syncMsg}</p></div>}
         <button onClick={handleSync} disabled={syncStatus === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: syncStatus === 'loading' ? '#FCA5A5' : '#EF4444', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: syncStatus === 'loading' ? 'not-allowed' : 'pointer' }}>
           {syncStatus === 'loading' ? 'Processando... (pode demorar)' : 'Reprocessar 90 dias'}
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Sincronização do Financeiro (Google Sheets)</h2>
+          <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>Rebusca a planilha de vendas e atualiza recebido/a receber dos leads. Mostra quais leads não foram encontrados ou ficaram ambíguos (telefone/email duplicado em mais de um cadastro) — esses não são atualizados até a duplicidade ser corrigida.</p>
+        </div>
+        {receitaSyncStatus === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{receitaSyncMsg}</p></div>}
+        {receitaSyncStatus === 'success' && receitaSyncResult && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}>
+              <p style={{ fontSize: 13, color: '#10B981', fontWeight: 600, margin: 0 }}>{receitaSyncResult.matched} leads sincronizados.</p>
+            </div>
+            {receitaSyncResult.ambiguous.length > 0 && (
+              <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
+                <p style={{ fontSize: 12.5, color: '#EF4444', fontWeight: 700, margin: '0 0 4px' }}>Duplicados — telefone/email bate com mais de um cadastro ({receitaSyncResult.ambiguous.length}):</p>
+                <p style={{ fontSize: 12.5, color: '#B91C1C', margin: 0 }}>{receitaSyncResult.ambiguous.join(', ')}</p>
+              </div>
+            )}
+            {receitaSyncResult.unmatched.length > 0 && (
+              <div style={{ padding: '10px 14px', background: 'rgba(217,119,6,0.1)', borderRadius: 8, border: '1px solid rgba(217,119,6,0.25)' }}>
+                <p style={{ fontSize: 12.5, color: '#D97706', fontWeight: 700, margin: '0 0 4px' }}>Sem lead correspondente no sistema ({receitaSyncResult.unmatched.length}):</p>
+                <p style={{ fontSize: 12.5, color: '#B45309', margin: 0 }}>{receitaSyncResult.unmatched.join(', ')}</p>
+              </div>
+            )}
+          </div>
+        )}
+        <button onClick={handleReceitaSync} disabled={receitaSyncStatus === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: receitaSyncStatus === 'loading' ? '#93C5FD' : '#2563EB', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: receitaSyncStatus === 'loading' ? 'not-allowed' : 'pointer' }}>
+          {receitaSyncStatus === 'loading' ? 'Sincronizando...' : 'Sincronizar planilha agora'}
         </button>
       </div>
     </div>
