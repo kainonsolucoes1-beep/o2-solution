@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, TrendingUp, TrendingDown,
-  BarChart3, ArrowLeftRight, ArrowUp, ArrowDown, SlidersHorizontal, Cake, HeartPulse, Minus,
+  ArrowLeftRight, ArrowUp, ArrowDown, SlidersHorizontal, Cake, HeartPulse, Minus,
   DollarSign, Target,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, LineChart, Line, ComposedChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  ScatterChart, Scatter, ZAxis, LabelList, ReferenceLine,
 } from 'recharts'
 import api from '../api'
 
@@ -387,6 +388,7 @@ export default function KPIs() {
 
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('visao-geral')
   const [aquisicaoView, setAquisicaoView] = useState<'bases' | 'canais' | 'conversao' | 'modalidade'>('bases')
+  const [aquisicaoLayout, setAquisicaoLayout] = useState<'lista' | 'quadrante'>('lista')
 
   const [data, setData] = useState<FonteData[]>([])
   const [loading, setLoading] = useState(true)
@@ -886,6 +888,7 @@ export default function KPIs() {
       </div>
 
       {/* Resumo executivo — faixa horizontal, sem cards, divisores sutis */}
+      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 16px' }}>Saúde da operação</p>
       <div style={{
         display: 'flex', alignItems: 'stretch', background: 'var(--bg-card)', border: '1px solid var(--border)',
         borderRadius: 16, padding: '20px 24px', marginBottom: dataError ? 8 : 32, flexWrap: 'wrap', rowGap: 16,
@@ -897,7 +900,7 @@ export default function KPIs() {
           { label: 'Cancelamentos', value: totalCan, sub: `${pctCan}% dos leads`, trend: period === 'month' ? <HeroTrend curr={totalCan} prev={prevSummary?.can ?? null} invert prevLabel="período anterior" /> : null },
         ] as const).map((item, i) => (
           <div key={item.label} style={{
-            flex: '1 1 140px', minWidth: 140, padding: i > 0 ? '0 0 0 24px' : '0 24px 0 0',
+            flex: '1 1 140px', minWidth: 140, padding: i > 0 ? '0 0 0 24px' : 0,
             borderLeft: i > 0 ? '1px solid var(--border-lt)' : 'none',
           }}>
             <p style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', margin: '0 0 8px' }}>{item.label}</p>
@@ -1031,23 +1034,41 @@ export default function KPIs() {
       {/* ── Aba: Aquisição ── */}
       {activeMainTab === 'aquisicao' && (
         <div>
-          <div style={{ display: 'flex', gap: 4, marginBottom: 20, border: '1px solid var(--border)', borderRadius: 8, padding: 3, background: 'var(--bg-subtle)', width: 'fit-content' }}>
-            {([
-              { key: 'bases', label: 'Bases' },
-              { key: 'canais', label: 'Canais' },
-              { key: 'conversao', label: 'Pontos de conversão' },
-              { key: 'modalidade', label: 'Modalidade' },
-            ] as const).map(v => (
-              <button key={v.key} onClick={() => setAquisicaoView(v.key)}
-                style={{
-                  padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  background: aquisicaoView === v.key ? 'var(--bg-card)' : 'transparent',
-                  color: aquisicaoView === v.key ? '#2563EB' : 'var(--text-muted)',
-                  boxShadow: aquisicaoView === v.key ? '0 1px 2px rgba(15,23,42,.08)' : 'none',
-                }}>
-                {v.label}
-              </button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'flex', gap: 4, border: '1px solid var(--border)', borderRadius: 8, padding: 3, background: 'var(--bg-subtle)', width: 'fit-content' }}>
+              {([
+                { key: 'bases', label: 'Bases' },
+                { key: 'canais', label: 'Canais' },
+                { key: 'conversao', label: 'Pontos de conversão' },
+                { key: 'modalidade', label: 'Modalidade' },
+              ] as const).map(v => (
+                <button key={v.key} onClick={() => setAquisicaoView(v.key)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    background: aquisicaoView === v.key ? 'var(--bg-card)' : 'transparent',
+                    color: aquisicaoView === v.key ? '#2563EB' : 'var(--text-muted)',
+                    boxShadow: aquisicaoView === v.key ? '0 1px 2px rgba(15,23,42,.08)' : 'none',
+                  }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 4, border: '1px solid var(--border)', borderRadius: 8, padding: 3, background: 'var(--bg-subtle)', width: 'fit-content' }}>
+              {([
+                { key: 'lista', label: 'Lista' },
+                { key: 'quadrante', label: 'Quadrante' },
+              ] as const).map(v => (
+                <button key={v.key} onClick={() => setAquisicaoLayout(v.key)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    background: aquisicaoLayout === v.key ? 'var(--bg-card)' : 'transparent',
+                    color: aquisicaoLayout === v.key ? '#2563EB' : 'var(--text-muted)',
+                    boxShadow: aquisicaoLayout === v.key ? '0 1px 2px rgba(15,23,42,.08)' : 'none',
+                  }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {aquisicaoView === 'bases' && (
@@ -1057,11 +1078,14 @@ export default function KPIs() {
               <StateBox kind="error" height={140} message="Não foi possível carregar as bases." onRetry={fetchBases} />
             ) : basesData.length === 0 ? (
               <StateBox kind="empty" height={140} message="Nenhuma base encontrada neste período." />
+            ) : aquisicaoLayout === 'quadrante' ? (
+              <AquisicaoQuadrant
+                rows={basesData.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, receitaGerada: b.receita_gerada }))}
+              />
             ) : (
               <AquisicaoTable
                 rows={basesData.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, tempoMedioDias: b.tempo_medio_dias, receitaGerada: b.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('base', label, undefined, trigger)}
-                allowTempo={period !== 'all'}
               />
             )
           )}
@@ -1073,11 +1097,14 @@ export default function KPIs() {
               <StateBox kind="error" height={140} message="Não foi possível carregar os canais." onRetry={fetchMain} />
             ) : organicFontes.length === 0 ? (
               <StateBox kind="empty" height={140} message="Nenhum canal encontrado neste período." />
+            ) : aquisicaoLayout === 'quadrante' ? (
+              <AquisicaoQuadrant
+                rows={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.`, receitaGerada: f.receita_gerada }))}
+              />
             ) : (
               <AquisicaoTable
                 rows={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.`, tempoMedioDias: f.tempo_medio_dias, receitaGerada: f.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('canal', label, [label], trigger)}
-                allowTempo={period !== 'all'}
               />
             )
           )}
@@ -1099,6 +1126,10 @@ export default function KPIs() {
                 <StateBox kind="error" height={140} message="Não foi possível carregar os pontos de conversão." onRetry={fetchMain} />
               ) : allConvPoints.length === 0 ? (
                 <StateBox kind="empty" height={140} message="Nenhum ponto de conversão encontrado neste período." />
+              ) : aquisicaoLayout === 'quadrante' ? (
+                <AquisicaoQuadrant
+                  rows={allConvPoints.map(c => ({ label: c.label, captacoes: c.captacoes, vendas: c.vendas, conversao: c.conversao, extra: `${c.cancelados} cancel.`, receitaGerada: c.receita_gerada }))}
+                />
               ) : (
                 <AquisicaoTable
                   rows={allConvPoints.map(c => ({ label: c.label, captacoes: c.captacoes, vendas: c.vendas, conversao: c.conversao, extra: `${c.cancelados} cancel.`, tempoMedioDias: c.tempo_medio_dias, receitaGerada: c.receita_gerada }))}
@@ -1106,7 +1137,6 @@ export default function KPIs() {
                     const point = allConvPoints.find(c => c.label === label)
                     openDrawer('conversao', label, point?.origens, trigger)
                   }}
-                  allowTempo={period !== 'all'}
                 />
               )}
             </>
@@ -1119,11 +1149,14 @@ export default function KPIs() {
               <StateBox kind="error" height={140} message="Não foi possível carregar as modalidades." onRetry={fetchModalidade} />
             ) : modalidadeData.length === 0 ? (
               <StateBox kind="empty" height={140} message="Nenhuma modalidade encontrada neste período." />
+            ) : aquisicaoLayout === 'quadrante' ? (
+              <AquisicaoQuadrant
+                rows={modalidadeData.map(m => ({ label: m.modalidade, captacoes: m.captacoes, vendas: m.vendas, conversao: m.conversao, extra: `${m.cancelados} cancel.`, receitaGerada: m.receita_gerada }))}
+              />
             ) : (
               <AquisicaoTable
                 rows={modalidadeData.map(m => ({ label: m.modalidade, captacoes: m.captacoes, vendas: m.vendas, conversao: m.conversao, extra: `${m.cancelados} cancel.`, tempoMedioDias: m.tempo_medio_dias, receitaGerada: m.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('modalidade', label, undefined, trigger)}
-                allowTempo={period !== 'all'}
               />
             )
           )}
@@ -1229,33 +1262,41 @@ export default function KPIs() {
           <StateBox kind="empty" height={140} message="Nenhum operador com captações neste período." />
         ) : (
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Operador</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>Ação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sdrDisplayFontes.map(f => {
-                  const fd = f as FonteData & { _o2Origens?: string[] }
-                  const origens = fd._o2Origens ? fd._o2Origens.join(',') : f.fonte
-                  return (
-                    <tr key={f.fonte} style={{ borderBottom: '1px solid var(--border-lt)' }}>
-                      <td style={{ padding: '14px 16px', fontSize: 14, color: 'var(--text-1)' }}>{f.fonte}</td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                        <button
-                          onClick={() => navigate(`/vida-sdr/${encodeURIComponent(origens)}?nome=${encodeURIComponent(f.fonte)}`)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', fontSize: 13, fontWeight: 600, padding: 0 }}
-                        >
-                          Vida do agente →
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            {sdrDisplayFontes.map((f, idx) => {
+              const fd = f as FonteData & { _o2Origens?: string[] }
+              const origens = fd._o2Origens ? fd._o2Origens.join(',') : f.fonte
+              const initial = f.fonte.trim() ? f.fonte.trim()[0].toUpperCase() : '?'
+              return (
+                <div
+                  key={f.fonte}
+                  onClick={() => navigate(`/vida-sdr/${encodeURIComponent(origens)}?nome=${encodeURIComponent(f.fonte)}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/vida-sdr/${encodeURIComponent(origens)}?nome=${encodeURIComponent(f.fonte)}`) } }}
+                  className="perf-drawer-trigger group"
+                  style={{
+                    cursor: 'pointer',
+                    borderBottom: idx < sdrDisplayFontes.length - 1 ? '1px solid var(--border-lt)' : 'none',
+                    transition: 'background 150ms',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px' }}>
+                    <span style={{
+                      width: 28, height: 28, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: '50%',
+                      fontSize: 12, fontWeight: 700, color: '#FFFFFF', background: avatarColor(f.fonte),
+                    }}>{initial}</span>
+                    <b style={{ display: 'block', overflow: 'hidden', color: 'var(--text-1)', fontSize: 14, fontWeight: 650, textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{f.fonte}</b>
+                    <ChevronRight
+                      size={16}
+                      className="opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                      style={{ color: 'var(--text-subtle)', flexShrink: 0 }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )
       )}
@@ -1672,59 +1713,113 @@ function RankingCard({ icon: Icon, accent, label, value, who, context, onClick }
   )
 }
 
-// ─── Tabela consolidada da aba Aquisição (Bases / Canais / Pontos de conversão) ─
-function AquisicaoTable({ rows, onOpen, allowTempo = true }: {
+// ─── Leaderboard consolidado da aba Aquisição (Bases / Canais / Pontos de conversão) ─
+const AVATAR_COLORS = ['#2563EB', '#7C3AED', '#DB2777', '#D97706', '#059669', '#0891B2', '#DC2626', '#4F46E5']
+function avatarColor(label: string): string {
+  let hash = 0
+  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length]
+}
+
+function AquisicaoTable({ rows, onOpen }: {
   rows: { label: string; captacoes: number; vendas: number; conversao: number; extra: string; tempoMedioDias?: number | null; receitaGerada?: number | null }[]
   onOpen: (label: string, trigger: HTMLElement) => void
-  allowTempo?: boolean
 }) {
-  const th: React.CSSProperties = { padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }
-  const td: React.CSSProperties = { padding: '14px 16px', textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }
-  // Em "todo o período" leads antigos com venda registrada tardiamente distorcem a média (chegando a centenas de dias)
-  const showTempo = allowTempo && rows.some(r => r.tempoMedioDias != null)
-  const showReceita = rows.some(r => r.receitaGerada != null)
+  const totalCaptacoes = Math.max(1, rows.reduce((s, r) => s + r.captacoes, 0))
+
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ ...th, textAlign: 'left' }}>Origem</th>
-              <th style={th}>Leads</th>
-              <th style={th}>Vendas</th>
-              <th style={th}>Conversão</th>
-              <th style={th}>Cancelamentos</th>
-              {showTempo && <th style={th}>Tempo médio até venda</th>}
-              {showReceita && <th style={th}>Receita gerada</th>}
-              <th style={th}>Análise</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => (
-              <tr key={r.label} style={{ borderBottom: '1px solid var(--border-lt)' }}>
-                <td style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{r.label}</td>
-                <td style={td}>{r.captacoes}</td>
-                <td style={td}>{r.vendas}</td>
-                <td style={td}>{r.conversao}%</td>
-                <td style={{ ...td, color: 'var(--text-muted)', fontWeight: 400 }}>{r.extra}</td>
-                {showTempo && <td style={td}>{r.tempoMedioDias != null ? `${r.tempoMedioDias} dias` : '—'}</td>}
-                {showReceita && <td style={td}>{r.receitaGerada != null ? fmtBrl(r.receitaGerada) : '—'}</td>}
-                <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                  <button
-                    className="perf-drawer-trigger"
-                    onClick={e => onOpen(r.label, e.currentTarget)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#2563EB', fontSize: 12, fontWeight: 600 }}
-                  >
-                    <BarChart3 size={13} />
-                    Ver análise
-                    <ChevronRight size={13} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div>
+        {rows.map((r, idx) => {
+          const share = Math.round((r.captacoes / totalCaptacoes) * 100)
+          const initial = r.label.trim() ? r.label.trim()[0].toUpperCase() : '?'
+          return (
+            <div
+              key={r.label}
+              onClick={e => onOpen(r.label, e.currentTarget)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(r.label, e.currentTarget) } }}
+              className="perf-drawer-trigger group"
+              style={{
+                cursor: 'pointer',
+                borderBottom: idx < rows.length - 1 ? '1px solid var(--border-lt)' : 'none',
+                transition: 'background 150ms',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px' }}>
+                <span style={{
+                  width: 28, height: 28, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: '50%',
+                  fontSize: 12, fontWeight: 700, color: '#FFFFFF', background: avatarColor(r.label),
+                }}>{initial}</span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <b style={{ display: 'block', overflow: 'hidden', color: 'var(--text-1)', fontSize: 14, fontWeight: 650, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</b>
+                  <span style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{share}% do volume do período</span>
+                </div>
+                <ChevronRight
+                  size={16}
+                  className="opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                  style={{ color: 'var(--text-subtle)', flexShrink: 0 }}
+                />
+              </div>
+            </div>
+          )
+        })}
       </div>
+    </div>
+  )
+}
+
+// ─── Alternativa: quadrante volume × conversão, bolha = receita ─────────────
+function AquisicaoQuadrant({ rows }: {
+  rows: { label: string; captacoes: number; vendas: number; conversao: number; extra: string; receitaGerada?: number | null }[]
+}) {
+  const avgConv = rows.length ? rows.reduce((s, r) => s + r.conversao, 0) / rows.length : 0
+  const avgCap = rows.length ? rows.reduce((s, r) => s + r.captacoes, 0) / rows.length : 0
+  const hasReceita = rows.some(r => r.receitaGerada != null && r.receitaGerada > 0)
+  const data = rows.map(r => ({ ...r, bubble: hasReceita ? (r.receitaGerada ?? 0) : Math.max(r.vendas, 1) }))
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
+      <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: '0 0 12px' }}>
+        Horizontal: volume de leads · Vertical: conversão · Tamanho da bolha: {hasReceita ? 'receita gerada' : 'vendas'} · Linhas tracejadas: média do grupo
+      </p>
+      <ResponsiveContainer width="100%" height={380}>
+        <ScatterChart margin={{ top: 20, right: 30, bottom: 24, left: 10 }}>
+          <CartesianGrid stroke="var(--border-lt)" />
+          <XAxis
+            type="number" dataKey="captacoes" name="Leads" tick={{ fontSize: 11, fill: 'var(--text-subtle)' }}
+            label={{ value: 'Leads captados', position: 'insideBottom', offset: -16, fontSize: 11, fill: 'var(--text-muted)' }}
+          />
+          <YAxis
+            type="number" dataKey="conversao" name="Conversão" unit="%" tick={{ fontSize: 11, fill: 'var(--text-subtle)' }}
+            label={{ value: 'Conversão (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'var(--text-muted)' }}
+          />
+          <ZAxis type="number" dataKey="bubble" range={[100, 1000]} />
+          <ReferenceLine x={avgCap} stroke="var(--border)" strokeDasharray="4 4" />
+          <ReferenceLine y={avgConv} stroke="var(--border)" strokeDasharray="4 4" />
+          <Tooltip
+            cursor={{ strokeDasharray: '3 3' }}
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null
+              const d = payload[0].payload as typeof data[number]
+              return (
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,.08)' }}>
+                  <b style={{ display: 'block', marginBottom: 4, color: 'var(--text-1)' }}>{d.label}</b>
+                  <span style={{ color: 'var(--text-muted)' }}>{d.captacoes} leads · {d.vendas} vendas · {d.conversao}% conversão</span>
+                  <br />
+                  <span style={{ color: 'var(--text-muted)' }}>{d.extra}</span>
+                </div>
+              )
+            }}
+          />
+          <Scatter data={data} fill="#2563EB" fillOpacity={0.7}>
+            <LabelList dataKey="label" position="top" style={{ fontSize: 11, fontWeight: 600, fill: 'var(--text-1)' }} />
+          </Scatter>
+        </ScatterChart>
+      </ResponsiveContainer>
     </div>
   )
 }
