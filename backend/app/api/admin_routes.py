@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ from app.schemas.user import UserAdminCreate, UserAdminUpdate, UserAdminResponse
 from app.security import hash_password
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+logger = logging.getLogger(__name__)
 
 
 def _require_admin(user: User):
@@ -236,17 +238,26 @@ async def sync_historico(
     if not default_user:
         raise HTTPException(status_code=500, detail="Nenhum usuário no banco")
 
-    inserted = updated = 0
+    inserted = updated = failed = 0
+    failed_ids: list[str] = []
     for raw in raw_leads:
-        result = _upsert_lead(db, raw, default_user.id)
+        try:
+            with db.begin_nested():
+                result = _upsert_lead(db, raw, default_user.id)
+        except Exception as exc:
+            failed += 1
+            failed_ids.append(str(raw.get("id")))
+            logger.error("Falha ao reprocessar lead followize_id=%s: %s", raw.get("id"), exc)
+            continue
         if result == "inserted":
             inserted += 1
         else:
             updated += 1
     db.commit()
 
-    _save_sync_status(True, counts=f"{inserted} inseridos, {updated} atualizados")
-    return {"success": True, "date_from": date_from, "inserted": inserted, "updated": updated}
+    counts = f"{inserted} inseridos, {updated} atualizados" + (f", {failed} falharam" if failed else "")
+    _save_sync_status(True, counts=counts)
+    return {"success": True, "date_from": date_from, "inserted": inserted, "updated": updated, "failed": failed, "failed_ids": failed_ids}
 
 
 @router.post("/backfill-status-history")
