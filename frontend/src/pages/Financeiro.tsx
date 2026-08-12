@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronUp, ChevronRight, Building2, Layers3, CalendarClock } from "lucide-react";
+import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronUp, ChevronRight, Building2, Layers3, CalendarClock, Filter, Search } from "lucide-react";
 import api from "../api";
 
 // ---------------------------------------------------------------------------
@@ -68,8 +69,9 @@ function forecastRangeLabel(dateFrom: string, dateTo: string) {
 }
 
 const _now = new Date();
-const _today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
 const _monthStart = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-01`;
+const _monthEnd = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate()).padStart(2, "0")}`;
+type PeriodMode = "mes" | "entre" | "todo";
 
 const fmt = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
@@ -202,16 +204,47 @@ function Donut({ data, colors, centerLabel, centerSub }: { data: { name: string;
 }
 
 export default function FinanceiroDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlMode = (searchParams.get("period") as PeriodMode) || "mes";
+
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateFrom, setDateFrom] = useState(_monthStart);
-  const [dateTo, setDateTo] = useState(_today);
+  const [periodMode, setPeriodMode] = useState<PeriodMode>(urlMode);
+  const [dateFrom, setDateFrom] = useState(() =>
+    urlMode === "entre" ? searchParams.get("date_from") ?? "" : urlMode === "todo" ? "" : _monthStart
+  );
+  const [dateTo, setDateTo] = useState(() =>
+    urlMode === "entre" ? searchParams.get("date_to") ?? "" : urlMode === "todo" ? "" : _monthEnd
+  );
+  const [searchInput, setSearchInput] = useState(searchParams.get("search") ?? "");
+  const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const [canal, setCanal] = useState<"" | "adm" | "equipe">((searchParams.get("canal") as "adm" | "equipe") || "");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [contractsExpanded, setContractsExpanded] = useState(false);
   const CONTRACTS_VISIBLE = 8;
   const [previsaoMes, setPrevisaoMes] = useState<PrevisaoMesResumo | null>(null);
   const [previsaoLoading, setPrevisaoLoading] = useState(false);
+
+  // Debounce da busca — evita bater na API a cada tecla digitada.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Persiste o filtro inteiro na URL, pra sobreviver a F5/hard refresh.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("period", periodMode);
+    if (periodMode === "entre") {
+      if (dateFrom) params.set("date_from", dateFrom);
+      if (dateTo) params.set("date_to", dateTo);
+    }
+    if (search) params.set("search", search);
+    if (canal) params.set("canal", canal);
+    setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodMode, dateFrom, dateTo, search, canal]);
 
   // Com um intervalo de datas definido (De + Ate), a tela mostra a previsao de
   // recebimento nesse intervalo em vez dos contratos por data de venda. Vale
@@ -222,11 +255,13 @@ export default function FinanceiroDashboard() {
     if (!forecastActive) { setPrevisaoMes(null); return; }
     setPrevisaoLoading(true);
     const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
+    if (search) params.set("search", search);
+    if (canal) params.set("canal", canal);
     api.get<PrevisaoMesResumo>(`/api/v1/financeiro/previsao-periodo?${params}`)
       .then((r) => setPrevisaoMes(r.data))
       .catch(() => setPrevisaoMes(null))
       .finally(() => setPrevisaoLoading(false));
-  }, [forecastActive, dateFrom, dateTo]);
+  }, [forecastActive, dateFrom, dateTo, search, canal]);
 
   function toggleRow(id: string) {
     setExpandedRows((prev) => {
@@ -237,25 +272,20 @@ export default function FinanceiroDashboard() {
     });
   }
 
-  const periodLabel =
-    !dateFrom && !dateTo
-      ? "Todo o período"
-      : dateFrom === _monthStart && dateTo === _today
-      ? "Este mês"
-      : `${dateFrom.split("-").reverse().join("/")} – ${dateTo.split("-").reverse().join("/")}`;
-
   useEffect(() => {
     if (forecastActive) return; // modo previsao usa /previsao-periodo, nao precisa da lista por data de venda
     setLoading(true);
     const params = new URLSearchParams();
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
+    if (search) params.set("search", search);
+    if (canal) params.set("canal", canal);
     api
       .get<Contract[]>(`/api/v1/financeiro/contratos?${params}`)
       .then((r) => setContracts(r.data))
       .catch(() => setContracts([]))
       .finally(() => setLoading(false));
-  }, [dateFrom, dateTo, forecastActive]);
+  }, [dateFrom, dateTo, forecastActive, search, canal]);
 
   const totals = useMemo(() => {
     const valorContrato = contracts.reduce((s, c) => s + c.valorContrato, 0);
@@ -299,40 +329,104 @@ export default function FinanceiroDashboard() {
               onClick={() => setPeriodOpen((o) => !o)}
               className="flex items-center gap-2 rounded-lg border border-[#E4E7EE] bg-white px-3.5 py-2 text-[13px] font-medium text-[#39415C] shadow-sm hover:bg-[#FAFBFC]"
             >
-              {periodLabel}
+              <Filter size={14} />
+              Filtros
               <ChevronDown size={14} />
             </button>
             {periodOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setPeriodOpen(false)} />
-                <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-[#E4E7EE] bg-white p-4 shadow-lg">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">De</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="mt-1 mb-3 w-full rounded-lg border border-[#E4E7EE] px-2.5 py-1.5 text-[13px] text-[#10142B]"
-                  />
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">Até</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="mt-1 mb-3 w-full rounded-lg border border-[#E4E7EE] px-2.5 py-1.5 text-[13px] text-[#10142B]"
-                  />
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => { setDateFrom(_monthStart); setDateTo(_today); }}
-                      className="text-[12px] font-medium text-[#5B4FE0] hover:underline"
-                    >
-                      Este mês
-                    </button>
-                    <button
-                      onClick={() => { setDateFrom(""); setDateTo(""); }}
-                      className="text-[12px] font-medium text-[#5B4FE0] hover:underline"
-                    >
-                      Ver todo período
-                    </button>
+                <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-[#E4E7EE] bg-white p-4 shadow-lg flex flex-col gap-4">
+                  {/* Busca */}
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1">
+                      Buscar
+                    </label>
+                    <div className="relative">
+                      <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8891AC]" />
+                      <input
+                        type="text"
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        placeholder="Nome, telefone, email, CPF/CNPJ"
+                        className="w-full rounded-lg border border-[#E4E7EE] pl-8 pr-2.5 py-1.5 text-[13px] text-[#10142B]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Período */}
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1.5">
+                      Período
+                    </label>
+                    <div className="flex rounded-lg border border-[#E4E7EE] bg-[#F6F7FB] p-0.5">
+                      {([
+                        { key: "mes", label: "Este mês" },
+                        { key: "entre", label: "Entre datas" },
+                        { key: "todo", label: "Todo o período" },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.key}
+                          onClick={() => {
+                            if (opt.key === "mes") { setPeriodMode("mes"); setDateFrom(_monthStart); setDateTo(_monthEnd); }
+                            else if (opt.key === "todo") { setPeriodMode("todo"); setDateFrom(""); setDateTo(""); }
+                            else setPeriodMode("entre");
+                          }}
+                          className={`flex-1 rounded-md px-2 py-1.5 text-[12px] font-medium transition ${
+                            periodMode === opt.key ? "bg-white text-[#2563EB] shadow-sm" : "text-[#626A85] hover:text-[#39415C]"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {periodMode === "entre" && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">De</label>
+                          <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-[#E4E7EE] px-2.5 py-1.5 text-[13px] text-[#10142B]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">Até</label>
+                          <input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                            className="mt-1 w-full rounded-lg border border-[#E4E7EE] px-2.5 py-1.5 text-[13px] text-[#10142B]"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Canal da venda */}
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1.5">
+                      Canal da venda
+                    </label>
+                    <div className="flex gap-2">
+                      {([
+                        { key: "adm", label: "Adm" },
+                        { key: "equipe", label: "Equipe" },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.key}
+                          onClick={() => setCanal((c) => (c === opt.key ? "" : opt.key))}
+                          className={`flex-1 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition ${
+                            canal === opt.key
+                              ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                              : "border-[#E4E7EE] text-[#626A85] hover:bg-[#FAFBFC]"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </>

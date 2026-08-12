@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -22,10 +23,39 @@ def _is_atrasado(parcela: LeadParcela) -> bool:
     )
 
 
+def _apply_search(q, model, search: Optional[str]):
+    """Filtra por nome/titular, telefone, email ou documento (CPF/CNPJ)."""
+    if not search or not search.strip():
+        return q
+    like = f"%{search.strip()}%"
+    return q.filter(or_(
+        model.receita_titular.ilike(like),
+        model.name.ilike(like),
+        model.phone.ilike(like),
+        model.email.ilike(like),
+        model.document.ilike(like),
+    ))
+
+
+def _apply_canal(q, model, canal: Optional[str]):
+    """'adm' = leads com origin/visibility_tag/conversion_point = ADM (venda administrativa,
+    sem passar pelo Followize). 'equipe' = o restante (captacao normal da equipe)."""
+    if canal not in ("adm", "equipe"):
+        return q
+
+    def _is_adm(col):
+        return func.upper(func.trim(col)) == "ADM"
+
+    is_adm = or_(_is_adm(model.visibility_tag), _is_adm(model.origin), _is_adm(model.conversion_point))
+    return q.filter(is_adm if canal == "adm" else ~is_adm)
+
+
 @router.get("/contratos")
 def list_contratos(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    canal: Optional[str] = Query(None, description="'adm' ou 'equipe'"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -39,6 +69,8 @@ def list_contratos(
         q = q.filter(Lead.receita_data_venda >= datetime.strptime(date_from, "%Y-%m-%d"))
     if date_to:
         q = q.filter(Lead.receita_data_venda <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+    q = _apply_search(q, Lead, search)
+    q = _apply_canal(q, Lead, canal)
 
     leads = q.order_by(Lead.receita_data_venda.desc().nullslast()).all()
 
@@ -80,6 +112,8 @@ def list_contratos(
 def previsao_periodo(
     date_from: str = Query(..., description="Inicio do intervalo, YYYY-MM-DD"),
     date_to: str = Query(..., description="Fim do intervalo (inclusive), YYYY-MM-DD"),
+    search: Optional[str] = Query(None),
+    canal: Optional[str] = Query(None, description="'adm' ou 'equipe'"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -97,16 +131,17 @@ def previsao_periodo(
     except ValueError:
         raise HTTPException(status_code=400, detail="Parâmetros 'date_from'/'date_to' inválidos, use YYYY-MM-DD")
 
-    rows = (
+    q = (
         db.query(LeadParcela, Lead)
         .join(Lead, Lead.id == LeadParcela.lead_id)
         .filter(
             LeadParcela.previsao_recebimento >= inicio,
             LeadParcela.previsao_recebimento <= fim,
         )
-        .order_by(LeadParcela.previsao_recebimento.asc())
-        .all()
     )
+    q = _apply_search(q, Lead, search)
+    q = _apply_canal(q, Lead, canal)
+    rows = q.order_by(LeadParcela.previsao_recebimento.asc()).all()
 
     parcelas = [
         {
