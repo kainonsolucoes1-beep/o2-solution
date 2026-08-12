@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -43,11 +43,16 @@ def _apply_canal(q, model, canal: Optional[str]):
     if canal not in ("adm", "equipe"):
         return q
 
-    def _is_adm(col):
+    def _eq_adm(col):
         return func.upper(func.trim(col)) == "ADM"
 
-    is_adm = or_(_is_adm(model.visibility_tag), _is_adm(model.origin), _is_adm(model.conversion_point))
-    return q.filter(is_adm if canal == "adm" else ~is_adm)
+    def _neq_adm(col):
+        # NULL nao deve virar "desconhecido" aqui -- trata coluna vazia como "nao e ADM" (mesmo padrao de database.py)
+        return or_(col.is_(None), func.upper(func.trim(col)) != "ADM")
+
+    if canal == "adm":
+        return q.filter(or_(_eq_adm(model.visibility_tag), _eq_adm(model.origin), _eq_adm(model.conversion_point)))
+    return q.filter(and_(_neq_adm(model.visibility_tag), _neq_adm(model.origin), _neq_adm(model.conversion_point)))
 
 
 @router.get("/contratos")
