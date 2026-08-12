@@ -165,7 +165,11 @@ function StatCard({ label, value, simulated, delta, tall, onOpen }: {
         {label}{simulated && <em style={{ marginLeft: 4, fontStyle: 'normal', fontWeight: 700, textTransform: 'none', letterSpacing: 0, color: '#7C3AED' }}>· estimativa</em>}
       </span>
       <strong style={{ display: 'block', marginTop: 14, fontSize: 28, fontWeight: 700, lineHeight: 1, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
-      {delta && <small style={{ display: 'block', marginTop: 10, fontSize: 11, fontWeight: 700, color: DELTA_COLOR[delta.tone] }}>{delta.text}</small>}
+      {delta ? (
+        <small style={{ display: 'block', marginTop: 10, fontSize: 11, fontWeight: 700, color: DELTA_COLOR[delta.tone] }}>{delta.text}</small>
+      ) : simulated ? (
+        <small style={{ display: 'block', marginTop: 10, fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)' }}>Sem variação no período</small>
+      ) : null}
       <em style={{ display: 'block', marginTop: 10, color: ACCENT, fontSize: 12, fontStyle: 'normal', fontWeight: 600, opacity: .9 }}>Ver detalhes →</em>
     </div>
   )
@@ -319,7 +323,7 @@ export default function VidaSDR() {
         <>
           {/* Operacional + Financeiro, lado a lado (.9fr/1.1fr), como no Candidate Freeze.
               Sem container externo: só o título da seção + os cards individuais. */}
-          <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? '.9fr 1.1fr' : '1fr', gap: 40 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? 'minmax(0, 1.5fr) minmax(280px, 1fr)' : '1fr', gap: 18 }}>
             <div>
               <span style={{ ...kickerStyle, fontSize: 12.5, fontWeight: 800, color: 'var(--text-2)' }}>Operacional</span>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, marginTop: 15 }}>
@@ -333,7 +337,7 @@ export default function VidaSDR() {
             {canSeeFinance && (
               <div>
                 <span style={{ ...kickerStyle, fontSize: 12.5, fontWeight: 800, color: 'var(--text-2)' }}>Financeiro</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7, marginTop: 15, width: '82%' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7, marginTop: 15 }}>
                   {FINANCEIRO_CFG.map(({ key, id, label, simulated }) => {
                     const value = key === 'receita_recebida' ? fmtBrl(data.receita_recebida || 0)
                       : key === 'receita_a_receber' ? fmtBrl(data.receita_a_receber || 0)
