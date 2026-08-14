@@ -8,7 +8,7 @@ import {
   Users, ShoppingCart, TrendingUp, DollarSign, TrendingDown, Tag,
   ChevronDown, ChevronRight, X, ChevronLeft,
   Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter, ArrowLeftRight,
-  Briefcase, ArrowUpRight, Inbox, Flame,
+  Briefcase, ArrowUpRight, Inbox, Flame, AlertTriangle, Calendar, Zap,
 } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
@@ -239,10 +239,10 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   if (error || !overview || !alerts) return <p style={{ padding: '40px 0', textAlign: 'center', fontSize: 13, color: '#EF4444' }}>{error || 'Sem dados.'}</p>
 
   const overviewCards = [
-    { label: 'Pendente',    value: overview.novo,        icon: Inbox,       tone: 'neutral' as const, nav: cardNav({ status: 'pending,novo,new' }) },
-    { label: 'Agendado',    value: overview.qualificado, icon: CheckSquare, tone: 'neutral' as const, nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
-    { label: 'Enviada',     value: overview.proposta,    icon: FileText,    tone: 'neutral' as const, nav: cardNav({ status: 'proposal_sent' }) },
-    { label: 'Qualificado', value: overview.negociacao,  icon: Flame,       tone: 'neutral' as const, nav: cardNav({ perception: 'Quente,Morno' }) },
+    { label: 'Pendente',    value: overview.novo,        icon: Inbox,       tone: 'neutral' as const, iconTint: { bg: '#EFF6FF', color: '#3B82F6' }, nav: cardNav({ status: 'pending,novo,new' }) },
+    { label: 'Agendado',    value: overview.qualificado, icon: CheckSquare, tone: 'neutral' as const, iconTint: { bg: '#EEF2FF', color: '#6366F1' }, nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
+    { label: 'Enviada',     value: overview.proposta,    icon: FileText,    tone: 'neutral' as const, iconTint: { bg: '#FFFBEB', color: '#F59E0B' }, nav: cardNav({ status: 'proposal_sent' }) },
+    { label: 'Qualificado', value: overview.negociacao,  icon: Flame,       tone: 'neutral' as const, iconTint: { bg: '#F5F3FF', color: '#8B5CF6' }, nav: cardNav({ perception: 'Quente,Morno' }) },
     { label: 'Fechado',     value: overview.fechado,     icon: Handshake,   tone: 'good' as const,    nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
     { label: 'Perdido',     value: overview.perdido,     icon: XCircle,     tone: 'bad' as const,     nav: cardNav({ status: 'sale_not_performed' }), onOpen: openLostModal },
   ]
@@ -267,13 +267,15 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   const bestConv   = mainConvs.reduce((a, b) => a.rate >= b.rate ? a : b)
 
   const finCards = [
-    { label: 'Valor Total',   value: [overview.novo_value, overview.qualificado_value, overview.proposta_value, overview.negociacao_value, overview.fechado_value, overview.perdido_value].reduce((a, b) => a + b, 0), color: 'var(--text-3)', bg: 'var(--bg-subtle)', border: 'var(--border)', nav: null },
-    { label: 'Agendado',      value: overview.qualificado_value, color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
-    { label: 'Enviada',       value: overview.proposta_value,    color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ status: 'proposal_sent' }) },
-    { label: 'Qualificado',   value: overview.negociacao_value,  color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ perception: 'Quente,Morno' }) },
-    { label: 'Fechado',       value: overview.fechado_value,     color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
-    { label: 'Perdido',       value: overview.perdido_value,     color: '#EF4444', bg: '#FEF2F2', border: '#FECACA', nav: cardNav({ status: 'sale_not_performed' }) },
+    { label: 'Valor Total',   value: [overview.novo_value, overview.qualificado_value, overview.proposta_value, overview.negociacao_value, overview.fechado_value, overview.perdido_value].reduce((a, b) => a + b, 0), color: 'var(--text-3)', bg: 'var(--bg-subtle)', border: 'var(--border)', nav: null, icon: null, barColor: null },
+    { label: 'Agendado',      value: overview.qualificado_value, color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ status: 'scheduled,qualificado,qualified' }), icon: CheckSquare, barColor: '#6366F1' },
+    { label: 'Enviada',       value: overview.proposta_value,    color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ status: 'proposal_sent' }), icon: FileText, barColor: '#F59E0B' },
+    { label: 'Qualificado',   value: overview.negociacao_value,  color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ perception: 'Quente,Morno' }), icon: Flame, barColor: '#8B5CF6' },
+    { label: 'Fechado',       value: overview.fechado_value,     color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }), icon: Handshake, barColor: null },
+    { label: 'Perdido',       value: overview.perdido_value,     color: '#EF4444', bg: '#FEF2F2', border: '#FECACA', nav: cardNav({ status: 'sale_not_performed' }), icon: XCircle, barColor: null },
   ]
+  const finMax = Math.max(1, overview.qualificado_value, overview.proposta_value, overview.negociacao_value, overview.fechado_value, overview.perdido_value)
+  const rateColor = (r: number) => (r >= 50 ? '#059669' : r >= 25 ? '#F59E0B' : '#EF4444')
 
   return (
     <>
@@ -287,6 +289,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
               value={String(card.value)}
               icon={card.icon}
               tone={card.tone}
+              iconTint={(card as any).iconTint}
               clickable
               onClick={() => ((card as any).onOpen ? (card as any).onOpen() : navigate(`/leads-report${card.nav}`))}
             />
@@ -303,11 +306,25 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
               {finCards.map((fc, i) => (
                 <div key={i}
                   onClick={() => fc.nav && navigate(`/leads-report${fc.nav}`)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 10, background: fc.bg, border: `1px solid ${fc.border}`, cursor: fc.nav ? 'pointer' : 'default', transition: 'opacity 150ms' }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', borderRadius: 10, background: fc.bg, border: `1px solid ${fc.border}`, cursor: fc.nav ? 'pointer' : 'default', transition: 'opacity 150ms' }}
                   onMouseEnter={e => { if (fc.nav) e.currentTarget.style.opacity = '0.85' }}
                   onMouseLeave={e => { if (fc.nav) e.currentTarget.style.opacity = '1' }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: fc.color }}>{fc.label}</span>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: fc.color }}>{fmtBrl(fc.value)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: fc.color }}>
+                      {fc.icon && (
+                        <span style={{ width: 20, height: 20, borderRadius: 6, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <fc.icon size={11} color={fc.barColor ?? fc.color} />
+                        </span>
+                      )}
+                      {fc.label}
+                    </span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: fc.color }}>{fmtBrl(fc.value)}</span>
+                  </div>
+                  {fc.barColor && (
+                    <div style={{ background: '#F1F5F9', borderRadius: 4, height: 5, overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.max((fc.value / finMax) * 100, 2)}%`, height: '100%', background: fc.barColor, borderRadius: 4, transition: 'width 400ms ease' }} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -337,7 +354,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <div style={{ width: 56, textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>{c.rate}<span style={{ fontSize: 12, marginLeft: 1 }}>%</span></span>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: rateColor(c.rate) }}>{c.rate}<span style={{ fontSize: 12, marginLeft: 1 }}>%</span></span>
                   </div>
                   <div style={{ flex: 1 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)' }}>{c.from} → {c.to}</span>
@@ -366,7 +383,10 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         {isUsuario && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <SectionTitle style={{ marginBottom: 4 }}>📅 Meus Agendamentos de Hoje</SectionTitle>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Calendar size={13} color="var(--text-1)" />
+              <SectionTitle>Meus Agendamentos de Hoje</SectionTitle>
+            </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Clique num lead pra abrir a ficha</p>
             {agendaHoje.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum agendamento pra hoje.</p>
@@ -390,7 +410,10 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
           </div>
 
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <SectionTitle color="#EF4444" style={{ marginBottom: 4 }}>⚠️ Leads Vencidos</SectionTitle>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <AlertTriangle size={13} color="#EF4444" />
+              <SectionTitle color="#EF4444">Leads Vencidos</SectionTitle>
+            </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Sem atenção nas últimas 24h · {alerts.vencidos_count ?? alerts.vencidos.length} leads</p>
             {alerts.vencidos.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum lead vencido 🎉</p>
@@ -423,44 +446,58 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             const accent = hasVencidos ? '#EF4444' : 'var(--border-in)'
             const textColor = hasVencidos ? '#EF4444' : 'var(--text-1)'
             return (
-              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: `3px solid ${accent}`, cursor: 'pointer', transition: 'transform 200ms' }}
+              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: `3px solid ${accent}`, cursor: 'pointer', transition: 'transform 200ms', display: 'flex', flexDirection: 'column', height: '100%' }}
                 onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
                 onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ width: 26, height: 26, borderRadius: 7, background: hasVencidos ? '#FEF2F2' : 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <AlertTriangle size={13} color={hasVencidos ? '#EF4444' : 'var(--text-muted)'} />
+                  </span>
                   <SectionTitle color={hasVencidos ? textColor : undefined}>Leads Vencidos</SectionTitle>
                   <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: textColor, background: hasVencidos ? '#FEF2F2' : 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 99 }}>{vencidosCount} leads</span>
                 </div>
                 <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Qualquer status sem atenção nas últimas 24h</p>
-                <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500, margin: 0 }}>Ver no Relatório →</p>
+                </div>
               </div>
             )
           })()}
 
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)' }}>
+          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)', display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Zap size={13} color="var(--text-muted)" />
+              </span>
               <SectionTitle>Desempenho no Atendimento</SectionTitle>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Tempo médio em "Novo" antes de avançar no funil</p>
-            {(() => {
-              const minutes = alerts.avg_first_contact_minutes ?? 0
-              return minutes >= 60 ? (
-                <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{(minutes / 60).toFixed(1)}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>h</span></p>
-              ) : (
-                <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{minutes}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span></p>
-              )
-            })()}
-            <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 6 }}>{alerts.contacted_count ?? 0} leads atendidos no período</p>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              {(() => {
+                const minutes = alerts.avg_first_contact_minutes ?? 0
+                return minutes >= 60 ? (
+                  <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{(minutes / 60).toFixed(1)}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>h</span></p>
+                ) : (
+                  <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{minutes}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span></p>
+                )
+              })()}
+              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 6 }}>{alerts.contacted_count ?? 0} leads atendidos no período</p>
+            </div>
           </div>
 
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)' }}>
+          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)', display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Timer size={15} color="var(--text-muted)" />
+              <span style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Timer size={13} color="var(--text-muted)" />
+              </span>
               <SectionTitle>Tempo Médio para o Fechamento</SectionTitle>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Média do ciclo completo (fechado + perdido)</p>
-            <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>dias</span></p>
-            {(alerts.avg_time_in_funnel ?? 0) === 0 && <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>Sem leads finalizados no período</p>}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>dias</span></p>
+              {(alerts.avg_time_in_funnel ?? 0) === 0 && <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>Sem leads finalizados no período</p>}
+            </div>
           </div>
 
           {(() => {
@@ -473,12 +510,24 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             return (
               <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)', display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <Briefcase size={15} color="var(--text-muted)" />
+                  <span style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Briefcase size={13} color="var(--text-muted)" />
+                  </span>
                   <SectionTitle>Captação do Período</SectionTitle>
                 </div>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10 }}>
                   {total > 0 ? (
-                    <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
+                    <>
+                      <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
+                      <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', height: 6, background: '#F1F5F9' }}>
+                        <div style={{ width: `${(pf / total) * 100}%`, background: '#3B82F6' }} />
+                        <div style={{ width: `${(pme / total) * 100}%`, background: '#8B5CF6' }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-subtle)' }}>
+                        <span><span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 99, background: '#3B82F6', marginRight: 5 }} />PF {pf}</span>
+                        <span><span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 99, background: '#8B5CF6', marginRight: 5 }} />PME {pme}</span>
+                      </div>
+                    </>
                   ) : (
                     <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: 0 }}>Sem captações de PF/PME no período</p>
                   )}

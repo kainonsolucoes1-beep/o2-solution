@@ -15,6 +15,10 @@ interface MetricCardProps {
    * tem "periodo anterior" pra comparar (ex: contagem de estagio de funil),
    * mas ainda assim precisa fixar uma cor semantica (bom/ruim/neutro). */
   tone?: 'neutral' | 'good' | 'bad'
+  /** Cor so' do icone/circulo, independente do `tone` (que continua regendo
+   * a borda e a seta de tendencia) -- da' identidade visual a cards que sao
+   * neutros de proposito (ex: estagios de funil que nao sao bom/ruim). */
+  iconTint?: { bg: string; color: string }
 }
 
 const NEUTRAL = { border: 'var(--border-in)', iconBg: 'var(--bg-subtle)', iconColor: 'var(--text-muted)' }
@@ -26,12 +30,14 @@ const BAD     = { border: '#EF4444', iconBg: '#FEF2F2', iconColor: '#EF4444' }
 // caindo e' bom) ou um valor critico zerado (`alertIfZero`), que usa fundo
 // vermelho suave de proposito, mais chamativo que a borda colorida da tendencia.
 export default function MetricCard({
-  label, value, icon: Icon, loading, trend, invert, alertIfZero, rawValue, clickable, onClick, tone: toneProp,
+  label, value, icon: Icon, loading, trend, invert, alertIfZero, rawValue, clickable, onClick, tone: toneProp, iconTint,
 }: MetricCardProps) {
   const isCriticalZero = alertIfZero && rawValue === 0
   const trendGood = trend == null ? null : (invert ? trend <= 0 : trend >= 0)
   const computedTone = isCriticalZero ? BAD : trendGood === true ? GOOD : trendGood === false ? BAD : NEUTRAL
   const tone = toneProp === 'good' ? GOOD : toneProp === 'bad' ? BAD : toneProp === 'neutral' ? NEUTRAL : computedTone
+  const iconBg = iconTint && !isCriticalZero ? iconTint.bg : tone.iconBg
+  const iconColor = iconTint && !isCriticalZero ? iconTint.color : tone.iconColor
 
   return (
     <div
@@ -57,8 +63,8 @@ export default function MetricCard({
               {trend >= 0 ? '▲' : '▼'}{Math.abs(trend)}%
             </span>
           )}
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: tone.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Icon size={15} color={tone.iconColor} />
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon size={15} color={iconColor} />
           </div>
         </div>
       </div>
