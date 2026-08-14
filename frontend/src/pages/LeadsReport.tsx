@@ -5,6 +5,8 @@ import { Filter, X, Trash2, RotateCcw, Plus } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
+import SectionTitle from '../components/SectionTitle'
+import Combobox from '../components/Combobox'
 
 interface Me {
   id: string
@@ -1055,12 +1057,12 @@ export default function LeadsReport() {
         )}
 
         {newLeadOpen && (
-          <div onClick={() => !savingNewLead && setNewLeadOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24, overflowY: 'auto' }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 20, width: '100%', maxWidth: 620, boxShadow: '0 24px 70px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+          <div onClick={() => !savingNewLead && setNewLeadOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card, #fff)', borderRadius: 20, width: '100%', maxWidth: 620, maxHeight: '90vh', boxShadow: '0 24px 70px rgba(0,0,0,0.3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{
                 padding: '20px 26px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 background: 'linear-gradient(135deg, rgba(37,99,235,0.08), rgba(124,58,237,0.05))',
-                borderBottom: '1px solid var(--border)',
+                borderBottom: '1px solid var(--border)', flexShrink: 0,
               }}>
                 <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, background: '#2563EB', color: 'white' }}>
@@ -1073,85 +1075,91 @@ export default function LeadsReport() {
                 </button>
               </div>
 
-              <div style={{ padding: '22px 26px 26px' }}>
-                {newLeadError && <p style={{ color: '#EF4444', fontSize: 13, margin: '0 0 14px' }}>{newLeadError}</p>}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div className="flex flex-col gap-1" style={{ gridColumn: '1 / -1' }}>
-                    <label style={labelStyle}>Nome *</label>
-                    <input value={newLead.name} onChange={e => setNewLead(d => ({ ...d, name: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Empresa</label>
-                    <input value={newLead.company} onChange={e => setNewLead(d => ({ ...d, company: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Documento</label>
-                    <input value={newLead.document} onChange={e => setNewLead(d => ({ ...d, document: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>E-mail</label>
-                    <input type="email" value={newLead.email} onChange={e => setNewLead(d => ({ ...d, email: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Telefone</label>
-                    <input value={newLead.phone} onChange={e => setNewLead(d => ({ ...d, phone: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Origem</label>
-                    <input list="new-lead-origins" value={newLead.origin} onChange={e => setNewLead(d => ({ ...d, origin: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                    <datalist id="new-lead-origins">{operators.map(o => <option key={o} value={o} />)}</datalist>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Modalidade</label>
-                    <input list="new-lead-modalidades" value={newLead.modalidade} onChange={e => setNewLead(d => ({ ...d, modalidade: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                    <datalist id="new-lead-modalidades">{modalidades.map(m => <option key={m} value={m} />)}</datalist>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Categoria</label>
-                    <input list="new-lead-categorias" value={newLead.categoria} onChange={e => setNewLead(d => ({ ...d, categoria: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                    <datalist id="new-lead-categorias">
-                      <option value="Com coparticipação" />
-                      <option value="Sem coparticipação" />
-                    </datalist>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Ponto de Conversão</label>
-                    <input list="new-lead-conv-points" value={newLead.conversion_point} onChange={e => setNewLead(d => ({ ...d, conversion_point: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                    <datalist id="new-lead-conv-points">{conversionPoints.map(c => <option key={c} value={c} />)}</datalist>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Valor da Cotação</label>
-                    <input type="number" step="0.01" value={newLead.value_potential} onChange={e => setNewLead(d => ({ ...d, value_potential: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Atendente</label>
-                    <input value={newLead.attendant} onChange={e => setNewLead(d => ({ ...d, attendant: e.target.value }))}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Perfil</label>
-                    <input value={newLead.visibility_tag} onChange={e => setNewLead(d => ({ ...d, visibility_tag: e.target.value }))}
-                      placeholder="Ex: ADM"
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
-                  </div>
-                  <div className="flex flex-col gap-1" style={{ gridColumn: '1 / -1' }}>
-                    <label style={labelStyle}>Notas</label>
-                    <textarea value={newLead.notes} onChange={e => setNewLead(d => ({ ...d, notes: e.target.value }))} rows={3}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
+              <div style={{ padding: '22px 26px 26px', display: 'flex', flexDirection: 'column', gap: 22, overflowY: 'auto', minHeight: 0 }}>
+                {newLeadError && <p style={{ color: '#EF4444', fontSize: 13, margin: 0 }}>{newLeadError}</p>}
+
+                <div className="flex flex-col" style={{ gap: 12 }}>
+                  <SectionTitle style={{ fontSize: 11 }}>Identificação</SectionTitle>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div className="flex flex-col gap-1" style={{ gridColumn: '1 / -1' }}>
+                      <label style={labelStyle}>Nome *</label>
+                      <input value={newLead.name} onChange={e => setNewLead(d => ({ ...d, name: e.target.value }))}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Empresa</label>
+                      <input value={newLead.company} onChange={e => setNewLead(d => ({ ...d, company: e.target.value }))}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Documento</label>
+                      <input value={newLead.document} onChange={e => setNewLead(d => ({ ...d, document: e.target.value }))}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border-lt)' }}>
+                <div className="flex flex-col" style={{ gap: 12, paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>
+                  <SectionTitle style={{ fontSize: 11 }}>Contato</SectionTitle>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>E-mail</label>
+                      <input type="email" value={newLead.email} onChange={e => setNewLead(d => ({ ...d, email: e.target.value }))}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Telefone</label>
+                      <input value={newLead.phone} onChange={e => setNewLead(d => ({ ...d, phone: e.target.value }))}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col" style={{ gap: 12, paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>
+                  <SectionTitle style={{ fontSize: 11 }}>Qualificação Comercial</SectionTitle>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Origem</label>
+                      <Combobox value={newLead.origin} onChange={v => setNewLead(d => ({ ...d, origin: v }))} options={operators} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Modalidade</label>
+                      <Combobox value={newLead.modalidade} onChange={v => setNewLead(d => ({ ...d, modalidade: v }))} options={modalidades} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Categoria</label>
+                      <Combobox value={newLead.categoria} onChange={v => setNewLead(d => ({ ...d, categoria: v }))} options={['Com coparticipação', 'Sem coparticipação']} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Ponto de Conversão</label>
+                      <Combobox value={newLead.conversion_point} onChange={v => setNewLead(d => ({ ...d, conversion_point: v }))} options={conversionPoints} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Valor da Cotação</label>
+                      <input type="number" step="0.01" value={newLead.value_potential} onChange={e => setNewLead(d => ({ ...d, value_potential: e.target.value }))}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Atendente</label>
+                      <input value={newLead.attendant} onChange={e => setNewLead(d => ({ ...d, attendant: e.target.value }))}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Perfil</label>
+                      <input value={newLead.visibility_tag} onChange={e => setNewLead(d => ({ ...d, visibility_tag: e.target.value }))}
+                        placeholder="Ex: ADM"
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1" style={{ paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>
+                  <label style={labelStyle}>Notas</label>
+                  <textarea value={newLead.notes} onChange={e => setNewLead(d => ({ ...d, notes: e.target.value }))} rows={3}
+                    className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 18, borderTop: '1px solid var(--border-lt)' }}>
                   <button
                     onClick={() => setNewLeadOpen(false)}
                     disabled={savingNewLead}
