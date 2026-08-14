@@ -15,7 +15,19 @@ logger = logging.getLogger(__name__)
 
 SPREADSHEET_ID = "1AcNQ5DEgz92IJ4GuuYkwgvr_THnVdKRki-R7c8uTNwY"
 SHEET_TITLE = "UNIFICACAO"
-STATUS_ALVO = {"PAGO - FINALIZADO", "EMISSÃO", "BOLETO EMITIDO"}
+# todos representam venda ja certa, so' variando o ponto do fluxo de
+# faturamento em que estao — usados como "aguardando pagamento" (a previsao
+# de recebimento vem da nota da celula VALOR Nª, nao do texto do status).
+STATUS_ALVO = {
+    "PAGO - FINALIZADO",
+    "ASSINATURA DE CONTRATO",
+    "GERAR NOVO BOLETO",
+    "PENDÊNCIA",
+    "EMISSÃO",
+    "BOLETO EMITIDO",
+}
+# "EMITIR BOLETO DIA 04/09" muda de texto conforme a data -- casa por prefixo
+_STATUS_EMITIR_BOLETO_RE = re.compile(r"^EMITIR BOLETO DIA\b")
 CREDS_PATH = os.getenv(
     "GOOGLE_SERVICE_ACCOUNT_PATH",
     os.path.join(os.path.dirname(__file__), "..", "google_service_account.json"),
@@ -129,6 +141,10 @@ def _parse_brl(s: str | None) -> float:
         return 0.0
 
 
+def _status_valido(status: str) -> bool:
+    return status in STATUS_ALVO or bool(_STATUS_EMITIR_BOLETO_RE.match(status))
+
+
 def _get_service():
     creds = service_account.Credentials.from_service_account_file(
         CREDS_PATH, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
@@ -150,8 +166,8 @@ def _fetch_rows():
 def sync_receita_real(db: Session) -> dict:
     """Le a aba UNIFICACAO da planilha de vendas e preenche receita_real_recebida/
     receita_real_a_receber dos leads correspondentes (cruzamento por telefone, com
-    fallback por e-mail). So considera linhas com STATUS em STATUS_ALVO (venda ja
-    certa: Emissao, Boleto emitido ou Pago-Finalizado)."""
+    fallback por e-mail). So considera linhas com STATUS valido (venda ja certa,
+    aguardando algum passo do faturamento ou ja paga — ver STATUS_ALVO)."""
     row_data = _fetch_rows()
     if not row_data:
         return {"matched": 0, "matched_names": [], "unmatched": [], "ambiguous": []}
@@ -193,8 +209,8 @@ def sync_receita_real(db: Session) -> dict:
             candidates = email_map.get(email, [])
 
         status = (cell("STATUS").get("formattedValue") or "").strip().upper()
-        if status not in STATUS_ALVO:
-            # saiu do grupo de status validos (emissao/boleto emitido/pago-finalizado) —
+        if not _status_valido(status):
+            # saiu do grupo de status validos (ver STATUS_ALVO) —
             # zera o que tinha sido marcado antes, senao fica um valor fantasma pra sempre
             if len(candidates) == 1:
                 lead = candidates[0]
