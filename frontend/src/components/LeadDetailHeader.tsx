@@ -8,7 +8,10 @@ function initials(name: string) {
 }
 
 function badgeStyle(s: { bg: string; color: string }): React.CSSProperties {
-  return { background: s.bg, color: s.color, padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 600 }
+  return {
+    background: s.bg, color: s.color, border: `1.5px solid ${s.color}`,
+    padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700,
+  }
 }
 
 function ContactRow({ label, value }: { label: string; value: string }) {
@@ -43,7 +46,7 @@ export default function LeadDetailHeader({
 }) {
   return (
     <div className="flex flex-wrap" style={{
-      alignItems: 'flex-start', gap: 18, marginBottom: 16,
+      alignItems: 'flex-start', gap: 18, marginBottom: 20,
       background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px',
     }}>
       <div className="w-full sm:w-auto">

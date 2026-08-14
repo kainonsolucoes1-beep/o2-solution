@@ -105,11 +105,11 @@ export default function LeadActivityTimeline({
               const isLast = i === activity.length - 1
               const rowStyle: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 12, marginTop: isFirst ? 0 : 14 }
               const cardStyle: CSSProperties = { minWidth: 0, flex: 1, border: '1px solid var(--border-lt)', borderRadius: 9, padding: 15 }
-              const bubbleStyle = (bg: string): CSSProperties => ({ flexShrink: 0, width: 26, height: 26, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' })
+              const bubbleStyle = (bg: string): CSSProperties => ({ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' })
               const rail = (bg: string, icon: ReactNode) => (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 26, flexShrink: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 32, flexShrink: 0 }}>
                   <div style={bubbleStyle(bg)}>{icon}</div>
-                  {!isLast && <div style={{ flex: 1, width: 1, minHeight: 12, marginTop: 6, background: 'var(--border-lt)' }} />}
+                  {!isLast && <div style={{ flex: 1, width: 2, minHeight: 12, marginTop: 6, background: 'var(--border-in)' }} />}
                 </div>
               )
 
@@ -118,7 +118,7 @@ export default function LeadActivityTimeline({
                 const isVendaRealizada = statusLabel(ev.status) === 'Venda Realizada'
                 return (
                   <div key={`s-${i}`} style={rowStyle}>
-                    {rail(c.bg, <Activity size={12} color={c.color} strokeWidth={2.25} />)}
+                    {rail(c.bg, <Activity size={15} color={c.color} strokeWidth={2.25} />)}
                     <div style={cardStyle}>
                       <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
                         <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{ev.by ?? 'Sistema'}</b>{' '}
@@ -146,7 +146,7 @@ export default function LeadActivityTimeline({
               if (ev.kind === 'note') {
                 return (
                   <div key={`n-${i}`} style={rowStyle}>
-                    {rail('var(--bg-subtle)', <StickyNote size={12} color="var(--text-3b)" strokeWidth={2.25} />)}
+                    {rail('var(--bg-subtle)', <StickyNote size={15} color="var(--text-3b)" strokeWidth={2.25} />)}
                     <div style={cardStyle}>
                       <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
                         <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{ev.by}</b> adicionou uma nota
@@ -161,7 +161,7 @@ export default function LeadActivityTimeline({
               }
               return (
                 <div key={`a-${i}`} style={rowStyle}>
-                  {rail('#EFF6FF', <CalendarClock size={12} color="#2563EB" strokeWidth={2.25} />)}
+                  {rail('#EFF6FF', <CalendarClock size={15} color="#2563EB" strokeWidth={2.25} />)}
                   <div style={cardStyle}>
                     <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
                       <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{ev.by ?? 'Sistema'}</b> agendou um retorno para{' '}

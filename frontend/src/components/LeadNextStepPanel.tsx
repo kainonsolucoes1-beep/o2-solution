@@ -142,10 +142,10 @@ export default function LeadNextStepPanel({
             Agendar
           </button>
           <a href={telHref ?? undefined} style={actionBtnStyle(!!telHref)} onClick={e => { if (!telHref) e.preventDefault() }}>
-            <Phone size={14} /> Ligar
+            <Phone size={14} color={telHref ? '#2563EB' : 'currentColor'} /> Ligar
           </a>
           <a href={waHref} target="_blank" rel="noreferrer" style={actionBtnStyle(true)}>
-            <WhatsAppIcon size={14} /> WhatsApp
+            <span style={{ color: '#25D366', display: 'flex' }}><WhatsAppIcon size={14} /></span> WhatsApp
           </a>
           <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
             <Mail size={14} /> Enviar e-mail

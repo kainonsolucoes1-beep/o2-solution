@@ -1,5 +1,5 @@
 export default function Field({ label, value }: { label: string; value: string }) {
-  const empty = value === '—' || value === 'Não informado' || value === 'Não definido'
+  const empty = value === '—' || value === 'Não informado' || value === 'Não definido' || value === 'Nada agendado'
   return (
     <div className="flex flex-col gap-1">
       <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.035em' }}>

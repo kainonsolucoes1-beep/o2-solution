@@ -428,7 +428,7 @@ export default function LeadDetailPage() {
   const mailHref = lead.email ? `mailto:${lead.email}` : null
 
   return (
-    <div style={{ background: dark ? 'transparent' : '#F6F7F9', minHeight: '100%', ...(dark ? {} : { ['--bg-input' as string]: '#FBFCFE' }) } as React.CSSProperties}>
+    <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%', ...(dark ? {} : { ['--bg-input' as string]: '#FBFCFE' }) } as React.CSSProperties}>
     <div style={{ maxWidth: 1440, margin: '0 auto', padding: '20px 24px 60px' }}>
       {toast && (
         <div
@@ -577,7 +577,7 @@ export default function LeadDetailPage() {
         onFaturar={handleFaturar}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] items-start" style={{ marginTop: 16, gap: 16 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] items-start" style={{ marginTop: 20, gap: 20 }}>
         <div>
           <LeadActivityTimeline
             isAdmin={isAdmin}
