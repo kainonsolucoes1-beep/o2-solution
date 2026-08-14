@@ -13,6 +13,9 @@ import {
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
+import MetricCard from '../components/MetricCard'
+import TrendChart from '../components/TrendChart'
+import ProgressBarList from '../components/ProgressBarList'
 
 const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção'] as const
 type Tab = typeof TABS[number]
@@ -130,16 +133,6 @@ function pctDiff(cur: number, prev: number): number | null {
   if (prev === 0) return cur > 0 ? 100 : null
   return Math.round((cur - prev) / prev * 100)
 }
-function TrendBadge({ value, invert }: { value: number; invert?: boolean }) {
-  const up = value >= 0
-  const good = invert ? !up : up
-  const color = good ? '#10B981' : '#EF4444'
-  return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 700, color, whiteSpace: 'nowrap' }}>
-      {up ? '▲' : '▼'}{Math.abs(value)}%
-    </span>
-  )
-}
 const _gcNow        = new Date()
 const _gcToday      = `${_gcNow.getFullYear()}-${String(_gcNow.getMonth() + 1).padStart(2, '0')}-${String(_gcNow.getDate()).padStart(2, '0')}`
 const _gcMonthStart = `${_gcNow.getFullYear()}-${String(_gcNow.getMonth() + 1).padStart(2, '0')}-01`
@@ -155,12 +148,12 @@ const CARD_CFG = [
 ] as const
 
 const MAIN_CARD_CFG = [
-  { key: 'captacoes',        label: 'Captações',        icon: Users,        color: '#3B82F6', bg: '#EFF6FF', sub: '#1E40AF', fmt: (v: number) => String(v), clickable: false, invert: false },
-  { key: 'vendas',           label: 'Vendas',           icon: ShoppingCart, color: '#10B981', bg: '#ECFDF5', sub: '#065F46', fmt: (v: number) => String(v), clickable: true,  invert: false },
-  { key: 'qualificados',     label: 'Qualificados',     icon: CheckSquare,  color: '#8B5CF6', bg: '#F5F3FF', sub: '#4C1D95', fmt: (v: number) => String(v), clickable: true,  invert: false },
-  { key: 'receita_potencial',label: 'Receita Potencial',icon: DollarSign,   color: '#059669', bg: '#ECFDF5', sub: '#065F46', fmt: fmtBrl,                   clickable: true,  invert: false },
-  { key: 'ticket_medio',     label: 'Ticket Médio',     icon: Tag,          color: '#F59E0B', bg: '#FFFBEB', sub: '#92400E', fmt: fmtBrl,                   clickable: false, invert: false },
-  { key: 'perda_financeira', label: 'Perda Financeira', icon: TrendingDown, color: '#EF4444', bg: '#FEF2F2', sub: '#991B1B', fmt: fmtBrl,                   clickable: true,  invert: true  },
+  { key: 'captacoes',        label: 'Captações',        icon: Users,        fmt: (v: number) => String(v), clickable: false, invert: false, alertIfZero: false },
+  { key: 'vendas',           label: 'Vendas',           icon: ShoppingCart, fmt: (v: number) => String(v), clickable: true,  invert: false, alertIfZero: false },
+  { key: 'qualificados',     label: 'Qualificados',     icon: CheckSquare,  fmt: (v: number) => String(v), clickable: true,  invert: false, alertIfZero: true  },
+  { key: 'receita_potencial',label: 'Receita Potencial',icon: DollarSign,   fmt: fmtBrl,                   clickable: true,  invert: false, alertIfZero: false },
+  { key: 'ticket_medio',     label: 'Ticket Médio',     icon: Tag,          fmt: fmtBrl,                   clickable: false, invert: false, alertIfZero: false },
+  { key: 'perda_financeira', label: 'Perda Financeira', icon: TrendingDown, fmt: fmtBrl,                   clickable: true,  invert: true,  alertIfZero: false },
 ] as const
 
 const KEY_TO_TIPO: Record<string, DrillTipo> = {
@@ -1540,6 +1533,8 @@ export default function GestaoComercial() {
   const breadcrumb  = ['Total', ...drillPath, ...(selectedStage && selectedStage !== '__ALL__' ? [stageLabel(selectedStage)] : [])]
   const grupos      = groupOrigens(origens)
   const maxCap      = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
+  const dailyPoints   = diario.map(d => ({ x: d.dia, captacoes: d.captacoes, vendas: d.vendas }))
+  const monthlyPoints = mensal.map(m => ({ x: m.mes_label, captacoes: m.captacoes, vendas: m.vendas }))
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 1360, margin: '0 auto' }}>
@@ -1673,7 +1668,7 @@ export default function GestaoComercial() {
         <div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
-            {MAIN_CARD_CFG.map(({ key, label, icon: Icon, color, bg, sub, fmt, clickable, invert }) => {
+            {MAIN_CARD_CFG.map(({ key, label, icon, fmt, clickable, invert, alertIfZero }) => {
               const value = key === 'qualificados' ? qualificados : (kpis ? (kpis as Record<string, number>)[key] : 0)
               const prevValue = key === 'qualificados' ? prevQualificados : (prevKpis ? (prevKpis as Record<string, number>)[key] : undefined)
               const trend = prevValue !== undefined ? pctDiff(value, prevValue) : null
@@ -1681,192 +1676,127 @@ export default function GestaoComercial() {
                 : key === 'qualificados' ? () => navigate(`/leads-report?date_from=${dateFrom}&date_to=${dateTo}&perception=${encodeURIComponent('Quente,Morno')}`)
                 : () => openDrill(KEY_TO_TIPO[key])
               return (
-                <div key={key}
+                <MetricCard
+                  key={key}
+                  label={label}
+                  value={loading ? '—' : fmt(value)}
+                  icon={icon}
+                  loading={loading}
+                  trend={trend}
+                  invert={invert}
+                  alertIfZero={alertIfZero}
+                  rawValue={value}
+                  clickable={clickable}
                   onClick={onCardClick}
-                  style={{ background: bg, borderRadius: 14, padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', borderLeft: `4px solid ${color}`, cursor: clickable ? 'pointer' : 'default', transition: clickable ? 'transform 120ms, box-shadow 120ms' : undefined }}
-                  onMouseEnter={e => { if (clickable) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${color}33` } }}
-                  onMouseLeave={e => { if (clickable) { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.07)' } }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: sub, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {trend !== null && <TrendBadge value={trend} invert={invert} />}
-                      <div style={{ width: 34, height: 34, borderRadius: 9, background: color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Icon size={16} color={color} />
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color, margin: 0, lineHeight: 1 }}>{loading ? '—' : fmt(value)}</p>
-                    {clickable && <span style={{ fontSize: 11, color, fontWeight: 600, marginBottom: 2 }}>Ver detalhes →</span>}
-                  </div>
-                </div>
+                />
               )
             })}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-            <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px 12px' }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px' }}>Evolução Diária</p>
-              <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Captações e vendas por dia do mês</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={diario} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                  <XAxis dataKey="dia" tick={{ fontSize: 10, fill: '#94A3B8' }} interval={4} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
-                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
-                    formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']}
-                    labelFormatter={(l: number) => `Dia ${l}`} />
-                  <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                  <Line type="monotone" dataKey="captacoes" stroke="#3B82F6" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="vendas"    stroke="#10B981" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            <TrendChart
+              title="Evolução"
+              subtitleDia="Captações e vendas por dia do mês"
+              subtitleMes="Captações e vendas dos últimos 6 meses"
+              daily={dailyPoints}
+              monthly={monthlyPoints}
+            />
 
-            <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px 16px' }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px' }}>Origens de Captação</p>
-              <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 20px' }}>Clique no canal para ver o detalhamento</p>
-              {grupos.map(g => {
-                const open   = expandedGrupo === g.nome
-                const barW   = maxCap > 0 ? Math.max((g.captacoes / maxCap) * 100, 2) : 0
-                const subMax = g.subs.reduce((m, s) => Math.max(m, s.captacoes), 1)
-                return (
-                  <div key={g.nome} style={{ marginBottom: 10 }}>
-                    <button onClick={() => {
-                      const isOpening = expandedGrupo !== g.nome
-                      setExpandedGrupo(isOpening ? g.nome : null); setStagePopup(null)
-                      if (isOpening && g.nome === 'Orgânico') {
-                        setOrgConvPoints([]); setOrgConvPointsLoading(true)
-                        const origens = g.subs.map(s => s.nome).join(',')
-                        const p = new URLSearchParams({ month })
-                        if (origens) p.set('origens', origens)
-                        if (teamParam) p.set('team', teamParam)
-                        api.get<{conversion_point: string, count: number, pct: number}[]>(`/api/v1/gestao-comercial/conversion-points?${p}`)
-                          .then(r => setOrgConvPoints(r.data)).catch(() => setOrgConvPoints([]))
-                          .finally(() => setOrgConvPointsLoading(false))
-                      }
-                    }} style={{ width: '100%', background: open ? g.color + '10' : 'transparent', border: `1px solid ${open ? g.color + '40' : 'var(--border)'}`, borderRadius: 10, padding: '10px 14px', cursor: 'pointer', transition: 'all 150ms' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: g.color }} />
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{g.nome}</span>
-                          <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{g.pct}%</span>
+            <ProgressBarList
+              title="Origens de Captação"
+              subtitle="Clique no canal para ver o detalhamento"
+              items={grupos.map(g => ({
+                key: g.nome,
+                label: g.nome,
+                count: g.captacoes,
+                color: g.color,
+                extra: <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{g.pct}%</span>,
+                expanded: expandedGrupo === g.nome,
+                onToggle: () => {
+                  const isOpening = expandedGrupo !== g.nome
+                  setExpandedGrupo(isOpening ? g.nome : null); setStagePopup(null)
+                  if (isOpening && g.nome === 'Orgânico') {
+                    setOrgConvPoints([]); setOrgConvPointsLoading(true)
+                    const origensStr = g.subs.map(s => s.nome).join(',')
+                    const p = new URLSearchParams({ month })
+                    if (origensStr) p.set('origens', origensStr)
+                    if (teamParam) p.set('team', teamParam)
+                    api.get<{conversion_point: string, count: number, pct: number}[]>(`/api/v1/gestao-comercial/conversion-points?${p}`)
+                      .then(r => setOrgConvPoints(r.data)).catch(() => setOrgConvPoints([]))
+                      .finally(() => setOrgConvPointsLoading(false))
+                  }
+                },
+                renderExpanded: () => {
+                  const subMax = g.subs.reduce((m, s) => Math.max(m, s.captacoes), 1)
+                  if (g.nome === 'Orgânico') {
+                    if (orgConvPointsLoading) return <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Carregando...</p>
+                    if (orgConvPoints.length === 0) return <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Nenhum ponto de conversão registrado</p>
+                    const maxCount = orgConvPoints[0].count
+                    return <>{orgConvPoints.map(cp => {
+                      const sw = Math.max((cp.count / maxCount) * 100, 2)
+                      return (
+                        <div key={cp.conversion_point} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
+                          onClick={e => openStagePopup(cp.conversion_point, e, cp.conversion_point)}
+                          onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
+                          onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{cp.conversion_point}</span>
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{cp.count}</span>
+                              <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{cp.pct}%</span>
+                              <ChevronRight size={12} color={g.color} />
+                            </div>
+                          </div>
+                          <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                            <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 14, fontWeight: 800, color: g.color }}>{g.captacoes}</span>
-                          {open ? <ChevronDown size={14} color={g.color} /> : <ChevronRight size={14} color="#94A3B8" />}
+                      )
+                    })}</>
+                  }
+                  return <>{g.subs.map(s => {
+                    const sw = Math.max((s.captacoes / subMax) * 100, 2)
+                    return (
+                      <div key={s.nome} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
+                        onClick={e => openStagePopup(s.nome, e)}
+                        onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
+                        onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{s.nome}</span>
+                          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{s.captacoes}</span>
+                            <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{s.pct}%</span>
+                            <ChevronRight size={12} color={g.color} />
+                          </div>
                         </div>
-                      </div>
-                      <div style={{ background: '#F1F5F9', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-                        <div style={{ width: `${barW}%`, height: '100%', background: g.color, borderRadius: 4, transition: 'width 500ms ease' }} />
-                      </div>
-                    </button>
-                    {open && (
-                      <div style={{ marginTop: 6, padding: '12px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px solid var(--border)' }}>
-                        {g.nome === 'Orgânico' ? (
-                          orgConvPointsLoading ? (
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Carregando...</p>
-                          ) : orgConvPoints.length === 0 ? (
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Nenhum ponto de conversão registrado</p>
-                          ) : orgConvPoints.map(cp => {
-                            const maxCount = orgConvPoints[0].count
-                            const sw = Math.max((cp.count / maxCount) * 100, 2)
-                            return (
-                              <div key={cp.conversion_point} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
-                                onClick={e => openStagePopup(cp.conversion_point, e, cp.conversion_point)}
-                                onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
-                                onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                  <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{cp.conversion_point}</span>
-                                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                    <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{cp.count}</span>
-                                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{cp.pct}%</span>
-                                    <ChevronRight size={12} color={g.color} />
-                                  </div>
-                                </div>
-                                <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
-                                  <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
-                                </div>
-                              </div>
-                            )
-                          })
-                        ) : (
-                          g.subs.map(s => {
-                            const sw = Math.max((s.captacoes / subMax) * 100, 2)
-                            return (
-                              <div key={s.nome} style={{ marginBottom: 10, cursor: 'pointer', borderRadius: 8, padding: '6px 4px', transition: 'background 150ms' }}
-                                onClick={e => openStagePopup(s.nome, e)}
-                                onMouseEnter={e => (e.currentTarget.style.background = g.color + '12')}
-                                onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                  <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{s.nome}</span>
-                                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                    <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{s.captacoes}</span>
-                                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 30, textAlign: 'right' }}>{s.pct}%</span>
-                                    <ChevronRight size={12} color={g.color} />
-                                  </div>
-                                </div>
-                                <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
-                                  <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
-                                </div>
-                              </div>
-                            )
-                          })
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px 16px', marginBottom: 20 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px' }}>Modalidade</p>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Captações, vendas e conversão por tipo de plano</p>
-            {modalidades.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>Nenhum dado de modalidade neste período</p>
-            ) : (
-              (() => {
-                const maxModCap = modalidades.reduce((m, x) => Math.max(m, x.captacoes), 1)
-                return modalidades.map(m => {
-                  const barW = Math.max((m.captacoes / maxModCap) * 100, 2)
-                  return (
-                    <div key={m.modalidade} style={{ marginBottom: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-1)' }}>{m.modalidade}</span>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{m.captacoes} captações</span>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981' }}>{m.vendas} vendas</span>
-                          <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 34, textAlign: 'right' }}>{m.conversao}%</span>
+                        <div style={{ background: '#E2E8F0', borderRadius: 3, height: 5, overflow: 'hidden' }}>
+                          <div style={{ width: `${sw}%`, height: '100%', background: g.color + 'BB', borderRadius: 3, transition: 'width 400ms ease' }} />
                         </div>
                       </div>
-                      <div style={{ background: '#F1F5F9', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                        <div style={{ width: `${barW}%`, height: '100%', background: '#3B82F6', borderRadius: 4, transition: 'width 400ms ease' }} />
-                      </div>
-                    </div>
-                  )
-                })
-              })()
-            )}
+                    )
+                  })}</>
+                },
+              }))}
+            />
           </div>
 
-          <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px 12px' }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px' }}>Comparativo Mensal</p>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 16px' }}>Captações e vendas dos últimos 6 meses</p>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={mensal} margin={{ top: 4, right: 24, left: -12, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="mes_label" tick={{ fontSize: 11, fill: '#94A3B8' }} />
-                <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
-                  formatter={(val: number, name: string) => [val, name === 'captacoes' ? 'Captações' : 'Vendas']} />
-                <Legend formatter={(v) => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="captacoes" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="vendas"    fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ProgressBarList
+            title="Modalidade"
+            subtitle="Captações, vendas e conversão por tipo de plano"
+            emptyMessage="Nenhum dado de modalidade neste período"
+            items={modalidades.map(m => ({
+              key: m.modalidade,
+              label: m.modalidade,
+              count: m.captacoes,
+              extra: (
+                <>
+                  <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{m.captacoes} captações</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#10B981' }}>{m.vendas} vendas</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 34, textAlign: 'right' }}>{m.conversao}%</span>
+                </>
+              ),
+            }))}
+          />
         </div>
       )}
 
