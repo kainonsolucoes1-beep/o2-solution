@@ -40,3 +40,11 @@ export function fmtBRL(n: number | null) {
   if (n == null || n === 0) return '—'
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
+/** Converte texto digitado em formato BR ("38.073,62") pra numero JS. Se nao
+ * houver virgula, assume que o ponto (se existir) ja e' separador decimal --
+ * Number() puro quebra com virgula (vira NaN e a API descarta o valor). */
+export function parseBRNumber(s: string): number {
+  const t = s.trim()
+  return t.includes(',') ? Number(t.replace(/\./g, '').replace(',', '.')) : Number(t)
+}

@@ -4,7 +4,7 @@ import { Wallet } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
-import { fmtDate, fmtDateOnly, fmtDuration, fmtClock, fmtRelative, fmtBRL } from '../utils/leadFormat'
+import { fmtDate, fmtDateOnly, fmtDuration, fmtClock, fmtRelative, fmtBRL, parseBRNumber } from '../utils/leadFormat'
 import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
 import { useTheme } from '../ThemeContext'
 import LeadDetailHeader from '../components/LeadDetailHeader'
@@ -193,7 +193,7 @@ export default function LeadDetailPage() {
   function handleRegistrarVenda() {
     if (!id || !vendaValor.trim() || !vendaData) return
     setSavingVenda(true)
-    api.post(`/api/v1/leads/${id}/venda`, { valor: Number(vendaValor), data_venda: vendaData })
+    api.post(`/api/v1/leads/${id}/venda`, { valor: parseBRNumber(vendaValor), data_venda: vendaData })
       .then(() => handleStatusChange('waiting_billing'))
       .catch(() => setToast({ msg: 'Erro ao registrar venda', ok: false }))
       .finally(() => setSavingVenda(false))
@@ -286,7 +286,7 @@ export default function LeadDetailPage() {
     const payload: { current_plan: string | null; value_potential?: number } = {
       current_plan: detalhesDraft.current_plan.trim() || null,
     }
-    if (detalhesDraft.value_potential.trim()) payload.value_potential = Number(detalhesDraft.value_potential)
+    if (detalhesDraft.value_potential.trim()) payload.value_potential = parseBRNumber(detalhesDraft.value_potential)
     api.post(`/api/v1/leads/${id}/info`, payload)
       .then(() => api.get<LeadItem>(`/api/v1/leads/${id}`))
       .then(r => { setLead(r.data); setEditingDetalhes(false); setToast({ msg: 'Detalhes atualizados com sucesso', ok: true }) })
@@ -377,7 +377,7 @@ export default function LeadDetailPage() {
     if (!id) return
     setSavingProposta(true)
     const payload: { value_potential?: number } = {}
-    if (propostaValor.trim()) payload.value_potential = Number(propostaValor)
+    if (propostaValor.trim()) payload.value_potential = parseBRNumber(propostaValor)
     api.post(`/api/v1/leads/${id}/info`, payload)
       .then(() => api.get<LeadItem>(`/api/v1/leads/${id}`))
       .then(r => { setLead(r.data); setEditingProposta(false) })
