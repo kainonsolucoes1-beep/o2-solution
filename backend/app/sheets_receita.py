@@ -93,11 +93,27 @@ def _parse_note_date(note: str | None, reference: datetime | None) -> datetime |
         return None
 
 
+# palavras que .title() erra: siglas (fica "Pme") e algarismos romanos (fica "Ii")
+_ACRONYM_WORDS = {"pme", "pf"}
+_ROMAN_RE = re.compile(r"^(?=[mdclxvi])m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$")
+
+
+def _title_case(s: str) -> str:
+    words = []
+    for w in s.split():
+        lw = w.lower()
+        if lw in _ACRONYM_WORDS or _ROMAN_RE.match(lw):
+            words.append(lw.upper())
+        else:
+            words.append(w.capitalize())
+    return " ".join(words)
+
+
 def _normalize_label(raw: str | None, aliases: dict) -> str | None:
     if not raw or not raw.strip():
         return None
     key = raw.strip().lower()
-    return aliases.get(key, raw.strip().title())
+    return aliases.get(key, _title_case(raw.strip()))
 
 
 def _normalize_phone(s: str | None) -> str | None:
