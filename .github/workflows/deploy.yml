@@ -24,16 +24,23 @@ jobs:
             set -e
             cd /home/${{ secrets.EC2_USER }}/o2-solution
 
+            PREV_COMMIT=$(git rev-parse HEAD)
+            echo ">>> Commit atual (referência de rollback): $PREV_COMMIT"
+
             echo ">>> Pull latest code"
             git pull origin main
+            NEW_COMMIT=$(git rev-parse HEAD)
 
-            echo ">>> Build e subir containers"
-            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
-
-            echo ">>> Aguardar backend ficar healthy"
-            sleep 10
+            echo ">>> Build e subir containers (aguardando health check dos serviços)"
+            if ! docker compose -f docker-compose.prod.yml up -d --build --remove-orphans --wait --wait-timeout 150; then
+              echo "!!! Deploy do commit $NEW_COMMIT falhou no health check — revertendo pro commit anterior ($PREV_COMMIT)"
+              git reset --hard "$PREV_COMMIT"
+              docker compose -f docker-compose.prod.yml up -d --build --remove-orphans --wait --wait-timeout 150 || true
+              echo "!!! Rollback concluído. Investigar o commit $NEW_COMMIT antes de tentar de novo."
+              exit 1
+            fi
 
             echo ">>> Limpar imagens antigas"
             docker image prune -f
 
-            echo "Deploy concluído em $(date)"
+            echo "Deploy concluído em $(date) — commit $NEW_COMMIT"
