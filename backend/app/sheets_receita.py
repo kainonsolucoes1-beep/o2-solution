@@ -228,8 +228,11 @@ def sync_receita_real(db: Session) -> dict:
         if not _status_valido(status):
             # saiu do grupo de status validos (ver STATUS_ALVO) —
             # zera o que tinha sido marcado antes, senao fica um valor fantasma pra sempre
+            # (nunca mexe em lead com dado lancado manualmente na Ficha do Lead)
             if len(candidates) == 1:
                 lead = candidates[0]
+                if lead.receita_origem == "manual":
+                    continue
                 if lead.receita_real_recebida or lead.receita_real_a_receber:
                     lead.receita_real_recebida = 0.0
                     lead.receita_real_a_receber = 0.0
@@ -283,6 +286,7 @@ def sync_receita_real(db: Session) -> dict:
                     parcelas.append((None, valor_total, "a_receber", previsao))
 
         lead = candidates[0]
+        lead.receita_origem = "sheet"  # a planilha assume o controle, mesmo se estava 'manual'
         lead.receita_real_recebida = recebido
         lead.receita_real_a_receber = a_receber
         lead.receita_titular = titular

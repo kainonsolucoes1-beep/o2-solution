@@ -46,9 +46,13 @@ class LeadReportItem(BaseModel):
     value_potential: Optional[float] = None
     receita_real_recebida: Optional[float] = None
     receita_real_a_receber: Optional[float] = None
+    receita_titular: Optional[str] = None
     receita_promotora: Optional[str] = None
+    receita_modalidade: Optional[str] = None
     receita_operadora: Optional[str] = None
     receita_categoria: Optional[str] = None
+    receita_data_venda: Optional[datetime] = None
+    receita_origem: Optional[str] = None
     visibility_tag: Optional[str] = None
     is_renutrucao: bool = False
     lost_reason: Optional[str] = None
@@ -134,6 +138,58 @@ class LeadInfoUpdateResponse(BaseModel):
     created_at: Optional[datetime] = None
     operadoras_enviadas: Optional[str] = None
     visibility_tag: Optional[str] = None
+
+
+class LeadReceitaUpdateRequest(BaseModel):
+    titular: Optional[str] = None
+    promotora: Optional[str] = None
+    modalidade: Optional[str] = None
+    operadora: Optional[str] = None
+    categoria: Optional[str] = None
+    data_venda: Optional[str] = None  # AAAA-MM-DD
+
+
+class LeadReceitaUpdateResponse(BaseModel):
+    success: bool
+    lead_id: UUID
+    receita_origem: str
+    receita_titular: Optional[str] = None
+    receita_promotora: Optional[str] = None
+    receita_modalidade: Optional[str] = None
+    receita_operadora: Optional[str] = None
+    receita_categoria: Optional[str] = None
+    receita_data_venda: Optional[datetime] = None
+    receita_real_recebida: Optional[float] = None
+    receita_real_a_receber: Optional[float] = None
+
+
+class ParcelaRequest(BaseModel):
+    numero: Optional[int] = None
+    valor: float
+    status: str  # 'recebido' | 'a_receber'
+    previsao_recebimento: Optional[str] = None  # AAAA-MM-DD
+
+
+class ParcelaUpdateRequest(BaseModel):
+    numero: Optional[int] = None
+    valor: Optional[float] = None
+    status: Optional[str] = None
+    previsao_recebimento: Optional[str] = None  # AAAA-MM-DD
+
+
+class ParcelaResponse(BaseModel):
+    id: UUID
+    numero: Optional[int] = None
+    valor: float
+    status: str
+    previsao_recebimento: Optional[datetime] = None
+
+
+class ParcelasListResponse(BaseModel):
+    receita_origem: str
+    receita_real_recebida: Optional[float] = None
+    receita_real_a_receber: Optional[float] = None
+    parcelas: List[ParcelaResponse]
 
 
 class LeadVendaRequest(BaseModel):

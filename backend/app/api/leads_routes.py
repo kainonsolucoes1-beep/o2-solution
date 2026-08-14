@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.lead_utils import extract_base
-from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, User
+from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.security import can_see_financials
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
@@ -22,6 +22,8 @@ from app.schemas.lead import (
     StatusHistoryItem, StatusHistoryResponse,
     ScheduleCreateRequest, ScheduleItem, ScheduleHistoryResponse,
     AgendaItem, AgendaResponse, AgendaAlertsResponse,
+    LeadReceitaUpdateRequest, LeadReceitaUpdateResponse,
+    ParcelaRequest, ParcelaUpdateRequest, ParcelaResponse, ParcelasListResponse,
 )
 from app.schemas.user import OperatorInfo
 
@@ -420,9 +422,13 @@ def get_lead(
         value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
         receita_real_recebida=float(lead.receita_real_recebida) if show_fin and lead.receita_real_recebida is not None else None,
         receita_real_a_receber=float(lead.receita_real_a_receber) if show_fin and lead.receita_real_a_receber is not None else None,
+        receita_titular=lead.receita_titular if show_fin else None,
         receita_promotora=lead.receita_promotora if show_fin else None,
+        receita_modalidade=lead.receita_modalidade if show_fin else None,
         receita_operadora=lead.receita_operadora if show_fin else None,
         receita_categoria=lead.receita_categoria if show_fin else None,
+        receita_data_venda=lead.receita_data_venda if show_fin else None,
+        receita_origem=lead.receita_origem if show_fin else None,
         visibility_tag=lead.visibility_tag,
         is_renutrucao=bool(lead.is_renutrucao),
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
@@ -528,6 +534,166 @@ def update_lead_info(
         current_plan=lead.current_plan,
         value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
     )
+
+
+def _recalc_receita_from_parcelas(db: Session, lead: Lead) -> None:
+    parcelas = db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id).all()
+    lead.receita_real_recebida = sum((p.valor for p in parcelas if p.status == "recebido"), 0)
+    lead.receita_real_a_receber = sum((p.valor for p in parcelas if p.status == "a_receber"), 0)
+
+
+def _parse_date_or_none(s: str | None) -> datetime | None:
+    if not s or not s.strip():
+        return None
+    try:
+        return datetime.strptime(s.strip(), "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
+
+
+@router.post("/leads/{lead_id}/receita", response_model=LeadReceitaUpdateResponse)
+def update_lead_receita(
+    lead_id: str,
+    body: LeadReceitaUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Lanca dados gerais de receita direto na Ficha do Lead (fora da planilha).
+    Marca receita_origem='manual', o que blinda o lead do sync automatico —
+    se ele depois aparecer na planilha com status valido, ela reassume o controle."""
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if body.titular is not None:
+        lead.receita_titular = body.titular.strip() or None
+    if body.promotora is not None:
+        lead.receita_promotora = body.promotora.strip() or None
+    if body.modalidade is not None:
+        lead.receita_modalidade = body.modalidade.strip() or None
+    if body.operadora is not None:
+        lead.receita_operadora = body.operadora.strip() or None
+    if body.categoria is not None:
+        lead.receita_categoria = body.categoria.strip() or None
+    if body.data_venda is not None:
+        lead.receita_data_venda = _parse_date_or_none(body.data_venda)
+    lead.receita_origem = "manual"
+    db.commit()
+    return LeadReceitaUpdateResponse(
+        success=True, lead_id=lead.id, receita_origem=lead.receita_origem,
+        receita_titular=lead.receita_titular, receita_promotora=lead.receita_promotora,
+        receita_modalidade=lead.receita_modalidade, receita_operadora=lead.receita_operadora,
+        receita_categoria=lead.receita_categoria, receita_data_venda=lead.receita_data_venda,
+        receita_real_recebida=float(lead.receita_real_recebida) if lead.receita_real_recebida is not None else None,
+        receita_real_a_receber=float(lead.receita_real_a_receber) if lead.receita_real_a_receber is not None else None,
+    )
+
+
+@router.get("/leads/{lead_id}/parcelas", response_model=ParcelasListResponse)
+def list_lead_parcelas(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    parcelas = (
+        db.query(LeadParcela)
+        .filter(LeadParcela.lead_id == lead.id)
+        .order_by(LeadParcela.numero.asc().nullsfirst())
+        .all()
+    )
+    return ParcelasListResponse(
+        receita_origem=lead.receita_origem,
+        receita_real_recebida=float(lead.receita_real_recebida) if lead.receita_real_recebida is not None else None,
+        receita_real_a_receber=float(lead.receita_real_a_receber) if lead.receita_real_a_receber is not None else None,
+        parcelas=[
+            ParcelaResponse(id=p.id, numero=p.numero, valor=float(p.valor), status=p.status, previsao_recebimento=p.previsao_recebimento)
+            for p in parcelas
+        ],
+    )
+
+
+@router.post("/leads/{lead_id}/parcelas", response_model=ParcelasListResponse)
+def create_lead_parcela(
+    lead_id: str,
+    body: ParcelaRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if body.status not in ("recebido", "a_receber"):
+        raise HTTPException(status_code=400, detail="Status deve ser 'recebido' ou 'a_receber'")
+    previsao = _parse_date_or_none(body.previsao_recebimento)
+    db.add(LeadParcela(lead_id=lead.id, numero=body.numero, valor=body.valor, status=body.status, previsao_recebimento=previsao))
+    lead.receita_origem = "manual"
+    db.flush()
+    _recalc_receita_from_parcelas(db, lead)
+    db.commit()
+    return list_lead_parcelas(lead_id, current_user, db)
+
+
+@router.patch("/leads/{lead_id}/parcelas/{parcela_id}", response_model=ParcelasListResponse)
+def update_lead_parcela(
+    lead_id: str,
+    parcela_id: str,
+    body: ParcelaUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    parcela = db.query(LeadParcela).filter(LeadParcela.id == parcela_id, LeadParcela.lead_id == lead.id).first()
+    if not parcela:
+        raise HTTPException(status_code=404, detail="Parcela não encontrada")
+    if body.numero is not None:
+        parcela.numero = body.numero
+    if body.valor is not None:
+        parcela.valor = body.valor
+    if body.status is not None:
+        if body.status not in ("recebido", "a_receber"):
+            raise HTTPException(status_code=400, detail="Status deve ser 'recebido' ou 'a_receber'")
+        parcela.status = body.status
+    if body.previsao_recebimento is not None:
+        parcela.previsao_recebimento = _parse_date_or_none(body.previsao_recebimento)
+    lead.receita_origem = "manual"
+    _recalc_receita_from_parcelas(db, lead)
+    db.commit()
+    return list_lead_parcelas(lead_id, current_user, db)
+
+
+@router.delete("/leads/{lead_id}/parcelas/{parcela_id}", response_model=ParcelasListResponse)
+def delete_lead_parcela(
+    lead_id: str,
+    parcela_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    parcela = db.query(LeadParcela).filter(LeadParcela.id == parcela_id, LeadParcela.lead_id == lead.id).first()
+    if not parcela:
+        raise HTTPException(status_code=404, detail="Parcela não encontrada")
+    db.delete(parcela)
+    lead.receita_origem = "manual"
+    db.flush()
+    _recalc_receita_from_parcelas(db, lead)
+    db.commit()
+    return list_lead_parcelas(lead_id, current_user, db)
 
 
 @router.post("/leads/{lead_id}/venda", response_model=LeadVendaResponse)

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Wallet } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -13,7 +12,7 @@ import LeadActivityTimeline from '../components/LeadActivityTimeline'
 import LeadNegotiationPanel from '../components/LeadNegotiationPanel'
 import LeadCurrentStatusPanel from '../components/LeadCurrentStatusPanel'
 import LeadRegistrationPanel from '../components/LeadRegistrationPanel'
-import SectionCard from '../components/SectionCard'
+import LeadFinanceiroPanel from '../components/LeadFinanceiroPanel'
 
 interface LeadItem {
   id: string
@@ -31,9 +30,13 @@ interface LeadItem {
   value_potential: number | null
   receita_real_recebida: number | null
   receita_real_a_receber: number | null
+  receita_titular: string | null
   receita_promotora: string | null
+  receita_modalidade: string | null
   receita_operadora: string | null
   receita_categoria: string | null
+  receita_data_venda: string | null
+  receita_origem: string | null
   visibility_tag: string | null
   operadoras_enviadas: string | null
   modalidade: string | null
@@ -663,60 +666,20 @@ export default function LeadDetailPage() {
             onSaveEdit={handleSaveInfo}
           />
 
-          {canSeeFinancials && (() => {
-            const recebida = lead.receita_real_recebida ?? 0
-            const aReceber = lead.receita_real_a_receber ?? 0
-            const total = recebida + aReceber
-            const hasData = total > 0
-            const pct = hasData ? Math.round(recebida / total * 100) : 0
-            const vendaDetails: [string, string][] = [
-              ['Plataforma', lead.receita_promotora ?? ''],
-              ['Operadora', lead.receita_operadora ?? ''],
-              ['Categoria', lead.receita_categoria ?? ''],
-            ].filter(([, v]) => v) as [string, string][]
-            if (!hasData) return null
-            return (
-              <SectionCard title="Receita" icon={Wallet}>
-                <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '12px 14px' }}>
-                        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recebida</div>
-                        <div style={{ fontSize: 17, fontWeight: 800, color: '#059669', marginTop: 4 }}>{fmtBRL(recebida)}</div>
-                      </div>
-                      <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '12px 14px' }}>
-                        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>A Receber</div>
-                        <div style={{ fontSize: 17, fontWeight: 800, color: '#D97706', marginTop: 4 }}>{fmtBRL(aReceber)}</div>
-                      </div>
-                    </div>
-                    <div style={{ marginTop: 14 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total do negócio</span>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-1)' }}>{fmtBRL(total)}</span>
-                      </div>
-                      <div style={{ height: 6, borderRadius: 99, background: '#FFFBEB', overflow: 'hidden' }}>
-                        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: '#059669' }} />
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>{pct}% já recebido</div>
-                    </div>
-                    {vendaDetails.length > 0 && (
-                      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-in)' }}>
-                        <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>
-                          Detalhes da venda
-                        </p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          {vendaDetails.map(([label, value]) => (
-                            <div key={label} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                              <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-                              <span style={{ textAlign: 'right', fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500 }}>{value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                </>
-              </SectionCard>
-            )
-          })()}
+          {canSeeFinancials && id && (
+            <LeadFinanceiroPanel
+              leadId={id}
+              modalidadeOptions={modalidades}
+              titularLabel={lead.receita_titular ?? 'Não informado'}
+              promotoraLabel={lead.receita_promotora ?? 'Não informado'}
+              modalidadeLabel={lead.receita_modalidade ?? 'Não informado'}
+              operadoraLabel={lead.receita_operadora ?? 'Não informado'}
+              categoriaLabel={lead.receita_categoria ?? 'Não informado'}
+              dataVendaLabel={lead.receita_data_venda ? fmtDateOnly(lead.receita_data_venda) : 'Não informado'}
+              dataVendaRaw={lead.receita_data_venda}
+              onSaved={() => api.get<LeadItem>(`/api/v1/leads/${id}`).then(r => setLead(r.data))}
+            />
+          )}
 
         </div>
       </div>

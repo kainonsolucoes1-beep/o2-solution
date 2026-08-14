@@ -47,6 +47,9 @@ class Lead(Base):
     receita_modalidade = Column(String(255), nullable=True)
     receita_operadora = Column(String(255), nullable=True)
     receita_categoria = Column(String(255), nullable=True)
+    # 'sheet' (default -- vem do sync da planilha) ou 'manual' (lancado direto
+    # na Ficha do Lead). O sync so' gerencia/zera leads com origem 'sheet'.
+    receita_origem = Column(String(10), nullable=False, server_default='sheet')
     visibility_tag = Column(String(50), nullable=True)
     operadoras_enviadas = Column(Text, nullable=True)  # lista separada por virgula
     receita_data_venda = Column(TIMESTAMP, nullable=True)
