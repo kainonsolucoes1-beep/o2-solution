@@ -11,6 +11,10 @@ interface MetricCardProps {
   rawValue?: number
   clickable?: boolean
   onClick?: () => void
+  /** Sobrepoe o calculo automatico por tendencia -- usado quando o card nao
+   * tem "periodo anterior" pra comparar (ex: contagem de estagio de funil),
+   * mas ainda assim precisa fixar uma cor semantica (bom/ruim/neutro). */
+  tone?: 'neutral' | 'good' | 'bad'
 }
 
 const NEUTRAL = { border: 'var(--border-in)', iconBg: 'var(--bg-subtle)', iconColor: 'var(--text-muted)' }
@@ -22,11 +26,12 @@ const BAD     = { border: '#EF4444', iconBg: '#FEF2F2', iconColor: '#EF4444' }
 // caindo e' bom) ou um valor critico zerado (`alertIfZero`), que usa fundo
 // vermelho suave de proposito, mais chamativo que a borda colorida da tendencia.
 export default function MetricCard({
-  label, value, icon: Icon, loading, trend, invert, alertIfZero, rawValue, clickable, onClick,
+  label, value, icon: Icon, loading, trend, invert, alertIfZero, rawValue, clickable, onClick, tone: toneProp,
 }: MetricCardProps) {
   const isCriticalZero = alertIfZero && rawValue === 0
   const trendGood = trend == null ? null : (invert ? trend <= 0 : trend >= 0)
-  const tone = isCriticalZero ? BAD : trendGood === true ? GOOD : trendGood === false ? BAD : NEUTRAL
+  const computedTone = isCriticalZero ? BAD : trendGood === true ? GOOD : trendGood === false ? BAD : NEUTRAL
+  const tone = toneProp === 'good' ? GOOD : toneProp === 'bad' ? BAD : toneProp === 'neutral' ? NEUTRAL : computedTone
 
   return (
     <div

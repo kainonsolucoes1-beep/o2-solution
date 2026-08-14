@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   LineChart, Line, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
+import SectionTitle from './SectionTitle'
 
 export interface TrendPoint {
   x: string | number
@@ -34,7 +35,7 @@ export default function TrendChart({ title, subtitleDia, subtitleMes, daily, mon
     <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{title}</p>
+          <SectionTitle>{title}</SectionTitle>
           <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '2px 0 0' }}>{mode === 'dia' ? subtitleDia : subtitleMes}</p>
         </div>
         <div style={{ display: 'flex', gap: 2, border: '1px solid var(--border)', borderRadius: 7, padding: 2, background: 'var(--bg-subtle)', flexShrink: 0 }}>

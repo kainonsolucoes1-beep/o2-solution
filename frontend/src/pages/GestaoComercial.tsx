@@ -8,7 +8,7 @@ import {
   Users, ShoppingCart, TrendingUp, DollarSign, TrendingDown, Tag,
   ChevronDown, ChevronRight, X, ChevronLeft,
   Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter, ArrowLeftRight,
-  Briefcase, ArrowUpRight,
+  Briefcase, ArrowUpRight, Inbox, Flame,
 } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
@@ -16,6 +16,7 @@ import { parseUTC } from '../utils/date'
 import MetricCard from '../components/MetricCard'
 import TrendChart from '../components/TrendChart'
 import ProgressBarList from '../components/ProgressBarList'
+import SectionTitle from '../components/SectionTitle'
 
 const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção'] as const
 type Tab = typeof TABS[number]
@@ -238,12 +239,12 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   if (error || !overview || !alerts) return <p style={{ padding: '40px 0', textAlign: 'center', fontSize: 13, color: '#EF4444' }}>{error || 'Sem dados.'}</p>
 
   const overviewCards = [
-    { label: 'Pendente',    value: overview.novo,        color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: cardNav({ status: 'pending,novo,new' }) },
-    { label: 'Agendado',    value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
-    { label: 'Enviada',     value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
-    { label: 'Qualificado', value: overview.negociacao,  color: '#8B5CF6', bg: '#F5F3FF', icon: '🔥', nav: cardNav({ perception: 'Quente,Morno' }) },
-    { label: 'Fechado',     value: overview.fechado,     color: '#059669', bg: '#ECFDF5', icon: '🏆', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
-    { label: 'Perdido',     value: overview.perdido,     color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: cardNav({ status: 'sale_not_performed' }), onOpen: openLostModal },
+    { label: 'Pendente',    value: overview.novo,        icon: Inbox,       tone: 'neutral' as const, nav: cardNav({ status: 'pending,novo,new' }) },
+    { label: 'Agendado',    value: overview.qualificado, icon: CheckSquare, tone: 'neutral' as const, nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
+    { label: 'Enviada',     value: overview.proposta,    icon: FileText,    tone: 'neutral' as const, nav: cardNav({ status: 'proposal_sent' }) },
+    { label: 'Qualificado', value: overview.negociacao,  icon: Flame,       tone: 'neutral' as const, nav: cardNav({ perception: 'Quente,Morno' }) },
+    { label: 'Fechado',     value: overview.fechado,     icon: Handshake,   tone: 'good' as const,    nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
+    { label: 'Perdido',     value: overview.perdido,     icon: XCircle,     tone: 'bad' as const,     nav: cardNav({ status: 'sale_not_performed' }), onOpen: openLostModal },
   ]
 
   const distTotal  = overview.novo + overview.qualificado + overview.proposta + overview.negociacao + overview.fechado + overview.perdido
@@ -267,9 +268,9 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
 
   const finCards = [
     { label: 'Valor Total',   value: [overview.novo_value, overview.qualificado_value, overview.proposta_value, overview.negociacao_value, overview.fechado_value, overview.perdido_value].reduce((a, b) => a + b, 0), color: 'var(--text-3)', bg: 'var(--bg-subtle)', border: 'var(--border)', nav: null },
-    { label: 'Agendado',      value: overview.qualificado_value, color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
-    { label: 'Enviada',       value: overview.proposta_value,    color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A', nav: cardNav({ status: 'proposal_sent' }) },
-    { label: 'Qualificado',   value: overview.negociacao_value,  color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE', nav: cardNav({ perception: 'Quente,Morno' }) },
+    { label: 'Agendado',      value: overview.qualificado_value, color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
+    { label: 'Enviada',       value: overview.proposta_value,    color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ status: 'proposal_sent' }) },
+    { label: 'Qualificado',   value: overview.negociacao_value,  color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ perception: 'Quente,Morno' }) },
     { label: 'Fechado',       value: overview.fechado_value,     color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
     { label: 'Perdido',       value: overview.perdido_value,     color: '#EF4444', bg: '#FEF2F2', border: '#FECACA', nav: cardNav({ status: 'sale_not_performed' }) },
   ]
@@ -280,16 +281,15 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         {/* Overview cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16 }}>
           {overviewCards.map(card => (
-            <div key={card.label}
-              className="bg-white rounded-xl p-5 flex flex-col gap-2"
-              style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'transform 200ms', cursor: 'pointer' }}
-              onClick={() => (card as any).onOpen ? (card as any).onOpen() : navigate(`/leads-report${card.nav}`)}
-              onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
-              onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
-              <div style={{ width: 36, height: 36, borderRadius: 8, background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{card.icon}</div>
-              <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>{card.label}</span>
-              <span style={{ fontSize: 36, fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</span>
-            </div>
+            <MetricCard
+              key={card.label}
+              label={card.label}
+              value={String(card.value)}
+              icon={card.icon}
+              tone={card.tone}
+              clickable
+              onClick={() => ((card as any).onOpen ? (card as any).onOpen() : navigate(`/leads-report${card.nav}`))}
+            />
           ))}
         </div>
 
@@ -298,9 +298,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           {/* Distribuição Financeira */}
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
-              Distribuição Financeira do Pipeline
-            </h2>
+            <SectionTitle style={{ marginBottom: 20 }}>Distribuição Financeira do Pipeline</SectionTitle>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {finCards.map((fc, i) => (
                 <div key={i}
@@ -317,9 +315,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
 
           {/* Conversões */}
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
-              Conversões do Funil
-            </h2>
+            <SectionTitle style={{ marginBottom: 16 }}>Conversões do Funil</SectionTitle>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, background: 'var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
               {[
                 { label: 'Conversão Total', value: `${totalRate}%`, sub: 'Pendente → Fechado', color: '#059669' },
@@ -341,7 +337,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   <div style={{ width: 56, textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ fontSize: 20, fontWeight: 700, color: c.color }}>{c.rate}<span style={{ fontSize: 12, marginLeft: 1 }}>%</span></span>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>{c.rate}<span style={{ fontSize: 12, marginLeft: 1 }}>%</span></span>
                   </div>
                   <div style={{ flex: 1 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)' }}>{c.from} → {c.to}</span>
@@ -370,9 +366,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         {isUsuario && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
-              📅 Meus Agendamentos de Hoje
-            </h2>
+            <SectionTitle style={{ marginBottom: 4 }}>📅 Meus Agendamentos de Hoje</SectionTitle>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Clique num lead pra abrir a ficha</p>
             {agendaHoje.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum agendamento pra hoje.</p>
@@ -396,9 +390,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
           </div>
 
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
-              ⚠️ Leads Vencidos
-            </h2>
+            <SectionTitle color="#EF4444" style={{ marginBottom: 4 }}>⚠️ Leads Vencidos</SectionTitle>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Sem atenção nas últimas 24h · {alerts.vencidos_count ?? alerts.vencidos.length} leads</p>
             {alerts.vencidos.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum lead vencido 🎉</p>
@@ -425,45 +417,49 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
 
         {/* Alertas + Tempos */}
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isUsuario ? 3 : 4}, 1fr)`, gap: 20 }}>
-          {!isUsuario && (
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #EF4444', cursor: 'pointer', transition: 'transform 200ms' }}
-            onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
-            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 15 }}>⚠️</span>
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Leads Vencidos</h2>
-              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#EF4444', background: '#FEF2F2', padding: '2px 8px', borderRadius: 99 }}>{alerts.vencidos_count ?? alerts.vencidos.length} leads</span>
-            </div>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Qualquer status sem atenção nas últimas 24h</p>
-            <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
-          </div>
-          )}
+          {!isUsuario && (() => {
+            const vencidosCount = alerts.vencidos_count ?? alerts.vencidos.length
+            const hasVencidos = vencidosCount > 0
+            const accent = hasVencidos ? '#EF4444' : 'var(--border-in)'
+            const textColor = hasVencidos ? '#EF4444' : 'var(--text-1)'
+            return (
+              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: `3px solid ${accent}`, cursor: 'pointer', transition: 'transform 200ms' }}
+                onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
+                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <SectionTitle color={hasVencidos ? textColor : undefined}>Leads Vencidos</SectionTitle>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: textColor, background: hasVencidos ? '#FEF2F2' : 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 99 }}>{vencidosCount} leads</span>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Qualquer status sem atenção nas últimas 24h</p>
+                <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500 }}>Ver no Relatório →</p>
+              </div>
+            )
+          })()}
 
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #10B981' }}>
+          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 15 }}>⚡</span>
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Desempenho no Atendimento</h2>
+              <SectionTitle>Desempenho no Atendimento</SectionTitle>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Tempo médio em "Novo" antes de avançar no funil</p>
             {(() => {
               const minutes = alerts.avg_first_contact_minutes ?? 0
               return minutes >= 60 ? (
-                <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>{(minutes / 60).toFixed(1)}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>h</span></p>
+                <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{(minutes / 60).toFixed(1)}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>h</span></p>
               ) : (
-                <p style={{ fontSize: 36, fontWeight: 700, color: '#10B981', lineHeight: 1 }}>{minutes}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span></p>
+                <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{minutes}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span></p>
               )
             })()}
             <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 6 }}>{alerts.contacted_count ?? 0} leads atendidos no período</p>
           </div>
 
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #6366F1' }}>
+          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Timer size={15} color="#6366F1" />
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: '#4338CA', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Tempo Médio para o Fechamento</h2>
+              <Timer size={15} color="var(--text-muted)" />
+              <SectionTitle>Tempo Médio para o Fechamento</SectionTitle>
             </div>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Média do ciclo completo (fechado + perdido)</p>
-            <p style={{ fontSize: 36, fontWeight: 700, color: '#6366F1', lineHeight: 1 }}>{alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>dias</span></p>
+            <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>dias</span></p>
             {(alerts.avg_time_in_funnel ?? 0) === 0 && <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>Sem leads finalizados no período</p>}
           </div>
 
@@ -475,14 +471,14 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             const liderCount = pme >= pf ? pme : pf
             const pct = total > 0 ? Math.round(liderCount / total * 100) : 0
             return (
-              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #F59E0B', display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)', display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <Briefcase size={15} color="#F59E0B" />
-                  <h2 style={{ fontSize: 13, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Captação do Período</h2>
+                  <Briefcase size={15} color="var(--text-muted)" />
+                  <SectionTitle>Captação do Período</SectionTitle>
                 </div>
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
                   {total > 0 ? (
-                    <p style={{ fontSize: 36, fontWeight: 700, color: '#F59E0B', lineHeight: 1, margin: 0 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
+                    <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
                   ) : (
                     <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: 0 }}>Sem captações de PF/PME no período</p>
                   )}

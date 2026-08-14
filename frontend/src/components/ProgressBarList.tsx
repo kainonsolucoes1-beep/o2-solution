@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import SectionTitle from './SectionTitle'
 
 export interface ProgressBarItem {
   key: string
@@ -30,7 +31,7 @@ export default function ProgressBarList({ title, subtitle, items, emptyMessage }
 
   return (
     <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 20px 16px' }}>
-      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px' }}>{title}</p>
+      <SectionTitle style={{ marginBottom: 4 }}>{title}</SectionTitle>
       {subtitle && <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 20px' }}>{subtitle}</p>}
       {items.length === 0 ? (
         <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
