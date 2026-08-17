@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Wallet, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Wallet, Plus, Pencil, Trash2, ChevronDown } from 'lucide-react'
 import api from '../api'
 import { fmtBRL, fmtDateOnly, parseBRNumber } from '../utils/leadFormat'
 import SectionCard from './SectionCard'
@@ -32,6 +32,8 @@ const STATUS_STYLE = {
   recebido: { bg: '#ECFDF5', color: '#059669', label: 'Recebido' },
   a_receber: { bg: '#FFFBEB', color: '#D97706', label: 'A Receber' },
 }
+
+const PARCELAS_COLLAPSED_LIMIT = 3
 
 function toDateInput(iso: string | null): string {
   return iso ? iso.slice(0, 10) : ''
@@ -78,6 +80,8 @@ export default function LeadFinanceiroPanel({
   const [savingParcelaEdit, setSavingParcelaEdit] = useState(false)
   const [deletingParcelaId, setDeletingParcelaId] = useState<string | null>(null)
 
+  const [showAllParcelas, setShowAllParcelas] = useState(false)
+
   function fetchParcelas() {
     setLoading(true)
     api.get<ParcelasListResponse>(`/api/v1/leads/${leadId}/parcelas`)
@@ -86,7 +90,7 @@ export default function LeadFinanceiroPanel({
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchParcelas() }, [leadId])
+  useEffect(() => { fetchParcelas(); setShowAllParcelas(false) }, [leadId])
 
   function startEditGeral() {
     setGeralDraft({
@@ -265,7 +269,7 @@ export default function LeadFinanceiroPanel({
             <p style={{ fontSize: 12, color: 'var(--text-subtle)' }}>Nenhuma parcela lançada.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {data.parcelas.map(p => {
+              {(showAllParcelas ? data.parcelas : data.parcelas.slice(0, PARCELAS_COLLAPSED_LIMIT)).map(p => {
                 const s = STATUS_STYLE[p.status]
                 if (editingParcelaId === p.id) {
                   return (
@@ -321,6 +325,16 @@ export default function LeadFinanceiroPanel({
                 )
               })}
             </div>
+          )}
+
+          {data && data.parcelas.length > PARCELAS_COLLAPSED_LIMIT && (
+            <button
+              onClick={() => setShowAllParcelas(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', marginTop: 4, padding: '8px 0 2px', fontSize: 12, fontWeight: 600, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              {showAllParcelas ? 'Ver menos' : `Ver mais ${data.parcelas.length - PARCELAS_COLLAPSED_LIMIT} parcelas`}
+              <ChevronDown size={13} style={{ transform: showAllParcelas ? 'rotate(180deg)' : 'none', transition: 'transform 180ms ease' }} />
+            </button>
           )}
 
           {addingParcela && (
