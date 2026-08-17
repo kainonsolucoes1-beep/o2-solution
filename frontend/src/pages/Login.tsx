@@ -14,7 +14,7 @@ export default function Login() {
     try {
       const { data } = await api.post('/api/v1/auth/login', { email, password })
       localStorage.setItem('token', data.access_token)
-      navigate('/dashboard')
+      navigate(data.must_change_password ? '/change-password' : '/dashboard')
     } catch {
       setError('Email ou senha inválidos.')
     }

@@ -449,8 +449,9 @@ function ConfiguracoesTab() {
 }
 
 // ── Usuários tab ─────────────────────────────────────────────────────────────
-interface UserItem { id: string; email: string; username: string; first_name: string | null; role: string; team: string | null; is_active: boolean; created_at: string }
-const EMPTY_FORM = { email: '', username: '', first_name: '', password: '', role: 'usuario', team: '' }
+interface UserItem { id: string; email: string; username: string; first_name: string | null; role: string; team: string | null; is_active: boolean; must_change_password: boolean; created_at: string }
+interface UserCreatedResponse extends UserItem { temp_password: string }
+const EMPTY_FORM = { email: '', username: '', first_name: '', role: 'usuario', team: '' }
 const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '', team: '' }
 const ROLE_OPTIONS = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervisor', 'comercial', 'usuario']
 const TEAM_OPTIONS = ['Equipe São Paulo', 'Equipe Pernambuco']
@@ -478,6 +479,8 @@ function UsuariosTab() {
   const [editForm, setEditForm]     = useState(EMPTY_EDIT)
   const [editError, setEditError]   = useState('')
   const [editSaving, setEditSaving] = useState(false)
+  const [createdCreds, setCreatedCreds] = useState<{ username: string; password: string } | null>(null)
+  const [credsCopied, setCredsCopied] = useState(false)
 
   useEffect(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -502,15 +505,26 @@ function UsuariosTab() {
   }
 
   async function handleCreate() {
-    if (!form.email.trim() || !form.username.trim() || !form.password.trim()) { setFormError('Email, username e senha são obrigatórios.'); return }
+    if (!form.email.trim() || !form.username.trim()) { setFormError('Email e username são obrigatórios.'); return }
     setSaving(true); setFormError('')
     try {
-      const { data } = await api.post<UserItem>('/api/v1/admin/users', form)
-      setUsers(u => [...u, data]); setShowModal(false); setForm(EMPTY_FORM)
-      setToast({ msg: 'Usuário criado com sucesso', ok: true })
+      const { data } = await api.post<UserCreatedResponse>('/api/v1/admin/users', form)
+      setUsers(u => [...u, data]); setForm(EMPTY_FORM)
+      setCreatedCreds({ username: data.username, password: data.temp_password })
     } catch (err: any) {
       setFormError(err.response?.data?.detail ?? 'Erro ao criar usuário.')
     } finally { setSaving(false) }
+  }
+
+  function copyCreds() {
+    if (!createdCreds) return
+    navigator.clipboard.writeText(`Usuário: ${createdCreds.username}\nSenha temporária: ${createdCreds.password}`)
+      .then(() => { setCredsCopied(true); setTimeout(() => setCredsCopied(false), 2000) })
+  }
+
+  function closeCredsReveal() {
+    setCreatedCreds(null); setCredsCopied(false); setShowModal(false)
+    setToast({ msg: 'Usuário criado com sucesso', ok: true })
   }
 
   async function toggleActive(user: UserItem) {
@@ -562,7 +576,7 @@ function UsuariosTab() {
       )}
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button onClick={() => { setShowModal(true); setFormError('') }}
+        <button onClick={() => { setShowModal(true); setFormError(''); setCreatedCreds(null) }}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
           <UserPlus size={15} /> Novo usuário
         </button>
@@ -595,6 +609,9 @@ function UsuariosTab() {
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: user.is_active ? 'rgba(16,185,129,0.12)' : 'rgba(107,114,128,0.12)', color: user.is_active ? '#10B981' : '#6B7280' }}>{user.is_active ? 'Ativo' : 'Inativo'}</span>
+                      {user.must_change_password && (
+                        <div style={{ fontSize: 11, color: '#D97706', marginTop: 4 }}>Precisa trocar senha</div>
+                      )}
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fmtDate(user.created_at)}</td>
                     <td style={{ padding: '12px 16px' }}>
@@ -634,7 +651,7 @@ function UsuariosTab() {
                 { label: 'Nome', field: 'first_name', type: 'text', placeholder: 'Nome do usuário' },
                 { label: 'Email', field: 'email', type: 'email', placeholder: 'email@empresa.com' },
                 { label: 'Username', field: 'username', type: 'text', placeholder: 'username' },
-                { label: 'Nova senha (deixe em branco para manter)', field: 'password', type: 'password', placeholder: '••••••••' },
+                { label: 'Nova senha (deixe em branco para manter) — força troca no próximo login', field: 'password', type: 'password', placeholder: '••••••••' },
               ].map(({ label, field, type, placeholder }) => (
                 <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>{label}</label>
@@ -664,51 +681,80 @@ function UsuariosTab() {
       )}
 
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setShowModal(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => { if (!createdCreds) setShowModal(false) }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Novo Usuário</span>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex' }}><X size={18} /></button>
-            </div>
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {[
-                { label: 'Nome', field: 'first_name', type: 'text', placeholder: 'Nome do usuário' },
-                { label: 'Email *', field: 'email', type: 'email', placeholder: 'email@empresa.com' },
-                { label: 'Username *', field: 'username', type: 'text', placeholder: 'username' },
-                { label: 'Senha *', field: 'password', type: 'password', placeholder: '••••••••' },
-              ].map(({ label, field, type, placeholder }) => (
-                <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>{label}</label>
-                  <input type={type} placeholder={placeholder} value={form[field as keyof typeof form]}
-                    onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
-                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
+            {createdCreds ? (
+              <>
+                <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)' }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Usuário criado</span>
                 </div>
-              ))}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Perfil</label>
-                <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
-                  {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              {form.role === 'supervisor' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Equipe</label>
-                  <select value={form.team} onChange={e => setForm(f => ({ ...f, team: e.target.value }))}
-                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
-                    <option value="">Nenhuma</option>
-                    {TEAM_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: 0 }}>
+                    Copie a senha temporária agora — ela não fica visível depois de fechar esta janela. A pessoa vai precisar trocá-la no primeiro login.
+                  </p>
+                  <div style={{ background: 'var(--bg-subtle)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div><span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>Usuário: </span><code style={{ fontSize: 13, color: 'var(--text-2)' }}>{createdCreds.username}</code></div>
+                    <div><span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>Senha: </span><code style={{ fontSize: 13, color: 'var(--text-2)' }}>{createdCreds.password}</code></div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
+                    <button onClick={copyCreds} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'none', color: credsCopied ? '#10B981' : 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                      {credsCopied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+                    </button>
+                    <button onClick={closeCredsReveal} style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
+                      Concluir
+                    </button>
+                  </div>
                 </div>
-              )}
-              {formError && <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{formError}</p>}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
-                <button onClick={() => setShowModal(false)} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={handleCreate} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: saving ? '#93C5FD' : '#2563EB', color: 'white', border: 'none', cursor: saving ? 'not-allowed' : 'pointer' }}>
-                  {saving ? 'Criando...' : 'Criar usuário'}
-                </button>
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Novo Usuário</span>
+                  <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex' }}><X size={18} /></button>
+                </div>
+                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {[
+                    { label: 'Nome', field: 'first_name', type: 'text', placeholder: 'Nome do usuário' },
+                    { label: 'Email *', field: 'email', type: 'email', placeholder: 'email@empresa.com' },
+                    { label: 'Username *', field: 'username', type: 'text', placeholder: 'username' },
+                  ].map(({ label, field, type, placeholder }) => (
+                    <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>{label}</label>
+                      <input type={type} placeholder={placeholder} value={form[field as keyof typeof form]}
+                        onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
+                    </div>
+                  ))}
+                  <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: 0 }}>
+                    A senha é gerada automaticamente e mostrada depois de criar — a pessoa troca no primeiro login.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Perfil</label>
+                    <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
+                      {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  {form.role === 'supervisor' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Equipe</label>
+                      <select value={form.team} onChange={e => setForm(f => ({ ...f, team: e.target.value }))}
+                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
+                        <option value="">Nenhuma</option>
+                        {TEAM_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {formError && <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{formError}</p>}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
+                    <button onClick={() => setShowModal(false)} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Cancelar</button>
+                    <button onClick={handleCreate} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: saving ? '#93C5FD' : '#2563EB', color: 'white', border: 'none', cursor: saving ? 'not-allowed' : 'pointer' }}>
+                      {saving ? 'Criando...' : 'Criar usuário'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

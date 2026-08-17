@@ -13,8 +13,8 @@ from app.models.app_settings import AppSettings
 from app.teams import TEAMS, TEAM_BY_SLUG, team_key_setting
 from app.sync_followize import update_tokens_in_memory, _fetch_all_leads, _upsert_lead, _date_from_lookback, _load_tokens_from_db, _save_sync_status
 from app.models import Lead
-from app.schemas.user import UserAdminCreate, UserAdminUpdate, UserAdminResponse
-from app.security import hash_password
+from app.schemas.user import UserAdminCreate, UserAdminUpdate, UserAdminResponse, UserAdminCreateResponse
+from app.security import hash_password, generate_temp_password
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -414,7 +414,7 @@ def list_users(
     return db.query(User).order_by(User.created_at.asc()).all()
 
 
-@router.post("/users", response_model=UserAdminResponse, status_code=201)
+@router.post("/users", response_model=UserAdminCreateResponse, status_code=201)
 def create_user(
     body: UserAdminCreate,
     current_user: User = Depends(get_current_user),
@@ -425,18 +425,20 @@ def create_user(
         raise HTTPException(status_code=409, detail="Email já cadastrado")
     if db.query(User).filter(User.username == body.username).first():
         raise HTTPException(status_code=409, detail="Username já cadastrado")
+    temp_password = generate_temp_password()
     user = User(
         email=body.email,
         username=body.username,
-        password_hash=hash_password(body.password),
+        password_hash=hash_password(temp_password),
         first_name=body.first_name,
         role=body.role,
         team=body.team,
+        must_change_password=True,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    return UserAdminCreateResponse(**UserAdminResponse.model_validate(user).model_dump(), temp_password=temp_password)
 
 
 @router.patch("/users/{user_id}", response_model=UserAdminResponse)
@@ -470,6 +472,7 @@ def update_user(
         user.username = body.username
     if body.password is not None and body.password.strip():
         user.password_hash = hash_password(body.password)
+        user.must_change_password = True
     db.commit()
     db.refresh(user)
     return user

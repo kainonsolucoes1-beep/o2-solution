@@ -20,6 +20,9 @@ api.interceptors.response.use(
       localStorage.removeItem('token')
       window.location.href = '/login'
     }
+    if (error.response?.status === 403 && error.response?.data?.must_change_password && window.location.pathname !== '/change-password') {
+      window.location.href = '/change-password'
+    }
     return Promise.reject(error)
   }
 )

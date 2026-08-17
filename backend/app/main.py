@@ -3,8 +3,9 @@ import secrets
 
 from app.api import login_routes
 from app.api import me_routes
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
@@ -15,7 +16,7 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
 from sqlalchemy import text
-from app.database import engine, Base, get_db
+from app.database import engine, Base, get_db, SessionLocal
 from app.models import User, Lead, LeadNote, LeadStatusHistory, AppSettings
 from app.models.form_user import FormUser
 from app.schemas.lead import LeadCreate, LeadResponse
@@ -34,6 +35,7 @@ from app.api import financeiro_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler, sync_leads_backfill
+from app.security import verify_token
 
 load_dotenv()
 Base.metadata.create_all(bind=engine)
@@ -75,6 +77,33 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rotas que continuam acessiveis mesmo com must_change_password=True,
+# pra dar pro usuario um jeito de sair do estado preso.
+_PASSWORD_GATE_ALLOWLIST = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/me",
+    "/api/v1/auth/change-password",
+}
+
+
+@app.middleware("http")
+async def enforce_password_change(request: Request, call_next):
+    if request.url.path in _PASSWORD_GATE_ALLOWLIST or not request.url.path.startswith("/api/v1/"):
+        return await call_next(request)
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        user_id = verify_token(auth.split(" ", 1)[1])
+        if user_id:
+            db = SessionLocal()
+            try:
+                user = db.query(User).filter(User.id == user_id).first()
+            finally:
+                db.close()
+            if user and user.must_change_password:
+                return JSONResponse(status_code=403, content={"detail": "Troca de senha obrigatória", "must_change_password": True})
+    return await call_next(request)
+
 
 # Registrar rotas de autenticação
 app.include_router(auth_routes.router)
@@ -152,6 +181,7 @@ async def startup_event():
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_real_recebida NUMERIC(12,2)"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_real_a_receber NUMERIC(12,2)"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS team VARCHAR(255)"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false"))
         conn.execute(text("UPDATE users SET role = 'usuario' WHERE role = 'user'"))
         conn.execute(text("UPDATE leads SET categoria = modalidade, modalidade = NULL WHERE modalidade ILIKE '%coparticipa%' AND categoria IS NULL"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS atendimentos_json TEXT NOT NULL DEFAULT '{}'"))

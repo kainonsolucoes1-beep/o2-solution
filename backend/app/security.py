@@ -3,6 +3,8 @@ from typing import Optional
 from jose import JWTError, jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+import secrets
+import string
 
 SECRET_KEY = os.getenv("SECRET_KEY", "sua-chave-super-secreta-123456")
 ALGORITHM = "HS256"
@@ -10,6 +12,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 480))
 
 def hash_password(password: str) -> str:
     return generate_password_hash(password, method="pbkdf2:sha256")
+
+def generate_temp_password(length: int = 10) -> str:
+    """Senha temporária aleatória pra usuário recém-criado — substitui uma
+    senha padrão fixa (ex: '123456'), que ficaria valendo igual pra todo
+    mundo até o primeiro login."""
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return check_password_hash(hashed_password, plain_password)

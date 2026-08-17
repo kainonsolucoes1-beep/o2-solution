@@ -5,8 +5,8 @@ from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
-from app.schemas import UserLogin, TokenResponse, UserResponse
-from app.security import verify_password, create_access_token, verify_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads
+from app.schemas import UserLogin, TokenResponse, UserResponse, ChangePasswordRequest
+from app.security import verify_password, create_access_token, verify_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, hash_password
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -58,8 +58,23 @@ async def login(credentials: UserLogin, request: Request, db: Session = Depends(
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
 
     access_token = create_access_token(data={"sub": str(user.id)})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "must_change_password": user.must_change_password}
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.post("/change-password")
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Senha atual incorreta")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="A nova senha precisa ter pelo menos 8 caracteres")
+    current_user.password_hash = hash_password(body.new_password)
+    current_user.must_change_password = False
+    db.commit()
+    return {"success": True}

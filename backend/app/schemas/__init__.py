@@ -1,5 +1,5 @@
 from app.schemas.lead import LeadCreate, LeadResponse
-from app.schemas.user import UserRegister, UserLogin, TokenResponse, UserResponse
+from app.schemas.user import UserRegister, UserLogin, TokenResponse, UserResponse, ChangePasswordRequest
 
 __all__ = [
     "LeadCreate",
@@ -8,4 +8,5 @@ __all__ = [
     "UserLogin",
     "TokenResponse",
     "UserResponse",
+    "ChangePasswordRequest",
 ]

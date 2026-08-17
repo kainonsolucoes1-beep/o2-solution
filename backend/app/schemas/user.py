@@ -16,6 +16,7 @@ class UserLogin(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    must_change_password: bool = False
 
 class UserResponse(BaseModel):
     id: UUID
@@ -24,9 +25,15 @@ class UserResponse(BaseModel):
     first_name: Optional[str]
     role: str = "usuario"
     created_at: datetime
+    must_change_password: bool = False
 
     class Config:
         from_attributes = True
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class OperatorInfo(BaseModel):
@@ -37,7 +44,6 @@ class OperatorInfo(BaseModel):
 class UserAdminCreate(BaseModel):
     email: EmailStr
     username: str
-    password: str
     first_name: Optional[str] = None
     role: str = "usuario"
     team: Optional[str] = None
@@ -61,7 +67,12 @@ class UserAdminResponse(BaseModel):
     role: str
     team: Optional[str]
     is_active: bool
+    must_change_password: bool
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class UserAdminCreateResponse(UserAdminResponse):
+    temp_password: str
