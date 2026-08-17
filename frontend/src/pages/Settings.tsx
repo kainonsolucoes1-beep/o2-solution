@@ -119,7 +119,10 @@ function ConfiguracoesTab() {
     "email": "lucas@teste.com",
     "phone": "11999999999",
     "origin": "Site Institucional",
-    "conversion_point": "{embed_url}"
+    "conversion_point": "{embed_url}",
+    "modalidade": "Empresarial",
+    "faixa_29_33": 1,
+    "faixa_34_38": 2
   }'`
   }
 
@@ -326,7 +329,8 @@ function ConfiguracoesTab() {
                 { field: 'message', required: false, desc: 'Mensagem livre do formulário' },
                 { field: 'origin', required: false, desc: 'Ex: "Site Institucional" (padrão: "Orgânico")' },
                 { field: 'conversion_point', required: false, desc: 'Ex: use {embed_url} no Gravity Forms pra capturar a URL da página automaticamente' },
-                { field: 'modalidade', required: false, desc: 'Modalidade de interesse' },
+                { field: 'modalidade', required: false, desc: 'Tipo de contratação / modalidade do plano (ex: "Empresarial", "Individual", "PME Porte II")' },
+                { field: 'faixa_0_18 … faixa_59_mais', required: false, desc: 'Quantidade de pessoas por faixa etária (número inteiro, padrão 0). 10 campos: faixa_0_18, faixa_19_23, faixa_24_28, faixa_29_33, faixa_34_38, faixa_39_43, faixa_44_48, faixa_49_53, faixa_54_58, faixa_59_mais' },
               ].map((row, i, arr) => (
                 <tr key={row.field}>
                   <td style={{ padding: '6px 8px 6px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-in)' : 'none', whiteSpace: 'nowrap' }}>
