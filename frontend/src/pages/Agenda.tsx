@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
 import { statusLabel } from '../utils/statusLabel'
+import { useTheme } from '../ThemeContext'
 
 interface AgendaItem {
   id: string
@@ -60,6 +61,7 @@ function dateKey(d: Date) {
 
 export default function Agenda() {
   const navigate = useNavigate()
+  const { dark } = useTheme()
   const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); return d })
   const [items, setItems] = useState<AgendaItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -121,7 +123,7 @@ export default function Agenda() {
   }, [weeks, todayKey])
 
   return (
-    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
+    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)' }}>Agenda / Calendário</h1>
