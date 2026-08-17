@@ -181,7 +181,7 @@ export default function Agenda() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg-subtle)' }}>
           {WEEKDAYS.map(w => (
-            <div key={w} style={{ padding: '10px 12px', fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center', borderBottom: '1px solid var(--border-lt)' }}>
+            <div key={w} style={{ padding: '10px 12px', fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
               {w}
             </div>
           ))}
@@ -207,8 +207,8 @@ export default function Agenda() {
                     key={di}
                     style={{
                       minHeight: 120, padding: 8,
-                      borderRight: di < 6 ? '1px solid var(--border-lt)' : 'none',
-                      borderBottom: '1px solid var(--border-lt)',
+                      borderRight: di < 6 ? '1px solid var(--border)' : 'none',
+                      borderBottom: '1px solid var(--border)',
                       display: 'flex', flexDirection: 'column', gap: 4,
                       background: !day ? 'var(--bg-hover)' : undefined,
                       opacity: !day ? 0.4 : 1,
