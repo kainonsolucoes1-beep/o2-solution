@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   UserPlus, X, Pencil,
   KeyRound, ToggleLeft, ToggleRight, Copy, Check, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
-
-const TABS = ['Configurações', 'Usuários', 'Formulário'] as const
-type Tab = typeof TABS[number]
 
 // ── Configurações tab ────────────────────────────────────────────────────────
 interface SyncHealth {
@@ -910,33 +907,31 @@ function FormularioTab() {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState<Tab>('Configurações')
+  const { section } = useParams<{ section: string }>()
+  const isUsuarios = section === 'usuarios'
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Configurações</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Integrações, usuários e acesso ao formulário</p>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>
+          {isUsuarios ? 'Usuários' : 'API'}
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+          {isUsuarios ? 'Gestão de usuários e acesso ao formulário' : 'Integrações, chaves e sincronização'}
+        </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, marginBottom: 28, borderBottom: '2px solid var(--border)' }}>
-        {TABS.map(tab => {
-          const active = activeTab === tab
-          return (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              padding: '9px 20px', fontSize: 13, fontWeight: active ? 700 : 500,
-              color: active ? '#2563EB' : 'var(--text-subtle)',
-              background: 'none', border: 'none', cursor: 'pointer',
-              borderBottom: active ? '2px solid #2563EB' : '2px solid transparent',
-              marginBottom: -2, borderRadius: 0, transition: 'color 150ms',
-            }}>{tab}</button>
-          )
-        })}
-      </div>
-
-      {activeTab === 'Configurações' && <ConfiguracoesTab />}
-      {activeTab === 'Usuários'      && <UsuariosTab />}
-      {activeTab === 'Formulário'    && <FormularioTab />}
+      {isUsuarios ? (
+        <div className="flex flex-col" style={{ gap: 40 }}>
+          <UsuariosTab />
+          <div>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)', marginBottom: 16 }}>Acesso ao Formulário</h2>
+            <FormularioTab />
+          </div>
+        </div>
+      ) : (
+        <ConfiguracoesTab />
+      )}
     </div>
   )
 }

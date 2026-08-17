@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays,
+  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays,
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
@@ -18,7 +18,11 @@ const NAV = [
   { to: '/kpis',             label: 'Performance',      Icon: TrendingUp,      adminOnly: false },
   { to: '/financeiro',       label: 'Financeiro',       Icon: DollarSign,      adminOnly: true  },
   { to: '/telefonia',        label: 'Telefonia',        Icon: Phone,           adminOnly: true  },
-  { to: '/settings',         label: 'Configurações',    Icon: Settings,        adminOnly: false },
+]
+
+const SETTINGS_CHILDREN = [
+  { to: '/settings/usuarios', label: 'Usuários' },
+  { to: '/settings/api',      label: 'API' },
 ]
 
 export default function Sidebar() {
@@ -30,6 +34,7 @@ export default function Sidebar() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [user, setUser] = useState<UserInfo | null>(null)
   const [agendaAlerts, setAgendaAlerts] = useState<AgendaAlerts | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(location.pathname.startsWith('/settings'))
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768)
@@ -38,6 +43,10 @@ export default function Sidebar() {
   }, [])
 
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/settings')) setSettingsOpen(true)
+  }, [location.pathname])
 
   useEffect(() => {
     api.get<UserInfo>('/api/v1/auth/me').then(r => setUser(r.data)).catch(() => {})
@@ -110,6 +119,74 @@ export default function Sidebar() {
       </Link>
     )
   })
+
+  const settingsGroupActive = location.pathname.startsWith('/settings')
+
+  const settingsGroup = slim ? (
+    <Link
+      key="settings"
+      to="/settings"
+      title="Configurações"
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '10px 0', borderRadius: 8, textDecoration: 'none',
+        background: settingsGroupActive ? 'rgba(0,109,183,0.16)' : 'transparent',
+        color: settingsGroupActive ? '#4FB0E8' : '#9CA3AF',
+        borderLeft: settingsGroupActive ? '3px solid #006db7' : '3px solid transparent',
+        transition: 'background 150ms',
+      }}
+      onMouseEnter={e => { if (!settingsGroupActive) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' }}
+      onMouseLeave={e => { if (!settingsGroupActive) e.currentTarget.style.background = 'transparent' }}
+    >
+      <Settings size={17} />
+    </Link>
+  ) : (
+    <div key="settings">
+      <button
+        onClick={() => setSettingsOpen(o => !o)}
+        aria-expanded={settingsOpen}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+          padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+          background: settingsGroupActive && !settingsOpen ? 'rgba(0,109,183,0.16)' : 'transparent',
+          color: settingsGroupActive ? '#4FB0E8' : '#9CA3AF',
+          borderLeft: settingsGroupActive && !settingsOpen ? '3px solid #006db7' : '3px solid transparent',
+          fontSize: 13, fontWeight: settingsGroupActive ? 600 : 400,
+          transition: 'background 150ms',
+        }}
+        onMouseEnter={e => { if (!(settingsGroupActive && !settingsOpen)) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' }}
+        onMouseLeave={e => { if (!(settingsGroupActive && !settingsOpen)) e.currentTarget.style.background = 'transparent' }}
+      >
+        <Settings size={17} />
+        <span style={{ flex: 1, textAlign: 'left' }}>Configurações</span>
+        <ChevronDown size={14} style={{ color: '#6B7280', transition: 'transform 180ms ease', transform: settingsOpen ? 'rotate(180deg)' : 'none' }} />
+      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden', maxHeight: settingsOpen ? 120 : 0, transition: 'max-height 220ms ease' }}>
+        {SETTINGS_CHILDREN.map(child => {
+          const isActive = location.pathname === child.to
+          return (
+            <Link
+              key={child.to}
+              to={child.to}
+              style={{
+                display: 'flex', alignItems: 'center',
+                padding: '8px 12px 8px 39px', borderRadius: 8, textDecoration: 'none',
+                background: isActive ? 'rgba(0,109,183,0.16)' : 'transparent',
+                color: isActive ? '#4FB0E8' : '#9CA3AF',
+                borderLeft: isActive ? '3px solid #006db7' : '3px solid transparent',
+                fontSize: 12.5, fontWeight: isActive ? 600 : 400,
+                transition: 'background 150ms',
+              }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+            >
+              {child.label}
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
 
   const themeBtn = (
     <button
@@ -201,6 +278,7 @@ export default function Sidebar() {
           </div>
           <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
             {navLinks}
+            {settingsGroup}
           </nav>
           {footer}
         </aside>
@@ -238,6 +316,7 @@ export default function Sidebar() {
       </div>
       <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
         {navLinks}
+        {settingsGroup}
       </nav>
       {footer}
     </aside>

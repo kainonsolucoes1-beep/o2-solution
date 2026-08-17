@@ -29,7 +29,8 @@ export default function App() {
           <Route path="/leads-report" element={<LeadsReport />} />
           <Route path="/leads/:id" element={<LeadDetailPage />} />
           <Route path="/pipeline" element={<Pipeline />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings" element={<Navigate to="/settings/api" replace />} />
+          <Route path="/settings/:section" element={<Settings />} />
           <Route path="/users" element={<Users />} />
           <Route path="/forms" element={<Forms />} />
           <Route path="/telefonia" element={<Telefonia />} />
