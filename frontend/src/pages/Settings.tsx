@@ -40,6 +40,11 @@ function ConfiguracoesTab() {
   const [publicApiKey, setPublicApiKey] = useState<string | null>(null)
   const [publicKeyLoading, setPublicKeyLoading] = useState(true)
   const [publicKeyCopied, setPublicKeyCopied] = useState(false)
+  const [rotatingKey, setRotatingKey] = useState(false)
+  const [teamKeys, setTeamKeys] = useState<Record<string, { name: string; value: string }>>({})
+  const [teamKeysLoading, setTeamKeysLoading] = useState(true)
+  const [teamKeyCopiedSlug, setTeamKeyCopiedSlug] = useState<string | null>(null)
+  const [rotatingTeamSlug, setRotatingTeamSlug] = useState<string | null>(null)
 
   const fetchHealth = useCallback(async () => {
     try { const res = await api.get('/api/v1/admin/sync-status'); setHealth(res.data as SyncHealth) }
@@ -60,9 +65,45 @@ function ConfiguracoesTab() {
       .finally(() => setPublicKeyLoading(false))
   }, [])
 
+  useEffect(() => {
+    api.get<Record<string, { name: string; value: string }>>('/api/v1/admin/public-leads-team-keys')
+      .then(r => setTeamKeys(r.data || {}))
+      .catch(() => setTeamKeys({}))
+      .finally(() => setTeamKeysLoading(false))
+  }, [])
+
   function copyPublicKey() {
     if (!publicApiKey) return
     navigator.clipboard.writeText(publicApiKey).then(() => { setPublicKeyCopied(true); setTimeout(() => setPublicKeyCopied(false), 2000) })
+  }
+
+  async function rotatePublicKey() {
+    if (!window.confirm('Gerar uma nova chave? A chave atual para de funcionar imediatamente — qualquer webhook usando ela vai passar a receber erro até você colar a nova.')) return
+    setRotatingKey(true)
+    try {
+      const res = await api.post<{ value: string }>('/api/v1/admin/public-leads-api-key/rotate')
+      setPublicApiKey(res.data.value)
+    } finally {
+      setRotatingKey(false)
+    }
+  }
+
+  function copyTeamKey(slug: string) {
+    const value = teamKeys[slug]?.value
+    if (!value) return
+    navigator.clipboard.writeText(value).then(() => { setTeamKeyCopiedSlug(slug); setTimeout(() => setTeamKeyCopiedSlug(null), 2000) })
+  }
+
+  async function rotateTeamKey(slug: string) {
+    const name = teamKeys[slug]?.name ?? slug
+    if (!window.confirm(`Gerar uma nova chave para ${name}? A chave atual para de funcionar imediatamente — qualquer webhook dessa equipe vai passar a receber erro até você colar a nova.`)) return
+    setRotatingTeamSlug(slug)
+    try {
+      const res = await api.post<{ value: string }>(`/api/v1/admin/public-leads-team-keys/${slug}/rotate`)
+      setTeamKeys(prev => ({ ...prev, [slug]: { name, value: res.data.value } }))
+    } finally {
+      setRotatingTeamSlug(null)
+    }
   }
 
   async function handleSave() {
@@ -160,28 +201,65 @@ function ConfiguracoesTab() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+      <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Chave de API — Leads públicos (sites)</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Chaves de Integração — Leads públicos (sites)</h2>
           <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>Use no webhook do Gravity Forms (ou outro formulário externo) para enviar leads direto pro sistema, sem passar pelo Followize.</p>
         </div>
-        {publicKeyLoading ? (
-          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
-        ) : publicApiKey ? (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center" style={{ gap: 8 }}>
-              <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{publicApiKey}</code>
-              <button onClick={copyPublicKey} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: publicKeyCopied ? '#10B981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                {publicKeyCopied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
-              </button>
+
+        <div>
+          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Conta</p>
+          {publicKeyLoading ? (
+            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
+          ) : publicApiKey ? (
+            <div className="flex flex-col gap-1">
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>Chave da conta</span>
+              <div className="flex items-center" style={{ gap: 8 }}>
+                <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{publicApiKey}</code>
+                <button onClick={copyPublicKey} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: publicKeyCopied ? '#10B981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                  {publicKeyCopied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+                </button>
+                <button onClick={rotatePublicKey} disabled={rotatingKey} title="Gera uma nova chave e invalida a atual imediatamente" style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: rotatingKey ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, opacity: rotatingKey ? 0.6 : 1 }}>
+                  <KeyRound size={13} /> {rotatingKey ? 'Gerando...' : 'Rotacionar'}
+                </button>
+              </div>
             </div>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>
-              Endpoint: <code>POST /api/v1/public/leads</code> · Header: <code>X-API-Key: &lt;chave acima&gt;</code> · Campos: name, email, phone, company, message, origin, conversion_point.
-            </p>
-          </div>
-        ) : (
-          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar a chave.</p>
-        )}
+          ) : (
+            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar a chave.</p>
+          )}
+        </div>
+
+        <div style={{ height: 1, background: 'var(--border-in)' }} />
+
+        <div>
+          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Equipes</p>
+          {teamKeysLoading ? (
+            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
+          ) : Object.keys(teamKeys).length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar as chaves de equipe.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {Object.entries(teamKeys).map(([slug, team]) => (
+                <div key={slug} className="flex flex-col gap-1">
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>{team.name}</span>
+                  <div className="flex items-center" style={{ gap: 8 }}>
+                    <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{team.value}</code>
+                    <button onClick={() => copyTeamKey(slug)} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: teamKeyCopiedSlug === slug ? '#10B981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                      {teamKeyCopiedSlug === slug ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+                    </button>
+                    <button onClick={() => rotateTeamKey(slug)} disabled={rotatingTeamSlug === slug} title="Gera uma nova chave e invalida a atual imediatamente" style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: rotatingTeamSlug === slug ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, opacity: rotatingTeamSlug === slug ? 0.6 : 1 }}>
+                      <KeyRound size={13} /> {rotatingTeamSlug === slug ? 'Gerando...' : 'Rotacionar'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>
+          Endpoint: <code>POST /api/v1/public/leads</code> · Headers: <code>X-API-Key</code> (conta) + <code>X-Team-Key</code> (equipe) · Campos: name, email, phone, company, message, origin, conversion_point.
+        </p>
       </div>
 
       <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>

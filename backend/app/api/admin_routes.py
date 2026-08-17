@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models import User
 from app.models.app_settings import AppSettings
+from app.teams import TEAMS, TEAM_BY_SLUG, team_key_setting
 from app.sync_followize import update_tokens_in_memory, _fetch_all_leads, _upsert_lead, _date_from_lookback, _load_tokens_from_db, _save_sync_status
 from app.models import Lead
 from app.schemas.user import UserAdminCreate, UserAdminUpdate, UserAdminResponse
@@ -96,6 +98,55 @@ def get_public_leads_api_key(
     _require_admin(current_user)
     row = db.query(AppSettings).filter(AppSettings.key == "public_leads_api_key").first()
     return {"value": row.value if row else ""}
+
+
+@router.post("/public-leads-api-key/rotate")
+def rotate_public_leads_api_key(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    new_key = secrets.token_urlsafe(32)
+    row = db.query(AppSettings).filter(AppSettings.key == "public_leads_api_key").first()
+    if row:
+        row.value = new_key
+    else:
+        db.add(AppSettings(key="public_leads_api_key", value=new_key))
+    db.commit()
+    logger.warning("Chave de API de leads públicos rotacionada por %s", current_user.email)
+    return {"value": new_key}
+
+
+@router.get("/public-leads-team-keys")
+def get_public_leads_team_keys(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    rows = {r.key: r.value for r in db.query(AppSettings).filter(AppSettings.key.in_([team_key_setting(t["slug"]) for t in TEAMS])).all()}
+    return {t["slug"]: {"name": t["name"], "value": rows.get(team_key_setting(t["slug"]), "")} for t in TEAMS}
+
+
+@router.post("/public-leads-team-keys/{slug}/rotate")
+def rotate_public_leads_team_key(
+    slug: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    team = TEAM_BY_SLUG.get(slug)
+    if not team:
+        raise HTTPException(status_code=404, detail="Equipe não encontrada")
+    new_key = secrets.token_urlsafe(32)
+    setting_key = team_key_setting(slug)
+    row = db.query(AppSettings).filter(AppSettings.key == setting_key).first()
+    if row:
+        row.value = new_key
+    else:
+        db.add(AppSettings(key=setting_key, value=new_key))
+    db.commit()
+    logger.warning("Chave de API da equipe %s rotacionada por %s", team["name"], current_user.email)
+    return {"value": new_key}
 
 
 @router.get("/sync-status")

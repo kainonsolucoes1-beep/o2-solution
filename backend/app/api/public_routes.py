@@ -1,3 +1,5 @@
+import hmac
+import logging
 import time
 from collections import defaultdict, deque
 from typing import Optional
@@ -9,8 +11,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Lead, User
 from app.models.app_settings import AppSettings
+from app.teams import TEAMS, team_key_setting, team_attendants_setting, team_rr_index_setting
 
 router = APIRouter(prefix="/api/v1/public", tags=["public"])
+logger = logging.getLogger(__name__)
 
 _RATE_LIMIT_WINDOW = 60
 _RATE_LIMIT_MAX = 10
@@ -75,13 +79,13 @@ def _build_notes(body: "PublicLeadCreate") -> Optional[str]:
     return "\n\n".join(parts) if parts else None
 
 
-def _next_attendant(db: Session) -> Optional[str]:
-    """Roda a fila de atendentes (round-robin) guardada em AppSettings.
+def _next_attendant(db: Session, team_slug: str) -> Optional[str]:
+    """Roda a fila de atendentes (round-robin) da equipe, guardada em AppSettings.
     Bloqueia as duas linhas (FOR UPDATE) para evitar corrida entre leads
     simultaneos pegando o mesmo indice."""
     attendants_row = (
         db.query(AppSettings)
-        .filter(AppSettings.key == "public_leads_attendants")
+        .filter(AppSettings.key == team_attendants_setting(team_slug))
         .with_for_update()
         .first()
     )
@@ -89,9 +93,10 @@ def _next_attendant(db: Session) -> Optional[str]:
     if not names:
         return None
 
+    rr_key = team_rr_index_setting(team_slug)
     index_row = (
         db.query(AppSettings)
-        .filter(AppSettings.key == "public_leads_rr_index")
+        .filter(AppSettings.key == rr_key)
         .with_for_update()
         .first()
     )
@@ -103,8 +108,18 @@ def _next_attendant(db: Session) -> Optional[str]:
     if index_row:
         index_row.value = next_index
     else:
-        db.add(AppSettings(key="public_leads_rr_index", value=next_index))
+        db.add(AppSettings(key=rr_key, value=next_index))
     return attendant
+
+
+def _match_team(db: Session, x_team_key: str) -> Optional[dict]:
+    """Compara a chave de equipe recebida contra a chave de cada equipe
+    cadastrada, em tempo constante. Retorna o dict da equipe casada, ou None."""
+    for team in TEAMS:
+        row = db.query(AppSettings).filter(AppSettings.key == team_key_setting(team["slug"])).first()
+        if row and row.value and hmac.compare_digest(x_team_key, row.value):
+            return team
+    return None
 
 
 @router.post("/leads", status_code=201)
@@ -113,12 +128,20 @@ def create_public_lead(
     request: Request,
     db: Session = Depends(get_db),
     x_api_key: str = Header(..., alias="X-API-Key"),
+    x_team_key: str = Header(..., alias="X-Team-Key"),
 ):
-    _check_rate_limit(request.client.host if request.client else "unknown")
+    ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(ip)
 
     expected = db.query(AppSettings).filter(AppSettings.key == "public_leads_api_key").first()
-    if not expected or not expected.value or x_api_key != expected.value:
-        raise HTTPException(status_code=403, detail="Chave inválida")
+    if not expected or not expected.value or not hmac.compare_digest(x_api_key, expected.value):
+        logger.warning("Tentativa de chave de conta inválida em /public/leads — ip=%s key_prefix=%s", ip, x_api_key[:6])
+        raise HTTPException(status_code=403, detail="Chave da conta inválida")
+
+    team = _match_team(db, x_team_key)
+    if not team:
+        logger.warning("Tentativa de chave de equipe inválida em /public/leads — ip=%s key_prefix=%s", ip, x_team_key[:6])
+        raise HTTPException(status_code=403, detail="Chave da equipe inválida")
 
     name = body.name.strip()
     if not name:
@@ -135,7 +158,7 @@ def create_public_lead(
         raise HTTPException(status_code=409, detail="Lead já cadastrado")
 
     default_user = db.query(User).first()
-    attendant = _next_attendant(db)
+    attendant = _next_attendant(db, team["slug"])
     lead = Lead(
         name=name,
         email=body.email,
@@ -146,6 +169,7 @@ def create_public_lead(
         conversion_point=body.conversion_point,
         modalidade=body.modalidade,
         attendant=attendant,
+        team=team["name"],
         status="novo",
         user_id=default_user.id if default_user else None,
     )

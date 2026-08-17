@@ -191,12 +191,20 @@ async def startup_event():
         if not _db.query(_AS).filter(_AS.key == "public_leads_api_key").first():
             _db.add(_AS(key="public_leads_api_key", value=secrets.token_urlsafe(32)))
             _db.commit()
-        if not _db.query(_AS).filter(_AS.key == "public_leads_attendants").first():
-            _db.add(_AS(key="public_leads_attendants", value="Julia,Breno"))
-            _db.commit()
-        if not _db.query(_AS).filter(_AS.key == "public_leads_rr_index").first():
-            _db.add(_AS(key="public_leads_rr_index", value="0"))
-            _db.commit()
+        from app.teams import TEAMS as _TEAMS, team_key_setting as _team_key_setting, team_attendants_setting as _team_attendants_setting, team_rr_index_setting as _team_rr_index_setting
+        for _team in _TEAMS:
+            _key_setting = _team_key_setting(_team["slug"])
+            if not _db.query(_AS).filter(_AS.key == _key_setting).first():
+                _db.add(_AS(key=_key_setting, value=secrets.token_urlsafe(32)))
+                _db.commit()
+            _attendants_setting = _team_attendants_setting(_team["slug"])
+            if not _db.query(_AS).filter(_AS.key == _attendants_setting).first():
+                _db.add(_AS(key=_attendants_setting, value=_team["seed_attendants"]))
+                _db.commit()
+            _rr_setting = _team_rr_index_setting(_team["slug"])
+            if not _db.query(_AS).filter(_AS.key == _rr_setting).first():
+                _db.add(_AS(key=_rr_setting, value="0"))
+                _db.commit()
         if not _db.query(_AS).filter(_AS.key == "current_plan_backfill_done_v3").first():
             _db.add(_AS(key="current_plan_backfill_done_v3", value="1"))
             _db.commit()
