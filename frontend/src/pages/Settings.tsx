@@ -45,6 +45,8 @@ function ConfiguracoesTab() {
   const [teamKeysLoading, setTeamKeysLoading] = useState(true)
   const [teamKeyCopiedSlug, setTeamKeyCopiedSlug] = useState<string | null>(null)
   const [rotatingTeamSlug, setRotatingTeamSlug] = useState<string | null>(null)
+  const [docsTeamSlug, setDocsTeamSlug] = useState<string | null>(null)
+  const [curlCopied, setCurlCopied] = useState(false)
 
   const fetchHealth = useCallback(async () => {
     try { const res = await api.get('/api/v1/admin/sync-status'); setHealth(res.data as SyncHealth) }
@@ -104,6 +106,28 @@ function ConfiguracoesTab() {
     } finally {
       setRotatingTeamSlug(null)
     }
+  }
+
+  const activeDocsTeamSlug = docsTeamSlug ?? Object.keys(teamKeys)[0] ?? null
+
+  function buildCurlExample(): string {
+    const apiBase = import.meta.env.VITE_API_URL || window.location.origin
+    const teamValue = activeDocsTeamSlug ? (teamKeys[activeDocsTeamSlug]?.value ?? '<chave-da-equipe>') : '<chave-da-equipe>'
+    return `curl -X POST ${apiBase}/api/v1/public/leads \\
+  -H "X-API-Key: ${publicApiKey ?? '<chave-da-conta>'}" \\
+  -H "X-Team-Key: ${teamValue}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Lucas Teste",
+    "email": "lucas@teste.com",
+    "phone": "11999999999",
+    "origin": "Site Institucional",
+    "conversion_point": "{embed_url}"
+  }'`
+  }
+
+  function copyCurl() {
+    navigator.clipboard.writeText(buildCurlExample()).then(() => { setCurlCopied(true); setTimeout(() => setCurlCopied(false), 2000) })
   }
 
   async function handleSave() {
@@ -260,6 +284,122 @@ function ConfiguracoesTab() {
         <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>
           Endpoint: <code>POST /api/v1/public/leads</code> · Headers: <code>X-API-Key</code> (conta) + <code>X-Team-Key</code> (equipe) · Campos: name, email, phone, company, message, origin, conversion_point.
         </p>
+      </div>
+
+      <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Documentação da API — Leads públicos</h2>
+          <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>Referência para integrar sites e automações (Gravity Forms, Make.com, etc.) direto com o o2-solution.</p>
+        </div>
+
+        <div className="flex items-center" style={{ gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: '#2563EB', padding: '3px 9px', borderRadius: 5, letterSpacing: '0.03em' }}>POST</span>
+          <span style={{ fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>/api/v1/public/leads</span>
+        </div>
+
+        <div>
+          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Headers obrigatórios</p>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: '5px 8px 5px 0', borderBottom: '1px solid var(--border-in)' }}><code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>X-API-Key</code></td>
+                <td style={{ padding: '5px 0', borderBottom: '1px solid var(--border-in)', color: 'var(--text-2)' }}>Chave da conta (seção "Conta" acima)</td>
+              </tr>
+              <tr>
+                <td style={{ padding: '5px 8px 5px 0', borderBottom: '1px solid var(--border-in)' }}><code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>X-Team-Key</code></td>
+                <td style={{ padding: '5px 0', borderBottom: '1px solid var(--border-in)', color: 'var(--text-2)' }}>Chave da equipe de destino do lead (seção "Equipes" acima)</td>
+              </tr>
+              <tr>
+                <td style={{ padding: '5px 8px 0 0' }}><code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>Content-Type</code></td>
+                <td style={{ padding: '5px 0 0', color: 'var(--text-2)' }}><code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>application/json</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Campos do corpo (JSON)</p>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <tbody>
+              {[
+                { field: 'name', required: true, desc: 'Nome do lead' },
+                { field: 'email', required: false, desc: 'Opcional* — email ou phone precisa vir preenchido' },
+                { field: 'phone', required: false, desc: 'Opcional* — email ou phone precisa vir preenchido' },
+                { field: 'company', required: false, desc: 'Empresa do lead' },
+                { field: 'message', required: false, desc: 'Mensagem livre do formulário' },
+                { field: 'origin', required: false, desc: 'Ex: "Site Institucional" (padrão: "Orgânico")' },
+                { field: 'conversion_point', required: false, desc: 'Ex: use {embed_url} no Gravity Forms pra capturar a URL da página automaticamente' },
+                { field: 'modalidade', required: false, desc: 'Modalidade de interesse' },
+              ].map((row, i, arr) => (
+                <tr key={row.field}>
+                  <td style={{ padding: '6px 8px 6px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-in)' : 'none', whiteSpace: 'nowrap' }}>
+                    <code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>{row.field}</code>
+                  </td>
+                  <td style={{ padding: '6px 8px 6px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-in)' : 'none', whiteSpace: 'nowrap' }}>
+                    {row.required ? (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', background: '#FEF2F2', padding: '1px 7px', borderRadius: 99 }}>obrigatório</span>
+                    ) : (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-subtle)', background: 'var(--bg-subtle)', padding: '1px 7px', borderRadius: 99 }}>opcional</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '6px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-in)' : 'none', color: 'var(--text-2)' }}>{row.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Respostas</p>
+          <div className="flex flex-col" style={{ gap: 6 }}>
+            {[
+              { code: '201', color: '#059669', desc: <>Lead criado — retorna <code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>lead_id</code></> },
+              { code: '403', color: '#DC2626', desc: 'Chave da conta ou da equipe inválida' },
+              { code: '409', color: '#D97706', desc: 'Lead já cadastrado (mesmo e-mail, ou telefone+nome)' },
+              { code: '422', color: '#D97706', desc: 'Faltou nome, ou faltou e-mail e telefone' },
+              { code: '429', color: '#D97706', desc: 'Mais de 10 requisições/min do mesmo IP' },
+            ].map(row => (
+              <div key={row.code} className="flex items-baseline" style={{ gap: 10, fontSize: 12.5 }}>
+                <span style={{ fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', fontWeight: 700, width: 32, flexShrink: 0, color: row.color }}>{row.code}</span>
+                <span style={{ color: 'var(--text-2)' }}>{row.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ height: 1, background: 'var(--border-in)' }} />
+
+        <div>
+          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Exemplo pronto pra copiar</p>
+          {Object.keys(teamKeys).length > 0 && (
+            <div className="flex" style={{ gap: 6, marginBottom: 10 }}>
+              {Object.entries(teamKeys).map(([slug, team]) => (
+                <button
+                  key={slug}
+                  onClick={() => setDocsTeamSlug(slug)}
+                  style={{
+                    fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 7,
+                    border: `1px solid ${activeDocsTeamSlug === slug ? '#2563EB' : 'var(--border-in)'}`,
+                    background: activeDocsTeamSlug === slug ? 'var(--accent-bg, #EFF6FF)' : 'var(--bg-subtle)',
+                    color: activeDocsTeamSlug === slug ? '#2563EB' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {team.name}
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ position: 'relative', background: '#0F172A', borderRadius: 8, padding: '14px 16px', overflowX: 'auto' }}>
+            <button
+              onClick={copyCurl}
+              style={{ position: 'absolute', top: 10, right: 10, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: curlCopied ? '#34D399' : '#E2E8F0', background: 'rgba(255,255,255,0.08)', border: `1px solid ${curlCopied ? '#34D399' : 'rgba(255,255,255,0.15)'}`, borderRadius: 6, padding: '5px 9px', cursor: 'pointer' }}
+            >
+              {curlCopied ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> Copiar</>}
+            </button>
+            <pre style={{ margin: 0, fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', fontSize: 12, lineHeight: 1.6, color: '#E2E8F0', whiteSpace: 'pre' }}>{buildCurlExample()}</pre>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
