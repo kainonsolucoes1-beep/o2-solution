@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Wallet, Plus, Pencil, Trash2, ChevronDown } from 'lucide-react'
+import { Wallet, Plus, Pencil, Trash2, ChevronDown, Check, X } from 'lucide-react'
 import api from '../api'
 import { fmtBRL, fmtDateOnly, parseBRNumber } from '../utils/leadFormat'
 import SectionCard from './SectionCard'
@@ -82,6 +82,9 @@ export default function LeadFinanceiroPanel({
 
   const [showAllParcelas, setShowAllParcelas] = useState(false)
 
+  const [confirmingRecebidoId, setConfirmingRecebidoId] = useState<string | null>(null)
+  const [savingQuickRecebidoId, setSavingQuickRecebidoId] = useState<string | null>(null)
+
   function fetchParcelas() {
     setLoading(true)
     api.get<ParcelasListResponse>(`/api/v1/leads/${leadId}/parcelas`)
@@ -90,7 +93,7 @@ export default function LeadFinanceiroPanel({
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchParcelas(); setShowAllParcelas(false) }, [leadId])
+  useEffect(() => { fetchParcelas(); setShowAllParcelas(false); setConfirmingRecebidoId(null) }, [leadId])
 
   function startEditGeral() {
     setGeralDraft({
@@ -152,6 +155,13 @@ export default function LeadFinanceiroPanel({
     })
       .then(() => { setEditingParcelaId(null); onSaved(); fetchParcelas() })
       .finally(() => setSavingParcelaEdit(false))
+  }
+
+  function quickMarkRecebido(id: string) {
+    setSavingQuickRecebidoId(id)
+    api.patch(`/api/v1/leads/${leadId}/parcelas/${id}`, { status: 'recebido' })
+      .then(() => { setConfirmingRecebidoId(null); onSaved(); fetchParcelas() })
+      .finally(() => setSavingQuickRecebidoId(null))
   }
 
   function deleteParcela(id: string) {
@@ -303,11 +313,47 @@ export default function LeadFinanceiroPanel({
                     </div>
                   )
                 }
+                if (confirmingRecebidoId === p.id) {
+                  const savingQuick = savingQuickRecebidoId === p.id
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid #FDE68A', background: s.bg, borderRadius: 8, padding: '8px 10px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', width: 20, flexShrink: 0 }}>{p.numero ?? '—'}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{fmtBRL(p.valor)}</span>
+                      <span style={{ flex: 1, fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)' }}>Marcar como recebida?</span>
+                      <button
+                        onClick={() => quickMarkRecebido(p.id)}
+                        disabled={savingQuick}
+                        title="Confirmar recebimento"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: 'none', background: '#059669', color: '#fff', cursor: savingQuick ? 'not-allowed' : 'pointer', opacity: savingQuick ? 0.6 : 1, flexShrink: 0 }}
+                      >
+                        <Check size={13} />
+                      </button>
+                      <button
+                        onClick={() => setConfirmingRecebidoId(null)}
+                        disabled={savingQuick}
+                        title="Cancelar"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: 'none', background: 'var(--border-lt)', color: 'var(--text-subtle)', cursor: savingQuick ? 'not-allowed' : 'pointer', flexShrink: 0 }}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  )
+                }
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--border-lt)', borderRadius: 8, padding: '8px 10px' }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', width: 20, flexShrink: 0 }}>{p.numero ?? '—'}</span>
                     <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{fmtBRL(p.valor)}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 8px', borderRadius: 99, flexShrink: 0 }}>{s.label}</span>
+                    {p.status === 'a_receber' ? (
+                      <button
+                        onClick={() => setConfirmingRecebidoId(p.id)}
+                        title="Marcar como recebida"
+                        style={{ fontSize: 10, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 8px', borderRadius: 99, flexShrink: 0, border: 'none', cursor: 'pointer' }}
+                      >
+                        {s.label}
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 8px', borderRadius: 99, flexShrink: 0 }}>{s.label}</span>
+                    )}
                     <span style={{ fontSize: 11, color: 'var(--text-subtle)', flexShrink: 0, minWidth: 62, textAlign: 'right' }}>
                       {p.previsao_recebimento ? fmtDateOnly(p.previsao_recebimento) : '—'}
                     </span>
