@@ -177,6 +177,16 @@ export default function LeadFinanceiroPanel({
   const total = recebida + aReceber
   const pct = total > 0 ? Math.round(recebida / total * 100) : 0
 
+  const isEmpty = total === 0
+    && titularLabel === 'Não informado'
+    && promotoraLabel === 'Não informado'
+    && modalidadeLabel === 'Não informado'
+    && operadoraLabel === 'Não informado'
+    && categoriaLabel === 'Não informado'
+    && dataVendaLabel === 'Não informado'
+    && (!data || data.parcelas.length === 0)
+  const collapsed = isEmpty && !editingGeral && !addingParcela
+
   return (
     <SectionCard
       title="Receita"
@@ -202,6 +212,18 @@ export default function LeadFinanceiroPanel({
       }
     >
       <div className="flex flex-col gap-4">
+        {collapsed ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Nenhuma receita registrada ainda</span>
+            <button
+              onClick={() => setAddingParcela(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+            >
+              <Plus size={13} /> Lançar parcela
+            </button>
+          </div>
+        ) : (
+        <>
         {total > 0 && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -414,6 +436,8 @@ export default function LeadFinanceiroPanel({
             </div>
           )}
         </div>
+        </>
+        )}
       </div>
     </SectionCard>
   )
