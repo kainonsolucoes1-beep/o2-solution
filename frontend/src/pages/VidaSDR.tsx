@@ -159,7 +159,7 @@ function StatCard({ label, value, simulated, delta, tall, onOpen }: {
       role="button" tabIndex={0}
       onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e.currentTarget)}
       onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(e.currentTarget) } }}
-      style={{ position: 'relative', minWidth: 0, padding: tall ? '26px 20px' : 20, borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', transition: 'border-color 120ms' }}
+      style={{ position: 'relative', minWidth: 0, display: 'flex', flexDirection: 'column', padding: tall ? '26px 20px' : 20, borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', transition: 'border-color 120ms' }}
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-in)' }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
     >
@@ -172,7 +172,7 @@ function StatCard({ label, value, simulated, delta, tall, onOpen }: {
       ) : simulated ? (
         <small style={{ display: 'block', marginTop: 10, fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)' }}>Sem variação no período</small>
       ) : null}
-      <em style={{ display: 'block', marginTop: 10, color: ACCENT, fontSize: 12, fontStyle: 'normal', fontWeight: 600, opacity: .9 }}>Ver detalhes →</em>
+      <em style={{ display: 'block', marginTop: 'auto', paddingTop: 10, color: ACCENT, fontSize: 12, fontStyle: 'normal', fontWeight: 600, opacity: .9 }}>Ver detalhes →</em>
     </div>
   )
 }
