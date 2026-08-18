@@ -759,15 +759,14 @@ export default function KPIs() {
     ...organicFontes.map(f => ({ ...f, tipo: 'canal' as const })),
     ...sdrDisplayFontes.map(f => ({ ...f, tipo: 'operador' as const })),
   ].sort((a, b) => b.captacoes - a.captacoes)
-  const rankingQualificado = rankingPool.filter(r => r.captacoes >= 3)
   const rankTopCap = rankingPool[0]
   const receitaVisible = rankingPool.some(r => r.receita_gerada != null)
   const rankTopReceita = rankingPool
     .filter((r): r is typeof rankingPool[number] & { receita_gerada: number } => r.receita_gerada != null && r.receita_gerada > 0)
     .sort((a, b) => b.receita_gerada - a.receita_gerada)[0]
-  const rankTopConv = rankingQualificado.length > 0
-    ? [...rankingQualificado].sort((a, b) => b.conversao - a.conversao)[0]
-    : undefined
+  const rankTopConv = rankingPool
+    .filter(r => r.captacoes > 0)
+    .sort((a, b) => b.conversao - a.conversao)[0]
 
   function openRankRow(row: typeof rankingPool[number], e: React.MouseEvent<HTMLElement>) {
     if (row.tipo === 'canal') {
