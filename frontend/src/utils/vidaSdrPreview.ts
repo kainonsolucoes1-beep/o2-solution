@@ -28,9 +28,9 @@ function leadsTarget(origens: string, primeiroLeadEm: string | null, statusFilte
 }
 
 // Indicadores cujo Smart Preview busca registros reais em /api/v1/leads/by-period
-// (endpoint já existente, reutilizado sem alteração). Receita potencial e Custo
-// total ainda não têm fonte real (ver limitações no handoff) e ficam com
-// conteúdo simulado, sinalizado por `simulated: true`.
+// (endpoint já existente, reutilizado sem alteração). Custo total ainda não tem
+// fonte real (ver limitações no handoff) e fica com conteúdo simulado,
+// sinalizado por `simulated: true`.
 const ROW_STATUS_FILTER: Partial<Record<SmartPreviewId, string>> = {
   em_andamento: EM_ANDAMENTO_STATUSES,
   vendas: VENDA_STATUSES_CSV,
@@ -39,6 +39,7 @@ const ROW_STATUS_FILTER: Partial<Record<SmartPreviewId, string>> = {
   cancellationRate: CANCELADO_STATUS_CSV,
   receita_recebida: VENDA_STATUSES_CSV,
   receita_a_receber: VENDA_STATUSES_CSV,
+  receita_potencial: EM_ANDAMENTO_STATUSES,
 }
 
 export function needsRowFetch(id: SmartPreviewId): boolean {
@@ -54,6 +55,7 @@ interface LeadRow {
   created_at: string
   receita_real_recebida: number | null
   receita_real_a_receber: number | null
+  value_potential: number | null
 }
 
 export async function fetchSmartPreviewRows(id: SmartPreviewId, origens: string, primeiroLeadEm: string | null): Promise<SmartPreviewRow[]> {
@@ -67,27 +69,21 @@ export async function fetchSmartPreviewRows(id: SmartPreviewId, origens: string,
   const statusFilter = ROW_STATUS_FILTER[id]
   if (statusFilter) params.status = statusFilter
   const { data } = await api.get<{ leads: LeadRow[] }>('/api/v1/leads/by-period', { params })
-  const isFinanceiro = id === 'receita_recebida' || id === 'receita_a_receber'
   return data.leads.map(lead => ({
     title: lead.name,
     subtitle: [lead.modalidade, lead.current_plan].filter(Boolean).join(' · ') || 'Sem modalidade definida',
-    value: isFinanceiro ? fmtBrl((id === 'receita_recebida' ? lead.receita_real_recebida : lead.receita_real_a_receber) || 0) : undefined,
+    value: id === 'receita_recebida' ? fmtBrl(lead.receita_real_recebida || 0)
+      : id === 'receita_a_receber' ? fmtBrl(lead.receita_real_a_receber || 0)
+      : id === 'receita_potencial' ? fmtBrl(lead.value_potential || 0)
+      : undefined,
     meta: new Date(lead.created_at).toLocaleDateString('pt-BR'),
     status: statusLabel(lead.status),
   }))
 }
 
-// Composição simulada — não há endpoint de pipeline aberto nem de custos por
-// SDR hoje. Ponto de integração: trocar por dados reais quando existir.
+// Composição simulada — não há endpoint de custos por SDR hoje. Ponto de
+// integração: trocar por dados reais quando existir.
 // Valores centralizados aqui e reutilizados no card (VidaSDR.tsx) e no drawer.
-const MOCK_POTENCIAL_ITEMS: Array<[string, string, number]> = [
-  ['Oportunidade em qualificação', 'Plano Empresarial', 1800],
-  ['Oportunidade em proposta', 'Plano Individual', 1100],
-  ['Oportunidade em negociação', 'Crédito Consignado', 950],
-]
-export const MOCK_POTENCIAL_TOTAL = MOCK_POTENCIAL_ITEMS.reduce((sum, [, , v]) => sum + v, 0)
-const MOCK_POTENCIAL_ROWS: SmartPreviewRow[] = MOCK_POTENCIAL_ITEMS.map(([title, subtitle, value]) => ({ title, subtitle, value: fmtBrl(value), status: 'Estimado' }))
-
 const MOCK_CUSTO_ITEMS: Array<[string, string, number]> = [
   ['Salário', 'Custo fixo', 2800],
   ['Comissão', 'Custo variável', 340],
@@ -98,7 +94,7 @@ const MOCK_CUSTO_ROWS: SmartPreviewRow[] = MOCK_CUSTO_ITEMS.map(([title, subtitl
 
 interface VidaSdrDataLike {
   captacoes: number; em_andamento: number; cancelados: number; vendas: number; conversao: number
-  receita_recebida: number | null; receita_a_receber: number | null; primeiro_lead_em: string | null
+  receita_recebida: number | null; receita_a_receber: number | null; receita_potencial: number | null; primeiro_lead_em: string | null
   ranking: { posicao: number; total: number; leaderboard: Array<{ nome: string; receita: number; voce: boolean }> } | null
   atividades: Array<{ tipo: string; lead_nome: string; lead_id?: string; detalhe: string | null; em: string }>
 }
@@ -114,7 +110,7 @@ export function buildSmartPreview(id: SmartPreviewId, context: number, data: Vid
   if (id === 'cancellationRate') return { title: 'Taxa de cancelamento', description: 'Amostra dos registros encerrados sem venda.', summary: [['Cancelados', String(data.cancelados)], ['Taxa', `${cancellationRate}%`]], count: `Exibindo 5 de ${data.cancelados} cancelamentos`, actionLabel: 'Abrir CRM', target: leadsTarget(origens, data.primeiro_lead_em, CANCELADO_STATUS_CSV), rows: [] }
   if (id === 'receita_recebida') return { title: 'Composição da receita recebida', description: 'Valores efetivamente recebidos pela empresa.', summary: [['Receita recebida', fmtBrl(data.receita_recebida || 0)]], count: `Exibindo 5 de ${data.vendas} vendas`, actionLabel: 'Abrir Financeiro', target: '/financeiro', rows: [] }
   if (id === 'receita_a_receber') return { title: 'Valores a receber', description: 'Contratos fechados que ainda possuem pagamentos futuros.', summary: [['A receber', fmtBrl(data.receita_a_receber || 0)]], count: `Exibindo 5 de ${data.vendas} vendas`, actionLabel: 'Abrir Financeiro', target: '/financeiro', rows: [] }
-  if (id === 'receita_potencial') return { title: 'Composição da receita potencial (estimativa)', description: 'Receita potencial é o pipeline financeiro das oportunidades abertas — uma estimativa, não uma receita garantida. Ainda sem integração real com o Pipeline.', summary: [['Valor estimado', fmtBrl(MOCK_POTENCIAL_TOTAL)], ['Oportunidades', String(MOCK_POTENCIAL_ROWS.length)]], actionLabel: 'Abrir Pipeline', target: '/pipeline', rows: MOCK_POTENCIAL_ROWS, simulated: true }
+  if (id === 'receita_potencial') return { title: 'Composição da receita potencial', description: 'Soma do valor de cotação/proposta de cada lead ainda em aberto no funil — a mesma receita potencial é uma estimativa por natureza (depende de fechar a venda), mas o valor vem direto dos leads reais.', summary: [['Valor em aberto', fmtBrl(data.receita_potencial || 0)], ['Leads em aberto', String(data.em_andamento)]], count: `Exibindo 5 de ${data.em_andamento} leads`, actionLabel: 'Abrir CRM', target: leadsTarget(origens, data.primeiro_lead_em, EM_ANDAMENTO_STATUSES), rows: [] }
   if (id === 'custo_total') return { title: 'Composição do custo total (estimativa)', description: 'Visão resumida dos principais custos do período. Ainda sem integração real de custos por agente.', summary: [['Custo estimado', fmtBrl(MOCK_CUSTO_TOTAL)]], actionLabel: 'Ver composição completa', target: null, rows: MOCK_CUSTO_ROWS, simulated: true }
 
   if (id === 'ranking') {

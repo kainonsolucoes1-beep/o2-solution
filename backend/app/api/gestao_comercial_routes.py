@@ -647,7 +647,7 @@ def vida_sdr(
     parts = [s.strip() for s in origens.split(",") if s.strip()]
 
     leads = (
-        db.query(Lead.status, Lead.receita_real_recebida, Lead.receita_real_a_receber, Lead.created_at)
+        db.query(Lead.status, Lead.receita_real_recebida, Lead.receita_real_a_receber, Lead.created_at, Lead.value_potential)
         .filter(Lead.origin.in_(parts))
         .all()
     ) if parts else []
@@ -655,7 +655,7 @@ def vida_sdr(
     if not leads:
         return {
             "captacoes": 0, "em_andamento": 0, "cancelados": 0, "vendas": 0,
-            "conversao": 0.0, "receita_recebida": 0.0, "receita_a_receber": 0.0,
+            "conversao": 0.0, "receita_recebida": 0.0, "receita_a_receber": 0.0, "receita_potencial": 0.0,
             "primeiro_lead_em": None, "trend": [],
         }
 
@@ -665,14 +665,19 @@ def vida_sdr(
     cancelados = 0
     receita_recebida = 0.0
     receita_a_receber = 0.0
+    receita_potencial = 0.0
     monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0})
 
-    for status, recebido, a_receber, created_at in leads:
+    for status, recebido, a_receber, created_at, value_potential in leads:
         s = (status or "").lower()
         if s in venda_set:
             vendas += 1
         elif s == CANCELADO_STATUS:
             cancelados += 1
+        else:
+            # em aberto no funil (inclui "novo") — soma o valor estimado de cada lead,
+            # o mesmo que aparece na Ficha do Lead como Valor Cotação/Proposta
+            receita_potencial += float(value_potential or 0)
         receita_recebida += float(recebido or 0)
         receita_a_receber += float(a_receber or 0)
 
@@ -776,6 +781,7 @@ def vida_sdr(
         "conversao": conversao,
         "receita_recebida": receita_recebida if show_fin else None,
         "receita_a_receber": receita_a_receber if show_fin else None,
+        "receita_potencial": receita_potencial if show_fin else None,
         "primeiro_lead_em": earliest.isoformat(),
         "trend": [{**t, "receita": t["receita"] if show_fin else None} for t in trend],
         "ranking": ranking,

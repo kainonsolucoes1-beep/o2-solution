@@ -9,7 +9,7 @@ import {
 import api from '../api'
 import SmartPreviewDrawer from '../components/SmartPreviewDrawer'
 import {
-  buildSmartPreview, fetchSmartPreviewRows, needsRowFetch, MOCK_POTENCIAL_TOTAL, MOCK_CUSTO_TOTAL,
+  buildSmartPreview, fetchSmartPreviewRows, needsRowFetch, MOCK_CUSTO_TOTAL,
   type SmartPreviewId, type SmartPreview,
 } from '../utils/vidaSdrPreview'
 
@@ -25,6 +25,7 @@ interface VidaSdrData {
   conversao: number
   receita_recebida: number | null
   receita_a_receber: number | null
+  receita_potencial: number | null
   primeiro_lead_em: string | null
   trend: TrendItem[]
   ranking: Ranking | null
@@ -133,12 +134,12 @@ const OPERACIONAL_CFG = [
   { key: 'cancelados',   id: 'cancelados' as SmartPreviewId,   label: 'Cancelados',        fmt: (v: number) => String(v) },
 ] as const
 
-// Card Financeiro: apenas os 4 itens aprovados no Candidate Freeze. Receita
-// potencial e Custo total ainda não têm fonte real — ver limitações no handoff.
+// Card Financeiro: apenas os 4 itens aprovados no Candidate Freeze. Custo
+// total ainda não tem fonte real — ver limitações no handoff.
 const FINANCEIRO_CFG = [
   { key: 'receita_recebida',  id: 'receita_recebida' as SmartPreviewId,  label: 'Receita Recebida',  simulated: false },
   { key: 'receita_a_receber', id: 'receita_a_receber' as SmartPreviewId, label: 'Receita a Receber',  simulated: false },
-  { key: 'receita_potencial', id: 'receita_potencial' as SmartPreviewId, label: 'Receita Potencial',  simulated: true },
+  { key: 'receita_potencial', id: 'receita_potencial' as SmartPreviewId, label: 'Receita Potencial',  simulated: false },
   { key: 'custo_total',       id: 'custo_total' as SmartPreviewId,       label: 'Custo Total',        simulated: true },
 ] as const
 
@@ -341,7 +342,7 @@ export default function VidaSDR() {
                   {FINANCEIRO_CFG.map(({ key, id, label, simulated }) => {
                     const value = key === 'receita_recebida' ? fmtBrl(data.receita_recebida || 0)
                       : key === 'receita_a_receber' ? fmtBrl(data.receita_a_receber || 0)
-                      : key === 'receita_potencial' ? fmtBrl(MOCK_POTENCIAL_TOTAL)
+                      : key === 'receita_potencial' ? fmtBrl(data.receita_potencial || 0)
                       : fmtBrl(MOCK_CUSTO_TOTAL)
                     return <StatCard key={key} label={label} value={value} simulated={simulated} delta={deltas[key]} onOpen={trigger => openPreview(id, 0, trigger)} />
                   })}
