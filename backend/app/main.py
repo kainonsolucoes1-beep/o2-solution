@@ -53,14 +53,21 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS operadoras_enviadas TEXT"))
     _conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS previsao_recebimento TIMESTAMP"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_origem VARCHAR(10) NOT NULL DEFAULT 'sheet'"))
-    _conn.execute(text("""
-        INSERT INTO sdr_metas (nome, tipo, meta_valor) VALUES
-            ('Leticia', 'clt', 6000.00),
-            ('Isaac', 'estagiario', 200.00),
-            ('Thaynara', 'estagiario', 200.00)
-        ON CONFLICT (nome) DO NOTHING
-    """))
     _conn.commit()
+
+# seed via ORM (nao SQL puro) pra que o id UUID seja gerado pelo default do
+# modelo — um INSERT em SQL puro deixa a coluna id sem valor e quebra a
+# constraint NOT NULL
+with SessionLocal() as _seed_db:
+    from app.models.sdr_meta import SdrMeta
+    for _nome, _tipo, _meta_valor in [
+        ("Leticia", "clt", 6000.00),
+        ("Isaac", "estagiario", 200.00),
+        ("Thaynara", "estagiario", 200.00),
+    ]:
+        if not _seed_db.query(SdrMeta).filter(SdrMeta.nome == _nome).first():
+            _seed_db.add(SdrMeta(nome=_nome, tipo=_tipo, meta_valor=_meta_valor))
+    _seed_db.commit()
 
 app = FastAPI(
     title="O2 Solution API",
