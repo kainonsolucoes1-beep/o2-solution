@@ -1,3 +1,4 @@
+import calendar
 from datetime import datetime
 from typing import Optional
 
@@ -6,12 +7,16 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
+from app.api.gestao_comercial_routes import MESES_ABREV, VENDA_STATUSES
 from app.database import get_db
 from app.models.lead import Lead, LeadParcela
+from app.models.sdr_meta import SdrMeta
 from app.models.user import User
+from app.schemas.sdr_meta import SdrMetaCreate, SdrMetaProgress, SdrMetasListResponse, SdrMetaUpdate
 from app.security import can_see_financials
 
 router = APIRouter(prefix="/api/v1/financeiro", tags=["financeiro"])
+_TIPOS_VALIDOS = ("clt", "estagiario")
 
 
 def _is_atrasado(parcela: LeadParcela) -> bool:
@@ -174,3 +179,125 @@ def previsao_periodo(
         "contratosCount": len({p["leadId"] for p in parcelas}),
         "parcelas": parcelas,
     }
+
+
+def _is_current_month_range(date_from: Optional[str], date_to: Optional[str]) -> bool:
+    """True quando date_from/date_to correspondem exatamente ao 1o e ultimo dia
+    do mes corrente (filtro 'Mes atual' do frontend) -- so' nesse caso a
+    projecao linear pro fim do mes faz sentido."""
+    if not date_from or not date_to:
+        return False
+    now = datetime.now()
+    last_day = calendar.monthrange(now.year, now.month)[1]
+    return date_from == f"{now.year:04d}-{now.month:02d}-01" and date_to == f"{now.year:04d}-{now.month:02d}-{last_day:02d}"
+
+
+def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], date_to: Optional[str]) -> SdrMetaProgress:
+    """Leads captados, vendas realizadas e valor atingido no periodo (todo o
+    historico se date_from/date_to nao forem informados), pro operador dessa
+    meta -- mesma logica de calculo usada em gestao_comercial_routes."""
+    filters = [Lead.origin == meta.nome]
+    if date_from:
+        filters.append(Lead.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+    if date_to:
+        filters.append(Lead.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+
+    leads_rows = db.query(Lead.status, Lead.value_potential).filter(*filters).all()
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    leads_count = len(leads_rows)
+    vendas_count = sum(1 for status, _ in leads_rows if (status or "").lower() in venda_set)
+
+    if meta.tipo == "clt":
+        atingido = sum(float(value or 0) for status, value in leads_rows if (status or "").lower() in venda_set)
+    else:
+        atingido = float(leads_count)
+
+    meta_valor = float(meta.meta_valor)
+    pct = round(atingido / meta_valor * 100, 1) if meta_valor > 0 else 0.0
+
+    projecao = None
+    if _is_current_month_range(date_from, date_to):
+        now = datetime.now()
+        dias_no_mes = calendar.monthrange(now.year, now.month)[1]
+        if now.day > 0:
+            projecao = round(atingido / now.day * dias_no_mes, 2)
+
+    return SdrMetaProgress(
+        id=meta.id, nome=meta.nome, tipo=meta.tipo, meta_valor=meta_valor,
+        leads=leads_count, vendas=vendas_count, atingido=round(atingido, 2), pct=pct, projecao=projecao,
+    )
+
+
+@router.get("/metas", response_model=SdrMetasListResponse)
+def list_metas(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
+
+    now = datetime.now()
+    metas_rows = db.query(SdrMeta).order_by(SdrMeta.nome).all()
+    return SdrMetasListResponse(
+        mes_label=f"{MESES_ABREV[now.month]}/{str(now.year)[2:]}",
+        metas=[_progress_for_meta(db, m, date_from, date_to) for m in metas_rows],
+    )
+
+
+@router.post("/metas", response_model=SdrMetaProgress, status_code=201)
+def create_meta(
+    body: SdrMetaCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
+    if body.tipo not in _TIPOS_VALIDOS:
+        raise HTTPException(status_code=422, detail="tipo deve ser 'clt' ou 'estagiario'")
+    nome = body.nome.strip()
+    if not nome:
+        raise HTTPException(status_code=422, detail="Nome é obrigatório")
+    if db.query(SdrMeta).filter(func.lower(SdrMeta.nome) == nome.lower()).first():
+        raise HTTPException(status_code=409, detail="Já existe uma meta cadastrada para esse nome")
+
+    meta = SdrMeta(nome=nome, tipo=body.tipo, meta_valor=body.meta_valor)
+    db.add(meta)
+    db.commit()
+    db.refresh(meta)
+    return _progress_for_meta(db, meta, None, None)
+
+
+@router.put("/metas/{meta_id}", response_model=SdrMetaProgress)
+def update_meta(
+    meta_id: str,
+    body: SdrMetaUpdate,
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
+    meta = db.query(SdrMeta).filter(SdrMeta.id == meta_id).first()
+    if not meta:
+        raise HTTPException(status_code=404, detail="Meta não encontrada")
+
+    if body.nome is not None:
+        nome = body.nome.strip()
+        if not nome:
+            raise HTTPException(status_code=422, detail="Nome é obrigatório")
+        if db.query(SdrMeta).filter(func.lower(SdrMeta.nome) == nome.lower(), SdrMeta.id != meta.id).first():
+            raise HTTPException(status_code=409, detail="Já existe uma meta cadastrada para esse nome")
+        meta.nome = nome
+    if body.tipo is not None:
+        if body.tipo not in _TIPOS_VALIDOS:
+            raise HTTPException(status_code=422, detail="tipo deve ser 'clt' ou 'estagiario'")
+        meta.tipo = body.tipo
+    if body.meta_valor is not None:
+        meta.meta_valor = body.meta_valor
+
+    db.commit()
+    db.refresh(meta)
+    return _progress_for_meta(db, meta, date_from, date_to)

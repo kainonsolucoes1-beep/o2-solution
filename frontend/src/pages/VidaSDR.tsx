@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
+import { type FiltroPeriodo, mesAtualRange } from '../utils/periodoFiltro'
 import SmartPreviewDrawer from '../components/SmartPreviewDrawer'
 import {
   buildSmartPreview, fetchSmartPreviewRows, needsRowFetch, MOCK_CUSTO_TOTAL,
@@ -38,23 +39,8 @@ interface VidaSdrData {
 const ACCENT = '#2563EB'
 const ACCENT_SOFT = 'rgba(37,99,235,0.1)'
 
-type FiltroPeriodo = 'mes_atual' | 'geral' | 'entre_datas'
-
 function fmtBrl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-// yyyy-mm-dd a partir de componentes locais — evita o shift de fuso de toISOString()
-function fmtYMD(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function mesAtualRange() {
-  const now = new Date()
-  return {
-    date_from: fmtYMD(new Date(now.getFullYear(), now.getMonth(), 1)),
-    date_to: fmtYMD(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
-  }
 }
 
 function initials(name: string) {
