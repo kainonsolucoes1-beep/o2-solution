@@ -366,7 +366,7 @@ const MAIN_TABS = [
   { key: 'visao-geral', label: 'Visão geral' },
   { key: 'aquisicao', label: 'Aquisição' },
   { key: 'ranking', label: 'Ranking' },
-  { key: 'equipe-sdr', label: 'Equipe SDR' },
+  { key: 'equipe-sdr', label: 'Agentes' },
   { key: 'perfil-leads', label: 'Perfil dos leads' },
 ] as const
 type MainTab = typeof MAIN_TABS[number]['key']
@@ -1251,7 +1251,7 @@ export default function KPIs() {
         )
       )}
 
-      {/* ── Aba: Equipe SDR ── */}
+      {/* ── Aba: Agentes ── */}
       {activeMainTab === 'equipe-sdr' && (
         loading ? (
           <StateBox kind="loading" height={140} />
