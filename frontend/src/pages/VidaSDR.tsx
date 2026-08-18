@@ -7,6 +7,7 @@ import {
   ArrowLeft, Loader2, Lock, AlertTriangle, Clock3, TrendingUp, type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
+import { useTheme } from '../ThemeContext'
 import SmartPreviewDrawer from '../components/SmartPreviewDrawer'
 import {
   buildSmartPreview, fetchSmartPreviewRows, needsRowFetch, MOCK_CUSTO_TOTAL,
@@ -208,6 +209,7 @@ export default function VidaSDR() {
   const { origens } = useParams<{ origens: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { dark } = useTheme()
   const nome = searchParams.get('nome') || origens || 'SDR'
 
   const [data, setData] = useState<VidaSdrData | null>(null)
@@ -274,6 +276,7 @@ export default function VidaSDR() {
   const chartData = data ? data.trend.map(t => ({ ...t, __track: chartTrackMax })) : []
 
   return (
+    <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
     <div style={{ maxWidth: 1360, margin: '0 auto', padding: '16px 20px 60px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <button
         onClick={() => navigate(-1)}
@@ -488,6 +491,7 @@ export default function VidaSDR() {
           onAction={handlePreviewAction}
         />
       )}
+    </div>
     </div>
   )
 }
