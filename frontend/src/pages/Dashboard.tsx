@@ -7,6 +7,7 @@ import { TrendingUp, TrendingDown, Users, Zap, PhoneCall, Clock, Calendar, X, Ch
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
+import { useTheme } from '../ThemeContext'
 
 interface FeedItem {
   id: string
@@ -112,6 +113,7 @@ const todayStr = new Date().toISOString().slice(0, 10)
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { dark } = useTheme()
   const [data, setData] = useState<PerformanceData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -185,7 +187,7 @@ export default function Dashboard() {
   const ranking = mergeO2Ranking(data.ranking)
 
   return (
-    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
+    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
