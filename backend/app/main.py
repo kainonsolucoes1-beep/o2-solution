@@ -53,6 +53,13 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS operadoras_enviadas TEXT"))
     _conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS previsao_recebimento TIMESTAMP"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_origem VARCHAR(10) NOT NULL DEFAULT 'sheet'"))
+    _conn.execute(text("""
+        INSERT INTO sdr_metas (nome, tipo, meta_valor) VALUES
+            ('Leticia', 'clt', 6000.00),
+            ('Isaac', 'estagiario', 200.00),
+            ('Thaynara', 'estagiario', 200.00)
+        ON CONFLICT (nome) DO NOTHING
+    """))
     _conn.commit()
 
 app = FastAPI(

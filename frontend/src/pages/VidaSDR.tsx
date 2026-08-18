@@ -28,6 +28,8 @@ interface VidaSdrData {
   receita_a_receber: number | null
   receita_potencial: number | null
   primeiro_lead_em: string | null
+  ativo_desde: string | null
+  meta: { tipo: 'clt' | 'estagiario'; meta_valor: number; progresso: number; mes_label: string } | null
   trend: TrendItem[]
   ranking: Ranking | null
   atividades: Atividade[]
@@ -36,8 +38,23 @@ interface VidaSdrData {
 const ACCENT = '#2563EB'
 const ACCENT_SOFT = 'rgba(37,99,235,0.1)'
 
+type FiltroPeriodo = 'mes_atual' | 'geral' | 'entre_datas'
+
 function fmtBrl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// yyyy-mm-dd a partir de componentes locais — evita o shift de fuso de toISOString()
+function fmtYMD(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function mesAtualRange() {
+  const now = new Date()
+  return {
+    date_from: fmtYMD(new Date(now.getFullYear(), now.getMonth(), 1)),
+    date_to: fmtYMD(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+  }
 }
 
 function initials(name: string) {
@@ -150,6 +167,29 @@ const kickerStyle: import('react').CSSProperties = {
 
 const DELTA_COLOR: Record<Delta['tone'], string> = { good: '#059669', bad: '#DC2626', neutral: 'var(--text-subtle)' }
 
+function MetaDonut({ pct, color }: { pct: number; color: string }) {
+  const size = 108
+  const stroke = 11
+  const r = (size - stroke) / 2
+  const c = 2 * Math.PI * r
+  const clamped = Math.min(100, Math.max(0, pct))
+  const offset = c - (clamped / 100) * c
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--bg-subtle)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 400ms ease' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
+      </div>
+    </div>
+  )
+}
+
 function StatCard({ label, value, simulated, delta, tall, onOpen }: {
   label: string; value: string; simulated?: boolean; delta?: Delta | null; tall?: boolean
   onOpen: (trigger: HTMLElement) => void
@@ -214,6 +254,9 @@ export default function VidaSDR() {
 
   const [data, setData] = useState<VidaSdrData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [filtro, setFiltro] = useState<FiltroPeriodo>('geral')
+  const [dataInicio, setDataInicio] = useState('')
+  const [dataFim, setDataFim] = useState('')
 
   const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null)
   const [preview, setPreview] = useState<SmartPreview | null>(null)
@@ -222,12 +265,22 @@ export default function VidaSDR() {
 
   useEffect(() => {
     if (!origens) return
+    if (filtro === 'entre_datas' && (!dataInicio || !dataFim)) return
+
+    const params: Record<string, string> = { origens }
+    if (filtro === 'mes_atual') {
+      Object.assign(params, mesAtualRange())
+    } else if (filtro === 'entre_datas') {
+      params.date_from = dataInicio
+      params.date_to = dataFim
+    }
+
     setLoading(true)
-    api.get<VidaSdrData>(`/api/v1/gestao-comercial/vida-sdr?${new URLSearchParams({ origens })}`)
+    api.get<VidaSdrData>(`/api/v1/gestao-comercial/vida-sdr?${new URLSearchParams(params)}`)
       .then(r => setData(r.data))
       .catch(() => setData(null))
       .finally(() => setLoading(false))
-  }, [origens])
+  }, [origens, filtro, dataInicio, dataFim])
 
   function openPreview(id: SmartPreviewId, context: number, trigger: HTMLElement) {
     if (!data || !origens) return
@@ -300,20 +353,44 @@ export default function VidaSDR() {
             <h1 style={{ fontSize: 30, fontWeight: 800, margin: '5px 0 4px', letterSpacing: '-0.03em', lineHeight: 1.15, color: 'var(--text-1)' }}>
               {nome}
             </h1>
-            {data?.primeiro_lead_em && (
+            {data?.ativo_desde && (
               <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 13 }}>
-                Desde {fmtDate(data.primeiro_lead_em)} · {mesesAtivo(data.primeiro_lead_em)} {mesesAtivo(data.primeiro_lead_em) === 1 ? 'mês' : 'meses'} ativo
+                Desde {fmtDate(data.ativo_desde)} · {mesesAtivo(data.ativo_desde)} {mesesAtivo(data.ativo_desde) === 1 ? 'mês' : 'meses'} ativo
               </p>
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
           <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700 }}>
-            Período
-            <select style={{ minWidth: 168, height: 40, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }}>
-              <option>Histórico completo</option>
+            Filtros
+            <select
+              value={filtro}
+              onChange={e => setFiltro(e.target.value as FiltroPeriodo)}
+              style={{ minWidth: 168, height: 40, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }}
+            >
+              <option value="mes_atual">Mês atual</option>
+              <option value="geral">Geral</option>
+              <option value="entre_datas">Entre datas</option>
             </select>
           </label>
+          {filtro === 'entre_datas' && (
+            <>
+              <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700 }}>
+                De
+                <input
+                  type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)}
+                  style={{ height: 40, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700 }}>
+                Até
+                <input
+                  type="date" value={dataFim} onChange={e => setDataFim(e.target.value)}
+                  style={{ height: 40, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }}
+                />
+              </label>
+            </>
+          )}
         </div>
       </div>
 
@@ -394,15 +471,45 @@ export default function VidaSDR() {
               </p>
             </section>
 
-            <section style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center', padding: 32, border: '1.5px dashed var(--border-in)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#7C3AED', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)', padding: '5px 14px', borderRadius: 99 }}>
-                Em breve
-              </span>
-              <p style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>Metas do Mês</p>
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: 0, maxWidth: 240, lineHeight: 1.5 }}>
-                Depende de cadastrar metas por SDR — combinar formato antes de construir
-              </p>
-            </section>
+            {data.meta ? (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 24, border: '1px solid var(--border)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+                <div>
+                  <span style={kickerStyle}>Meta do mês · {data.meta.mes_label}</span>
+                  <p style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-1)', margin: '5px 0 0' }}>
+                    {data.meta.tipo === 'clt' ? 'Meta de Vendas' : 'Meta de Captação'}
+                  </p>
+                </div>
+                {(() => {
+                  const pct = data.meta!.meta_valor > 0 ? Math.round((data.meta!.progresso / data.meta!.meta_valor) * 100) : 0
+                  const batida = data.meta!.progresso >= data.meta!.meta_valor
+                  return (
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                        <MetaDonut pct={pct} color={batida ? '#059669' : ACCENT} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <p style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                            <span style={{ display: 'block', fontSize: 18, fontWeight: 800, color: 'var(--text-1)' }}>
+                              {data.meta!.tipo === 'clt' ? fmtBrl(data.meta!.progresso) : Math.round(data.meta!.progresso)}
+                            </span>
+                            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-muted)' }}>
+                              de {data.meta!.tipo === 'clt' ? fmtBrl(data.meta!.meta_valor) : `${Math.round(data.meta!.meta_valor)} leads`}
+                            </span>
+                          </p>
+                          {batida && <span style={{ fontSize: 11.5, fontWeight: 700, color: '#059669' }}>Meta batida</span>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </section>
+            ) : (
+              <section style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center', padding: 32, border: '1.5px dashed var(--border-in)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
+                <p style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>Metas do Mês</p>
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: 0, maxWidth: 240, lineHeight: 1.5 }}>
+                  Sem meta cadastrada pra este agente/canal.
+                </p>
+              </section>
+            )}
           </div>
 
           {/* Ranking + Atividades, pareados (1fr/1fr), como no Candidate Freeze */}

@@ -3,3 +3,4 @@ from app.models.lead import Lead, LeadNote, LeadStatusHistory, LeadSchedule, Lea
 from app.models.app_settings import AppSettings
 from app.models.form_user import FormUser
 from app.models.telefonia_daily import TelefoniaDaily
+from app.models.sdr_meta import SdrMeta

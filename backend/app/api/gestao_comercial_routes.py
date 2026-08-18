@@ -10,6 +10,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
 from app.models.user import User
+from app.models.sdr_meta import SdrMeta
 from app.security import can_see_financials
 
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
@@ -637,18 +638,71 @@ def conversion_points_by_group(
     ]
 
 
+def _compute_meta_mes(db: Session, parts: list[str]):
+    """Meta do mes corrente pro agente, independente do filtro de periodo da
+    tela (Metas do Mes sempre olha pro mes calendario atual). Casa o nome do
+    agente (qualquer um dos `parts`) contra sdr_metas.nome, sem diferenciar
+    maiusculas/minusculas."""
+    meta_row = None
+    for p in parts:
+        meta_row = db.query(SdrMeta).filter(func.lower(SdrMeta.nome) == p.strip().lower()).first()
+        if meta_row:
+            break
+    if not meta_row:
+        return None
+
+    now = datetime.now()
+    mes_inicio = datetime(now.year, now.month, 1)
+    mes_fim = datetime(now.year + (1 if now.month == 12 else 0), 1 if now.month == 12 else now.month + 1, 1)
+
+    mes_leads = (
+        db.query(Lead.status, Lead.value_potential)
+        .filter(Lead.origin.in_(parts), Lead.created_at >= mes_inicio, Lead.created_at < mes_fim)
+        .all()
+    )
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    if meta_row.tipo == "clt":
+        progresso = sum(float(v or 0) for s, v in mes_leads if (s or "").lower() in venda_set)
+    else:
+        progresso = float(len(mes_leads))
+
+    return {
+        "tipo": meta_row.tipo,
+        "meta_valor": float(meta_row.meta_valor),
+        "progresso": progresso,
+        "mes_label": f"{MESES_ABREV[now.month]}/{str(now.year)[2:]}",
+    }
+
+
 @router.get("/vida-sdr")
 def vida_sdr(
     origens: str = Query(...),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Historico vitalicio de um SDR/origem: funil, conversao e receita real desde o primeiro lead."""
+    """Historico de um SDR/origem: funil, conversao e receita real, vitalicio por padrao
+    ou recortado por date_from/date_to (filtro Geral / Mes atual / Entre datas no frontend)."""
     parts = [s.strip() for s in origens.split(",") if s.strip()]
+
+    date_filters = []
+    if date_from:
+        date_filters.append(Lead.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+    if date_to:
+        date_filters.append(Lead.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+
+    filters = [Lead.origin.in_(parts), *date_filters] if parts else []
+
+    # tenure do agente ("Desde X - N meses ativo") independe do filtro de
+    # periodo selecionado na tela, por isso e' calculado sem os date_filters
+    ativo_desde = db.query(func.min(Lead.created_at)).filter(Lead.origin.in_(parts)).scalar() if parts else None
+    meta = _compute_meta_mes(db, parts) if parts else None
 
     leads = (
         db.query(Lead.status, Lead.receita_real_recebida, Lead.receita_real_a_receber, Lead.created_at, Lead.value_potential)
-        .filter(Lead.origin.in_(parts))
+        .filter(*filters)
         .all()
     ) if parts else []
 
@@ -656,7 +710,7 @@ def vida_sdr(
         return {
             "captacoes": 0, "em_andamento": 0, "cancelados": 0, "vendas": 0,
             "conversao": 0.0, "receita_recebida": 0.0, "receita_a_receber": 0.0, "receita_potencial": 0.0,
-            "primeiro_lead_em": None, "trend": [],
+            "primeiro_lead_em": None, "ativo_desde": ativo_desde.isoformat() if ativo_desde else None, "meta": meta, "trend": [],
         }
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -714,7 +768,7 @@ def vida_sdr(
     ranking = None
     if show_fin:
         origin_rows = db.query(Lead.origin, Lead.receita_real_recebida).filter(
-            Lead.origin.isnot(None), Lead.origin != "",
+            Lead.origin.isnot(None), Lead.origin != "", *date_filters,
         ).all()
         buckets: dict = defaultdict(float)
         for origin, recebido in origin_rows:
@@ -783,6 +837,8 @@ def vida_sdr(
         "receita_a_receber": receita_a_receber if show_fin else None,
         "receita_potencial": receita_potencial if show_fin else None,
         "primeiro_lead_em": earliest.isoformat(),
+        "ativo_desde": ativo_desde.isoformat() if ativo_desde else earliest.isoformat(),
+        "meta": meta,
         "trend": [{**t, "receita": t["receita"] if show_fin else None} for t in trend],
         "ranking": ranking,
         "atividades": atividades[:100],
