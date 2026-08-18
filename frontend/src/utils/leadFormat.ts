@@ -11,6 +11,10 @@ export function fmtDateOnly(iso: string) {
   return new Date(parseUTC(iso)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+export function fmtDateShort(iso: string) {
+  return new Date(parseUTC(iso)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
+
 export function fmtDuration(ms: number) {
   if (ms < 0) ms = 0
   const totalMin = Math.floor(ms / 60000)

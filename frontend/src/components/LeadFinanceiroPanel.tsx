@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Wallet, Plus, Pencil, Trash2, ChevronDown, Check, X } from 'lucide-react'
 import api from '../api'
-import { fmtBRL, fmtDateOnly, parseBRNumber } from '../utils/leadFormat'
+import { fmtBRL, fmtDateShort, parseBRNumber } from '../utils/leadFormat'
 import SectionCard from './SectionCard'
 import EditPencil from './EditPencil'
 import Field from './Field'
@@ -33,7 +33,7 @@ const STATUS_STYLE = {
   a_receber: { bg: '#FFFBEB', color: '#D97706', label: 'A Receber' },
 }
 
-const PARCELAS_COLLAPSED_LIMIT = 3
+const PARCELAS_COLLAPSED_LIMIT = 2
 
 function toDateInput(iso: string | null): string {
   return iso ? iso.slice(0, 10) : ''
@@ -362,33 +362,35 @@ export default function LeadFinanceiroPanel({
                   )
                 }
                 return (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--border-lt)', borderRadius: 8, padding: '8px 10px' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', width: 20, flexShrink: 0 }}>{p.numero ?? '—'}</span>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{fmtBRL(p.valor)}</span>
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-lt)', borderRadius: 8, padding: '8px 10px' }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', width: 14, flexShrink: 0 }}>{p.numero ?? '—'}</span>
+                    <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap' }}>{fmtBRL(p.valor)}</span>
                     {p.status === 'a_receber' ? (
                       <button
                         onClick={() => setConfirmingRecebidoId(p.id)}
                         title="Marcar como recebida"
-                        style={{ fontSize: 10, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 8px', borderRadius: 99, flexShrink: 0, border: 'none', cursor: 'pointer' }}
+                        style={{ fontSize: 9, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 6px', borderRadius: 99, flexShrink: 0, minWidth: 56, textAlign: 'center', border: 'none', cursor: 'pointer' }}
                       >
                         {s.label}
                       </button>
                     ) : (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 8px', borderRadius: 99, flexShrink: 0 }}>{s.label}</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 6px', borderRadius: 99, flexShrink: 0, minWidth: 56, textAlign: 'center' }}>{s.label}</span>
                     )}
-                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', flexShrink: 0, minWidth: 62, textAlign: 'right' }}>
-                      {p.previsao_recebimento ? fmtDateOnly(p.previsao_recebimento) : '—'}
-                    </span>
-                    <button onClick={() => startEditParcela(p)} style={{ display: 'flex', color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={() => deleteParcela(p.id)}
-                      disabled={deletingParcelaId === p.id}
-                      style={{ display: 'flex', color: '#EF4444', background: 'none', border: 'none', cursor: deletingParcelaId === p.id ? 'not-allowed' : 'pointer', padding: 2, opacity: deletingParcelaId === p.id ? 0.5 : 1 }}
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, color: 'var(--text-subtle)', flexShrink: 0, minWidth: 42, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {p.previsao_recebimento ? fmtDateShort(p.previsao_recebimento) : '—'}
+                      </span>
+                      <button onClick={() => startEditParcela(p)} style={{ display: 'flex', color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => deleteParcela(p.id)}
+                        disabled={deletingParcelaId === p.id}
+                        style={{ display: 'flex', color: '#EF4444', background: 'none', border: 'none', cursor: deletingParcelaId === p.id ? 'not-allowed' : 'pointer', padding: 2, opacity: deletingParcelaId === p.id ? 0.5 : 1 }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                 )
               })}
