@@ -389,6 +389,7 @@ export default function KPIs() {
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('visao-geral')
   const [aquisicaoView, setAquisicaoView] = useState<'bases' | 'canais' | 'conversao' | 'modalidade'>('bases')
   const [aquisicaoLayout, setAquisicaoLayout] = useState<'lista' | 'quadrante'>('lista')
+  const [rankSortBy, setRankSortBy] = useState<'captacoes' | 'receita'>('captacoes')
 
   const [data, setData] = useState<FonteData[]>([])
   const [loading, setLoading] = useState(true)
@@ -764,6 +765,9 @@ export default function KPIs() {
   const rankTopReceita = rankingPool
     .filter((r): r is typeof rankingPool[number] & { receita_gerada: number } => r.receita_gerada != null && r.receita_gerada > 0)
     .sort((a, b) => b.receita_gerada - a.receita_gerada)[0]
+  const rankingSorted = [...rankingPool].sort((a, b) => rankSortBy === 'receita'
+    ? (b.receita_gerada ?? 0) - (a.receita_gerada ?? 0)
+    : b.captacoes - a.captacoes)
   const rankTopConv = rankingPool
     .filter(r => r.captacoes > 0)
     .sort((a, b) => b.conversao - a.conversao)[0]
@@ -1204,7 +1208,35 @@ export default function KPIs() {
               )}
             </div>
 
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 12px' }}>Ranking completo</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, margin: '0 0 12px' }}>
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Ranking completo</p>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button
+                  onClick={() => setRankSortBy('captacoes')}
+                  style={{
+                    minHeight: 26, padding: '0 10px', borderRadius: 6, border: 'none',
+                    background: rankSortBy === 'captacoes' ? '#EAF2FF' : 'transparent',
+                    color: rankSortBy === 'captacoes' ? '#245BB9' : 'var(--text-muted)',
+                    fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  Captação
+                </button>
+                {receitaVisible && (
+                  <button
+                    onClick={() => setRankSortBy('receita')}
+                    style={{
+                      minHeight: 26, padding: '0 10px', borderRadius: 6, border: 'none',
+                      background: rankSortBy === 'receita' ? '#EAF2FF' : 'transparent',
+                      color: rankSortBy === 'receita' ? '#245BB9' : 'var(--text-muted)',
+                      fontSize: 10.5, fontWeight: 700, cursor: 'pointer',
+                    }}
+                  >
+                    Receita
+                  </button>
+                )}
+              </div>
+            </div>
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -1220,7 +1252,7 @@ export default function KPIs() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rankingPool.map((r, idx) => {
+                    {rankingSorted.map((r, idx) => {
                       const medalBg = idx === 0 ? '#FEF3C7' : idx === 1 ? 'var(--bg-subtle)' : idx === 2 ? '#FFF1E6' : undefined
                       const medalColor = idx === 0 ? '#92400E' : idx === 1 ? 'var(--text-muted)' : idx === 2 ? '#9A3412' : 'var(--text-subtle)'
                       return (
