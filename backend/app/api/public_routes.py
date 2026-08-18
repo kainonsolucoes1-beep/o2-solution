@@ -52,6 +52,17 @@ class PublicLeadCreate(BaseModel):
     faixa_59_mais: Optional[int] = 0
 
 
+# Sinônimos de modalidade usados por integrações externas (ex: Make.com) que
+# devem cair na mesma opção já existente no funil, em vez de criar uma nova.
+_MODALIDADE_ALIASES = {"individual": "PF"}
+
+
+def _normalize_modalidade(modalidade: Optional[str]) -> Optional[str]:
+    if not modalidade:
+        return modalidade
+    return _MODALIDADE_ALIASES.get(modalidade.strip().lower(), modalidade)
+
+
 _FAIXA_LABELS = [
     ("faixa_0_18", "00-18 anos"),
     ("faixa_19_23", "19-23 anos"),
@@ -167,7 +178,7 @@ def create_public_lead(
         notes=_build_notes(body),
         origin=body.origin or "Orgânico",
         conversion_point=body.conversion_point,
-        modalidade=body.modalidade,
+        modalidade=_normalize_modalidade(body.modalidade),
         attendant=attendant,
         team=team["name"],
         status="novo",
