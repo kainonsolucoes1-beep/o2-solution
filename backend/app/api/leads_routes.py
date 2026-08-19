@@ -166,7 +166,7 @@ def leads_by_period(
         if searching:
             term = search.strip()
             digits = re.sub(r"\D", "", term)
-            conditions = [Lead.name.ilike(f"%{term}%"), Lead.email.ilike(f"%{term}%")]
+            conditions = [func.unaccent(Lead.name).ilike(func.unaccent(f"%{term}%")), Lead.email.ilike(f"%{term}%")]
             if digits:
                 conditions.append(func.regexp_replace(Lead.phone, r'\D', '', 'g').ilike(f"%{digits}%"))
                 conditions.append(Lead.document.ilike(f"%{digits}%"))
@@ -309,7 +309,7 @@ def leads_report_stats(
         if searching:
             term = search.strip()
             digits = re.sub(r"\D", "", term)
-            conditions = [Lead.name.ilike(f"%{term}%"), Lead.email.ilike(f"%{term}%")]
+            conditions = [func.unaccent(Lead.name).ilike(func.unaccent(f"%{term}%")), Lead.email.ilike(f"%{term}%")]
             if digits:
                 conditions.append(func.regexp_replace(Lead.phone, r'\D', '', 'g').ilike(f"%{digits}%"))
                 conditions.append(Lead.document.ilike(f"%{digits}%"))

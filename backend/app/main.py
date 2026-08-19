@@ -40,6 +40,7 @@ from app.security import verify_token
 load_dotenv()
 Base.metadata.create_all(bind=engine)
 with engine.connect() as _conn:
+    _conn.execute(text("CREATE EXTENSION IF NOT EXISTS unaccent"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS current_plan VARCHAR(255)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS document VARCHAR(20)"))
     _conn.execute(text("CREATE INDEX IF NOT EXISTS idx_leads_document ON leads(document)"))
