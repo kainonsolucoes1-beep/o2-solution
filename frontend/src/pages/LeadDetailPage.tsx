@@ -599,7 +599,10 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col" style={{ gap: 12 }}>
 
-          <div style={{ marginBottom: -4 }}>
+          <div style={{
+            background: 'var(--bg-card)', border: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.04)'}`,
+            borderRadius: 10, padding: '11px 15px', boxShadow: dark ? '0 1px 2px rgba(0,0,0,0.14)' : '0 1px 2px rgba(15,23,42,0.05)',
+          }}>
             <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>
               Consulta auxiliar
             </p>
