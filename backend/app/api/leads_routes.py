@@ -179,6 +179,7 @@ def leads_by_period(
                 Lead.company, Lead.attendant,
                 Lead.status, Lead.perception, Lead.value_potential,
                 Lead.created_at, Lead.updated_at, Lead.origin, Lead.is_renutrucao,
+                Lead.retrabalhado_em,
                 Lead.lost_reason, Lead.lost_message, Lead.modalidade,
                 Lead.conversion_point, Lead.current_plan, Lead.document,
                 Lead.tracking_campaign, Lead.tracking_medium, Lead.tracking_term, Lead.tracking_format,
