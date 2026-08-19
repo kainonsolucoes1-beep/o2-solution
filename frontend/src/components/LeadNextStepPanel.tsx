@@ -63,6 +63,7 @@ export default function LeadNextStepPanel({
   activeSchedule, cancelingSchedule, onSaveSchedule, onCancelScheduleEdit, onRemoveSchedule,
   editingProposta, propostaValor, onPropostaValorChange, savingProposta, onSaveProposta, onCancelPropostaEdit,
   vendaValor, onVendaValorChange, vendaData, onVendaDataChange, savingVenda, onSaveVenda, faturando, onFaturar,
+  onRetrabalhar, retrabalhando,
 }: {
   editing: boolean
   onToggleEditing: () => void
@@ -118,6 +119,8 @@ export default function LeadNextStepPanel({
   onSaveVenda: () => void
   faturando: boolean
   onFaturar: () => void
+  onRetrabalhar: () => void
+  retrabalhando: boolean
 }) {
   return (
     <section style={{
@@ -150,17 +153,29 @@ export default function LeadNextStepPanel({
           <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
             <Mail size={14} /> Enviar e-mail
           </a>
-          <button style={actionBtnStyle(true)} onClick={onOpenProposta}>
-            Enviar proposta
-          </button>
-          {status === 'waiting_billing' ? (
-            <button style={primaryActionBtnStyle} onClick={onFaturar} disabled={faturando}>
-              {faturando ? 'Faturando…' : 'Faturar'}
+          {status === 'sale_not_performed' ? (
+            <button
+              style={{ ...primaryActionBtnStyle, background: '#7C3AED', borderColor: '#7C3AED' }}
+              onClick={() => { if (window.confirm('Retrabalhar este lead? Ele volta pro status "Novo" e passa a contar como captação de hoje nos relatórios, mantendo o histórico original.')) onRetrabalhar() }}
+              disabled={retrabalhando}
+            >
+              {retrabalhando ? 'Retrabalhando…' : 'Retrabalhar lead'}
             </button>
           ) : (
-            <button style={actionBtnStyle(true)} onClick={onOpenFinalizar}>
-              Finalizar atendimento
-            </button>
+            <>
+              <button style={actionBtnStyle(true)} onClick={onOpenProposta}>
+                Enviar proposta
+              </button>
+              {status === 'waiting_billing' ? (
+                <button style={primaryActionBtnStyle} onClick={onFaturar} disabled={faturando}>
+                  {faturando ? 'Faturando…' : 'Faturar'}
+                </button>
+              ) : (
+                <button style={actionBtnStyle(true)} onClick={onOpenFinalizar}>
+                  Finalizar atendimento
+                </button>
+              )}
+            </>
           )}
           <button style={actionBtnStyle(true)} onClick={onToggleEditing}>
             {editing ? 'Concluir edição' : 'Editar ação rápida'}

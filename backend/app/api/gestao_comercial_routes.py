@@ -24,6 +24,11 @@ CANCELADO_STATUS    = "sale_not_performed"
 AGENDAMENTO_STATUSES = ("qualificado", "scheduled")
 PROPOSTA_STATUSES   = ("proposta", "proposal_sent", "negociacao")
 
+# "Captacao efetiva": quando um lead cancelado/parado e' retrabalhado
+# (Lead.retrabalhado_em preenchido), ele passa a contar na data do retrabalho
+# pros relatorios de periodo — sem apagar Lead.created_at (historico real).
+EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
+
 # mesma classificação SDR x Orgânico usada no front (GestaoComercial.tsx: groupOrigens)
 O2_NAMES        = {"clara", "maria eduarda", "kauany", "gabrieli", "o2 solution", "o2solution"}
 ORGANICO_EXTRA  = {"site", "chatgpt.com", "chatgpt", "google", "instagram", "facebook", "whatsapp"}
@@ -108,7 +113,7 @@ def visao_geral(
     team_clause = _scope_clause(team, current_user)
 
     leads = db.query(Lead.status, Lead.value_potential, Lead.perception).filter(
-        Lead.created_at >= dt_from, Lead.created_at <= dt_to, *team_clause,
+        EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *team_clause,
     ).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -167,9 +172,9 @@ def evolucao_diaria(
     dt_from, dt_to = _resolve_range(month, until_day, start, end)
 
     rows = db.query(
-        func.date(Lead.created_at).label("day"),
+        func.date(EFFECTIVE_CAPTACAO).label("day"),
         Lead.status,
-    ).filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_scope_clause(team, current_user)).all()
+    ).filter(EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_clause(team, current_user)).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
     daily: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
@@ -209,7 +214,7 @@ def origens_captacao(
     rows = (
         db.query(Lead.origin, func.count(Lead.id).label("captacoes"))
         .filter(
-            Lead.created_at >= dt_from, Lead.created_at <= dt_to,
+            EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to,
             Lead.origin.isnot(None), Lead.origin != "",
             *_scope_clause(team, current_user),
         )
@@ -243,7 +248,7 @@ def modalidades_captacao(
     leads = (
         db.query(Lead.modalidade, Lead.status)
         .filter(
-            Lead.created_at >= dt_from, Lead.created_at <= dt_to,
+            EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to,
             Lead.modalidade.isnot(None), Lead.modalidade != "",
             *_scope_clause(team, current_user),
         )
@@ -293,7 +298,7 @@ def comparativo_mensal(
 
         dt_from, dt_to = _month_range(year, mon)
         leads = db.query(Lead.status, Lead.value_potential).filter(
-            Lead.created_at >= dt_from, Lead.created_at <= dt_to, *team_clause,
+            EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *team_clause,
         ).all()
 
         venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -324,8 +329,8 @@ def receita_potencial_drill(
     dt_from, dt_to = _month_range(year, mon)
 
     base = [
-        Lead.created_at >= dt_from,
-        Lead.created_at <= dt_to,
+        EFFECTIVE_CAPTACAO >= dt_from,
+        EFFECTIVE_CAPTACAO <= dt_to,
         Lead.value_potential.isnot(None),
         Lead.value_potential > 0,
         *_scope_clause(team, current_user),
@@ -378,8 +383,8 @@ def receita_contratos(
     dt_from, dt_to = _month_range(year, mon)
 
     filters = [
-        Lead.created_at >= dt_from,
-        Lead.created_at <= dt_to,
+        EFFECTIVE_CAPTACAO >= dt_from,
+        EFFECTIVE_CAPTACAO <= dt_to,
         Lead.value_potential.isnot(None),
         Lead.value_potential > 0,
         *_scope_clause(team, current_user),
@@ -437,8 +442,8 @@ def performance_operadores(
     dt_from, dt_to = _month_range(year, mon)
 
     filters = [
-        Lead.created_at >= dt_from,
-        Lead.created_at <= dt_to,
+        EFFECTIVE_CAPTACAO >= dt_from,
+        EFFECTIVE_CAPTACAO <= dt_to,
         Lead.origin.isnot(None),
         Lead.origin != "",
     ]
@@ -513,12 +518,12 @@ def performance_historico(
         elif parts:
             filters.append(Lead.origin.in_(parts))
     if date_from:
-        filters.append(Lead.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+        filters.append(EFFECTIVE_CAPTACAO >= datetime.strptime(date_from, "%Y-%m-%d"))
     if date_to:
-        filters.append(Lead.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        filters.append(EFFECTIVE_CAPTACAO <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     leads = (
-        db.query(Lead.origin, Lead.status, Lead.value_potential, Lead.created_at)
+        db.query(Lead.origin, Lead.status, Lead.value_potential, EFFECTIVE_CAPTACAO)
         .filter(*filters)
         .all()
     )
@@ -630,8 +635,8 @@ def conversion_points_by_group(
     dt_from, dt_to = _month_range(year, mon)
 
     filters = [
-        Lead.created_at >= dt_from,
-        Lead.created_at <= dt_to,
+        EFFECTIVE_CAPTACAO >= dt_from,
+        EFFECTIVE_CAPTACAO <= dt_to,
         Lead.conversion_point.isnot(None),
         Lead.conversion_point != "",
         *_scope_clause(team, current_user),
@@ -678,7 +683,7 @@ def _compute_meta_mes(db: Session, parts: list[str]):
 
     mes_leads = (
         db.query(Lead.status, Lead.value_potential)
-        .filter(Lead.origin.in_(parts), Lead.created_at >= mes_inicio, Lead.created_at < mes_fim)
+        .filter(Lead.origin.in_(parts), EFFECTIVE_CAPTACAO >= mes_inicio, EFFECTIVE_CAPTACAO < mes_fim)
         .all()
     )
 
@@ -714,19 +719,20 @@ def vida_sdr(
 
     date_filters = []
     if date_from:
-        date_filters.append(Lead.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+        date_filters.append(EFFECTIVE_CAPTACAO >= datetime.strptime(date_from, "%Y-%m-%d"))
     if date_to:
-        date_filters.append(Lead.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        date_filters.append(EFFECTIVE_CAPTACAO <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     filters = [Lead.origin.in_(parts), *date_filters] if parts else []
 
     # tenure do agente ("Desde X - N meses ativo") independe do filtro de
     # periodo selecionado na tela, por isso e' calculado sem os date_filters
+    # tenure real do agente (nao a data de retrabalho) — usa Lead.created_at puro de proposito
     ativo_desde = db.query(func.min(Lead.created_at)).filter(Lead.origin.in_(parts)).scalar() if parts else None
     meta = _compute_meta_mes(db, parts) if parts else None
 
     leads = (
-        db.query(Lead.status, Lead.receita_real_recebida, Lead.receita_real_a_receber, Lead.created_at, Lead.value_potential)
+        db.query(Lead.status, Lead.receita_real_recebida, Lead.receita_real_a_receber, EFFECTIVE_CAPTACAO.label("created_at"), Lead.value_potential)
         .filter(*filters)
         .all()
     ) if parts else []
@@ -747,7 +753,7 @@ def vida_sdr(
     receita_potencial = 0.0
     monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0})
 
-    for status, recebido, a_receber, created_at, value_potential in leads:
+    for status, recebido, a_receber, captacao_em, value_potential in leads:
         s = (status or "").lower()
         if s in venda_set:
             vendas += 1
@@ -760,7 +766,7 @@ def vida_sdr(
         receita_recebida += float(recebido or 0)
         receita_a_receber += float(a_receber or 0)
 
-        key = f"{created_at.year}-{created_at.month:02d}"
+        key = f"{captacao_em.year}-{captacao_em.month:02d}"
         monthly[key]["captacoes"] += 1
         if s in venda_set:
             monthly[key]["vendas"] += 1

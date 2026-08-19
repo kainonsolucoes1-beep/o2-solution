@@ -19,6 +19,12 @@ router = APIRouter(prefix="/api/v1/kpis", tags=["kpis"])
 VENDA_STATUSES    = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 CANCELADO_STATUSES = ("sale_not_performed",)
 
+# "Captacao efetiva": quando um lead cancelado/parado e' retrabalhado
+# (Lead.retrabalhado_em preenchido), ele passa a contar na data do retrabalho
+# pros relatorios de periodo — sem apagar Lead.created_at (historico real,
+# usado a parte pro calculo de tempo_medio_dias em _accumulate).
+EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
+
 
 def _resolve_period(
     month: str | None,
@@ -140,8 +146,8 @@ def conversao_por_fonte(
     date_from, date_to = _resolve_period(month, period, date_from, date_to)
 
     base_filter = [
-        Lead.created_at >= date_from,
-        Lead.created_at <= date_to,
+        EFFECTIVE_CAPTACAO >= date_from,
+        EFFECTIVE_CAPTACAO <= date_to,
         Lead.origin.isnot(None),
         Lead.origin != "",
         *_scope_filter(team, current_user),
@@ -223,8 +229,8 @@ def leads_vendas_por_fonte(
     fonte = _effective_origin(fonte, current_user)
 
     filters = [
-        Lead.created_at >= date_from,
-        Lead.created_at <= date_to,
+        EFFECTIVE_CAPTACAO >= date_from,
+        EFFECTIVE_CAPTACAO <= date_to,
         Lead.status.in_(VENDA_STATUSES),
     ]
     if fonte:
@@ -271,8 +277,8 @@ def renutrucao_stats(
 
     filters = [
         Lead.is_renutrucao == True,
-        Lead.created_at >= date_from,
-        Lead.created_at <= date_to,
+        EFFECTIVE_CAPTACAO >= date_from,
+        EFFECTIVE_CAPTACAO <= date_to,
     ]
     if not _is_admin(current_user):
         filters.append(Lead.origin == _own_name(current_user))
@@ -314,8 +320,8 @@ def motivos_cancelamento(
 
     filters = [
         Lead.status == "sale_not_performed",
-        Lead.created_at >= dt_from,
-        Lead.created_at <= dt_to,
+        EFFECTIVE_CAPTACAO >= dt_from,
+        EFFECTIVE_CAPTACAO <= dt_to,
     ]
     if origin:
         parts = [s.strip() for s in origin.split(',') if s.strip()]
@@ -371,7 +377,7 @@ def leads_conv_point(
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
     origens = _effective_origin(origens, current_user)
 
-    filters = [Lead.created_at >= dt_from, Lead.created_at <= dt_to]
+    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to]
     if conv_point:
         filters.append(Lead.conversion_point.ilike(conv_point))
     if origens:
@@ -398,7 +404,7 @@ def leads_conv_point(
     rows = (
         db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential)
         .filter(*filters)
-        .order_by(Lead.created_at.desc())
+        .order_by(EFFECTIVE_CAPTACAO.desc())
         .limit(500)
         .all()
     )
@@ -442,8 +448,8 @@ def conv_point_detalhe(
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     filters = [
-        Lead.created_at >= dt_from,
-        Lead.created_at <= dt_to,
+        EFFECTIVE_CAPTACAO >= dt_from,
+        EFFECTIVE_CAPTACAO <= dt_to,
         Lead.conversion_point.ilike(conv_point),
         *_scope_filter(team, current_user),
     ]
@@ -542,8 +548,8 @@ def conv_point_diario(
     dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
 
     filters = [
-        Lead.created_at >= dt_from,
-        Lead.created_at <= dt_to,
+        EFFECTIVE_CAPTACAO >= dt_from,
+        EFFECTIVE_CAPTACAO <= dt_to,
         Lead.conversion_point.ilike(conv_point),
         *_scope_filter(team, current_user),
     ]
@@ -552,7 +558,7 @@ def conv_point_diario(
         if parts:
             filters.append(Lead.origin.in_(parts))
 
-    rows = db.query(func.date(Lead.created_at).label("day"), Lead.status).filter(*filters).all()
+    rows = db.query(func.date(EFFECTIVE_CAPTACAO).label("day"), Lead.status).filter(*filters).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
     daily: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
@@ -597,8 +603,8 @@ def sdr_detalhe(
     leads = (
         db.query(Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan)
         .filter(
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
+            EFFECTIVE_CAPTACAO >= dt_from,
+            EFFECTIVE_CAPTACAO <= dt_to,
             Lead.origin.in_(parts),
             *_scope_filter(team, current_user),
         )
@@ -683,8 +689,8 @@ def bases_analytics(
     leads = (
         db.query(Lead.notes, Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida)
         .filter(
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
+            EFFECTIVE_CAPTACAO >= dt_from,
+            EFFECTIVE_CAPTACAO <= dt_to,
             Lead.notes.isnot(None),
             Lead.notes.ilike('%Base%'),
             *_scope_filter(team, current_user),
@@ -729,8 +735,8 @@ def modalidade_analytics(
     leads = (
         db.query(Lead.modalidade, Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida)
         .filter(
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
+            EFFECTIVE_CAPTACAO >= dt_from,
+            EFFECTIVE_CAPTACAO <= dt_to,
             *_scope_filter(team, current_user),
         )
         .all()
@@ -765,8 +771,8 @@ def modalidade_detalhe(
     target = modalidade.strip().lower()
 
     filters = [
-        Lead.created_at >= dt_from,
-        Lead.created_at <= dt_to,
+        EFFECTIVE_CAPTACAO >= dt_from,
+        EFFECTIVE_CAPTACAO <= dt_to,
         *_scope_filter(team, current_user),
     ]
     if target == "não informado":
@@ -851,8 +857,8 @@ def base_detalhe(
     leads = (
         db.query(Lead.notes, Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan)
         .filter(
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
+            EFFECTIVE_CAPTACAO >= dt_from,
+            EFFECTIVE_CAPTACAO <= dt_to,
             Lead.notes.isnot(None),
             Lead.notes.ilike('%Base%'),
             *_scope_filter(team, current_user),
@@ -943,8 +949,8 @@ def leads_base(
     leads = (
         db.query(Lead.name, Lead.notes, Lead.status, Lead.value_potential)
         .filter(
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
+            EFFECTIVE_CAPTACAO >= dt_from,
+            EFFECTIVE_CAPTACAO <= dt_to,
             Lead.notes.isnot(None),
             Lead.notes.ilike('%Base%'),
             *_scope_filter(team, current_user),
@@ -1051,7 +1057,7 @@ def faixas_etarias(
 
     leads = (
         db.query(Lead.ages_raw, Lead.notes, Lead.status)
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_scope_filter(team, current_user))
+        .filter(EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user))
         .all()
     )
 
@@ -1113,7 +1119,7 @@ def leads_faixa_etaria(
 
     leads = (
         db.query(Lead.name, Lead.ages_raw, Lead.notes, Lead.status, Lead.value_potential)
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_scope_filter(team, current_user))
+        .filter(EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user))
         .all()
     )
 
@@ -1162,7 +1168,7 @@ def plano_saude(
 
     leads = (
         db.query(Lead.current_plan, Lead.status)
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_scope_filter(team, current_user))
+        .filter(EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user))
         .all()
     )
 
@@ -1230,8 +1236,8 @@ def leads_plano_saude(
     leads = (
         db.query(Lead.name, Lead.status, Lead.value_potential)
         .filter(
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
+            EFFECTIVE_CAPTACAO >= dt_from,
+            EFFECTIVE_CAPTACAO <= dt_to,
             func.lower(Lead.current_plan) == plano.strip().lower(),
             *_scope_filter(team, current_user),
         )
@@ -1273,8 +1279,8 @@ def receita_potencial(
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     filters = [
-        Lead.created_at >= dt_from,
-        Lead.created_at <= dt_to,
+        EFFECTIVE_CAPTACAO >= dt_from,
+        EFFECTIVE_CAPTACAO <= dt_to,
         Lead.status != "sale_not_performed",
     ]
     if not _is_admin(current_user):

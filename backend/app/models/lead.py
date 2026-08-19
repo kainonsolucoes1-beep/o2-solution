@@ -22,6 +22,10 @@ class Lead(Base):
     value_potential = Column(Numeric(12, 2))
     notes = Column(Text)
     is_renutrucao = Column(Boolean, default=False, nullable=False, server_default='false')
+    # quando um lead cancelado/parado e' retrabalhado, esta data marca a
+    # "captacao efetiva" pros relatorios de periodo, sem apagar created_at
+    # (historico real de quando o lead nasceu)
+    retrabalhado_em = Column(TIMESTAMP, nullable=True)
     ages_raw = Column(String(100), nullable=True)
     modalidade = Column(String(255), nullable=True)
     categoria = Column(String(255), nullable=True)

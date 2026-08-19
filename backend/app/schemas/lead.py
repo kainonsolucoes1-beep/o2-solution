@@ -55,6 +55,7 @@ class LeadReportItem(BaseModel):
     receita_origem: Optional[str] = None
     visibility_tag: Optional[str] = None
     is_renutrucao: bool = False
+    retrabalhado_em: Optional[datetime] = None
     lost_reason: Optional[str] = None
     lost_message: Optional[str] = None
     modalidade: Optional[str] = None
@@ -205,6 +206,13 @@ class LeadVendaResponse(BaseModel):
 class LeadFaturarResponse(BaseModel):
     success: bool
     lead_id: UUID
+
+
+class RetrabalharResponse(BaseModel):
+    success: bool
+    lead_id: UUID
+    status: str
+    retrabalhado_em: datetime
 
 
 class NoteCreateRequest(BaseModel):

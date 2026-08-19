@@ -42,6 +42,7 @@ interface LeadItem {
   modalidade: string | null
   document: string | null
   created_at: string
+  retrabalhado_em: string | null
 }
 
 interface Note {
@@ -121,6 +122,7 @@ export default function LeadDetailPage() {
   const [vendaData, setVendaData] = useState('')
   const [savingVenda, setSavingVenda] = useState(false)
   const [faturando, setFaturando] = useState(false)
+  const [retrabalhando, setRetrabalhando] = useState(false)
   const [finalizarFlow, setFinalizarFlow] = useState(false)
   const [, setTick]                       = useState(0)
   const [editingInfo, setEditingInfo]     = useState(false)
@@ -209,6 +211,28 @@ export default function LeadDetailPage() {
       .then(() => handleStatusChange('sale_performed'))
       .catch(() => setToast({ msg: 'Erro ao faturar', ok: false }))
       .finally(() => setFaturando(false))
+  }
+
+  function handleRetrabalhar() {
+    if (!id) return
+    setRetrabalhando(true)
+    api.post(`/api/v1/leads/${id}/retrabalhar`)
+      .then(() => {
+        setStatus('novo')
+        setToast({ msg: 'Lead retrabalhado com sucesso', ok: true })
+        return Promise.all([
+          api.get<LeadItem>(`/api/v1/leads/${id}`),
+          api.get<{ history: StatusHistoryItem[] }>(`/api/v1/leads/${id}/status-history`),
+          api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`),
+        ])
+      })
+      .then(([leadRes, histRes, notesRes]) => {
+        setLead(leadRes.data)
+        setHistory(histRes.data.history)
+        setNotes(notesRes.data.notes)
+      })
+      .catch(() => setToast({ msg: 'Erro ao retrabalhar lead', ok: false }))
+      .finally(() => setRetrabalhando(false))
   }
 
   function startEditInfo() {
@@ -578,6 +602,8 @@ export default function LeadDetailPage() {
         onSaveVenda={handleRegistrarVenda}
         faturando={faturando}
         onFaturar={handleFaturar}
+        onRetrabalhar={handleRetrabalhar}
+        retrabalhando={retrabalhando}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] items-start" style={{ marginTop: 20, gap: 20 }}>
@@ -645,6 +671,7 @@ export default function LeadDetailPage() {
             lastChangeLabel={fmtRelative(lastActivityAt)}
             lastChangeDate={fmtDate(lastActivityAt)}
             statusDurationLabel={statusDurationLabel}
+            retrabalhadoEmLabel={lead.retrabalhado_em ? fmtDate(lead.retrabalhado_em) : null}
           />
 
           <LeadRegistrationPanel

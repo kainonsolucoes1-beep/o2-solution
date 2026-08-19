@@ -110,6 +110,12 @@ def _is_admin(user: User) -> bool:
     return user.role == "admin"
 
 
+# "Captacao efetiva": quando um lead cancelado/parado e' retrabalhado
+# (Lead.retrabalhado_em preenchido), ele passa a contar na data do retrabalho
+# pros relatorios de periodo — sem apagar Lead.created_at (historico real).
+EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
+
+
 def _effective_source(source: Optional[str], current_user: User) -> Optional[str]:
     """Usuario nao-admin so' pode ver a propria origem (Lead.origin == nome
     dele), independente do que for pedido no parametro 'source' — mesmo
@@ -122,12 +128,12 @@ def _effective_source(source: Optional[str], current_user: User) -> Optional[str
 def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: Optional[str], team: Optional[str] = None):
     if date_from:
         try:
-            q = q.filter(Lead.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+            q = q.filter(EFFECTIVE_CAPTACAO >= datetime.strptime(date_from, "%Y-%m-%d"))
         except ValueError:
             pass
     if date_to:
         try:
-            q = q.filter(Lead.created_at < datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1))
+            q = q.filter(EFFECTIVE_CAPTACAO < datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1))
         except ValueError:
             pass
     if source:
@@ -295,8 +301,8 @@ def pipeline_alerts(
                 GROUP BY lead_id
             ) ne ON l.id = ne.lead_id
             WHERE ne.first_exit > l.created_at
-              AND (:date_from IS NULL OR l.created_at >= :date_from)
-              AND (:date_to   IS NULL OR l.created_at <  :date_to)
+              AND (:date_from IS NULL OR COALESCE(l.retrabalhado_em, l.created_at) >= :date_from)
+              AND (:date_to   IS NULL OR COALESCE(l.retrabalhado_em, l.created_at) <  :date_to)
               AND (:source    IS NULL OR l.origin = :source)
               {team_clause}
         """)
@@ -362,7 +368,7 @@ def pipeline_next_actions(
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff_5d = now - timedelta(days=5)
 
-    ct_q = db.query(func.count(Lead.id)).filter(_status_in(PENDENTE_STATUSES), Lead.created_at >= today_start)
+    ct_q = db.query(func.count(Lead.id)).filter(_status_in(PENDENTE_STATUSES), EFFECTIVE_CAPTACAO >= today_start)
     call_today = _apply_filters(ct_q, date_from, date_to, source).scalar() or 0
 
     se_q = db.query(func.count(Lead.id)).filter(_status_in(AGENDADO_STATUSES))

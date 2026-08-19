@@ -24,6 +24,7 @@ from app.schemas.lead import (
     AgendaItem, AgendaResponse, AgendaAlertsResponse,
     LeadReceitaUpdateRequest, LeadReceitaUpdateResponse,
     ParcelaRequest, ParcelaUpdateRequest, ParcelaResponse, ParcelasListResponse,
+    RetrabalharResponse,
 )
 from app.schemas.user import OperatorInfo
 
@@ -202,6 +203,7 @@ def leads_by_period(
             origem=r.origin,
             conversion_point=r.conversion_point,
             is_renutrucao=bool(r.is_renutrucao),
+            retrabalhado_em=r.retrabalhado_em,
             lost_reason=r.lost_reason,
             lost_message=r.lost_message,
             modalidade=r.modalidade,
@@ -431,6 +433,7 @@ def get_lead(
         receita_origem=lead.receita_origem if show_fin else None,
         visibility_tag=lead.visibility_tag,
         is_renutrucao=bool(lead.is_renutrucao),
+        retrabalhado_em=lead.retrabalhado_em,
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
         modalidade=lead.modalidade, current_plan=lead.current_plan,
         operadoras_enviadas=lead.operadoras_enviadas, document=lead.document,
@@ -470,6 +473,43 @@ def update_lead_status(
     db.add(history)
     db.commit()
     return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
+
+
+@router.post("/leads/{lead_id}/retrabalhar", response_model=RetrabalharResponse)
+def retrabalhar_lead(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Reativa um lead parado/cancelado: mantem created_at intacto (historico real),
+    mas marca retrabalhado_em com a data de hoje — os relatorios de captacao por
+    periodo passam a contar esse lead na data do retrabalho, nao na original."""
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+
+    prev_status = lead.status
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    lead.retrabalhado_em = now
+    lead.status = "novo"
+    lead.is_renutrucao = True
+    lead.updated_at = now
+
+    db.add(LeadStatusHistory(
+        lead_id=lead.id,
+        from_status=prev_status,
+        to_status="novo",
+        changed_at=now,
+        changed_by=current_user.first_name or current_user.username,
+    ))
+    db.add(LeadNote(
+        lead_id=lead.id,
+        user_id=current_user.id,
+        content=f"Lead retrabalhado — reativado por {current_user.first_name or current_user.username}",
+    ))
+    db.commit()
+    db.refresh(lead)
+    return RetrabalharResponse(success=True, lead_id=lead.id, status=lead.status, retrabalhado_em=lead.retrabalhado_em)
 
 
 @router.post("/leads/{lead_id}/info", response_model=LeadInfoUpdateResponse)
