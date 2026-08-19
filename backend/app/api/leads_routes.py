@@ -122,10 +122,13 @@ def leads_by_period(
         Lead.perception.in_(["Quente", "Morno"]),
     )
 
+    searching = bool(search and search.strip())
+
     def _base_query(q):
         if vencidos:
             q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
-        q = q.filter(Lead.created_at >= start, Lead.created_at < end)
+        if not searching:
+            q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if not admin:
             q = q.filter(Lead.origin == my_name)
         elif origem:
@@ -160,7 +163,7 @@ def leads_by_period(
                 q = q.filter(Lead.team == parts[0])
             else:
                 q = q.filter(Lead.team.in_(parts))
-        if search:
+        if searching:
             term = search.strip()
             digits = re.sub(r"\D", "", term)
             conditions = [Lead.name.ilike(f"%{term}%"), Lead.email.ilike(f"%{term}%")]
@@ -262,10 +265,13 @@ def leads_report_stats(
         Lead.perception.in_(["Quente", "Morno"]),
     )
 
+    searching = bool(search and search.strip())
+
     def _base_query(q):
         if vencidos:
             q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
-        q = q.filter(Lead.created_at >= start, Lead.created_at < end)
+        if not searching:
+            q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if not admin:
             q = q.filter(Lead.origin == my_name)
         elif origem:
@@ -300,7 +306,7 @@ def leads_report_stats(
                 q = q.filter(Lead.team == parts[0])
             else:
                 q = q.filter(Lead.team.in_(parts))
-        if search:
+        if searching:
             term = search.strip()
             digits = re.sub(r"\D", "", term)
             conditions = [Lead.name.ilike(f"%{term}%"), Lead.email.ilike(f"%{term}%")]
