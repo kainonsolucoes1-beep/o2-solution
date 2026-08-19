@@ -197,7 +197,7 @@ export default function Sidebar() {
     )
   })
 
-  const settingsGroup = (
+  const settingsGroup = isAdmin && (
     <ExpandableNavGroup label="Configurações" Icon={Settings} basePath="/settings" children={SETTINGS_CHILDREN} slim={slim} pathname={location.pathname} />
   )
   const financeiroGroup = isAdmin && (
