@@ -151,7 +151,7 @@ export default function LeadNextStepPanel({
             <Mail size={14} /> Enviar e-mail
           </a>
           <button style={actionBtnStyle(true)} onClick={onOpenProposta}>
-            Registrar proposta
+            Enviar proposta
           </button>
           {status === 'waiting_billing' ? (
             <button style={primaryActionBtnStyle} onClick={onFaturar} disabled={faturando}>
