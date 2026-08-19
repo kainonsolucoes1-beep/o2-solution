@@ -67,6 +67,34 @@ def _team_filter(team: str | None) -> list:
     return [Lead.team.in_(parts)]
 
 
+def _is_admin(user: User) -> bool:
+    return user.role == "admin"
+
+
+def _own_name(current_user: User) -> str:
+    return current_user.first_name or current_user.username
+
+
+def _scope_filter(team: str | None, current_user: User) -> list:
+    """Filtro de time (se informado) + visibilidade por usuario: mesmo padrao
+    de leads_routes.py — usuario nao-admin so' enxerga os proprios leads
+    (Lead.origin == nome dele), independente de qualquer filtro de
+    time/periodo informado na tela."""
+    clause = _team_filter(team)
+    if not _is_admin(current_user):
+        clause = [*clause, Lead.origin == _own_name(current_user)]
+    return clause
+
+
+def _effective_origin(origin: str | None, current_user: User) -> str | None:
+    """Usuario nao-admin so' pode pedir a propria origem, independente do
+    que vier no parametro (origin/origens/fonte) — ignora e forca o nome
+    dele, mesmo padrao ja usado em leads_routes.py."""
+    if _is_admin(current_user):
+        return origin
+    return _own_name(current_user)
+
+
 def _new_acc() -> dict:
     return {"captacoes": 0, "vendas": 0, "cancelados": 0, "tempo_sum": 0, "tempo_count": 0, "receita_sum": 0.0}
 
@@ -116,7 +144,7 @@ def conversao_por_fonte(
         Lead.created_at <= date_to,
         Lead.origin.isnot(None),
         Lead.origin != "",
-        *_team_filter(team),
+        *_scope_filter(team, current_user),
     ]
 
     leads = (
@@ -192,6 +220,7 @@ def leads_vendas_por_fonte(
     db: Session = Depends(get_db),
 ):
     date_from, date_to = _resolve_period(month, period, date_from, date_to)
+    fonte = _effective_origin(fonte, current_user)
 
     filters = [
         Lead.created_at >= date_from,
@@ -240,13 +269,17 @@ def renutrucao_stats(
     date_from = datetime(year, mon, 1)
     date_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
 
+    filters = [
+        Lead.is_renutrucao == True,
+        Lead.created_at >= date_from,
+        Lead.created_at <= date_to,
+    ]
+    if not _is_admin(current_user):
+        filters.append(Lead.origin == _own_name(current_user))
+
     leads = (
         db.query(Lead.status)
-        .filter(
-            Lead.is_renutrucao == True,
-            Lead.created_at >= date_from,
-            Lead.created_at <= date_to,
-        )
+        .filter(*filters)
         .all()
     )
 
@@ -277,6 +310,7 @@ def motivos_cancelamento(
     db: Session = Depends(get_db),
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
+    origin = _effective_origin(origin, current_user)
 
     filters = [
         Lead.status == "sale_not_performed",
@@ -335,6 +369,7 @@ def leads_conv_point(
     db: Session = Depends(get_db),
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
+    origens = _effective_origin(origens, current_user)
 
     filters = [Lead.created_at >= dt_from, Lead.created_at <= dt_to]
     if conv_point:
@@ -410,7 +445,7 @@ def conv_point_detalhe(
         Lead.created_at >= dt_from,
         Lead.created_at <= dt_to,
         Lead.conversion_point.ilike(conv_point),
-        *_team_filter(team),
+        *_scope_filter(team, current_user),
     ]
     if origens:
         parts = [s.strip() for s in origens.split(',') if s.strip()]
@@ -510,7 +545,7 @@ def conv_point_diario(
         Lead.created_at >= dt_from,
         Lead.created_at <= dt_to,
         Lead.conversion_point.ilike(conv_point),
-        *_team_filter(team),
+        *_scope_filter(team, current_user),
     ]
     if origens:
         parts = [s.strip() for s in origens.split(',') if s.strip()]
@@ -565,7 +600,7 @@ def sdr_detalhe(
             Lead.created_at >= dt_from,
             Lead.created_at <= dt_to,
             Lead.origin.in_(parts),
-            *_team_filter(team),
+            *_scope_filter(team, current_user),
         )
         .all()
     )
@@ -652,7 +687,7 @@ def bases_analytics(
             Lead.created_at <= dt_to,
             Lead.notes.isnot(None),
             Lead.notes.ilike('%Base%'),
-            *_team_filter(team),
+            *_scope_filter(team, current_user),
         )
         .all()
     )
@@ -696,7 +731,7 @@ def modalidade_analytics(
         .filter(
             Lead.created_at >= dt_from,
             Lead.created_at <= dt_to,
-            *_team_filter(team),
+            *_scope_filter(team, current_user),
         )
         .all()
     )
@@ -732,7 +767,7 @@ def modalidade_detalhe(
     filters = [
         Lead.created_at >= dt_from,
         Lead.created_at <= dt_to,
-        *_team_filter(team),
+        *_scope_filter(team, current_user),
     ]
     if target == "não informado":
         filters.append(or_(Lead.modalidade.is_(None), func.trim(Lead.modalidade) == ""))
@@ -820,7 +855,7 @@ def base_detalhe(
             Lead.created_at <= dt_to,
             Lead.notes.isnot(None),
             Lead.notes.ilike('%Base%'),
-            *_team_filter(team),
+            *_scope_filter(team, current_user),
         )
         .all()
     )
@@ -912,7 +947,7 @@ def leads_base(
             Lead.created_at <= dt_to,
             Lead.notes.isnot(None),
             Lead.notes.ilike('%Base%'),
-            *_team_filter(team),
+            *_scope_filter(team, current_user),
         )
         .all()
     )
@@ -1016,7 +1051,7 @@ def faixas_etarias(
 
     leads = (
         db.query(Lead.ages_raw, Lead.notes, Lead.status)
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_team_filter(team))
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_scope_filter(team, current_user))
         .all()
     )
 
@@ -1078,7 +1113,7 @@ def leads_faixa_etaria(
 
     leads = (
         db.query(Lead.name, Lead.ages_raw, Lead.notes, Lead.status, Lead.value_potential)
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_team_filter(team))
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_scope_filter(team, current_user))
         .all()
     )
 
@@ -1127,7 +1162,7 @@ def plano_saude(
 
     leads = (
         db.query(Lead.current_plan, Lead.status)
-        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_team_filter(team))
+        .filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_scope_filter(team, current_user))
         .all()
     )
 
@@ -1198,7 +1233,7 @@ def leads_plano_saude(
             Lead.created_at >= dt_from,
             Lead.created_at <= dt_to,
             func.lower(Lead.current_plan) == plano.strip().lower(),
-            *_team_filter(team),
+            *_scope_filter(team, current_user),
         )
         .all()
     )
@@ -1237,13 +1272,17 @@ def receita_potencial(
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
+    filters = [
+        Lead.created_at >= dt_from,
+        Lead.created_at <= dt_to,
+        Lead.status != "sale_not_performed",
+    ]
+    if not _is_admin(current_user):
+        filters.append(Lead.origin == _own_name(current_user))
+
     total = (
         db.query(func.coalesce(func.sum(Lead.value_potential), 0))
-        .filter(
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
-            Lead.status != "sale_not_performed",
-        )
+        .filter(*filters)
         .scalar()
     )
     return {"total": float(total)}

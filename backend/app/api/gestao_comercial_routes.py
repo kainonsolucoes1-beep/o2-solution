@@ -77,6 +77,22 @@ def _team_clause(team: str | None):
     return [Lead.team.in_(parts)] if len(parts) > 1 else [Lead.team == parts[0]]
 
 
+def _is_admin(user: User) -> bool:
+    return user.role == "admin"
+
+
+def _scope_clause(team: str | None, current_user: User):
+    """Filtro de time (se informado) + visibilidade por usuario: mesmo padrao
+    de leads_routes.py — usuario nao-admin so' enxerga os proprios leads
+    (Lead.origin == nome dele), independente de qualquer filtro de
+    time/periodo informado na tela."""
+    clause = _team_clause(team)
+    if not _is_admin(current_user):
+        my_name = current_user.first_name or current_user.username
+        clause = [*clause, Lead.origin == my_name]
+    return clause
+
+
 @router.get("/visao-geral")
 def visao_geral(
     month: str = Query(None),
@@ -89,7 +105,7 @@ def visao_geral(
     db: Session = Depends(get_db),
 ):
     dt_from, dt_to = _resolve_range(month, until_day, start, end)
-    team_clause = _team_clause(team)
+    team_clause = _scope_clause(team, current_user)
 
     leads = db.query(Lead.status, Lead.value_potential, Lead.perception).filter(
         Lead.created_at >= dt_from, Lead.created_at <= dt_to, *team_clause,
@@ -153,7 +169,7 @@ def evolucao_diaria(
     rows = db.query(
         func.date(Lead.created_at).label("day"),
         Lead.status,
-    ).filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_team_clause(team)).all()
+    ).filter(Lead.created_at >= dt_from, Lead.created_at <= dt_to, *_scope_clause(team, current_user)).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
     daily: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
@@ -195,7 +211,7 @@ def origens_captacao(
         .filter(
             Lead.created_at >= dt_from, Lead.created_at <= dt_to,
             Lead.origin.isnot(None), Lead.origin != "",
-            *_team_clause(team),
+            *_scope_clause(team, current_user),
         )
         .group_by(Lead.origin)
         .order_by(func.count(Lead.id).desc())
@@ -229,7 +245,7 @@ def modalidades_captacao(
         .filter(
             Lead.created_at >= dt_from, Lead.created_at <= dt_to,
             Lead.modalidade.isnot(None), Lead.modalidade != "",
-            *_team_clause(team),
+            *_scope_clause(team, current_user),
         )
         .all()
     )
@@ -266,7 +282,7 @@ def comparativo_mensal(
 ):
     now = datetime.utcnow()
     result = []
-    team_clause = _team_clause(team)
+    team_clause = _scope_clause(team, current_user)
 
     for i in range(5, -1, -1):
         mon = now.month - i
@@ -312,7 +328,7 @@ def receita_potencial_drill(
         Lead.created_at <= dt_to,
         Lead.value_potential.isnot(None),
         Lead.value_potential > 0,
-        *_team_clause(team),
+        *_scope_clause(team, current_user),
     ]
 
     if tipo == "vendas":
@@ -366,7 +382,7 @@ def receita_contratos(
         Lead.created_at <= dt_to,
         Lead.value_potential.isnot(None),
         Lead.value_potential > 0,
-        *_team_clause(team),
+        *_scope_clause(team, current_user),
     ]
 
     if tipo == "vendas":
@@ -420,14 +436,19 @@ def performance_operadores(
     year, mon = _parse_month(month)
     dt_from, dt_to = _month_range(year, mon)
 
+    filters = [
+        Lead.created_at >= dt_from,
+        Lead.created_at <= dt_to,
+        Lead.origin.isnot(None),
+        Lead.origin != "",
+    ]
+    if not _is_admin(current_user):
+        my_name = current_user.first_name or current_user.username
+        filters.append(Lead.origin == my_name)
+
     leads = (
         db.query(Lead.origin, Lead.status, Lead.value_potential)
-        .filter(
-            Lead.created_at >= dt_from,
-            Lead.created_at <= dt_to,
-            Lead.origin.isnot(None),
-            Lead.origin != "",
-        )
+        .filter(*filters)
         .all()
     )
 
@@ -484,7 +505,7 @@ def performance_historico(
     db: Session = Depends(get_db),
 ):
     """Historico por operador (vitalicio ou recortado por date_from/date_to) + tendencia mensal."""
-    filters = [Lead.origin.isnot(None), Lead.origin != "", *_team_clause(team)]
+    filters = [Lead.origin.isnot(None), Lead.origin != "", *_scope_clause(team, current_user)]
     if origens:
         parts = [s.strip() for s in origens.split(",") if s.strip()]
         if len(parts) == 1:
@@ -613,7 +634,7 @@ def conversion_points_by_group(
         Lead.created_at <= dt_to,
         Lead.conversion_point.isnot(None),
         Lead.conversion_point != "",
-        *_team_clause(team),
+        *_scope_clause(team, current_user),
     ]
     if origens:
         parts = [s.strip() for s in origens.split(',') if s.strip()]
@@ -685,6 +706,10 @@ def vida_sdr(
 ):
     """Historico de um SDR/origem: funil, conversao e receita real, vitalicio por padrao
     ou recortado por date_from/date_to (filtro Geral / Mes atual / Entre datas no frontend)."""
+    if not _is_admin(current_user):
+        # usuario nao-admin so' pode ver o proprio historico, independente do
+        # que vier em `origens` (ex: alguem digitando outro nome na URL)
+        origens = current_user.first_name or current_user.username
     parts = [s.strip() for s in origens.split(",") if s.strip()]
 
     date_filters = []

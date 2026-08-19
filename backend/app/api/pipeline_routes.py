@@ -106,6 +106,19 @@ def _status_in(statuses):
     return or_(*[func.lower(Lead.status) == s.lower() for s in statuses])
 
 
+def _is_admin(user: User) -> bool:
+    return user.role == "admin"
+
+
+def _effective_source(source: Optional[str], current_user: User) -> Optional[str]:
+    """Usuario nao-admin so' pode ver a propria origem (Lead.origin == nome
+    dele), independente do que for pedido no parametro 'source' — mesmo
+    padrao ja usado em leads_routes.py."""
+    if _is_admin(current_user):
+        return source
+    return current_user.first_name or current_user.username
+
+
 def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: Optional[str], team: Optional[str] = None):
     if date_from:
         try:
@@ -156,6 +169,7 @@ def pipeline_overview(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    source = _effective_source(source, current_user)
     # lead quente/morno ainda nao fechado/perdido conta so em "Qualificado" (negociacao),
     # mesmo que o status dele ainda seja pendente/agendado/proposta
     not_hot_warm = ~Lead.perception.in_(list(HOT_WARM_PERCEPTIONS))
@@ -198,6 +212,7 @@ def pipeline_funnel(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    source = _effective_source(source, current_user)
     pendente = _count_status(db, PENDENTE_STATUSES, date_from, date_to, source)
     agendado = _count_status(db, AGENDADO_STATUSES, date_from, date_to, source)
     proposta = _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source)
@@ -228,6 +243,7 @@ def pipeline_alerts(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    source = _effective_source(source, current_user)
     now = _now()
 
     vencidos_filter = _status_in(PENDENTE_STATUSES)
@@ -341,6 +357,7 @@ def pipeline_next_actions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    source = _effective_source(source, current_user)
     now = _now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff_5d = now - timedelta(days=5)
@@ -365,6 +382,7 @@ def pipeline_top_sources(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    source = _effective_source(source, current_user)
     q = db.query(Lead.origin, func.count(Lead.id).label("count"))
     q = _apply_filters(q, date_from, date_to, source)
     rows = (
@@ -385,6 +403,7 @@ def pipeline_revenue_by_source(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    source = _effective_source(source, current_user)
     q = db.query(
         Lead.origin,
         func.count(Lead.id).label("cnt"),
@@ -419,6 +438,7 @@ def pipeline_source_details(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    source_name = _effective_source(source_name, current_user)
     agg = _apply_filters(
         db.query(func.count(Lead.id).label("cnt"), func.sum(Lead.value_potential).label("revenue")),
         date_from, date_to, source_name,
