@@ -698,7 +698,7 @@ def _compute_meta_mes(db: Session, parts: list[str]):
         "tipo": meta_row.tipo,
         "meta_valor": float(meta_row.meta_valor),
         "progresso": progresso,
-        "mes_label": f"{MESES_ABREV[now.month]}/{str(now.year)[2:]}",
+        "mes_label": f"{MESES_ABREV[nb.month]}/{str(nb.year)[2:]}",
     }
 
 
