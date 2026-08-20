@@ -17,6 +17,7 @@ import MetricCard from '../components/MetricCard'
 import TrendChart from '../components/TrendChart'
 import ProgressBarList from '../components/ProgressBarList'
 import SectionTitle from '../components/SectionTitle'
+import { useTheme } from '../ThemeContext'
 
 const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção'] as const
 type Tab = typeof TABS[number]
@@ -1413,6 +1414,7 @@ function ComparisonModal({ onClose }: { onClose: () => void }) {
 // ════════════════════════════════════════════════════════════════════════════
 export default function GestaoComercial() {
   const navigate = useNavigate()
+  const { dark } = useTheme()
   const [activeTab, setActiveTab]     = useState<Tab>('Visão Geral')
   const [dateFrom, setDateFrom]       = useState(_gcMonthStart)
   const [dateTo, setDateTo]           = useState(_gcToday)
@@ -1582,6 +1584,7 @@ export default function GestaoComercial() {
   const monthlyPoints = mensal.map(m => ({ x: m.mes_label, captacoes: m.captacoes, vendas: m.vendas }))
 
   return (
+    <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
     <div style={{ padding: '28px 32px', maxWidth: 1360, margin: '0 auto' }}>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Gestão Comercial</h1>
@@ -2041,6 +2044,7 @@ export default function GestaoComercial() {
       )}
 
       {showComparison && <ComparisonModal onClose={() => setShowComparison(false)} />}
+    </div>
     </div>
   )
 }

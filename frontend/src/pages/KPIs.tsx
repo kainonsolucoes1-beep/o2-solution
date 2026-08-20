@@ -10,6 +10,7 @@ import {
   ScatterChart, Scatter, ZAxis, LabelList, ReferenceLine,
 } from 'recharts'
 import api from '../api'
+import { useTheme } from '../ThemeContext'
 
 interface BreakdownItem {
   label: string
@@ -373,6 +374,7 @@ type MainTab = typeof MAIN_TABS[number]['key']
 
 export default function KPIs() {
   const navigate = useNavigate()
+  const { dark } = useTheme()
   const now = new Date()
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -792,6 +794,7 @@ export default function KPIs() {
   const perfilBothEmpty = !ageBandsLoading && !planoSaudeLoading && !ageError && !planoError && ageEmpty && planoEmpty
 
   return (
+    <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
     <main style={{ maxWidth: 1520, margin: '0 auto', padding: '32px 32px 60px' }}>
       <style>{`
         .perf-tab-btn:hover { color: var(--text-1); }
@@ -1716,6 +1719,7 @@ export default function KPIs() {
         />
       )}
     </main>
+    </div>
   )
 }
 
