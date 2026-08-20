@@ -1,4 +1,3 @@
-import calendar
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -12,6 +11,7 @@ from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
 from app.models.user import User
 from app.models.sdr_meta import SdrMeta
 from app.security import can_see_financials
+from app.tz_utils import BR_OFFSET, br_date_to_utc_range, br_month_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
 
@@ -52,23 +52,23 @@ def _parse_month(month: str | None):
             return int(month[:4]), int(month[5:7])
         except (ValueError, IndexError):
             pass
-    now = datetime.utcnow()
-    return now.year, now.month
+    nb = now_br()
+    return nb.year, nb.month
 
 
 def _month_range(year: int, mon: int, until_day: int | None = None):
-    dt_from = datetime(year, mon, 1)
-    last_day = calendar.monthrange(year, mon)[1]
-    end_day = min(until_day, last_day) if until_day else last_day
-    dt_to = datetime(year, mon, end_day, 23, 59, 59)
-    return dt_from, dt_to
+    dt_from, dt_to_excl = br_month_utc_range(year, mon)
+    if until_day:
+        until_start, _ = br_date_to_utc_range(f"{year:04d}-{mon:02d}-{until_day:02d}")
+        dt_to_excl = min(dt_to_excl, until_start + timedelta(days=1))
+    return dt_from, dt_to_excl - timedelta(microseconds=1)
 
 
 def _resolve_range(month: str | None, until_day: int | None, start: str | None, end: str | None):
     if start and end:
-        dt_from = datetime.strptime(start, "%Y-%m-%d")
-        dt_to = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-        return dt_from, dt_to
+        dt_from, _ = br_date_to_utc_range(start)
+        _, dt_to_excl = br_date_to_utc_range(end)
+        return dt_from, dt_to_excl - timedelta(microseconds=1)
     year, mon = _parse_month(month)
     return _month_range(year, mon, until_day)
 
@@ -172,7 +172,7 @@ def evolucao_diaria(
     dt_from, dt_to = _resolve_range(month, until_day, start, end)
 
     rows = db.query(
-        func.date(EFFECTIVE_CAPTACAO).label("day"),
+        func.date(EFFECTIVE_CAPTACAO - BR_OFFSET).label("day"),
         Lead.status,
     ).filter(EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_clause(team, current_user)).all()
 
@@ -186,7 +186,7 @@ def evolucao_diaria(
 
     result = []
     cur = dt_from.date()
-    last = dt_to.date()
+    last = (dt_to - BR_OFFSET).date()
     while cur <= last:
         key = cur.isoformat()
         result.append({
@@ -285,7 +285,7 @@ def comparativo_mensal(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    now = datetime.utcnow()
+    now = now_br()
     result = []
     team_clause = _scope_clause(team, current_user)
 
@@ -518,9 +518,11 @@ def performance_historico(
         elif parts:
             filters.append(Lead.origin.in_(parts))
     if date_from:
-        filters.append(EFFECTIVE_CAPTACAO >= datetime.strptime(date_from, "%Y-%m-%d"))
+        dt_from, _ = br_date_to_utc_range(date_from)
+        filters.append(EFFECTIVE_CAPTACAO >= dt_from)
     if date_to:
-        filters.append(EFFECTIVE_CAPTACAO <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        _, dt_to_excl = br_date_to_utc_range(date_to)
+        filters.append(EFFECTIVE_CAPTACAO <= dt_to_excl - timedelta(microseconds=1))
 
     leads = (
         db.query(Lead.origin, Lead.status, Lead.value_potential, EFFECTIVE_CAPTACAO)
@@ -677,9 +679,8 @@ def _compute_meta_mes(db: Session, parts: list[str]):
     if not meta_row:
         return None
 
-    now = datetime.now()
-    mes_inicio = datetime(now.year, now.month, 1)
-    mes_fim = datetime(now.year + (1 if now.month == 12 else 0), 1 if now.month == 12 else now.month + 1, 1)
+    nb = now_br()
+    mes_inicio, mes_fim = br_month_utc_range(nb.year, nb.month)
 
     mes_leads = (
         db.query(Lead.status, Lead.value_potential)
@@ -719,9 +720,11 @@ def vida_sdr(
 
     date_filters = []
     if date_from:
-        date_filters.append(EFFECTIVE_CAPTACAO >= datetime.strptime(date_from, "%Y-%m-%d"))
+        _dt_from, _ = br_date_to_utc_range(date_from)
+        date_filters.append(EFFECTIVE_CAPTACAO >= _dt_from)
     if date_to:
-        date_filters.append(EFFECTIVE_CAPTACAO <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        _, _dt_to_excl = br_date_to_utc_range(date_to)
+        date_filters.append(EFFECTIVE_CAPTACAO <= _dt_to_excl - timedelta(microseconds=1))
 
     filters = [Lead.origin.in_(parts), *date_filters] if parts else []
 

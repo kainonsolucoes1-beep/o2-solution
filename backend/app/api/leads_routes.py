@@ -11,6 +11,7 @@ from app.database import get_db
 from app.lead_utils import extract_base
 from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.security import can_see_financials
+from app.tz_utils import br_date_to_utc_range, now_br
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
     BulkDeleteRequest, BulkDeleteResponse,
@@ -107,8 +108,8 @@ def leads_by_period(
     db: Session = Depends(get_db),
 ):
     try:
-        start = datetime.strptime(date_from, "%Y-%m-%d")
-        end = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+        start, _ = br_date_to_utc_range(date_from)
+        _, end = br_date_to_utc_range(date_to)
     except ValueError:
         raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
 
@@ -250,8 +251,8 @@ def leads_report_stats(
     """Contagens (total/fechados/perdidos/quentes) para os cards de resumo do
     Relatorio de Leads, respeitando os mesmos filtros de /leads/by-period."""
     try:
-        start = datetime.strptime(date_from, "%Y-%m-%d")
-        end = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+        start, _ = br_date_to_utc_range(date_from)
+        _, end = br_date_to_utc_range(date_to)
     except ValueError:
         raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
 
@@ -553,7 +554,7 @@ def update_lead_info(
         if not _is_admin(current_user):
             raise HTTPException(status_code=403, detail="Apenas administradores podem alterar a data de criação do lead")
         try:
-            new_created_at = datetime.strptime(body.created_at, "%Y-%m-%d")
+            new_created_at, _ = br_date_to_utc_range(body.created_at)
         except ValueError:
             raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
         # lead do passado: desloca o historico de status junto (mesmo delta), pra nao
@@ -593,7 +594,7 @@ def _parse_date_or_none(s: str | None) -> datetime | None:
     if not s or not s.strip():
         return None
     try:
-        return datetime.strptime(s.strip(), "%Y-%m-%d")
+        return br_date_to_utc_range(s.strip())[0]
     except ValueError:
         raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
 
@@ -756,7 +757,7 @@ def registrar_venda(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     try:
-        data_venda = datetime.strptime(body.data_venda, "%Y-%m-%d")
+        data_venda, _ = br_date_to_utc_range(body.data_venda)
     except ValueError:
         raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
     lead.receita_real_a_receber = body.valor
@@ -912,8 +913,8 @@ def get_agenda(
     db: Session = Depends(get_db),
 ):
     try:
-        start = datetime.strptime(date_from, "%Y-%m-%d")
-        end = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+        start, _ = br_date_to_utc_range(date_from)
+        _, end = br_date_to_utc_range(date_to)
     except ValueError:
         raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
 
@@ -953,7 +954,7 @@ def get_agenda_alerts_count(
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    end_of_today = datetime(now.year, now.month, now.day) + timedelta(days=1)
+    _, end_of_today = br_date_to_utc_range(now_br().date())
 
     overdue = (
         db.query(func.count(LeadSchedule.id))

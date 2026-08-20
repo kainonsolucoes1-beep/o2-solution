@@ -9,6 +9,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models.lead import Lead
 from app.models.user import User
+from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
 
@@ -128,12 +129,14 @@ def _effective_source(source: Optional[str], current_user: User) -> Optional[str
 def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: Optional[str], team: Optional[str] = None):
     if date_from:
         try:
-            q = q.filter(EFFECTIVE_CAPTACAO >= datetime.strptime(date_from, "%Y-%m-%d"))
+            dt_from, _ = br_date_to_utc_range(date_from)
+            q = q.filter(EFFECTIVE_CAPTACAO >= dt_from)
         except ValueError:
             pass
     if date_to:
         try:
-            q = q.filter(EFFECTIVE_CAPTACAO < datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1))
+            _, dt_to_excl = br_date_to_utc_range(date_to)
+            q = q.filter(EFFECTIVE_CAPTACAO < dt_to_excl)
         except ValueError:
             pass
     if source:
@@ -287,8 +290,8 @@ def pipeline_alerts(
     try:
         from sqlalchemy import bindparam
         from sqlalchemy import text as sa_text
-        date_from_dt = datetime.strptime(date_from, "%Y-%m-%d") if date_from else None
-        date_to_dt   = datetime.strptime(date_to,   "%Y-%m-%d") + timedelta(days=1) if date_to else None
+        date_from_dt = br_date_to_utc_range(date_from)[0] if date_from else None
+        date_to_dt   = br_date_to_utc_range(date_to)[1] if date_to else None
         team_parts = [s.strip() for s in team.split(',') if s.strip()] if team else None
         team_clause = "AND l.team IN :team_parts" if team_parts else ""
         stmt = sa_text(f"""
@@ -365,7 +368,7 @@ def pipeline_next_actions(
 ):
     source = _effective_source(source, current_user)
     now = _now()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start, _ = br_date_to_utc_range(now_br().date())
     cutoff_5d = now - timedelta(days=5)
 
     ct_q = db.query(func.count(Lead.id)).filter(_status_in(PENDENTE_STATUSES), EFFECTIVE_CAPTACAO >= today_start)

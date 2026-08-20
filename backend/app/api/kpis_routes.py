@@ -1,4 +1,3 @@
-import calendar
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -13,6 +12,7 @@ from app.lead_utils import extract_base as _extract_base
 from app.models.lead import Lead
 from app.models.user import User
 from app.security import can_see_financials
+from app.tz_utils import BR_OFFSET, br_date_to_utc_range, br_month_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/kpis", tags=["kpis"])
 
@@ -41,9 +41,9 @@ def _resolve_period(
 
     if date_from and date_to:
         try:
-            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
-            dt_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            return dt_from, dt_to
+            dt_from, _ = br_date_to_utc_range(date_from)
+            _, dt_to_excl = br_date_to_utc_range(date_to)
+            return dt_from, dt_to_excl - timedelta(microseconds=1)
         except ValueError:
             pass
 
@@ -51,14 +51,13 @@ def _resolve_period(
         try:
             year, mon = int(month[:4]), int(month[5:7])
         except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
+            year, mon = now_br().year, now_br().month
     else:
-        now = datetime.utcnow()
-        year, mon = now.year, now.month
+        nb = now_br()
+        year, mon = nb.year, nb.month
 
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
-    return dt_from, dt_to
+    dt_from, dt_to_excl = br_month_utc_range(year, mon)
+    return dt_from, dt_to_excl - timedelta(microseconds=1)
 
 
 def _team_filter(team: str | None) -> list:
@@ -267,13 +266,13 @@ def renutrucao_stats(
         try:
             year, mon = int(month[:4]), int(month[5:7])
         except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
+            year, mon = now_br().year, now_br().month
     else:
-        now = datetime.utcnow()
-        year, mon = now.year, now.month
+        nb = now_br()
+        year, mon = nb.year, nb.month
 
-    date_from = datetime(year, mon, 1)
-    date_to   = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    date_from, _date_to_excl = br_month_utc_range(year, mon)
+    date_to = _date_to_excl - timedelta(microseconds=1)
 
     filters = [
         Lead.is_renutrucao == True,
@@ -540,12 +539,12 @@ def conv_point_diario(
         try:
             year, mon = int(month[:4]), int(month[5:7])
         except (ValueError, IndexError):
-            year, mon = datetime.utcnow().year, datetime.utcnow().month
+            year, mon = now_br().year, now_br().month
     else:
-        year, mon = datetime.utcnow().year, datetime.utcnow().month
+        year, mon = now_br().year, now_br().month
 
-    dt_from = datetime(year, mon, 1)
-    dt_to = datetime(year, mon, calendar.monthrange(year, mon)[1], 23, 59, 59)
+    dt_from, _dt_to_excl = br_month_utc_range(year, mon)
+    dt_to = _dt_to_excl - timedelta(microseconds=1)
 
     filters = [
         EFFECTIVE_CAPTACAO >= dt_from,
@@ -558,7 +557,7 @@ def conv_point_diario(
         if parts:
             filters.append(Lead.origin.in_(parts))
 
-    rows = db.query(func.date(EFFECTIVE_CAPTACAO).label("day"), Lead.status).filter(*filters).all()
+    rows = db.query(func.date(EFFECTIVE_CAPTACAO - BR_OFFSET).label("day"), Lead.status).filter(*filters).all()
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
     daily: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
@@ -570,7 +569,7 @@ def conv_point_diario(
 
     result = []
     cur = dt_from.date()
-    last = dt_to.date()
+    last = (dt_to - BR_OFFSET).date()
     while cur <= last:
         key = cur.isoformat()
         result.append({

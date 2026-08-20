@@ -1,5 +1,4 @@
 import calendar
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,6 +13,7 @@ from app.models.sdr_meta import SdrMeta
 from app.models.user import User
 from app.schemas.sdr_meta import SdrMetaCreate, SdrMetaProgress, SdrMetasListResponse, SdrMetaUpdate
 from app.security import can_see_financials
+from app.tz_utils import br_date_to_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/financeiro", tags=["financeiro"])
 _TIPOS_VALIDOS = ("clt", "estagiario")
@@ -24,7 +24,7 @@ def _is_atrasado(parcela: LeadParcela) -> bool:
     return (
         parcela.status == "a_receber"
         and parcela.previsao_recebimento is not None
-        and parcela.previsao_recebimento.date() < datetime.utcnow().date()
+        and parcela.previsao_recebimento.date() < now_br().date()
     )
 
 
@@ -76,9 +76,11 @@ def list_contratos(
         (Lead.receita_real_recebida > 0) | (Lead.receita_real_a_receber > 0)
     )
     if date_from:
-        q = q.filter(Lead.receita_data_venda >= datetime.strptime(date_from, "%Y-%m-%d"))
+        dt_from, _ = br_date_to_utc_range(date_from)
+        q = q.filter(Lead.receita_data_venda >= dt_from)
     if date_to:
-        q = q.filter(Lead.receita_data_venda <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        _, dt_to_excl = br_date_to_utc_range(date_to)
+        q = q.filter(Lead.receita_data_venda < dt_to_excl)
     q = _apply_search(q, Lead, search)
     q = _apply_canal(q, Lead, canal)
 
@@ -136,8 +138,8 @@ def previsao_periodo(
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
 
     try:
-        inicio = datetime.strptime(date_from, "%Y-%m-%d")
-        fim = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+        inicio, _ = br_date_to_utc_range(date_from)
+        _, fim_excl = br_date_to_utc_range(date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="Parâmetros 'date_from'/'date_to' inválidos, use YYYY-MM-DD")
 
@@ -146,7 +148,7 @@ def previsao_periodo(
         .join(Lead, Lead.id == LeadParcela.lead_id)
         .filter(
             LeadParcela.previsao_recebimento >= inicio,
-            LeadParcela.previsao_recebimento <= fim,
+            LeadParcela.previsao_recebimento < fim_excl,
         )
     )
     q = _apply_search(q, Lead, search)
@@ -187,7 +189,7 @@ def _is_current_month_range(date_from: Optional[str], date_to: Optional[str]) ->
     projecao linear pro fim do mes faz sentido."""
     if not date_from or not date_to:
         return False
-    now = datetime.now()
+    now = now_br()
     last_day = calendar.monthrange(now.year, now.month)[1]
     return date_from == f"{now.year:04d}-{now.month:02d}-01" and date_to == f"{now.year:04d}-{now.month:02d}-{last_day:02d}"
 
@@ -198,9 +200,11 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
     meta -- mesma logica de calculo usada em gestao_comercial_routes."""
     filters = [Lead.origin == meta.nome]
     if date_from:
-        filters.append(Lead.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+        dt_from, _ = br_date_to_utc_range(date_from)
+        filters.append(Lead.created_at >= dt_from)
     if date_to:
-        filters.append(Lead.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        _, dt_to_excl = br_date_to_utc_range(date_to)
+        filters.append(Lead.created_at < dt_to_excl)
 
     leads_rows = db.query(Lead.status, Lead.value_potential).filter(*filters).all()
     venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -217,7 +221,7 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
 
     projecao = None
     if _is_current_month_range(date_from, date_to):
-        now = datetime.now()
+        now = now_br()
         dias_no_mes = calendar.monthrange(now.year, now.month)[1]
         if now.day > 0:
             projecao = round(atingido / now.day * dias_no_mes, 2)
@@ -238,7 +242,7 @@ def list_metas(
     if not can_see_financials(current_user):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
 
-    now = datetime.now()
+    now = now_br()
     metas_rows = db.query(SdrMeta).order_by(SdrMeta.nome).all()
     return SdrMetasListResponse(
         mes_label=f"{MESES_ABREV[now.month]}/{str(now.year)[2:]}",

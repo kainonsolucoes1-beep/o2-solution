@@ -13,6 +13,7 @@ from app.database import get_db
 from app.lead_utils import extract_base, is_organico
 from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
+from app.tz_utils import BR_OFFSET, br_date_to_utc_range, today_utc_range
 from app.schemas.dashboard import (
     TodayMetrics,
     TopOperatorsResponse,
@@ -343,12 +344,10 @@ def dashboard_performance(
     db: Session = Depends(get_db),
 ):
     if date:
-        ref = datetime.strptime(date, "%Y-%m-%d")
+        today_start, today_end = br_date_to_utc_range(date)
     else:
-        ref = datetime.now(timezone.utc).replace(tzinfo=None)
+        today_start, today_end = today_utc_range()
 
-    today_start = ref.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = today_start + timedelta(days=1)
     yesterday_start = today_start - timedelta(days=1)
     month_start = today_start.replace(day=1)
     prev_month_end = month_start
@@ -426,10 +425,10 @@ def dashboard_performance(
 
     # Evolução diária — leads por dia no mês até a data de referência
     daily_rows = (
-        db.query(cast(EFFECTIVE_CAPTACAO, Date).label("day"), func.count(Lead.id).label("count"))
+        db.query(cast(EFFECTIVE_CAPTACAO - BR_OFFSET, Date).label("day"), func.count(Lead.id).label("count"))
         .filter(EFFECTIVE_CAPTACAO >= month_start, EFFECTIVE_CAPTACAO < today_end)
-        .group_by(cast(EFFECTIVE_CAPTACAO, Date))
-        .order_by(cast(EFFECTIVE_CAPTACAO, Date))
+        .group_by(cast(EFFECTIVE_CAPTACAO - BR_OFFSET, Date))
+        .order_by(cast(EFFECTIVE_CAPTACAO - BR_OFFSET, Date))
         .all()
     )
     daily_map = {str(r.day): r.count for r in daily_rows}
