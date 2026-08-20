@@ -894,7 +894,7 @@ export default function KPIs() {
       </div>
 
       {/* Resumo executivo — faixa horizontal, sem cards, divisores sutis */}
-      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 16px' }}>Saúde da operação</p>
+      <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 16px' }}>Saúde da operação</p>
       <div style={{
         display: 'flex', alignItems: 'stretch', background: 'var(--bg-card)', border: '1px solid var(--border)',
         borderRadius: 16, padding: '20px 24px', marginBottom: dataError ? 8 : 32, flexWrap: 'wrap', rowGap: 16,
