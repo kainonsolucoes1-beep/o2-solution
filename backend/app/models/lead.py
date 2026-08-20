@@ -26,6 +26,9 @@ class Lead(Base):
     # "captacao efetiva" pros relatorios de periodo, sem apagar created_at
     # (historico real de quando o lead nasceu)
     retrabalhado_em = Column(TIMESTAMP, nullable=True)
+    # quando true, o sync do Followize nao sobrescreve mais o origin desta lead
+    # (usado pra proteger correcoes manuais feitas apos o lead ser reativado)
+    origin_locked = Column(Boolean, default=False, nullable=False, server_default='false')
     ages_raw = Column(String(100), nullable=True)
     modalidade = Column(String(255), nullable=True)
     categoria = Column(String(255), nullable=True)

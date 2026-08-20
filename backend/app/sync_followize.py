@@ -356,13 +356,14 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     if existing:
         prev_status = existing.status
         new_status = fields["status"]
+        new_origin = existing.origin if existing.origin_locked else fields["origin"]
 
         changed = (
             existing.name != fields["name"]
             or existing.phone != fields["phone"]
             or existing.company != fields["company"]
             or existing.status != new_status
-            or existing.origin != fields["origin"]
+            or existing.origin != new_origin
             or existing.conversion_point != fields["conversion_point"]
             or existing.attendant != fields["attendant"]
             or existing.value_potential != fields["value_potential"]
@@ -379,7 +380,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.phone = fields["phone"]
         existing.company = fields["company"]
         existing.status = new_status
-        existing.origin = fields["origin"]
+        existing.origin = new_origin
         existing.conversion_point = fields["conversion_point"]
         existing.attendant = fields["attendant"]
         existing.value_potential = fields["value_potential"]
