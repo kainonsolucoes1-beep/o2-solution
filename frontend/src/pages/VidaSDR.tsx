@@ -18,6 +18,9 @@ import {
 interface TrendItem { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number | null }
 interface RankingEntry { nome: string; receita: number; voce: boolean }
 interface Ranking { posicao: number; total: number; leaderboard: RankingEntry[] }
+interface RankingGeralEntry { nome: string; valor: number; voce: boolean }
+interface RankingGeralSection { posicao: number; total: number; leaderboard: RankingGeralEntry[] }
+interface RankingGeral { captacoes: RankingGeralSection; vendas: RankingGeralSection }
 interface Atividade { tipo: 'status' | 'nota' | 'agendamento'; lead_nome: string; lead_id?: string; detalhe: string | null; em: string }
 interface VidaSdrData {
   captacoes: number
@@ -33,6 +36,7 @@ interface VidaSdrData {
   meta: { tipo: 'clt' | 'estagiario'; meta_valor: number; progresso: number; mes_label: string } | null
   trend: TrendItem[]
   ranking: Ranking | null
+  ranking_geral: RankingGeral | null
   atividades: Atividade[]
 }
 
@@ -248,6 +252,7 @@ export default function VidaSDR() {
   const [preview, setPreview] = useState<SmartPreview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [chartMetric, setChartMetric] = useState<ChartMetric>('vendas')
+  const [rankingMetric, setRankingMetric] = useState<'captacoes' | 'vendas'>('captacoes')
 
   useEffect(() => {
     if (!origens) return
@@ -504,10 +509,53 @@ export default function VidaSDR() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
             <section style={{ padding: '24px 0', border: '1px solid var(--border)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
               <span style={{ ...kickerStyle, padding: '0 22px' }}>Benchmark</span>
-              <p style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-1)', margin: '5px 0 0', padding: '0 22px' }}>Ranking do Time</p>
-              {!data.ranking ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '0 22px' }}>
+                <p style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-1)', margin: '5px 0 0' }}>Ranking do Time</p>
+                {!data.ranking && data.ranking_geral && (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {(['captacoes', 'vendas'] as const).map(m => (
+                      <button
+                        key={m}
+                        onClick={() => setRankingMetric(m)}
+                        style={{
+                          minHeight: 26, padding: '0 10px', border: `1px solid ${rankingMetric === m ? ACCENT : 'var(--border)'}`, borderRadius: 7,
+                          color: rankingMetric === m ? ACCENT : 'var(--text-muted)', background: rankingMetric === m ? ACCENT_SOFT : 'var(--bg-card)',
+                          fontSize: 11, fontWeight: rankingMetric === m ? 700 : 500, fontFamily: 'inherit', cursor: 'pointer',
+                        }}
+                      >
+                        {m === 'captacoes' ? 'Captação' : 'Vendas'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {!data.ranking && data.ranking_geral ? (
+                <>
+                  <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '4px 0 0', padding: '0 22px' }}>
+                    Sua posição: {data.ranking_geral[rankingMetric].posicao}º de {data.ranking_geral[rankingMetric].total}
+                  </p>
+                  <ol style={{ listStyle: 'none', margin: '11px 0 0', padding: 0, maxHeight: 340, overflowY: 'auto' }}>
+                    {data.ranking_geral[rankingMetric].leaderboard.map((r, i) => (
+                      <li key={r.nome}>
+                        <div style={{
+                          display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: 10,
+                          padding: '10px 22px', borderTop: i > 0 ? '1px solid var(--border-lt)' : 'none',
+                          fontSize: 13.5, fontWeight: r.voce ? 700 : 500,
+                          background: r.voce ? ACCENT_SOFT : 'transparent',
+                        }}>
+                          <span style={{ display: 'grid', width: 26, height: 26, placeItems: 'center', borderRadius: 7, background: 'var(--bg-subtle)', color: 'var(--text-3)', fontWeight: 800, fontSize: 11.5 }}>{MEDALS[i] ?? `${i + 1}º`}</span>
+                          <span style={{ color: r.voce ? ACCENT : 'var(--text-2)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {r.voce ? `${r.nome} (você)` : r.nome}
+                          </span>
+                          <strong style={{ fontSize: 12.5, color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>{r.valor}</strong>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              ) : !data.ranking ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '20px 22px 0', color: 'var(--text-subtle)', fontSize: 12.5 }}>
-                  <Lock size={13} /> Visível apenas para Admin e Diretor
+                  <Lock size={13} /> Ranking indisponível
                 </div>
               ) : (
                 <ol style={{ listStyle: 'none', margin: '15px 0 0', padding: 0 }}>

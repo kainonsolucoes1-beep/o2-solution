@@ -759,6 +759,7 @@ def vida_sdr(
             "captacoes": 0, "em_andamento": 0, "cancelados": 0, "vendas": 0,
             "conversao": 0.0, "receita_recebida": 0.0, "receita_a_receber": 0.0, "receita_potencial": 0.0,
             "primeiro_lead_em": None, "ativo_desde": ativo_desde.isoformat() if ativo_desde else None, "meta": meta, "trend": [],
+            "ranking": None, "ranking_geral": None, "atividades": [],
         }
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -817,6 +818,12 @@ def vida_sdr(
 
     show_fin = can_see_financials(current_user)
 
+    # bucket do proprio agente no ranking, usado tanto no de receita (admin/diretor)
+    # quanto no geral por captacoes/vendas (todo mundo)
+    current_key = "o2 Solution" if any(p.strip().lower() in O2_NAMES for p in parts) else next(
+        (p.strip() for p in parts if not _is_organico(p)), parts[0].strip()
+    )
+
     ranking = None
     if show_fin:
         origin_rows = db.query(Lead.origin, Lead.receita_real_recebida).filter(
@@ -828,10 +835,6 @@ def vida_sdr(
             if key is None:
                 continue
             buckets[key] += float(recebido or 0)
-
-        current_key = "o2 Solution" if any(p.strip().lower() in O2_NAMES for p in parts) else next(
-            (p.strip() for p in parts if not _is_organico(p)), parts[0].strip()
-        )
         buckets[current_key] = receita_recebida
 
         ordered = sorted(buckets.items(), key=lambda kv: kv[1], reverse=True)
@@ -841,6 +844,32 @@ def vida_sdr(
             "total": len(ordered),
             "leaderboard": [{"nome": k, "receita": v, "voce": k == current_key} for k, v in ordered[:5]],
         }
+
+    # ranking geral por captacoes/vendas -- sem valor financeiro, visivel pra
+    # qualquer agente ver a propria posicao no time inteiro
+    count_rows = db.query(Lead.origin, Lead.status).filter(
+        Lead.origin.isnot(None), Lead.origin != "", *date_filters,
+    ).all()
+    count_buckets: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
+    for origin, status in count_rows:
+        key = _ranking_bucket(origin)
+        if key is None:
+            continue
+        count_buckets[key]["captacoes"] += 1
+        if (status or "").lower() in venda_set:
+            count_buckets[key]["vendas"] += 1
+    count_buckets[current_key] = {"captacoes": captacoes, "vendas": vendas}
+
+    def _rank_by(metric: str):
+        ordered = sorted(count_buckets.items(), key=lambda kv: kv[1][metric], reverse=True)
+        posicao = next(i + 1 for i, (k, _) in enumerate(ordered) if k == current_key)
+        return {
+            "posicao": posicao,
+            "total": len(ordered),
+            "leaderboard": [{"nome": k, "valor": v[metric], "voce": k == current_key} for k, v in ordered],
+        }
+
+    ranking_geral = {"captacoes": _rank_by("captacoes"), "vendas": _rank_by("vendas")}
 
     status_rows = (
         db.query(LeadStatusHistory.changed_at, LeadStatusHistory.to_status, Lead.name, Lead.id)
@@ -893,5 +922,6 @@ def vida_sdr(
         "meta": meta,
         "trend": [{**t, "receita": t["receita"] if show_fin else None} for t in trend],
         "ranking": ranking,
+        "ranking_geral": ranking_geral,
         "atividades": atividades[:100],
     }
