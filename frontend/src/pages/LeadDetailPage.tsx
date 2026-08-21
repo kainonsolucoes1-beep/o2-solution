@@ -13,6 +13,7 @@ import LeadNegotiationPanel from '../components/LeadNegotiationPanel'
 import LeadCurrentStatusPanel from '../components/LeadCurrentStatusPanel'
 import LeadRegistrationPanel from '../components/LeadRegistrationPanel'
 import LeadFinanceiroPanel from '../components/LeadFinanceiroPanel'
+import LeadAttachmentsPanel from '../components/LeadAttachmentsPanel'
 
 interface LeadItem {
   id: string
@@ -150,22 +151,24 @@ export default function LeadDetailPage() {
 
   useEffect(() => {
     if (!id) return
+    let cancelled = false
     api.get<LeadItem>(`/api/v1/leads/${id}`)
-      .then(r => { setLead(r.data); setStatus(r.data.status ?? 'novo') })
-      .catch(err => { if (err.response?.status === 404) setNotFound(true) })
-    api.get<Me>('/api/v1/auth/me').then(r => setMe(r.data)).catch(() => {})
-    api.get<string[]>('/api/v1/leads/origins').then(r => setOrigins(r.data)).catch(() => {})
-    api.get<string[]>('/api/v1/leads/conversion-points').then(r => setConversionPoints(r.data)).catch(() => {})
-    api.get<string[]>('/api/v1/leads/modalidades').then(r => setModalidades(r.data)).catch(() => {})
+      .then(r => { if (!cancelled) { setLead(r.data); setStatus(r.data.status ?? 'novo') } })
+      .catch(err => { if (!cancelled && err.response?.status === 404) setNotFound(true) })
+    api.get<Me>('/api/v1/auth/me').then(r => { if (!cancelled) setMe(r.data) }).catch(() => {})
+    api.get<string[]>('/api/v1/leads/origins').then(r => { if (!cancelled) setOrigins(r.data) }).catch(() => {})
+    api.get<string[]>('/api/v1/leads/conversion-points').then(r => { if (!cancelled) setConversionPoints(r.data) }).catch(() => {})
+    api.get<string[]>('/api/v1/leads/modalidades').then(r => { if (!cancelled) setModalidades(r.data) }).catch(() => {})
     api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`)
-      .then(r => setNotes(r.data.notes))
-      .finally(() => setLoadingNotes(false))
+      .then(r => { if (!cancelled) setNotes(r.data.notes) })
+      .finally(() => { if (!cancelled) setLoadingNotes(false) })
     api.get<{ history: StatusHistoryItem[] }>(`/api/v1/leads/${id}/status-history`)
-      .then(r => setHistory(r.data.history))
-      .finally(() => setLoadingHistory(false))
+      .then(r => { if (!cancelled) setHistory(r.data.history) })
+      .finally(() => { if (!cancelled) setLoadingHistory(false) })
     api.get<{ schedules: ScheduleItem[] }>(`/api/v1/leads/${id}/schedule-history`)
-      .then(r => setSchedules(r.data.schedules))
-      .finally(() => setLoadingSchedules(false))
+      .then(r => { if (!cancelled) setSchedules(r.data.schedules) })
+      .finally(() => { if (!cancelled) setLoadingSchedules(false) })
+    return () => { cancelled = true }
   }, [id])
 
   useEffect(() => {
@@ -695,6 +698,8 @@ export default function LeadDetailPage() {
             onCancelEdit={() => setEditingInfo(false)}
             onSaveEdit={handleSaveInfo}
           />
+
+          {id && <LeadAttachmentsPanel leadId={id} />}
 
           {canSeeFinancials && id && (
             <LeadFinanceiroPanel

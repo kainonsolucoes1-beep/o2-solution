@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Wallet, Plus, Pencil, Trash2, ChevronDown, Check, X } from 'lucide-react'
 import api from '../api'
 import { fmtBRL, fmtDateShort, parseBRNumber } from '../utils/leadFormat'
@@ -85,12 +85,14 @@ export default function LeadFinanceiroPanel({
   const [confirmingRecebidoId, setConfirmingRecebidoId] = useState<string | null>(null)
   const [savingQuickRecebidoId, setSavingQuickRecebidoId] = useState<string | null>(null)
 
+  const fetchParcelasGenRef = useRef(0)
   function fetchParcelas() {
+    const gen = ++fetchParcelasGenRef.current
     setLoading(true)
     api.get<ParcelasListResponse>(`/api/v1/leads/${leadId}/parcelas`)
-      .then(r => setData(r.data))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false))
+      .then(r => { if (fetchParcelasGenRef.current === gen) setData(r.data) })
+      .catch(() => { if (fetchParcelasGenRef.current === gen) setData(null) })
+      .finally(() => { if (fetchParcelasGenRef.current === gen) setLoading(false) })
   }
 
   useEffect(() => { fetchParcelas(); setShowAllParcelas(false); setConfirmingRecebidoId(null) }, [leadId])
