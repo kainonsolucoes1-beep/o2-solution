@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { Pencil, Plus, X, Columns3 } from 'lucide-react'
 import api from '../api'
 import { type FiltroPeriodo, mesAtualRange } from '../utils/periodoFiltro'
+import { useTheme } from '../ThemeContext'
 
 interface MetaProgress {
   id: string
@@ -47,6 +48,7 @@ const inputStyle: CSSProperties = {
 const labelStyle: CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }
 
 export default function FinanceiroMetas() {
+  const { dark } = useTheme()
   const [data, setData] = useState<MetasResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -113,7 +115,7 @@ export default function FinanceiroMetas() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Metas Mensais</h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>

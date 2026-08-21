@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Phone, Mail, FileText, Calendar } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
+import { useTheme } from '../ThemeContext'
 
 interface NextActions { call_today: number; send_email: number; follow_proposal: number; meetings: number }
 interface ActivityLead {
@@ -19,6 +20,7 @@ const ACTION_COLORS: Record<string, { color: string; bg: string }> = {
 }
 
 export default function Activities() {
+  const { dark } = useTheme()
   const navigate = useNavigate()
   const [actions, setActions]   = useState<NextActions | null>(null)
   const [leads, setLeads]       = useState<ActivityLead[]>([])
@@ -59,7 +61,7 @@ export default function Activities() {
   }
 
   return (
-    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
+    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
 
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)' }}>Atividades</h1>

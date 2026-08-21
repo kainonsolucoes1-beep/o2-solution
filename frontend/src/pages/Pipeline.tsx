@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Clock, CheckSquare, FileText, Handshake, Timer, XCircle, ChevronDown } from 'lucide-react'
 import api from '../api'
+import { useTheme } from '../ThemeContext'
 
 interface PipelineOverview {
   novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number
@@ -13,6 +14,7 @@ interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; venc
 const CONV_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
 
 export default function Pipeline() {
+  const { dark } = useTheme()
   const navigate = useNavigate()
   const _now = new Date()
   const todayStr   = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`
@@ -155,7 +157,7 @@ export default function Pipeline() {
 
   return (
     <>
-    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
+    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
 
         {/* Header + filtros */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">

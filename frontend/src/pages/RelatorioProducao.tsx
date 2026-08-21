@@ -7,6 +7,7 @@ import {
   Download, ArrowUp, ArrowDown, Minus, Calendar,
 } from 'lucide-react'
 import api from '../api'
+import { useTheme } from '../ThemeContext'
 
 interface Kpis {
   captacoes: number; vendas: number; conversao: number; qualificados: number
@@ -94,6 +95,7 @@ function Delta({ current, previous, invert = false }: { current: number; previou
 }
 
 export default function RelatorioProducao() {
+  const { dark } = useTheme()
   const defaultRange = currentWeekRange()
   const [start, setStart] = useState(defaultRange.start)
   const [end, setEnd]     = useState(defaultRange.end)
@@ -153,7 +155,7 @@ export default function RelatorioProducao() {
   const chartInterval = diarioUteis.length > 14 ? ('preserveStartEnd' as const) : 0
 
   return (
-    <div style={{ maxWidth: 1400, margin: '0 auto', padding: '20px 32px 60px' }}>
+    <div style={{ maxWidth: 1400, margin: '0 auto', padding: '20px 32px 60px', background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Relatório de Produção</p>

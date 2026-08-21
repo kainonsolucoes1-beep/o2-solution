@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Phone, Plus, Trash2, Save, ChevronDown, ChevronRight, Clock } from 'lucide-react'
 import api from '../api'
+import { useTheme } from '../ThemeContext'
 
 interface TelefoniaSettings {
   tma: string
@@ -66,6 +67,7 @@ function formatDate(iso: string): string {
 }
 
 export default function Telefonia() {
+  const { dark } = useTheme()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -159,7 +161,7 @@ export default function Telefonia() {
   }
 
   return (
-    <main style={{ padding: '24px 32px', maxWidth: 960 }}>
+    <main style={{ padding: '24px 32px', maxWidth: 960, background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>

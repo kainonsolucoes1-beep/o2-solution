@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { UserPlus, X, Pencil } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
+import { useTheme } from '../ThemeContext'
 
 interface UserItem {
   id: string
@@ -32,6 +33,7 @@ function fmtDate(iso: string) {
 }
 
 export default function Users() {
+  const { dark } = useTheme()
   const navigate = useNavigate()
   const [users, setUsers]         = useState<UserItem[]>([])
   const [loading, setLoading]     = useState(true)
@@ -149,7 +151,7 @@ export default function Users() {
         </div>
       )}
 
-      <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
+      <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>

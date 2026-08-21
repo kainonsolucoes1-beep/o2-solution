@@ -7,6 +7,7 @@ import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
 import SectionTitle from '../components/SectionTitle'
 import Combobox from '../components/Combobox'
+import { useTheme } from '../ThemeContext'
 
 interface Me {
   id: string
@@ -178,6 +179,7 @@ const COLUMNS: { key: SortKey; label: string }[] = [
 ]
 
 export default function LeadsReport() {
+  const { dark } = useTheme()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -478,7 +480,7 @@ export default function LeadsReport() {
 
   return (
     <>
-    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6">
+    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>

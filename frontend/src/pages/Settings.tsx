@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
+import { useTheme } from '../ThemeContext'
 
 // ── Configurações tab ────────────────────────────────────────────────────────
 interface SyncHealth {
@@ -957,11 +958,12 @@ function FormularioTab() {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function Settings() {
+  const { dark } = useTheme()
   const { section } = useParams<{ section: string }>()
   const isUsuarios = section === 'usuarios'
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>
           {isUsuarios ? 'Usuários' : 'API'}
