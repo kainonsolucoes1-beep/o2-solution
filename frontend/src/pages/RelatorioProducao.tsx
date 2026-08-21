@@ -111,6 +111,7 @@ export default function RelatorioProducao() {
 
   useEffect(() => {
     if (!start || !end) return
+    let cancelled = false
     const prev = previousPeriod(start, end)
     setLoading(true)
     Promise.all([
@@ -119,8 +120,10 @@ export default function RelatorioProducao() {
       api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?start=${start}&end=${end}`),
       api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?start=${start}&end=${end}`),
     ]).then(([k, pk, d, o]) => {
+      if (cancelled) return
       setKpis(k.data); setPrevKpis(pk.data); setDiario(d.data); setOrigens(o.data)
-    }).catch(() => {}).finally(() => setLoading(false))
+    }).catch(() => {}).finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [start, end])
 
   async function exportImage() {

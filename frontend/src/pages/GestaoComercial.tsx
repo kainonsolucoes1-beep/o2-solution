@@ -1233,14 +1233,19 @@ function MonthPanel({ month, untilDay }: { month: string; untilDay?: number }) {
   const [orgConvPointsLoading, setOrgConvPointsLoading] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
     const suffix = untilDay ? `&until_day=${untilDay}` : ''
     Promise.all([
       api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${month}${suffix}`),
       api.get<DiarioItem[]>(`/api/v1/gestao-comercial/evolucao-diaria?month=${month}${suffix}`),
       api.get<OrigemItem[]>(`/api/v1/gestao-comercial/origens-captacao?month=${month}${suffix}`),
-    ]).then(([k, d, o]) => { setKpis(k.data); setDiario(d.data); setOrigens(o.data) })
-      .catch(() => {}).finally(() => setLoading(false))
+    ]).then(([k, d, o]) => {
+        if (cancelled) return
+        setKpis(k.data); setDiario(d.data); setOrigens(o.data)
+      })
+      .catch(() => {}).finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [month, untilDay])
 
   const grupos = groupOrigens(origens)
@@ -1475,6 +1480,7 @@ export default function GestaoComercial() {
 
   useEffect(() => {
     if (activeTab !== 'Visão Geral') return
+    let cancelled = false
     setLoading(true)
     // limita o mês anterior ao mesmo dia do mês corrente, senão um mês em andamento
     // sempre perde feio na comparação contra o mês anterior completo
@@ -1491,15 +1497,18 @@ export default function GestaoComercial() {
       api.get<ModalidadeItem[]>(`/api/v1/gestao-comercial/modalidades-captacao?${rangeParams}${teamSuffix}`),
       api.get<Kpis>(`/api/v1/gestao-comercial/visao-geral?month=${prevMonthStr(month)}&until_day=${untilDay}${teamSuffix}`),
     ]).then(([k, d, o, m, mod, pk]) => {
+      if (cancelled) return
       setKpis(k.data); setDiario(d.data); setOrigens(o.data); setMensal(m.data); setModalidades(mod.data); setPrevKpis(pk.data)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }, [activeTab, month, dateTo, teamParam])
+    }).catch(() => {}).finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [activeTab, dateFrom, month, dateTo, teamParam])
 
   useEffect(() => {
     if (activeTab !== 'Visão Geral') return
+    let cancelled = false
     const teamSuffix = teamParam ? `&team=${encodeURIComponent(teamParam)}` : ''
     api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${dateFrom}&date_to=${dateTo}${teamSuffix}`)
-      .then(r => setQualificados(r.data.negociacao)).catch(() => {})
+      .then(r => { if (!cancelled) setQualificados(r.data.negociacao) }).catch(() => {})
     // mesmo período (mesmos dias-do-mês) do mês anterior, não um mês completo
     const prevRef = new Date(dateFrom + 'T12:00:00')
     prevRef.setMonth(prevRef.getMonth() - 1)
@@ -1510,7 +1519,8 @@ export default function GestaoComercial() {
     const prevFromStr = `${y}-${pad(m + 1)}-${clampDay(dateFrom)}`
     const prevToStr = `${y}-${pad(m + 1)}-${clampDay(dateTo)}`
     api.get<PipelineOverview>(`/api/v1/pipeline/overview?date_from=${prevFromStr}&date_to=${prevToStr}${teamSuffix}`)
-      .then(r => setPrevQualificados(r.data.negociacao)).catch(() => {})
+      .then(r => { if (!cancelled) setPrevQualificados(r.data.negociacao) }).catch(() => {})
+    return () => { cancelled = true }
   }, [activeTab, dateFrom, dateTo, teamParam])
 
   function openDrill(tipo: DrillTipo) {

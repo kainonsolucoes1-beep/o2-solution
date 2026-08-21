@@ -598,65 +598,80 @@ export default function KPIs() {
     return () => document.removeEventListener('keydown', handleKey)
   }, [drawer])
 
+  // Contadores de geração — cada fetch* ignora sua própria resposta se, quando ela
+  // chegar, já não for mais a última chamada feita (evita resposta antiga de um
+  // filtro anterior sobrescrever a tela depois de uma troca rápida de mês/período).
+  const mainGenRef       = useRef(0)
+  const basesGenRef      = useRef(0)
+  const modalidadeGenRef = useRef(0)
+  const agesGenRef       = useRef(0)
+  const planoGenRef      = useRef(0)
+  const trendGenRef      = useRef(0)
+
   function fetchMain() {
+    const gen = ++mainGenRef.current
     const qs = new URLSearchParams(periodParams()).toString()
     setLoading(true)
     setDataError(false)
     api.get<FonteData[]>(`/api/v1/kpis/conversao-fonte?${qs}`)
-      .then(r => setData(r.data))
-      .catch(() => { setData([]); setDataError(true) })
-      .finally(() => setLoading(false))
+      .then(r => { if (mainGenRef.current === gen) setData(r.data) })
+      .catch(() => { if (mainGenRef.current === gen) { setData([]); setDataError(true) } })
+      .finally(() => { if (mainGenRef.current === gen) setLoading(false) })
     setPrevSummary(null)
     if (period === 'month') {
       const prevQs = team !== 'all' ? `&team=${encodeURIComponent(TEAM_VALUES[team])}` : ''
       api.get<FonteData[]>(`/api/v1/kpis/conversao-fonte?month=${prevMonthOf(month)}${prevQs}`)
-        .then(r => setPrevSummary({
+        .then(r => { if (mainGenRef.current === gen) setPrevSummary({
           cap: r.data.reduce((s, d) => s + d.captacoes, 0),
           ven: r.data.reduce((s, d) => s + d.vendas, 0),
           can: r.data.reduce((s, d) => s + d.cancelados, 0),
-        }))
-        .catch(() => setPrevSummary(null))
+        }) })
+        .catch(() => { if (mainGenRef.current === gen) setPrevSummary(null) })
     }
   }
 
   function fetchBases() {
+    const gen = ++basesGenRef.current
     const qs = new URLSearchParams(periodParams()).toString()
     setBasesLoading(true)
     setBasesError(false)
     api.get<BaseStat[]>(`/api/v1/kpis/bases?${qs}`)
-      .then(r => setBasesData(r.data))
-      .catch(() => { setBasesData([]); setBasesError(true) })
-      .finally(() => setBasesLoading(false))
+      .then(r => { if (basesGenRef.current === gen) setBasesData(r.data) })
+      .catch(() => { if (basesGenRef.current === gen) { setBasesData([]); setBasesError(true) } })
+      .finally(() => { if (basesGenRef.current === gen) setBasesLoading(false) })
   }
 
   function fetchModalidade() {
+    const gen = ++modalidadeGenRef.current
     const qs = new URLSearchParams(periodParams()).toString()
     setModalidadeLoading(true)
     setModalidadeError(false)
     api.get<ModalidadeStat[]>(`/api/v1/kpis/modalidade?${qs}`)
-      .then(r => setModalidadeData(r.data))
-      .catch(() => { setModalidadeData([]); setModalidadeError(true) })
-      .finally(() => setModalidadeLoading(false))
+      .then(r => { if (modalidadeGenRef.current === gen) setModalidadeData(r.data) })
+      .catch(() => { if (modalidadeGenRef.current === gen) { setModalidadeData([]); setModalidadeError(true) } })
+      .finally(() => { if (modalidadeGenRef.current === gen) setModalidadeLoading(false) })
   }
 
   function fetchAges() {
+    const gen = ++agesGenRef.current
     const qs = new URLSearchParams(periodParams()).toString()
     setAgeBandsLoading(true)
     setAgeError(false)
     api.get<{ bands: AgeBand[]; sem_idade: number; com_idade: number }>(`/api/v1/kpis/faixas-etarias?${qs}`)
-      .then(r => { setAgeBands(r.data.bands); setAgeSemIdade(r.data.sem_idade); setAgeComIdade(r.data.com_idade) })
-      .catch(() => { setAgeBands([]); setAgeError(true) })
-      .finally(() => setAgeBandsLoading(false))
+      .then(r => { if (agesGenRef.current === gen) { setAgeBands(r.data.bands); setAgeSemIdade(r.data.sem_idade); setAgeComIdade(r.data.com_idade) } })
+      .catch(() => { if (agesGenRef.current === gen) { setAgeBands([]); setAgeError(true) } })
+      .finally(() => { if (agesGenRef.current === gen) setAgeBandsLoading(false) })
   }
 
   function fetchPlano() {
+    const gen = ++planoGenRef.current
     const qs = new URLSearchParams(periodParams()).toString()
     setPlanoSaudeLoading(true)
     setPlanoError(false)
     api.get<PlanoSaudeData>(`/api/v1/kpis/plano-saude?${qs}`)
-      .then(r => setPlanoSaude(r.data))
-      .catch(() => { setPlanoSaude(null); setPlanoError(true) })
-      .finally(() => setPlanoSaudeLoading(false))
+      .then(r => { if (planoGenRef.current === gen) setPlanoSaude(r.data) })
+      .catch(() => { if (planoGenRef.current === gen) { setPlanoSaude(null); setPlanoError(true) } })
+      .finally(() => { if (planoGenRef.current === gen) setPlanoSaudeLoading(false) })
   }
 
   useEffect(() => {
@@ -670,6 +685,7 @@ export default function KPIs() {
 
   // Evolução mensal (Visão Geral) — reaproveita /kpis/conversao-fonte já existente, sem endpoint novo
   function fetchTrend() {
+    const gen = ++trendGenRef.current
     const anchor = period === 'range' && rangeTo ? rangeTo.slice(0, 7) : period === 'month' ? month : currentMonth
     const months = monthsBack(anchor, 6)
     setTrendLoading(true)
@@ -679,6 +695,7 @@ export default function KPIs() {
       api.get<FonteData[]>(`/api/v1/kpis/conversao-fonte?month=${m}${teamQs}`).then(r => r.data)
     ))
       .then(results => {
+        if (trendGenRef.current !== gen) return
         setTrendMonths(months.map((m, i) => ({
           mes: m,
           mesLabel: monthLabel(m),
@@ -686,8 +703,8 @@ export default function KPIs() {
           vendas: results[i].reduce((s, r) => s + r.vendas, 0),
         })))
       })
-      .catch(() => setTrendError(true))
-      .finally(() => setTrendLoading(false))
+      .catch(() => { if (trendGenRef.current === gen) setTrendError(true) })
+      .finally(() => { if (trendGenRef.current === gen) setTrendLoading(false) })
   }
 
   useEffect(() => {

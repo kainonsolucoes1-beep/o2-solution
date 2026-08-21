@@ -42,7 +42,7 @@ export default function Pipeline() {
     }
   }, [])
 
-  const fetchAll = useCallback(() => {
+  const fetchAll = useCallback((isCancelled: () => boolean) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
     const qs = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
@@ -54,17 +54,23 @@ export default function Pipeline() {
       api.get<PipelineAlerts>(`/api/v1/pipeline/alerts${q}`),
     ])
       .then(([ov, al]) => {
+        if (isCancelled()) return
         setOverview(ov.data)
         setAlerts(al.data)
       })
       .catch(err => {
+        if (isCancelled()) return
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
         else setError('Erro ao carregar pipeline.')
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!isCancelled()) setLoading(false) })
   }, [navigate, dateFrom, dateTo, selectedSources])
 
-  useEffect(() => { fetchAll() }, [fetchAll])
+  useEffect(() => {
+    let cancelled = false
+    fetchAll(() => cancelled)
+    return () => { cancelled = true }
+  }, [fetchAll])
 
   function openLostModal() {
     setShowLostModal(true)
