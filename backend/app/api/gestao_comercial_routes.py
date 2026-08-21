@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -729,9 +729,17 @@ def vida_sdr(
     filters = [Lead.origin.in_(parts), *date_filters] if parts else []
 
     # tenure do agente ("Desde X - N meses ativo") independe do filtro de
-    # periodo selecionado na tela, por isso e' calculado sem os date_filters
-    # tenure real do agente (nao a data de retrabalho) — usa Lead.created_at puro de proposito
-    ativo_desde = db.query(func.min(Lead.created_at)).filter(Lead.origin.in_(parts)).scalar() if parts else None
+    # periodo selecionado na tela, por isso e' calculado sem os date_filters.
+    # Prioriza a data de criacao da conta de usuario (quando a origem corresponde
+    # a um login) em vez do lead mais antigo com essa origem: um lead antigo
+    # reatribuido a esse agente preserva o created_at original (historico real)
+    # e faria parecer que ele esta' no sistema desde muito antes do que realmente esta'.
+    user_match = (
+        db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).first()
+        if parts else None
+    )
+    lead_min_created = db.query(func.min(Lead.created_at)).filter(Lead.origin.in_(parts)).scalar() if parts else None
+    ativo_desde = user_match.created_at if user_match and user_match.created_at else lead_min_created
     meta = _compute_meta_mes(db, parts) if parts else None
 
     leads = (
@@ -780,6 +788,10 @@ def vida_sdr(
 
     earliest = min(l.created_at for l in leads)
     latest = max(l.created_at for l in leads)
+    # nao mostra meses antes de quando o agente realmente comecou (ver ativo_desde
+    # acima) -- um lead antigo reatribuido a ele nao deve "abrir" o grafico la atras
+    if ativo_desde and ativo_desde > earliest:
+        earliest = ativo_desde
     trend = []
     year, mon = earliest.year, earliest.month
     while (year, mon) <= (latest.year, latest.month):
