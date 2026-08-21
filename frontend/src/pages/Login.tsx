@@ -41,7 +41,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="h-[clamp(44px,6vh,52px)] rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-1)] text-sm px-4 outline-none transition-colors duration-150 placeholder:text-[var(--text-muted)] focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+              className="h-[clamp(44px,6vh,52px)] rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-1)] text-sm px-4 outline-none transition-colors duration-150 placeholder:text-[var(--text-muted)] focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15 [&:-webkit-autofill]:[-webkit-text-fill-color:var(--text-1)] [&:-webkit-autofill]:[box-shadow:0_0_0px_1000px_var(--bg-card)_inset] [&:-webkit-autofill]:[transition:background-color_600000s_0s,color_600000s_0s]"
             />
           </div>
 
@@ -56,7 +56,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="h-[clamp(44px,6vh,52px)] rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-1)] text-sm px-4 outline-none transition-colors duration-150 placeholder:text-[var(--text-muted)] focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+              className="h-[clamp(44px,6vh,52px)] rounded-[14px] border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-1)] text-sm px-4 outline-none transition-colors duration-150 placeholder:text-[var(--text-muted)] focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15 [&:-webkit-autofill]:[-webkit-text-fill-color:var(--text-1)] [&:-webkit-autofill]:[box-shadow:0_0_0px_1000px_var(--bg-card)_inset] [&:-webkit-autofill]:[transition:background-color_600000s_0s,color_600000s_0s]"
             />
           </div>
 
