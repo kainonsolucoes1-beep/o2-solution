@@ -1,7 +1,7 @@
 from uuid import UUID
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, computed_field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 
 class UserRegister(BaseModel):
     email: EmailStr
@@ -47,6 +47,10 @@ class UserAdminCreate(BaseModel):
     first_name: Optional[str] = None
     role: str = "usuario"
     team: Optional[str] = None
+    birth_date: Optional[date] = None
+    phone: Optional[str] = None
+    cpf: Optional[str] = None
+    hire_date: Optional[date] = None
 
 
 class UserAdminUpdate(BaseModel):
@@ -57,6 +61,11 @@ class UserAdminUpdate(BaseModel):
     email: Optional[EmailStr] = None
     username: Optional[str] = None
     password: Optional[str] = None
+    birth_date: Optional[date] = None
+    phone: Optional[str] = None
+    cpf: Optional[str] = None
+    hire_date: Optional[date] = None
+    termination_date: Optional[date] = None
 
 
 class UserAdminResponse(BaseModel):
@@ -69,9 +78,25 @@ class UserAdminResponse(BaseModel):
     is_active: bool
     must_change_password: bool
     created_at: datetime
+    birth_date: Optional[date]
+    phone: Optional[str]
+    cpf: Optional[str]
+    hire_date: Optional[date]
+    termination_date: Optional[date]
 
     class Config:
         from_attributes = True
+
+    @computed_field
+    @property
+    def idade(self) -> Optional[int]:
+        if not self.birth_date:
+            return None
+        today = date.today()
+        anos = today.year - self.birth_date.year
+        if (today.month, today.day) < (self.birth_date.month, self.birth_date.day):
+            anos -= 1
+        return anos
 
 
 class UserAdminCreateResponse(UserAdminResponse):

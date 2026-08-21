@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, TIMESTAMP
+from sqlalchemy import Column, String, Boolean, TIMESTAMP, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
@@ -17,5 +17,10 @@ class User(Base):
     team = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
     must_change_password = Column(Boolean, nullable=False, default=False)
+    birth_date = Column(Date, nullable=True)
+    phone = Column(String(20), nullable=True)
+    cpf = Column(String(14), nullable=True)
+    hire_date = Column(Date, nullable=True)
+    termination_date = Column(Date, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())

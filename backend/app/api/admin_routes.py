@@ -434,6 +434,10 @@ def create_user(
         role=body.role,
         team=body.team,
         must_change_password=True,
+        birth_date=body.birth_date,
+        phone=body.phone,
+        cpf=body.cpf,
+        hire_date=body.hire_date,
     )
     db.add(user)
     db.commit()
@@ -473,6 +477,18 @@ def update_user(
     if body.password is not None and body.password.strip():
         user.password_hash = hash_password(body.password)
         user.must_change_password = True
+    if body.birth_date is not None:
+        user.birth_date = body.birth_date
+    if body.phone is not None:
+        user.phone = body.phone
+    if body.cpf is not None:
+        user.cpf = body.cpf
+    if body.hire_date is not None:
+        user.hire_date = body.hire_date
+    if body.termination_date is not None:
+        user.termination_date = body.termination_date
+        # data de desligamento preenchida desativa o acesso automaticamente
+        user.is_active = False
     db.commit()
     db.refresh(user)
     return user

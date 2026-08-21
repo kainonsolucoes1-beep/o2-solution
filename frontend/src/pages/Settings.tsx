@@ -450,10 +450,15 @@ function ConfiguracoesTab() {
 }
 
 // ── Usuários tab ─────────────────────────────────────────────────────────────
-interface UserItem { id: string; email: string; username: string; first_name: string | null; role: string; team: string | null; is_active: boolean; must_change_password: boolean; created_at: string }
+interface UserItem {
+  id: string; email: string; username: string; first_name: string | null; role: string; team: string | null
+  is_active: boolean; must_change_password: boolean; created_at: string
+  birth_date: string | null; phone: string | null; cpf: string | null
+  hire_date: string | null; termination_date: string | null; idade: number | null
+}
 interface UserCreatedResponse extends UserItem { temp_password: string }
-const EMPTY_FORM = { email: '', username: '', first_name: '', role: 'usuario', team: '' }
-const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '', team: '' }
+const EMPTY_FORM = { email: '', username: '', first_name: '', role: 'usuario', team: '', birth_date: '', phone: '', cpf: '', hire_date: '' }
+const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '', team: '', birth_date: '', phone: '', cpf: '', hire_date: '', termination_date: '' }
 const ROLE_OPTIONS = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervisor', 'comercial', 'usuario']
 const TEAM_OPTIONS = ['Equipe São Paulo', 'Equipe Pernambuco']
 const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
@@ -509,7 +514,8 @@ function UsuariosTab() {
     if (!form.email.trim() || !form.username.trim()) { setFormError('Email e username são obrigatórios.'); return }
     setSaving(true); setFormError('')
     try {
-      const { data } = await api.post<UserCreatedResponse>('/api/v1/admin/users', form)
+      const payload = { ...form, birth_date: form.birth_date || null, hire_date: form.hire_date || null }
+      const { data } = await api.post<UserCreatedResponse>('/api/v1/admin/users', payload)
       setUsers(u => [...u, data]); setForm(EMPTY_FORM)
       setCreatedCreds({ username: data.username, password: data.temp_password })
     } catch (err: any) {
@@ -537,19 +543,30 @@ function UsuariosTab() {
   }
 
   function openEdit(user: UserItem) {
-    setEditUser(user); setEditForm({ first_name: user.first_name ?? '', email: user.email, username: user.username, password: '', team: user.team ?? '' }); setEditError('')
+    setEditUser(user)
+    setEditForm({
+      first_name: user.first_name ?? '', email: user.email, username: user.username, password: '', team: user.team ?? '',
+      birth_date: user.birth_date ?? '', phone: user.phone ?? '', cpf: user.cpf ?? '',
+      hire_date: user.hire_date ?? '', termination_date: user.termination_date ?? '',
+    })
+    setEditError('')
   }
 
   async function handleEdit() {
     if (!editUser) return
     setEditSaving(true); setEditError('')
     try {
-      const payload: Record<string, string> = {}
+      const payload: Record<string, string | null> = {}
       if (editForm.first_name !== (editUser.first_name ?? '')) payload.first_name = editForm.first_name
       if (editForm.email !== editUser.email) payload.email = editForm.email
       if (editForm.username !== editUser.username) payload.username = editForm.username
       if (editForm.password.trim()) payload.password = editForm.password
       if (editForm.team !== (editUser.team ?? '')) payload.team = editForm.team
+      if (editForm.birth_date !== (editUser.birth_date ?? '')) payload.birth_date = editForm.birth_date || null
+      if (editForm.phone !== (editUser.phone ?? '')) payload.phone = editForm.phone
+      if (editForm.cpf !== (editUser.cpf ?? '')) payload.cpf = editForm.cpf
+      if (editForm.hire_date !== (editUser.hire_date ?? '')) payload.hire_date = editForm.hire_date || null
+      if (editForm.termination_date !== (editUser.termination_date ?? '')) payload.termination_date = editForm.termination_date || null
       if (Object.keys(payload).length === 0) { setEditUser(null); return }
       const { data } = await api.patch<UserItem>(`/api/v1/admin/users/${editUser.id}`, payload)
       setUsers(u => u.map(x => x.id === data.id ? data : x)); setEditUser(null)
@@ -642,12 +659,12 @@ function UsuariosTab() {
 
       {editUser && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setEditUser(null)}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Editar Usuário</span>
               <button onClick={() => setEditUser(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex' }}><X size={18} /></button>
             </div>
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '72vh', overflowY: 'auto' }}>
               {[
                 { label: 'Nome', field: 'first_name', type: 'text', placeholder: 'Nome do usuário' },
                 { label: 'Email', field: 'email', type: 'email', placeholder: 'email@empresa.com' },
@@ -669,6 +686,44 @@ function UsuariosTab() {
                   {TEAM_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
+
+              <div style={{ borderTop: '1px solid var(--border-lt)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Dados pessoais</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {[
+                    { label: 'Telefone', field: 'phone', type: 'text', placeholder: '(00) 00000-0000' },
+                    { label: 'CPF', field: 'cpf', type: 'text', placeholder: '000.000.000-00' },
+                  ].map(({ label, field, type, placeholder }) => (
+                    <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>{label}</label>
+                      <input type={type} placeholder={placeholder} value={editForm[field as keyof typeof editForm]}
+                        onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
+                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {[
+                    { label: 'Data de nascimento', field: 'birth_date' },
+                    { label: 'Data de início', field: 'hire_date' },
+                  ].map(({ label, field }) => (
+                    <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>{label}</label>
+                      <input type="date" value={editForm[field as keyof typeof editForm]}
+                        onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
+                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Data de desligamento</label>
+                  <input type="date" value={editForm.termination_date}
+                    onChange={e => setEditForm(f => ({ ...f, termination_date: e.target.value }))}
+                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
+                  <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Preencher desativa o acesso do usuário automaticamente.</span>
+                </div>
+              </div>
+
               {editError && <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{editError}</p>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
                 <button onClick={() => setEditUser(null)} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Cancelar</button>
@@ -683,7 +738,7 @@ function UsuariosTab() {
 
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => { if (!createdCreds) setShowModal(false) }}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             {createdCreds ? (
               <>
                 <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)' }}>
@@ -713,7 +768,7 @@ function UsuariosTab() {
                   <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Novo Usuário</span>
                   <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex' }}><X size={18} /></button>
                 </div>
-                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '72vh', overflowY: 'auto' }}>
                   {[
                     { label: 'Nome', field: 'first_name', type: 'text', placeholder: 'Nome do usuário' },
                     { label: 'Email *', field: 'email', type: 'email', placeholder: 'email@empresa.com' },
@@ -746,6 +801,37 @@ function UsuariosTab() {
                       </select>
                     </div>
                   )}
+
+                  <div style={{ borderTop: '1px solid var(--border-lt)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Dados pessoais</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      {[
+                        { label: 'Telefone', field: 'phone', type: 'text', placeholder: '(00) 00000-0000' },
+                        { label: 'CPF', field: 'cpf', type: 'text', placeholder: '000.000.000-00' },
+                      ].map(({ label, field, type, placeholder }) => (
+                        <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>{label}</label>
+                          <input type={type} placeholder={placeholder} value={form[field as keyof typeof form]}
+                            onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+                            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      {[
+                        { label: 'Data de nascimento', field: 'birth_date' },
+                        { label: 'Data de início', field: 'hire_date' },
+                      ].map(({ label, field }) => (
+                        <div key={field} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>{label}</label>
+                          <input type="date" value={form[field as keyof typeof form]}
+                            onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+                            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   {formError && <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{formError}</p>}
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
                     <button onClick={() => setShowModal(false)} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Cancelar</button>

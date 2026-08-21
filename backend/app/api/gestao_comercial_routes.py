@@ -730,16 +730,22 @@ def vida_sdr(
 
     # tenure do agente ("Desde X - N meses ativo") independe do filtro de
     # periodo selecionado na tela, por isso e' calculado sem os date_filters.
-    # Prioriza a data de criacao da conta de usuario (quando a origem corresponde
-    # a um login) em vez do lead mais antigo com essa origem: um lead antigo
-    # reatribuido a esse agente preserva o created_at original (historico real)
-    # e faria parecer que ele esta' no sistema desde muito antes do que realmente esta'.
+    # Prioriza a data de contratacao (hire_date) e, na falta dela, a data de
+    # criacao da conta -- em vez do lead mais antigo com essa origem: um lead
+    # antigo reatribuido a esse agente preserva o created_at original
+    # (historico real) e faria parecer que ele esta' no sistema desde muito
+    # antes do que realmente esta'.
     user_match = (
         db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).first()
         if parts else None
     )
     lead_min_created = db.query(func.min(Lead.created_at)).filter(Lead.origin.in_(parts)).scalar() if parts else None
-    ativo_desde = user_match.created_at if user_match and user_match.created_at else lead_min_created
+    if user_match and user_match.hire_date:
+        ativo_desde = datetime.combine(user_match.hire_date, datetime.min.time())
+    elif user_match and user_match.created_at:
+        ativo_desde = user_match.created_at
+    else:
+        ativo_desde = lead_min_created
     meta = _compute_meta_mes(db, parts) if parts else None
 
     leads = (
