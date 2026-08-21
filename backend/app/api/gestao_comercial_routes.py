@@ -1,3 +1,4 @@
+from calendar import monthrange
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -59,7 +60,11 @@ def _parse_month(month: str | None):
 def _month_range(year: int, mon: int, until_day: int | None = None):
     dt_from, dt_to_excl = br_month_utc_range(year, mon)
     if until_day:
-        until_start, _ = br_date_to_utc_range(f"{year:04d}-{mon:02d}-{until_day:02d}")
+        # clampa pro ultimo dia real do mes -- until_day costuma vir do
+        # "mesmo dia do mes corrente" (ex: comparar julho, 31 dias, contra
+        # o mes anterior), e nem todo mes tem dia 31/30/29
+        last_day = monthrange(year, mon)[1]
+        until_start, _ = br_date_to_utc_range(f"{year:04d}-{mon:02d}-{min(until_day, last_day):02d}")
         dt_to_excl = min(dt_to_excl, until_start + timedelta(days=1))
     return dt_from, dt_to_excl - timedelta(microseconds=1)
 
