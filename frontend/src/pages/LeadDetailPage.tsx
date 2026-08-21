@@ -13,7 +13,6 @@ import LeadNegotiationPanel from '../components/LeadNegotiationPanel'
 import LeadCurrentStatusPanel from '../components/LeadCurrentStatusPanel'
 import LeadRegistrationPanel from '../components/LeadRegistrationPanel'
 import LeadFinanceiroPanel from '../components/LeadFinanceiroPanel'
-import LeadAttachmentsPanel from '../components/LeadAttachmentsPanel'
 
 interface LeadItem {
   id: string
@@ -698,8 +697,6 @@ export default function LeadDetailPage() {
             onCancelEdit={() => setEditingInfo(false)}
             onSaveEdit={handleSaveInfo}
           />
-
-          {id && <LeadAttachmentsPanel leadId={id} />}
 
           {canSeeFinancials && id && (
             <LeadFinanceiroPanel
