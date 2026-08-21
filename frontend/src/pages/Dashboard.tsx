@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -125,30 +125,40 @@ export default function Dashboard() {
   const [telefonia, setTelefonia] = useState<{ tma: string; ligacoes: Record<string, number> }>({ tma: '—', ligacoes: {} })
   const [atendimentos, setAtendimentos] = useState<{ hoje: number; ontem: number | null; diff: number | null }>({ hoje: 0, ontem: null, diff: null })
 
+  // Contadores de geração — ignora resposta se, quando ela chega, já não é
+  // mais a última chamada em andamento (evita resposta antiga de um dia
+  // anterior sobrescrever a tela depois de trocar a data rápido, inclusive
+  // contra o polling de 45s abaixo).
+  const fetchAllGenRef = useRef(0)
+  const fetchSideGenRef = useRef(0)
+
   const fetchAll = useCallback((date?: string | null, silent = false) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
+    const gen = ++fetchAllGenRef.current
     if (!silent) setLoading(true)
     const params = date ? { date } : {}
     api.get<PerformanceData>('/api/v1/dashboard/performance', { params })
-      .then(r => setData(r.data))
+      .then(r => { if (fetchAllGenRef.current === gen) setData(r.data) })
       .catch(err => {
+        if (fetchAllGenRef.current !== gen) return
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
         else if (!silent) setError('Erro ao carregar dashboard.')
       })
-      .finally(() => { if (!silent) setLoading(false) })
+      .finally(() => { if (fetchAllGenRef.current === gen && !silent) setLoading(false) })
   }, [navigate])
 
   const fetchSide = useCallback((date?: string | null) => {
+    const gen = ++fetchSideGenRef.current
     api.get<FeedItem[]>('/api/v1/dashboard/activity-feed')
-      .then(r => setFeed(r.data))
+      .then(r => { if (fetchSideGenRef.current === gen) setFeed(r.data) })
       .catch(() => {})
     const params = date ? { date } : {}
     const telefoniaUrl = date ? '/api/v1/telefonia/by-date' : '/api/v1/telefonia/settings'
     api.get<{ tma: string; ligacoes: Record<string, number> }>(telefoniaUrl, { params })
-      .then(r => setTelefonia({ tma: r.data.tma || '—', ligacoes: r.data.ligacoes }))
+      .then(r => { if (fetchSideGenRef.current === gen) setTelefonia({ tma: r.data.tma || '—', ligacoes: r.data.ligacoes }) })
       .catch(() => {})
     api.get<{ hoje: number; ontem: number | null; diff: number | null }>('/api/v1/telefonia/atendimentos-comparativo', { params })
-      .then(r => setAtendimentos(r.data))
+      .then(r => { if (fetchSideGenRef.current === gen) setAtendimentos(r.data) })
       .catch(() => {})
   }, [])
 

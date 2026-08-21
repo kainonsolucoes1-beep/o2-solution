@@ -253,14 +253,16 @@ export default function FinanceiroDashboard() {
 
   useEffect(() => {
     if (!forecastActive) { setPrevisaoMes(null); return; }
+    let cancelled = false;
     setPrevisaoLoading(true);
     const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
     if (search) params.set("search", search);
     if (canal) params.set("canal", canal);
     api.get<PrevisaoMesResumo>(`/api/v1/financeiro/previsao-periodo?${params}`)
-      .then((r) => setPrevisaoMes(r.data))
-      .catch(() => setPrevisaoMes(null))
-      .finally(() => setPrevisaoLoading(false));
+      .then((r) => { if (!cancelled) setPrevisaoMes(r.data); })
+      .catch(() => { if (!cancelled) setPrevisaoMes(null); })
+      .finally(() => { if (!cancelled) setPrevisaoLoading(false); });
+    return () => { cancelled = true; };
   }, [forecastActive, dateFrom, dateTo, search, canal]);
 
   function toggleRow(id: string) {
@@ -274,6 +276,7 @@ export default function FinanceiroDashboard() {
 
   useEffect(() => {
     if (forecastActive) return; // modo previsao usa /previsao-periodo, nao precisa da lista por data de venda
+    let cancelled = false;
     setLoading(true);
     const params = new URLSearchParams();
     if (dateFrom) params.set("date_from", dateFrom);
@@ -282,9 +285,10 @@ export default function FinanceiroDashboard() {
     if (canal) params.set("canal", canal);
     api
       .get<Contract[]>(`/api/v1/financeiro/contratos?${params}`)
-      .then((r) => setContracts(r.data))
-      .catch(() => setContracts([]))
-      .finally(() => setLoading(false));
+      .then((r) => { if (!cancelled) setContracts(r.data); })
+      .catch(() => { if (!cancelled) setContracts([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [dateFrom, dateTo, forecastActive, search, canal]);
 
   const totals = useMemo(() => {

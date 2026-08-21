@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { Filter, X, Trash2, RotateCcw, Plus } from 'lucide-react'
@@ -183,6 +183,7 @@ export default function LeadsReport() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
+  const fetchReportGenRef = useRef(0)
   const [me, setMe]               = useState<Me | null>(null)
   const [operators, setOperators] = useState<Operator[]>([])
   const [modalidades, setModalidades] = useState<string[]>([])
@@ -324,6 +325,7 @@ export default function LeadsReport() {
 
   const fetchReport = useCallback(
     (p: number) => {
+      const gen = ++fetchReportGenRef.current
       setLoading(true)
       setError('')
 
@@ -346,6 +348,7 @@ export default function LeadsReport() {
       api
         .get<ReportResponse>('/api/v1/leads/by-period', { params })
         .then(r => {
+          if (fetchReportGenRef.current !== gen) return
           setReport(r.data)
           setPage(p)
           setSearched(true)
@@ -353,14 +356,15 @@ export default function LeadsReport() {
           setSelected(new Set())
         })
         .catch(err => {
+          if (fetchReportGenRef.current !== gen) return
           if (err.response?.status === 401) { navigate('/login') }
           else setError('Erro ao buscar leads. Tente novamente.')
         })
-        .finally(() => setLoading(false))
+        .finally(() => { if (fetchReportGenRef.current === gen) setLoading(false) })
 
       api.get<ReportStats>('/api/v1/leads/report-stats', { params })
-        .then(r => setStats(r.data))
-        .catch(() => setStats(null))
+        .then(r => { if (fetchReportGenRef.current === gen) setStats(r.data) })
+        .catch(() => { if (fetchReportGenRef.current === gen) setStats(null) })
     },
     [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, closedSubStatus, teamFilter, search, vencidosFilter, isAdmin, navigate],
   )

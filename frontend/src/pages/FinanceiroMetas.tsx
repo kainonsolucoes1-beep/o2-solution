@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Pencil, Plus, X, Columns3 } from 'lucide-react'
 import api from '../api'
 import { type FiltroPeriodo, mesAtualRange } from '../utils/periodoFiltro'
@@ -64,8 +64,10 @@ export default function FinanceiroMetas() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
+  const fetchMetasGenRef = useRef(0)
   function fetchMetas() {
     if (filtro === 'entre_datas' && (!dataInicio || !dataFim)) return
+    const gen = ++fetchMetasGenRef.current
     const params: Record<string, string> = {}
     if (filtro === 'mes_atual') Object.assign(params, mesAtualRange())
     else if (filtro === 'entre_datas') { params.date_from = dataInicio; params.date_to = dataFim }
@@ -73,9 +75,9 @@ export default function FinanceiroMetas() {
     setLoading(true)
     setError(false)
     api.get<MetasResponse>('/api/v1/financeiro/metas', { params })
-      .then(r => setData(r.data))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
+      .then(r => { if (fetchMetasGenRef.current === gen) setData(r.data) })
+      .catch(() => { if (fetchMetasGenRef.current === gen) setError(true) })
+      .finally(() => { if (fetchMetasGenRef.current === gen) setLoading(false) })
   }
 
   useEffect(fetchMetas, [filtro, dataInicio, dataFim])

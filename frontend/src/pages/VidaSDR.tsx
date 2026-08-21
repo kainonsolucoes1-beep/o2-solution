@@ -261,11 +261,13 @@ export default function VidaSDR() {
       params.date_to = dataFim
     }
 
+    let cancelled = false
     setLoading(true)
     api.get<VidaSdrData>(`/api/v1/gestao-comercial/vida-sdr?${new URLSearchParams(params)}`)
-      .then(r => setData(r.data))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false))
+      .then(r => { if (!cancelled) setData(r.data) })
+      .catch(() => { if (!cancelled) setData(null) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [origens, filtro, dataInicio, dataFim])
 
   function openPreview(id: SmartPreviewId, context: number, trigger: HTMLElement) {

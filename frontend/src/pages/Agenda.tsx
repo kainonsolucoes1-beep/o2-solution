@@ -69,14 +69,16 @@ export default function Agenda() {
   const [viewFilter, setViewFilter] = useState<'hoje' | 'semana' | 'mes'>('mes')
 
   useEffect(() => {
+    let cancelled = false
     const year = cursor.getFullYear()
     const month = cursor.getMonth()
     const dateFrom = dateKey(new Date(year, month, 1))
     const dateTo = dateKey(new Date(year, month + 1, 0))
     setLoading(true)
     api.get<{ items: AgendaItem[] }>('/api/v1/agenda', { params: { date_from: dateFrom, date_to: dateTo } })
-      .then(r => setItems(r.data.items))
-      .finally(() => setLoading(false))
+      .then(r => { if (!cancelled) setItems(r.data.items) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [cursor])
 
   useEffect(() => {
