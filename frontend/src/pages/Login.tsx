@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
+import logo from '../assets/logo-o2.png'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -21,12 +22,10 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 overflow-y-auto bg-[var(--bg-page)]">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 overflow-y-auto bg-[var(--bg-page)]">
+      <img src={logo} alt="O2 Solution" className="h-[clamp(40px,6vh,56px)] w-auto mb-[clamp(20px,4vh,28px)]" />
       <div className="w-full max-w-[500px] bg-[var(--bg-card)] border border-[var(--border)] rounded-[20px] shadow-[0_1px_2px_rgba(15,23,42,.04),0_16px_40px_rgba(15,23,42,.05)] px-10 py-[clamp(20px,4vh,32px)]">
-        <p className="text-[clamp(30px,5vh,42px)] leading-[1.05] font-bold text-[var(--text-1)] m-0">
-          O2 Sig
-        </p>
-        <p className="text-base font-normal leading-[1.5] text-[var(--text-3b)] max-w-[280px] mt-2 mb-[clamp(20px,4vh,36px)]">
+        <p className="text-base font-normal leading-[1.5] text-[var(--text-3b)] max-w-[280px] m-0 mb-[clamp(20px,4vh,36px)]">
           Acesse sua área de trabalho.
         </p>
 
