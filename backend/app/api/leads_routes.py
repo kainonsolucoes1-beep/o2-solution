@@ -393,24 +393,14 @@ def list_lost_reasons(
     return [r.lost_reason for r in rows]
 
 
+MODALIDADES_FIXAS = ("PME", "PF", "PJ", "Adesão", "Odonto", "Odonto PF", "Odonto PME")
+
+
 @router.get("/leads/modalidades", response_model=List[str])
 def list_modalidades(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
-    rows = (
-        db.query(Lead.modalidade)
-        .filter(Lead.modalidade.isnot(None), Lead.modalidade != "")
-        .distinct()
-        .order_by(Lead.modalidade)
-        .all()
-    )
-    modalidades = [r.modalidade for r in rows]
-    for fixa in ("PF", "PME", "Odonto PF", "Odonto PME"):
-        if fixa not in modalidades:
-            modalidades.append(fixa)
-    modalidades.sort()
-    return modalidades
+    return list(MODALIDADES_FIXAS)
 
 
 @router.get("/leads/{lead_id}", response_model=LeadReportItem)

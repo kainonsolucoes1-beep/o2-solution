@@ -85,8 +85,12 @@ const PROMOTORA_COLORS: Record<string, string> = {
 
 const MODALIDADE_COLORS: Record<string, string> = {
   PME: "#10142B",
-  "Odonto PF": "#5B4FE0",
   PF: "#2F80ED",
+  PJ: "#0E9F6E",
+  "Adesão": "#8B5CF6",
+  Odonto: "#D97706",
+  "Odonto PF": "#5B4FE0",
+  "Odonto PME": "#9333EA",
   Petlove: "#C2760C",
 };
 
