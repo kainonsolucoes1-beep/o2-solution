@@ -8,7 +8,7 @@ import {
   Users, ShoppingCart, TrendingUp, DollarSign, TrendingDown, Tag,
   ChevronDown, ChevronRight, X, ChevronLeft,
   Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter, ArrowLeftRight,
-  Briefcase, ArrowUpRight, Inbox, Flame, AlertTriangle, Calendar, Zap,
+  Briefcase, ArrowUpRight, Flame, AlertTriangle, Calendar, Zap,
 } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
@@ -239,15 +239,6 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   if (loading) return <p style={{ padding: '40px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
   if (error || !overview || !alerts) return <p style={{ padding: '40px 0', textAlign: 'center', fontSize: 13, color: '#EF4444' }}>{error || 'Sem dados.'}</p>
 
-  const overviewCards = [
-    { label: 'Pendente',    value: overview.novo,        icon: Inbox,       tone: 'neutral' as const, iconTint: { bg: '#EFF6FF', color: '#3B82F6' }, nav: cardNav({ status: 'pending,novo,new' }) },
-    { label: 'Agendado',    value: overview.qualificado, icon: CheckSquare, tone: 'neutral' as const, iconTint: { bg: '#EEF2FF', color: '#6366F1' }, nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
-    { label: 'Enviada',     value: overview.proposta,    icon: FileText,    tone: 'neutral' as const, iconTint: { bg: '#FFFBEB', color: '#F59E0B' }, nav: cardNav({ status: 'proposal_sent' }) },
-    { label: 'Qualificado', value: overview.negociacao,  icon: Flame,       tone: 'neutral' as const, iconTint: { bg: '#F5F3FF', color: '#8B5CF6' }, nav: cardNav({ perception: 'Quente,Morno' }) },
-    { label: 'Fechado',     value: overview.fechado,     icon: Handshake,   tone: 'good' as const,    nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
-    { label: 'Perdido',     value: overview.perdido,     icon: XCircle,     tone: 'bad' as const,     nav: cardNav({ status: 'sale_not_performed' }), onOpen: openLostModal },
-  ]
-
   const distTotal  = overview.novo + overview.qualificado + overview.proposta + overview.negociacao + overview.fechado + overview.perdido
   const qualOL     = overview.qualificado + overview.proposta + overview.negociacao + overview.fechado
   const propOL     = overview.proposta + overview.negociacao + overview.fechado
@@ -262,7 +253,6 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   ]
 
   const mainConvs  = convs.slice(0, 4)
-  const lostConv   = convs[4]
   const totalRate  = distTotal > 0 ? +((overview.fechado / distTotal) * 100).toFixed(1) : 0
   const worstConv  = mainConvs.reduce((a, b) => a.rate <= b.rate ? a : b)
   const bestConv   = mainConvs.reduce((a, b) => a.rate >= b.rate ? a : b)
@@ -275,107 +265,105 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
     { label: 'Fechado',       value: overview.fechado_value,     color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }), icon: Handshake, barColor: null },
     { label: 'Perdido',       value: overview.perdido_value,     color: '#EF4444', bg: '#FEF2F2', border: '#FECACA', nav: cardNav({ status: 'sale_not_performed' }), icon: XCircle, barColor: null },
   ]
-  const finMax = Math.max(1, overview.qualificado_value, overview.proposta_value, overview.negociacao_value, overview.fechado_value, overview.perdido_value)
   const rateColor = (r: number) => (r >= 50 ? '#059669' : r >= 25 ? '#F59E0B' : '#EF4444')
+
+  const openValue  = overview.qualificado_value + overview.proposta_value + overview.negociacao_value
+  const funnelMax  = Math.max(1, overview.novo, overview.qualificado, overview.proposta, overview.negociacao, overview.fechado)
+  const funnelStages = [
+    { label: 'Pendente',    count: overview.novo,        color: '#3B82F6', rate: null as number | null, nav: cardNav({ status: 'pending,novo,new' }) },
+    { label: 'Agendado',    count: overview.qualificado, color: '#6366F1', rate: mainConvs[0].rate,      nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
+    { label: 'Enviada',     count: overview.proposta,    color: '#F59E0B', rate: mainConvs[1].rate,      nav: cardNav({ status: 'proposal_sent' }) },
+    { label: 'Qualificado', count: overview.negociacao,  color: '#8B5CF6', rate: mainConvs[2].rate,      nav: cardNav({ perception: 'Quente,Morno' }) },
+    { label: 'Fechado',     count: overview.fechado,     color: '#059669', rate: mainConvs[3].rate,      nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
+  ]
 
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Overview cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16 }}>
-          {overviewCards.map(card => (
-            <MetricCard
-              key={card.label}
-              label={card.label}
-              value={String(card.value)}
-              icon={card.icon}
-              tone={card.tone}
-              iconTint={(card as any).iconTint}
-              clickable
-              onClick={() => ((card as any).onOpen ? (card as any).onOpen() : navigate(`/leads-report${card.nav}`))}
-            />
-          ))}
-        </div>
+        {/* Resumo executivo + funil — visível pra todos os papéis */}
+        <div>
+          <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', marginBottom: 20 }}>
+            {distTotal} leads no funil · {dateFrom} até {dateTo}
+          </p>
 
-        {/* Distribuição + Conversões */}
-        {!isUsuario && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          {/* Distribuição Financeira */}
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <SectionTitle style={{ marginBottom: 20 }}>Distribuição Financeira do Pipeline</SectionTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {finCards.map((fc, i) => (
-                <div key={i}
-                  onClick={() => fc.nav && navigate(`/leads-report${fc.nav}`)}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', borderRadius: 10, background: fc.bg, border: `1px solid ${fc.border}`, cursor: fc.nav ? 'pointer' : 'default', transition: 'opacity 150ms' }}
-                  onMouseEnter={e => { if (fc.nav) e.currentTarget.style.opacity = '0.85' }}
-                  onMouseLeave={e => { if (fc.nav) e.currentTarget.style.opacity = '1' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: fc.color }}>
-                      {fc.icon && (
-                        <span style={{ width: 20, height: 20, borderRadius: 6, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <fc.icon size={11} color={fc.barColor ?? fc.color} />
-                        </span>
-                      )}
-                      {fc.label}
-                    </span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: fc.color }}>{fmtBrl(fc.value)}</span>
-                  </div>
-                  {fc.barColor && (
-                    <div style={{ background: '#F1F5F9', borderRadius: 4, height: 5, overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.max((fc.value / finMax) * 100, 2)}%`, height: '100%', background: fc.barColor, borderRadius: 4, transition: 'width 400ms ease' }} />
-                    </div>
-                  )}
-                </div>
-              ))}
+          <div style={{ display: 'flex', marginBottom: 32 }}>
+            <div style={{ flex: 1, paddingRight: 24 }}>
+              <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>Total no Funil</p>
+              <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1.1 }}>{distTotal}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>leads no período</p>
+            </div>
+            <div style={{ flex: 1, padding: '0 24px', borderLeft: '1px solid var(--border-lt)' }}>
+              <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>Conversão Total</p>
+              <p style={{ fontSize: 26, fontWeight: 700, color: rateColor(totalRate), margin: 0, lineHeight: 1.1 }}>{totalRate}%</p>
+              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>Pendente → Fechado</p>
+            </div>
+            <div style={{ flex: 1, padding: '0 24px', borderLeft: '1px solid var(--border-lt)' }}>
+              <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>Em Aberto</p>
+              <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1.1 }}>{fmtBrl(openValue)}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>ainda no funil, sem fechar</p>
+            </div>
+            <div
+              style={{ flex: 1, padding: '0 24px', borderLeft: '1px solid var(--border-lt)', cursor: 'pointer' }}
+              onClick={openLostModal}>
+              <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>Perdidos</p>
+              <p style={{ fontSize: 26, fontWeight: 700, color: '#EF4444', margin: 0, lineHeight: 1.1 }}>{overview.perdido}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>{fmtBrl(overview.perdido_value)} em perdas</p>
             </div>
           </div>
 
-          {/* Conversões */}
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <SectionTitle style={{ marginBottom: 16 }}>Conversões do Funil</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, background: 'var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
-              {[
-                { label: 'Conversão Total', value: `${totalRate}%`, sub: 'Pendente → Fechado', color: '#059669' },
-                { label: 'Leads Perdidos',  value: `${lostConv.rate}%`, sub: `${overview.perdido} leads no período`, color: '#EF4444' },
-                { label: 'Maior Gargalo',   value: `${worstConv.from} → ${worstConv.to}`, sub: `${worstConv.rate}% de conversão`, color: '#F59E0B', small: true },
-              ].map(({ label, value, sub, color, small }) => (
-                <div key={label} style={{ background: 'var(--bg-subtle)', padding: '14px 16px' }}>
-                  <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>{label}</p>
-                  <p style={{ fontSize: small ? 13 : 22, fontWeight: 700, color, lineHeight: 1.2, margin: 0 }}>{value}</p>
-                  <p style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 4 }}>{sub}</p>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {mainConvs.map((c, i) => (
-                <div key={i}
-                  onClick={() => navigate(`/leads-report${c.nav}`)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '13px 8px', cursor: 'pointer', borderBottom: i < mainConvs.length - 1 ? '1px solid var(--border)' : 'none', borderRadius: 8, transition: 'background 150ms' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <div style={{ width: 56, textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ fontSize: 20, fontWeight: 700, color: rateColor(c.rate) }}>{c.rate}<span style={{ fontSize: 12, marginLeft: 1 }}>%</span></span>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)' }}>{c.from} → {c.to}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-subtle)', display: 'block', marginTop: 2 }}>{c.fromCount} → {c.toCount} leads</span>
+          <SectionTitle style={{ marginBottom: 14 }}>Funil de Conversão</SectionTitle>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {funnelStages.map(s => (
+              <div key={s.label}
+                onClick={() => navigate(`/leads-report${s.nav}`)}
+                style={{ display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                <span style={{ width: 88, flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--text-3)', textAlign: 'right' }}>{s.label}</span>
+                <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 26, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${s.count > 0 ? Math.max((s.count / funnelMax) * 100, 4) : 0}%`, background: s.color, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 10, transition: 'width 400ms ease' }}>
+                    {s.count > 0 && <span style={{ fontSize: 11.5, fontWeight: 700, color: '#fff' }}>{s.count}</span>}
                   </div>
                 </div>
-              ))}
-              <div onClick={() => navigate(`/leads-report${lostConv.nav}`)}
-                style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '13px 8px', cursor: 'pointer', marginTop: 8, borderTop: '1px dashed var(--border)', borderRadius: 8, transition: 'background 150ms' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <div style={{ width: 56, textAlign: 'right', flexShrink: 0 }}>
-                  <span style={{ fontSize: 20, fontWeight: 700, color: '#EF4444' }}>{lostConv.rate}<span style={{ fontSize: 12, marginLeft: 1 }}>%</span></span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)' }}>Total → Perdido</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-subtle)', display: 'block', marginTop: 2 }}>{overview.perdido} leads perdidos no período</span>
-                </div>
+                <span style={{ width: 50, flexShrink: 0, fontSize: 12, fontWeight: 700, color: 'var(--text-3b)' }}>{s.rate != null ? `${s.rate}%` : ''}</span>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Destaques + Distribuição Financeira */}
+        {!isUsuario && (
+        <div>
+          <SectionTitle style={{ marginBottom: 20 }}>Destaques</SectionTitle>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 22, marginBottom: 32 }}>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+              <span style={{ width: 3, alignSelf: 'stretch', minHeight: 20, borderRadius: 99, flexShrink: 0, marginTop: 1, background: '#F59E0B' }} />
+              <p style={{ fontSize: 13.5, color: 'var(--text-3)', lineHeight: 1.65, margin: 0 }}>
+                Maior gargalo do funil: <strong style={{ color: 'var(--text-2)' }}>{worstConv.from} → {worstConv.to}</strong>, com apenas {worstConv.rate}% de avanço.
+              </p>
             </div>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+              <span style={{ width: 3, alignSelf: 'stretch', minHeight: 20, borderRadius: 99, flexShrink: 0, marginTop: 1, background: '#059669' }} />
+              <p style={{ fontSize: 13.5, color: 'var(--text-3)', lineHeight: 1.65, margin: 0 }}>
+                Melhor conversão do funil: <strong style={{ color: 'var(--text-2)' }}>{bestConv.from} → {bestConv.to}</strong>, com {bestConv.rate}%.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', cursor: 'pointer' }} onClick={openLostModal}>
+              <span style={{ width: 3, alignSelf: 'stretch', minHeight: 20, borderRadius: 99, flexShrink: 0, marginTop: 1, background: '#EF4444' }} />
+              <p style={{ fontSize: 13.5, color: 'var(--text-3)', lineHeight: 1.65, margin: 0 }}>
+                {overview.perdido} leads perdidos no período, {fmtBrl(overview.perdido_value)} em valor — ver motivos →
+              </p>
+            </div>
+          </div>
+
+          <SectionTitle style={{ marginBottom: 14 }}>Distribuição Financeira</SectionTitle>
+          <div style={{ display: 'flex' }}>
+            {finCards.slice(1, 5).map((fc, i) => (
+              <div key={fc.label}
+                onClick={() => fc.nav && navigate(`/leads-report${fc.nav}`)}
+                style={{ flex: 1, padding: i === 0 ? '0 24px 0 0' : '0 24px', borderLeft: i === 0 ? 'none' : '1px solid var(--border-lt)', cursor: fc.nav ? 'pointer' : 'default' }}>
+                <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>{fc.label}</p>
+                <p style={{ fontSize: 20, fontWeight: 700, color: fc.color, margin: 0 }}>{fmtBrl(fc.value)}</p>
+              </div>
+            ))}
           </div>
         </div>
         )}
