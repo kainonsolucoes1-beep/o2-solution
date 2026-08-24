@@ -310,6 +310,11 @@ def _parse_lead_fields(raw: dict) -> dict:
         current_plan = CURRENT_PLAN_MAP.get(int(_interest_1_id))
     else:
         current_plan = (_interest_1.get("name") or "").strip() or None
+    if origin == "Orgânico":
+        # lead organico (site) nao tem campo de "plano atual" no formulario --
+        # qualquer valor vindo do Followize aqui e' vazamento de outro campo
+        # (ex: nome da landing page), nao resposta real da pessoa
+        current_plan = "Não possui plano"
 
     tracking_campaign = tracking.get("campaign") or None
     tracking_medium = tracking.get("medium") or None
