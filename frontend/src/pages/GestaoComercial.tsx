@@ -428,102 +428,99 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         )}
 
         {/* Alertas + Tempos */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isUsuario ? 3 : 4}, 1fr)`, gap: 20 }}>
-          {!isUsuario && (() => {
-            const vencidosCount = alerts.vencidos_count ?? alerts.vencidos.length
-            const hasVencidos = vencidosCount > 0
-            const accent = hasVencidos ? '#EF4444' : 'var(--border-in)'
-            const textColor = hasVencidos ? '#EF4444' : 'var(--text-1)'
-            return (
-              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: `3px solid ${accent}`, cursor: 'pointer', transition: 'transform 200ms', display: 'flex', flexDirection: 'column', height: '100%' }}
-                onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
-                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span style={{ width: 26, height: 26, borderRadius: 7, background: hasVencidos ? '#FEF2F2' : 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <AlertTriangle size={13} color={hasVencidos ? '#EF4444' : 'var(--text-muted)'} />
-                  </span>
-                  <SectionTitle color={hasVencidos ? textColor : undefined}>Leads Vencidos</SectionTitle>
-                  <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: textColor, background: hasVencidos ? '#FEF2F2' : 'var(--bg-subtle)', padding: '2px 8px', borderRadius: 99 }}>{vencidosCount} leads</span>
+        <div>
+          <SectionTitle style={{ marginBottom: 4 }}>Alertas e Tempos</SectionTitle>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {!isUsuario && (() => {
+              const vencidosCount = alerts.vencidos_count ?? alerts.vencidos.length
+              const hasVencidos = vencidosCount > 0
+              const valueColor = hasVencidos ? '#EF4444' : 'var(--text-1)'
+              return (
+                <div
+                  onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <AlertTriangle size={15} color={hasVencidos ? '#EF4444' : 'var(--text-muted)'} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Leads Vencidos</p>
+                      <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '2px 0 0' }}>Qualquer status sem atenção nas últimas 24h</p>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontSize: 22, fontWeight: 700, color: valueColor, margin: 0, lineHeight: 1 }}>{vencidosCount}</p>
+                    <p style={{ fontSize: 11.5, color: '#3B82F6', fontWeight: 600, margin: '3px 0 0' }}>Ver no Relatório →</p>
+                  </div>
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Qualquer status sem atenção nas últimas 24h</p>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <p style={{ fontSize: 12, color: '#3B82F6', fontWeight: 500, margin: 0 }}>Ver no Relatório →</p>
+              )
+            })()}
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0', borderTop: '1px solid var(--border-lt)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Zap size={15} color="var(--text-muted)" />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Desempenho no Atendimento</p>
+                  <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '2px 0 0' }}>Tempo médio em "Novo" antes de avançar no funil</p>
                 </div>
               </div>
-            )
-          })()}
+              <div style={{ textAlign: 'right' }}>
+                {(() => {
+                  const minutes = alerts.avg_first_contact_minutes ?? 0
+                  return minutes >= 60 ? (
+                    <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{(minutes / 60).toFixed(1)}<span style={{ fontSize: 13, fontWeight: 500, marginLeft: 3 }}>h</span></p>
+                  ) : (
+                    <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{minutes}<span style={{ fontSize: 13, fontWeight: 500, marginLeft: 3 }}>min</span></p>
+                  )
+                })()}
+                <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '3px 0 0' }}>{alerts.contacted_count ?? 0} leads atendidos</p>
+              </div>
+            </div>
 
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)', display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Zap size={13} color="var(--text-muted)" />
-              </span>
-              <SectionTitle>Desempenho no Atendimento</SectionTitle>
-            </div>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Tempo médio em "Novo" antes de avançar no funil</p>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              {(() => {
-                const minutes = alerts.avg_first_contact_minutes ?? 0
-                return minutes >= 60 ? (
-                  <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{(minutes / 60).toFixed(1)}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>h</span></p>
-                ) : (
-                  <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{minutes}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>min</span></p>
-                )
-              })()}
-              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 6 }}>{alerts.contacted_count ?? 0} leads atendidos no período</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)', display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Timer size={13} color="var(--text-muted)" />
-              </span>
-              <SectionTitle>Tempo Médio para o Fechamento</SectionTitle>
-            </div>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 8 }}>Média do ciclo completo (fechado + perdido)</p>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>dias</span></p>
-              {(alerts.avg_time_in_funnel ?? 0) === 0 && <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>Sem leads finalizados no período</p>}
-            </div>
-          </div>
-
-          {(() => {
-            const pf = alerts.pf_count ?? 0
-            const pme = alerts.pme_count ?? 0
-            const total = pf + pme
-            const lider = pme >= pf ? 'PME' : 'PF'
-            const liderCount = pme >= pf ? pme : pf
-            const pct = total > 0 ? Math.round(liderCount / total * 100) : 0
-            return (
-              <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '3px solid var(--border-in)', display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Briefcase size={13} color="var(--text-muted)" />
-                  </span>
-                  <SectionTitle>Captação do Período</SectionTitle>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0', borderTop: '1px solid var(--border-lt)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Timer size={15} color="var(--text-muted)" />
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Tempo Médio para o Fechamento</p>
+                  <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '2px 0 0' }}>Média do ciclo completo (fechado + perdido)</p>
                 </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10 }}>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 13, fontWeight: 500, marginLeft: 3 }}>dias</span></p>
+                {(alerts.avg_time_in_funnel ?? 0) === 0 && <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '3px 0 0' }}>Sem leads finalizados</p>}
+              </div>
+            </div>
+
+            {(() => {
+              const pf = alerts.pf_count ?? 0
+              const pme = alerts.pme_count ?? 0
+              const total = pf + pme
+              const lider = pme >= pf ? 'PME' : 'PF'
+              const liderCount = pme >= pf ? pme : pf
+              const pct = total > 0 ? Math.round(liderCount / total * 100) : 0
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0', borderTop: '1px solid var(--border-lt)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Briefcase size={15} color="var(--text-muted)" />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Captação do Período</p>
+                      <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '2px 0 0' }}>PF × PME</p>
+                    </div>
+                  </div>
                   {total > 0 ? (
-                    <>
-                      <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, margin: 0 }}>{lider}<span style={{ fontSize: 16, fontWeight: 500, marginLeft: 4 }}>{pct}%</span></p>
-                      <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', height: 6, background: '#F1F5F9' }}>
+                    <div style={{ textAlign: 'right', width: 150 }}>
+                      <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{lider}<span style={{ fontSize: 13, fontWeight: 500, marginLeft: 3 }}>{pct}%</span></p>
+                      <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', height: 5, background: 'var(--bg-subtle)', marginTop: 6 }}>
                         <div style={{ width: `${(pf / total) * 100}%`, background: '#3B82F6' }} />
                         <div style={{ width: `${(pme / total) * 100}%`, background: '#8B5CF6' }} />
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-subtle)' }}>
-                        <span><span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 99, background: '#3B82F6', marginRight: 5 }} />PF {pf}</span>
-                        <span><span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 99, background: '#8B5CF6', marginRight: 5 }} />PME {pme}</span>
-                      </div>
-                    </>
+                      <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '5px 0 0' }}>PF {pf} · PME {pme}</p>
+                    </div>
                   ) : (
-                    <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: 0 }}>Sem captações de PF/PME no período</p>
+                    <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: 0 }}>Sem captações no período</p>
                   )}
                 </div>
-              </div>
-            )
-          })()}
+              )
+            })()}
+          </div>
         </div>
       </div>
 
