@@ -331,7 +331,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
 
         {/* Destaques + Distribuição Financeira */}
         {!isUsuario && (
-        <div>
+        <div style={{ borderTop: '1px solid var(--border-lt)', paddingTop: 24 }}>
           <SectionTitle style={{ marginBottom: 20 }}>Destaques</SectionTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 22, marginBottom: 32 }}>
             <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
@@ -370,7 +370,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
 
         {/* Meus Agendamentos de Hoje + Leads Vencidos — visão simplificada pra quem atende */}
         {isUsuario && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, borderTop: '1px solid var(--border-lt)', paddingTop: 24 }}>
           <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <Calendar size={13} color="var(--text-1)" />
@@ -428,7 +428,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         )}
 
         {/* Alertas + Tempos */}
-        <div>
+        <div style={{ borderTop: '1px solid var(--border-lt)', paddingTop: 24 }}>
           <SectionTitle style={{ marginBottom: 4 }}>Alertas e Tempos</SectionTitle>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {!isUsuario && (() => {
