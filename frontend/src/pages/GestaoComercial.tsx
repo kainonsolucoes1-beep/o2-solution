@@ -259,8 +259,11 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   // estado "concluído" da jornada, nunca o alvo de um alerta de gargalo.
   const bottleneck = [mainConvs[0], mainConvs[1], mainConvs[2]].reduce((a, b) => a.rate <= b.rate ? a : b)
 
-  const openValue         = overview.qualificado_value + overview.proposta_value + overview.negociacao_value
-  const pipelineTotalValue = overview.novo_value + overview.qualificado_value + overview.proposta_value + overview.negociacao_value + overview.fechado_value + overview.perdido_value
+  const openValue    = overview.qualificado_value + overview.proposta_value + overview.negociacao_value
+  // Soma só as 4 etapas mostradas na jornada (Pendente e Perdido ficam de fora
+  // dela), pra esse número nunca destoar do que dá pra contar visualmente ali.
+  const journeyTotal = overview.qualificado + overview.proposta + overview.negociacao + overview.fechado
+  const journeyValue = overview.qualificado_value + overview.proposta_value + overview.negociacao_value + overview.fechado_value
 
   const journeyNodes = [
     {
@@ -392,7 +395,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
           <div className="bg-white rounded-xl" style={{ flex: '3 1 480px', minWidth: 0, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <SectionTitle>Fluxo do Pipeline</SectionTitle>
-              <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{distTotal} oportunidades · {fmtBrl(pipelineTotalValue)} total</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{journeyTotal} no fluxo · {fmtBrl(journeyValue)}</span>
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '26px 0 22px' }}>
