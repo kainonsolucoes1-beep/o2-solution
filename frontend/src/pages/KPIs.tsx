@@ -384,6 +384,16 @@ export default function KPIs() {
   const [period, setPeriod] = useState<'month' | 'all' | 'range'>('month')
   const [rangeFrom, setRangeFrom] = useState('')
   const [rangeTo, setRangeTo] = useState('')
+  // versao com debounce: input type="date" pode disparar onChange com datas
+  // incompletas enquanto o ano esta sendo digitado (ex: "2026" vira "0202" no
+  // meio da digitacao) — sem isso, cada tecla dispara uma leva de requests
+  // com data invalida e derruba o backend (504 em cascata).
+  const [debRangeFrom, setDebRangeFrom] = useState('')
+  const [debRangeTo, setDebRangeTo] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => { setDebRangeFrom(rangeFrom); setDebRangeTo(rangeTo) }, 500)
+    return () => clearTimeout(t)
+  }, [rangeFrom, rangeTo])
   const [team, setTeam] = useState<'all' | 'sp' | 'pe'>('all')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const filtersRef = useRef<HTMLDivElement>(null)
@@ -451,8 +461,8 @@ export default function KPIs() {
   function periodParams(): Record<string, string> {
     const base: Record<string, string> = period === 'all'
       ? { period: 'all' }
-      : period === 'range' && rangeFrom && rangeTo
-      ? { period: 'range', date_from: rangeFrom, date_to: rangeTo }
+      : period === 'range' && debRangeFrom && debRangeTo
+      ? { period: 'range', date_from: debRangeFrom, date_to: debRangeTo }
       : { month }
     if (team !== 'all') base.team = TEAM_VALUES[team]
     return base
@@ -681,12 +691,12 @@ export default function KPIs() {
     fetchAges()
     fetchPlano()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, period, rangeFrom, rangeTo, team])
+  }, [month, period, debRangeFrom, debRangeTo, team])
 
   // Evolução mensal (Visão Geral) — reaproveita /kpis/conversao-fonte já existente, sem endpoint novo
   function fetchTrend() {
     const gen = ++trendGenRef.current
-    const anchor = period === 'range' && rangeTo ? rangeTo.slice(0, 7) : period === 'month' ? month : currentMonth
+    const anchor = period === 'range' && debRangeTo ? debRangeTo.slice(0, 7) : period === 'month' ? month : currentMonth
     const months = monthsBack(anchor, 6)
     setTrendLoading(true)
     setTrendError(false)
@@ -710,7 +720,7 @@ export default function KPIs() {
   useEffect(() => {
     fetchTrend()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, month, rangeTo, team])
+  }, [period, month, debRangeTo, team])
 
   const totalCap = data.reduce((s, d) => s + d.captacoes, 0)
   const totalVen = data.reduce((s, d) => s + d.vendas, 0)
@@ -979,7 +989,7 @@ export default function KPIs() {
           <div>
             <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px' }}>Evolução de leads e vendas</p>
             <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: '0 0 16px' }}>
-              Últimos 6 meses até {monthLabel(period === 'range' && rangeTo ? rangeTo.slice(0, 7) : period === 'month' ? month : currentMonth)} · leads (barra) e vendas (linha)
+              Últimos 6 meses até {monthLabel(period === 'range' && debRangeTo ? debRangeTo.slice(0, 7) : period === 'month' ? month : currentMonth)} · leads (barra) e vendas (linha)
             </p>
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
               {trendLoading ? (
