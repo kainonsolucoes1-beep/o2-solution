@@ -8,7 +8,7 @@ import {
   Users, ShoppingCart, TrendingUp, DollarSign, TrendingDown, Tag,
   ChevronDown, ChevronRight, X, ChevronLeft,
   Clock, CheckSquare, FileText, Handshake, Timer, XCircle, Filter, ArrowLeftRight,
-  Briefcase, ArrowUpRight, Flame, AlertTriangle, Calendar, Zap,
+  Briefcase, ArrowUpRight, AlertTriangle, Calendar, Zap,
 } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
@@ -254,274 +254,275 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
 
   const mainConvs  = convs.slice(0, 4)
   const totalRate  = distTotal > 0 ? +((overview.fechado / distTotal) * 100).toFixed(1) : 0
-  const worstConv  = mainConvs.reduce((a, b) => a.rate <= b.rate ? a : b)
   const bestConv   = mainConvs.reduce((a, b) => a.rate >= b.rate ? a : b)
+  // Gargalo considera só as 3 transições intermediárias -- Fechado sempre é o
+  // estado "concluído" da jornada, nunca o alvo de um alerta de gargalo.
+  const bottleneck = [mainConvs[0], mainConvs[1], mainConvs[2]].reduce((a, b) => a.rate <= b.rate ? a : b)
 
-  const finCards = [
-    { label: 'Valor Total',   value: [overview.novo_value, overview.qualificado_value, overview.proposta_value, overview.negociacao_value, overview.fechado_value, overview.perdido_value].reduce((a, b) => a + b, 0), color: 'var(--text-3)', bg: 'var(--bg-subtle)', border: 'var(--border)', nav: null, icon: null, barColor: null },
-    { label: 'Agendado',      value: overview.qualificado_value, color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ status: 'scheduled,qualificado,qualified' }), icon: CheckSquare, barColor: '#6366F1' },
-    { label: 'Enviada',       value: overview.proposta_value,    color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ status: 'proposal_sent' }), icon: FileText, barColor: '#F59E0B' },
-    { label: 'Qualificado',   value: overview.negociacao_value,  color: 'var(--text-1)', bg: 'var(--bg-card)', border: 'var(--border)', nav: cardNav({ perception: 'Quente,Morno' }), icon: Flame, barColor: '#8B5CF6' },
-    { label: 'Fechado',       value: overview.fechado_value,     color: '#059669', bg: '#ECFDF5', border: '#A7F3D0', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }), icon: Handshake, barColor: null },
-    { label: 'Perdido',       value: overview.perdido_value,     color: '#EF4444', bg: '#FEF2F2', border: '#FECACA', nav: cardNav({ status: 'sale_not_performed' }), icon: XCircle, barColor: null },
-  ]
-  const rateColor = (r: number) => (r >= 50 ? '#059669' : r >= 25 ? '#F59E0B' : '#EF4444')
+  const openValue         = overview.qualificado_value + overview.proposta_value + overview.negociacao_value
+  const pipelineTotalValue = overview.novo_value + overview.qualificado_value + overview.proposta_value + overview.negociacao_value + overview.fechado_value + overview.perdido_value
 
-  const openValue  = overview.qualificado_value + overview.proposta_value + overview.negociacao_value
-  const funnelMax  = Math.max(1, overview.novo, overview.qualificado, overview.proposta, overview.negociacao, overview.fechado)
-  const funnelStages = [
-    { label: 'Pendente',    count: overview.novo,        color: '#3B82F6', rate: null as number | null, nav: cardNav({ status: 'pending,novo,new' }) },
-    { label: 'Agendado',    count: overview.qualificado, color: '#6366F1', rate: mainConvs[0].rate,      nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
-    { label: 'Enviada',     count: overview.proposta,    color: '#F59E0B', rate: mainConvs[1].rate,      nav: cardNav({ status: 'proposal_sent' }) },
-    { label: 'Qualificado', count: overview.negociacao,  color: '#8B5CF6', rate: mainConvs[2].rate,      nav: cardNav({ perception: 'Quente,Morno' }) },
-    { label: 'Fechado',     count: overview.fechado,     color: '#059669', rate: mainConvs[3].rate,      nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
-  ]
+  const journeyNodes = [
+    {
+      key: 'agendado', label: 'Agendado', count: overview.qualificado, done: false,
+      small: `${overview.qualificado} oportunidade${overview.qualificado !== 1 ? 's' : ''}`,
+      nav: cardNav({ status: 'scheduled,qualificado,qualified' }),
+    },
+    {
+      key: 'enviada', label: 'Enviada', count: overview.proposta, done: false,
+      small: overview.proposta > 0 ? `${fmtBrl(overview.proposta_value)} em aberto` : 'sem propostas enviadas',
+      nav: cardNav({ status: 'proposal_sent' }),
+    },
+    {
+      key: 'qualificado', label: 'Qualificado', count: overview.negociacao, done: false,
+      small: overview.negociacao > 0 ? `${fmtBrl(overview.negociacao_value)} em aberto` : 'nenhuma oportunidade nesta etapa',
+      nav: cardNav({ perception: 'Quente,Morno' }),
+    },
+    {
+      key: 'fechado', label: 'Fechado', count: overview.fechado, done: true,
+      small: overview.fechado > 0 ? `${fmtBrl(overview.fechado_value)} realizados` : 'sem vendas no período',
+      nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }),
+    },
+  ].map(n => ({ ...n, warn: !n.done && n.label === bottleneck.to }))
+
+  if (distTotal === 0) {
+    return <p style={{ padding: '60px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhuma oportunidade no período selecionado.</p>
+  }
+
+  const healthCard = (
+    <div className="bg-white rounded-xl" style={{ flex: '0.9 1 300px', minWidth: 0, padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+      <SectionTitle style={{ marginBottom: 6 }}>Saúde da Operação</SectionTitle>
+      {!isUsuario && (() => {
+        const vencidosCount = alerts.vencidos_count ?? alerts.vencidos.length
+        const hasVencidos = vencidosCount > 0
+        return (
+          <div
+            onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
+            style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: 10, alignItems: 'center', padding: '12px 0', cursor: 'pointer' }}>
+            <span style={{ width: 28, height: 28, borderRadius: 8, background: hasVencidos ? '#FEF2F2' : 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AlertTriangle size={13} color={hasVencidos ? '#EF4444' : '#10B981'} />
+            </span>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Leads Vencidos</p>
+              <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '1px 0 0' }}>{hasVencidos ? 'Sem atenção nas últimas 24h' : 'Nenhum lead sem atenção'}</p>
+            </div>
+            <strong style={{ fontSize: 14, color: hasVencidos ? '#EF4444' : 'var(--text-1)' }}>{vencidosCount}</strong>
+          </div>
+        )
+      })()}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: 10, alignItems: 'center', padding: '12px 0', borderTop: !isUsuario ? '1px solid var(--border-lt)' : 'none' }}>
+        <span style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Zap size={13} color="var(--text-muted)" />
+        </span>
+        <div>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Tempo de Atendimento</p>
+          <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '1px 0 0' }}>Média antes do primeiro avanço</p>
+        </div>
+        <strong style={{ fontSize: 14, color: 'var(--text-1)' }}>
+          {(() => { const m = alerts.avg_first_contact_minutes ?? 0; return m >= 60 ? `${(m / 60).toFixed(1)}h` : `${m}min` })()}
+        </strong>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: 10, alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--border-lt)' }}>
+        <span style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Timer size={13} color="var(--text-muted)" />
+        </span>
+        <div>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Ciclo de Venda</p>
+          <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '1px 0 0' }}>Primeiro contato → fechamento</p>
+        </div>
+        <strong style={{ fontSize: 14, color: 'var(--text-1)' }}>{alerts.avg_time_in_funnel ?? 0}d</strong>
+      </div>
+
+      {(() => {
+        const pf = alerts.pf_count ?? 0
+        const pme = alerts.pme_count ?? 0
+        const total = pf + pme
+        const lider = pme >= pf ? 'PME' : 'PF'
+        const pct = total > 0 ? Math.round((pme >= pf ? pme : pf) / total * 100) : 0
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: 10, alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--border-lt)' }}>
+            <span style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Briefcase size={13} color="var(--text-muted)" />
+            </span>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Origem Dominante</p>
+              <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '1px 0 0' }}>{total > 0 ? `${lider} representa a maior parte da captação` : 'Sem captações no período'}</p>
+            </div>
+            {total > 0 && <strong style={{ fontSize: 14, color: 'var(--text-1)' }}>{lider} {pct}%</strong>}
+          </div>
+        )
+      })()}
+    </div>
+  )
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Resumo executivo + funil — visível pra todos os papéis */}
-        <div>
-          <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', marginBottom: 20 }}>
-            {distTotal} leads no funil · {dateFrom} até {dateTo}
-          </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>
+          {distTotal} leads no funil · {dateFrom} até {dateTo}
+        </p>
 
-          <div style={{ display: 'flex', marginBottom: 32 }}>
-            <div style={{ flex: 1, paddingRight: 24 }}>
-              <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>Total no Funil</p>
-              <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1.1 }}>{distTotal}</p>
-              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>leads no período</p>
+        {/* Resultado do período + Fluxo do pipeline — protagonista, visível pra todos os papéis */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+          <div className="bg-white rounded-xl" style={{ flex: '1 1 260px', minWidth: 0, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column' }}>
+            <SectionTitle>Resultado do Período</SectionTitle>
+            <p style={{ fontSize: 32, fontWeight: 700, color: '#10B981', margin: '22px 0 0', lineHeight: 1, letterSpacing: '-0.02em' }}>{fmtBrl(overview.fechado_value)}</p>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>fechados em {overview.fechado} venda{overview.fechado !== 1 ? 's' : ''}</p>
+            <div style={{ marginTop: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderTop: '1px solid var(--border-lt)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Conversão total</span>
+                <b style={{ fontSize: 14, color: 'var(--text-2)' }}>{totalRate}%</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderTop: '1px solid var(--border-lt)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Em aberto</span>
+                <b style={{ fontSize: 14, color: 'var(--text-2)' }}>{fmtBrl(openValue)}</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderTop: '1px solid var(--border-lt)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Perdidos</span>
+                <b style={{ fontSize: 14, color: overview.perdido > 0 ? '#EF4444' : 'var(--text-2)' }}>{overview.perdido}</b>
+              </div>
             </div>
-            <div style={{ flex: 1, padding: '0 24px', borderLeft: '1px solid var(--border-lt)' }}>
-              <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>Conversão Total</p>
-              <p style={{ fontSize: 26, fontWeight: 700, color: rateColor(totalRate), margin: 0, lineHeight: 1.1 }}>{totalRate}%</p>
-              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>Pendente → Fechado</p>
-            </div>
-            <div style={{ flex: 1, padding: '0 24px', borderLeft: '1px solid var(--border-lt)' }}>
-              <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>Em Aberto</p>
-              <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1.1 }}>{fmtBrl(openValue)}</p>
-              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>ainda no funil, sem fechar</p>
-            </div>
-            <div
-              style={{ flex: 1, padding: '0 24px', borderLeft: '1px solid var(--border-lt)', cursor: 'pointer' }}
-              onClick={openLostModal}>
-              <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>Perdidos</p>
-              <p style={{ fontSize: 26, fontWeight: 700, color: '#EF4444', margin: 0, lineHeight: 1.1 }}>{overview.perdido}</p>
-              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>{fmtBrl(overview.perdido_value)} em perdas</p>
-            </div>
+            <button onClick={openLostModal} style={{ marginTop: 'auto', paddingTop: 16, background: 'none', border: 'none', textAlign: 'left', color: '#3B82F6', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>
+              Ver motivos das perdas →
+            </button>
           </div>
 
-          <SectionTitle style={{ marginBottom: 14 }}>Funil de Conversão</SectionTitle>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {funnelStages.map(s => (
-              <div key={s.label}
-                onClick={() => navigate(`/leads-report${s.nav}`)}
-                style={{ display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
-                <span style={{ width: 88, flexShrink: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--text-3)', textAlign: 'right' }}>{s.label}</span>
-                <div style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 6, height: 26, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${s.count > 0 ? Math.max((s.count / funnelMax) * 100, 4) : 0}%`, background: s.color, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 10, transition: 'width 400ms ease' }}>
-                    {s.count > 0 && <span style={{ fontSize: 11.5, fontWeight: 700, color: '#fff' }}>{s.count}</span>}
+          <div className="bg-white rounded-xl" style={{ flex: '3 1 480px', minWidth: 0, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <SectionTitle>Fluxo do Pipeline</SectionTitle>
+              <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{distTotal} oportunidades · {fmtBrl(pipelineTotalValue)} total</span>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '26px 0 22px' }}>
+              {journeyNodes.map((n, i) => {
+                const tone = n.done ? { dot: '#ECFDF5', ring: '#10B981' } : n.warn ? { dot: '#FFFBEB', ring: '#F59E0B' } : { dot: '#EFF6FF', ring: '#3B82F6' }
+                return (
+                  <div key={n.key}
+                    onClick={() => navigate(`/leads-report${n.nav}`)}
+                    style={{ flex: '1 1 130px', minWidth: 130, position: 'relative', cursor: 'pointer', paddingRight: i < journeyNodes.length - 1 ? 16 : 0 }}>
+                    {i < journeyNodes.length - 1 && (
+                      <div style={{ position: 'absolute', top: 12, left: 38, right: 0, height: 2, background: 'var(--border)' }} />
+                    )}
+                    <div style={{ position: 'relative', zIndex: 1, width: 26, height: 26, borderRadius: '50%', background: tone.dot, border: `5px solid ${tone.ring}` }} />
+                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '9px 0 0' }}>{n.label}</p>
+                    <p style={{ fontSize: 10, color: 'var(--text-subtle)', margin: '2px 0 0' }}>{n.small}</p>
+                    <p style={{ fontSize: 18, fontWeight: 700, color: n.done ? '#10B981' : 'var(--text-1)', margin: '6px 0 0' }}>{n.count}</p>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+              <div style={{ background: '#FFFBEB', border: '1px solid #FDE9C8', borderRadius: 10, padding: 14 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px' }}>Principal gargalo · {bottleneck.rate}%</p>
+                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.45, margin: 0 }}>
+                  {bottleneck.from} → {bottleneck.to} interrompe o avanço de {bottleneck.fromCount} oportunidade{bottleneck.fromCount !== 1 ? 's' : ''}.
+                </p>
+                <button onClick={() => navigate(`/leads-report${bottleneck.nav}`)} style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, color: '#D97706', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>
+                  Investigar oportunidades →
+                </button>
+              </div>
+              <div style={{ background: 'var(--bg-subtle)', borderRadius: 10, padding: 14 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px' }}>Melhor avanço · {bestConv.rate}%</p>
+                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.45, margin: 0 }}>
+                  {bestConv.from} → {bestConv.to} converteu {bestConv.toCount} de {bestConv.fromCount} oportunidade{bestConv.fromCount !== 1 ? 's' : ''}.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Transição que merece ação + Saúde da operação — !isUsuario */}
+        {!isUsuario && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+            <div className="bg-white rounded-xl" style={{ flex: '1.1 1 380px', minWidth: 0, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <SectionTitle style={{ marginBottom: 16 }}>Transição que Merece Ação</SectionTitle>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+                <div style={{ flexShrink: 0 }}>
+                  <p style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{bottleneck.rate}%</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>{bottleneck.from} → {bottleneck.to}</p>
+                </div>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginBottom: 7 }}>
+                    <span>{bottleneck.fromCount} em {bottleneck.from}</span>
+                    <span>{bottleneck.toCount} em {bottleneck.to}</span>
+                  </div>
+                  <div style={{ height: 7, background: 'var(--bg-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${bottleneck.rate}%`, background: '#F59E0B', borderRadius: 8, transition: 'width 400ms ease' }} />
                   </div>
                 </div>
-                <span style={{ width: 50, flexShrink: 0, fontSize: 12, fontWeight: 700, color: 'var(--text-3b)' }}>{s.rate != null ? `${s.rate}%` : ''}</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Destaques + Distribuição Financeira */}
-        {!isUsuario && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
-          <SectionTitle style={{ marginBottom: 20 }}>Destaques</SectionTitle>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 22, marginBottom: 32 }}>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-              <span style={{ width: 3, alignSelf: 'stretch', minHeight: 20, borderRadius: 99, flexShrink: 0, marginTop: 1, background: '#F59E0B' }} />
-              <p style={{ fontSize: 13.5, color: 'var(--text-3)', lineHeight: 1.65, margin: 0 }}>
-                Maior gargalo do funil: <strong style={{ color: 'var(--text-2)' }}>{worstConv.from} → {worstConv.to}</strong>, com apenas {worstConv.rate}% de avanço.
-              </p>
             </div>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-              <span style={{ width: 3, alignSelf: 'stretch', minHeight: 20, borderRadius: 99, flexShrink: 0, marginTop: 1, background: '#059669' }} />
-              <p style={{ fontSize: 13.5, color: 'var(--text-3)', lineHeight: 1.65, margin: 0 }}>
-                Melhor conversão do funil: <strong style={{ color: 'var(--text-2)' }}>{bestConv.from} → {bestConv.to}</strong>, com {bestConv.rate}%.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', cursor: 'pointer' }} onClick={openLostModal}>
-              <span style={{ width: 3, alignSelf: 'stretch', minHeight: 20, borderRadius: 99, flexShrink: 0, marginTop: 1, background: '#EF4444' }} />
-              <p style={{ fontSize: 13.5, color: 'var(--text-3)', lineHeight: 1.65, margin: 0 }}>
-                {overview.perdido} leads perdidos no período, {fmtBrl(overview.perdido_value)} em valor — ver motivos →
-              </p>
-            </div>
+            {healthCard}
           </div>
-
-          <SectionTitle style={{ marginBottom: 14 }}>Distribuição Financeira</SectionTitle>
-          <div style={{ display: 'flex' }}>
-            {finCards.slice(1, 5).map((fc, i) => (
-              <div key={fc.label}
-                onClick={() => fc.nav && navigate(`/leads-report${fc.nav}`)}
-                style={{ flex: 1, padding: i === 0 ? '0 24px 0 0' : '0 24px', borderLeft: i === 0 ? 'none' : '1px solid var(--border-lt)', cursor: fc.nav ? 'pointer' : 'default' }}>
-                <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 6 }}>{fc.label}</p>
-                <p style={{ fontSize: 20, fontWeight: 700, color: fc.color, margin: 0 }}>{fmtBrl(fc.value)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
         )}
 
         {/* Meus Agendamentos de Hoje + Leads Vencidos — visão simplificada pra quem atende */}
         {isUsuario && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, borderTop: '1px solid var(--border)', paddingTop: 32 }}>
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Calendar size={13} color="var(--text-1)" />
-              <SectionTitle>Meus Agendamentos de Hoje</SectionTitle>
-            </div>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Clique num lead pra abrir a ficha</p>
-            {agendaHoje.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum agendamento pra hoje.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {agendaHoje.map(item => (
-                  <div key={item.id}
-                    onClick={() => navigate(`/leads/${item.id}`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, cursor: 'pointer', transition: 'background 150ms' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', borderRadius: 8, padding: '4px 0', width: 50, textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-                      {new Date(parseUTC(item.scheduled_at)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                    <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', flexShrink: 0 }}>{statusLabel(item.status)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-xl" style={{ padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <AlertTriangle size={13} color="#EF4444" />
-              <SectionTitle color="#EF4444">Leads Vencidos</SectionTitle>
-            </div>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Sem atenção nas últimas 24h · {alerts.vencidos_count ?? alerts.vencidos.length} leads</p>
-            {alerts.vencidos.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum lead vencido 🎉</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {alerts.vencidos.map(lead => (
-                  <div key={lead.id}
-                    onClick={() => navigate(`/leads/${lead.id}`)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, cursor: 'pointer', transition: 'background 150ms' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', background: '#FEF2F2', borderRadius: 8, padding: '4px 0', width: 50, textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-                      {lead.hours_without_action ?? 0}h
-                    </span>
-                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.name}</span>
-                    <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', flexShrink: 0 }}>{statusLabel(lead.status)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        )}
-
-        {/* Alertas + Tempos */}
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
-          <SectionTitle style={{ marginBottom: 4 }}>Alertas e Tempos</SectionTitle>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {!isUsuario && (() => {
-              const vencidosCount = alerts.vencidos_count ?? alerts.vencidos.length
-              const hasVencidos = vencidosCount > 0
-              const valueColor = hasVencidos ? '#EF4444' : 'var(--text-1)'
-              return (
-                <div
-                  onClick={() => navigate('/leads-report' + cardNav({ vencidos: '1' }))}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <AlertTriangle size={15} color={hasVencidos ? '#EF4444' : 'var(--text-muted)'} />
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Leads Vencidos</p>
-                      <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '2px 0 0' }}>Qualquer status sem atenção nas últimas 24h</p>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontSize: 22, fontWeight: 700, color: valueColor, margin: 0, lineHeight: 1 }}>{vencidosCount}</p>
-                    <p style={{ fontSize: 11.5, color: '#3B82F6', fontWeight: 600, margin: '3px 0 0' }}>Ver no Relatório →</p>
-                  </div>
+          <>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+              <div className="bg-white rounded-xl" style={{ flex: '1 1 320px', minWidth: 0, padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <Calendar size={13} color="var(--text-1)" />
+                  <SectionTitle>Meus Agendamentos de Hoje</SectionTitle>
                 </div>
-              )
-            })()}
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0', borderTop: '1px solid var(--border-lt)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Zap size={15} color="var(--text-muted)" />
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Desempenho no Atendimento</p>
-                  <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '2px 0 0' }}>Tempo médio em "Novo" antes de avançar no funil</p>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                {(() => {
-                  const minutes = alerts.avg_first_contact_minutes ?? 0
-                  return minutes >= 60 ? (
-                    <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{(minutes / 60).toFixed(1)}<span style={{ fontSize: 13, fontWeight: 500, marginLeft: 3 }}>h</span></p>
-                  ) : (
-                    <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{minutes}<span style={{ fontSize: 13, fontWeight: 500, marginLeft: 3 }}>min</span></p>
-                  )
-                })()}
-                <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '3px 0 0' }}>{alerts.contacted_count ?? 0} leads atendidos</p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0', borderTop: '1px solid var(--border-lt)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Timer size={15} color="var(--text-muted)" />
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Tempo Médio para o Fechamento</p>
-                  <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '2px 0 0' }}>Média do ciclo completo (fechado + perdido)</p>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{alerts.avg_time_in_funnel ?? 0}<span style={{ fontSize: 13, fontWeight: 500, marginLeft: 3 }}>dias</span></p>
-                {(alerts.avg_time_in_funnel ?? 0) === 0 && <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '3px 0 0' }}>Sem leads finalizados</p>}
-              </div>
-            </div>
-
-            {(() => {
-              const pf = alerts.pf_count ?? 0
-              const pme = alerts.pme_count ?? 0
-              const total = pf + pme
-              const lider = pme >= pf ? 'PME' : 'PF'
-              const liderCount = pme >= pf ? pme : pf
-              const pct = total > 0 ? Math.round(liderCount / total * 100) : 0
-              return (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0', borderTop: '1px solid var(--border-lt)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Briefcase size={15} color="var(--text-muted)" />
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Captação do Período</p>
-                      <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '2px 0 0' }}>PF × PME</p>
-                    </div>
-                  </div>
-                  {total > 0 ? (
-                    <div style={{ textAlign: 'right', width: 150 }}>
-                      <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{lider}<span style={{ fontSize: 13, fontWeight: 500, marginLeft: 3 }}>{pct}%</span></p>
-                      <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', height: 5, background: 'var(--bg-subtle)', marginTop: 6 }}>
-                        <div style={{ width: `${(pf / total) * 100}%`, background: '#3B82F6' }} />
-                        <div style={{ width: `${(pme / total) * 100}%`, background: '#8B5CF6' }} />
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Clique num lead pra abrir a ficha</p>
+                {agendaHoje.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum agendamento pra hoje.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {agendaHoje.map(item => (
+                      <div key={item.id}
+                        onClick={() => navigate(`/leads/${item.id}`)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, cursor: 'pointer', transition: 'background 150ms' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', borderRadius: 8, padding: '4px 0', width: 50, textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                          {new Date(parseUTC(item.scheduled_at)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                        <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', flexShrink: 0 }}>{statusLabel(item.status)}</span>
                       </div>
-                      <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '5px 0 0' }}>PF {pf} · PME {pme}</p>
-                    </div>
-                  ) : (
-                    <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: 0 }}>Sem captações no período</p>
-                  )}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-xl" style={{ flex: '1 1 320px', minWidth: 0, padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <AlertTriangle size={13} color="#EF4444" />
+                  <SectionTitle color="#EF4444">Leads Vencidos</SectionTitle>
                 </div>
-              )
-            })()}
-          </div>
-        </div>
+                <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginBottom: 16 }}>Sem atenção nas últimas 24h · {alerts.vencidos_count ?? alerts.vencidos.length} leads</p>
+                {alerts.vencidos.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text-subtle)', textAlign: 'center', padding: '20px 0' }}>Nenhum lead vencido 🎉</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {alerts.vencidos.map(lead => (
+                      <div key={lead.id}
+                        onClick={() => navigate(`/leads/${lead.id}`)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, cursor: 'pointer', transition: 'background 150ms' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', background: '#FEF2F2', borderRadius: 8, padding: '4px 0', width: 50, textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                          {lead.hours_without_action ?? 0}h
+                        </span>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.name}</span>
+                        <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', flexShrink: 0 }}>{statusLabel(lead.status)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+              {healthCard}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Lost modal */}
