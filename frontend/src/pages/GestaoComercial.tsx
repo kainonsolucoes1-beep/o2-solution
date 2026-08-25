@@ -13,6 +13,7 @@ import {
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
+import { formatPersonName } from '../utils/formatName'
 import MetricCard from '../components/MetricCard'
 import TrendChart from '../components/TrendChart'
 import ProgressBarList from '../components/ProgressBarList'
@@ -218,6 +219,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   const [agendaHoje, setAgendaHoje]           = useState<AgendaItem[]>([])
   const [actionLeads, setActionLeads]         = useState<ActionLead[]>([])
   const [actionLoading, setActionLoading]     = useState(false)
+  const [actionError, setActionError]         = useState(false)
   const isUsuario = role === 'usuario'
 
   useEffect(() => {
@@ -254,16 +256,16 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   // Oportunidades paradas no estagio de origem do gargalo -- alimenta a
   // superficie "Oportunidades que Precisam de Acao", abaixo do Fluxo.
   useEffect(() => {
-    if (!overview || isUsuario) { setActionLeads([]); return }
+    if (!overview || isUsuario) { setActionLeads([]); setActionError(false); return }
     const statusFilter = BOTTLENECK_STAGE_STATUS[computeBottleneckFromStage(overview)]
-    if (!statusFilter) { setActionLeads([]); return }
+    if (!statusFilter) { setActionLeads([]); setActionError(false); return }
     const params: Record<string, string> = { date_from: dateFrom, date_to: dateTo, status: statusFilter, page: '1', limit: '30' }
     if (selectedSources.length > 0) params.origem = selectedSources.join(',')
     if (teamParam) params.team = teamParam
-    setActionLoading(true)
+    setActionLoading(true); setActionError(false)
     api.get<{ leads: ActionLead[] }>('/api/v1/leads/by-period', { params })
       .then(r => setActionLeads(r.data.leads))
-      .catch(() => setActionLeads([]))
+      .catch(() => { setActionLeads([]); setActionError(true) })
       .finally(() => setActionLoading(false))
   }, [overview, isUsuario, dateFrom, dateTo, selectedSources, teamParam])
 
@@ -339,10 +341,13 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   // Prioriza quem está parado há mais tempo (vencido inclusive) -- a mesma
   // referência (última interação, senão a última atualização) usada nos
   // alertas de "Leads Vencidos" em outras partes da tela.
-  const priorityLeads = [...actionLeads]
-    .filter(l => l.last_interaction_at || l.updated_at)
+  // Quem tem data entra ordenado por mais tempo parado primeiro; quem não tem
+  // (dado incompleto) aparece depois, sem forçar uma prioridade que não dá
+  // pra sustentar com o dado disponível.
+  const datedActionLeads   = actionLeads.filter(l => l.last_interaction_at || l.updated_at)
     .sort((a, b) => parseUTC(a.last_interaction_at ?? a.updated_at!) - parseUTC(b.last_interaction_at ?? b.updated_at!))
-    .slice(0, 5)
+  const undatedActionLeads = actionLeads.filter(l => !l.last_interaction_at && !l.updated_at)
+  const priorityLeads      = [...datedActionLeads, ...undatedActionLeads].slice(0, 5)
 
   if (distTotal === 0) {
     return <p style={{ padding: '60px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhuma oportunidade no período selecionado.</p>
@@ -420,7 +425,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <p style={{ fontSize: 12.5, color: 'var(--text-meta)' }}>
-          {distTotal} leads no funil · {dateFrom} até {dateTo}
+          {distTotal} leads captados no período · {dateFrom} até {dateTo}
         </p>
 
         {/* Resultado do período + Fluxo do pipeline — protagonista, visível pra todos os papéis */}
@@ -451,7 +456,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
           <div className="bg-white rounded-xl" style={{ flex: '3 1 480px', minWidth: 0, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <SectionTitle>Fluxo do Pipeline</SectionTitle>
-              <span style={{ fontSize: 11.5, color: 'var(--text-meta)' }}>{journeyTotal} no fluxo · {fmtBrl(journeyValue)}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-meta)' }}>{journeyTotal} distribuídas nas etapas abaixo · {fmtBrl(journeyValue)}</span>
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '26px 0 22px' }}>
@@ -502,43 +507,61 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, paddingBottom: 14, borderBottom: '1px solid var(--border-lt)' }}>
                 <div>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>{bottleneck.from} → {bottleneck.to}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{bottleneck.fromCount} em {bottleneck.from} · {bottleneck.toCount} avançaram</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{bottleneck.fromCount} passaram por {bottleneck.from} no período · {bottleneck.toCount} avançaram para {bottleneck.to}</span>
                 </div>
                 <b style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{bottleneck.rate}%</b>
               </div>
 
               {actionLoading ? (
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>Carregando...</p>
+              ) : actionError ? (
+                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>Não foi possível carregar as oportunidades agora.</p>
               ) : priorityLeads.length === 0 ? (
-                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>Nenhuma oportunidade parada nesse estágio 🎉</p>
+                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>Nenhuma oportunidade exige atenção neste momento.</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
-                  {priorityLeads.map(lead => {
-                    const elapsed = elapsedSince(lead.last_interaction_at ?? lead.updated_at!)
-                    return (
-                      <div key={lead.id}
-                        onClick={() => navigate(`/leads/${lead.id}`)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', margin: '0 -8px', borderRadius: 10, cursor: 'pointer', transition: 'background 150ms' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.name}</p>
-                          {(lead.attendant || lead.status) && (
-                            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {[lead.attendant, lead.status ? statusLabel(lead.status) : null].filter(Boolean).join(' · ')}
-                            </p>
-                          )}
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+                    {priorityLeads.map(lead => {
+                      const ts = lead.last_interaction_at ?? lead.updated_at
+                      const elapsed = ts ? elapsedSince(ts) : null
+                      const name = formatPersonName(lead.name)
+                      const open = () => navigate(`/leads/${lead.id}`)
+                      return (
+                        <div key={lead.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={open}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } }}
+                          title={name}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', margin: '0 -8px', borderRadius: 10, cursor: 'pointer', transition: 'background 150ms' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
+                            {(lead.attendant || lead.status) && (
+                              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {[lead.attendant, lead.status ? statusLabel(lead.status) : null].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                          </div>
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, borderRadius: 99, padding: '3px 9px', flexShrink: 0, whiteSpace: 'nowrap',
+                            color: elapsed?.hot ? '#DC2626' : 'var(--text-muted)', background: elapsed?.hot ? '#FEF2F2' : 'var(--bg-subtle)',
+                          }}>
+                            {elapsed ? elapsed.label : '—'}
+                          </span>
+                          <ChevronRight size={15} color="var(--text-subtle)" style={{ flexShrink: 0 }} />
                         </div>
-                        <span style={{
-                          fontSize: 11, fontWeight: 600, borderRadius: 99, padding: '3px 9px', flexShrink: 0, whiteSpace: 'nowrap',
-                          color: elapsed.hot ? '#DC2626' : 'var(--text-muted)', background: elapsed.hot ? '#FEF2F2' : 'var(--bg-subtle)',
-                        }}>
-                          {elapsed.label}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                  {actionLeads.length > priorityLeads.length && (
+                    <button onClick={() => navigate(`/leads-report${bottleneck.nav}`)}
+                      style={{ marginTop: 10, paddingTop: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border-lt)', color: '#3B82F6', fontWeight: 600, fontSize: 11.5, cursor: 'pointer' }}>
+                      Ver todas as oportunidades →
+                    </button>
+                  )}
+                </>
               )}
             </div>
             {healthCard}
@@ -568,7 +591,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
                         <span style={{ fontSize: 12, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', borderRadius: 8, padding: '4px 0', width: 50, textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
                           {new Date(parseUTC(item.scheduled_at)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                        <span title={formatPersonName(item.name)} style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatPersonName(item.name)}</span>
                         <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', flexShrink: 0 }}>{statusLabel(item.status)}</span>
                       </div>
                     ))}
@@ -595,7 +618,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
                         <span style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', background: '#FEF2F2', borderRadius: 8, padding: '4px 0', width: 50, textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
                           {lead.hours_without_action ?? 0}h
                         </span>
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.name}</span>
+                        <span title={formatPersonName(lead.name)} style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatPersonName(lead.name)}</span>
                         <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', flexShrink: 0 }}>{statusLabel(lead.status)}</span>
                       </div>
                     ))}
