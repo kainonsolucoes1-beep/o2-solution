@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.lead_utils import extract_base as _extract_base
+from app.lead_utils import normalize_modalidade, modalidade_raw_variants
 from app.models.lead import Lead
 from app.models.user import User
 from app.security import can_see_financials
@@ -747,7 +748,7 @@ def modalidade_analytics(
 
     data: dict = defaultdict(_new_acc)
     for modalidade, status, created_at, receita_data_venda, receita_real_recebida in leads:
-        nome = (modalidade or "").strip() or "Não informado"
+        nome = normalize_modalidade(modalidade)
         _accumulate(data[nome], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
     result = [{"modalidade": nome, **_finalize_acc(acc, show_fin)} for nome, acc in data.items()]
@@ -777,7 +778,7 @@ def modalidade_detalhe(
     if target == "não informado":
         filters.append(or_(Lead.modalidade.is_(None), func.trim(Lead.modalidade) == ""))
     else:
-        filters.append(func.lower(func.trim(Lead.modalidade)) == target)
+        filters.append(func.lower(func.trim(Lead.modalidade)).in_(modalidade_raw_variants(target)))
 
     leads = (
         db.query(Lead.status, Lead.value_potential, Lead.current_plan)

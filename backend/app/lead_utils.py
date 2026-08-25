@@ -36,6 +36,25 @@ def extract_base(notes: str | None) -> str | None:
     return BASE_ALIASES.get(base.lower(), base)
 
 
+MODALIDADE_ALIASES: dict[str, str] = {
+    "empresarial": "PME",
+}
+
+
+def normalize_modalidade(raw: str | None) -> str:
+    nome = (raw or "").strip() or "Não informado"
+    return MODALIDADE_ALIASES.get(nome.lower(), nome)
+
+
+def modalidade_raw_variants(canonical: str) -> set[str]:
+    """Valores brutos (lowercase) que devem contar como `canonical` -- o
+    proprio nome canonico mais qualquer alias que aponte pra ele."""
+    target = canonical.strip().lower()
+    variants = {target}
+    variants |= {raw for raw, alias in MODALIDADE_ALIASES.items() if alias.lower() == target}
+    return variants
+
+
 ORGANICO_EXTRA = {'site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp'}
 
 
