@@ -307,7 +307,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             </span>
             <div>
               <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Leads Vencidos</p>
-              <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '1px 0 0' }}>{hasVencidos ? 'Sem atenção nas últimas 24h' : 'Nenhum lead sem atenção'}</p>
+              <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '1px 0 0' }}>{hasVencidos ? 'Sem atenção nas últimas 24h' : 'Nenhum lead sem atenção'}</p>
             </div>
             <strong style={{ fontSize: 14, color: hasVencidos ? '#EF4444' : 'var(--text-1)' }}>{vencidosCount}</strong>
           </div>
@@ -320,7 +320,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         </span>
         <div>
           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Tempo de Atendimento</p>
-          <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '1px 0 0' }}>Média antes do primeiro avanço</p>
+          <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '1px 0 0' }}>Média antes do primeiro avanço</p>
         </div>
         <strong style={{ fontSize: 14, color: 'var(--text-1)' }}>
           {(() => { const m = alerts.avg_first_contact_minutes ?? 0; return m >= 60 ? `${(m / 60).toFixed(1)}h` : `${m}min` })()}
@@ -333,7 +333,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         </span>
         <div>
           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Ciclo de Venda</p>
-          <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '1px 0 0' }}>Primeiro contato → fechamento</p>
+          <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '1px 0 0' }}>Primeiro contato → fechamento</p>
         </div>
         <strong style={{ fontSize: 14, color: 'var(--text-1)' }}>{alerts.avg_time_in_funnel ?? 0}d</strong>
       </div>
@@ -351,7 +351,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             </span>
             <div>
               <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: 0 }}>Origem Dominante</p>
-              <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '1px 0 0' }}>{total > 0 ? `${lider} representa a maior parte da captação` : 'Sem captações no período'}</p>
+              <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '1px 0 0' }}>{total > 0 ? `${lider} representa a maior parte da captação` : 'Sem captações no período'}</p>
             </div>
             {total > 0 && <strong style={{ fontSize: 14, color: 'var(--text-1)' }}>{lider} {pct}%</strong>}
           </div>
@@ -363,7 +363,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>
+        <p style={{ fontSize: 12.5, color: 'var(--text-meta)' }}>
           {distTotal} leads no funil · {dateFrom} até {dateTo}
         </p>
 
@@ -372,18 +372,18 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
           <div className="bg-white rounded-xl" style={{ flex: '1 1 260px', minWidth: 0, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column' }}>
             <SectionTitle>Resultado do Período</SectionTitle>
             <p style={{ fontSize: 32, fontWeight: 700, color: '#10B981', margin: '22px 0 0', lineHeight: 1, letterSpacing: '-0.02em' }}>{fmtBrl(overview.fechado_value)}</p>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>fechados em {overview.fechado} venda{overview.fechado !== 1 ? 's' : ''}</p>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>fechados em {overview.fechado} venda{overview.fechado !== 1 ? 's' : ''}</p>
             <div style={{ marginTop: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderTop: '1px solid var(--border-lt)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Conversão total</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Conversão total</span>
                 <b style={{ fontSize: 14, color: 'var(--text-2)' }}>{totalRate}%</b>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderTop: '1px solid var(--border-lt)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Em aberto</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Em aberto</span>
                 <b style={{ fontSize: 14, color: 'var(--text-2)' }}>{fmtBrl(openValue)}</b>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderTop: '1px solid var(--border-lt)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Perdidos</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Perdidos</span>
                 <b style={{ fontSize: 14, color: overview.perdido > 0 ? '#EF4444' : 'var(--text-2)' }}>{overview.perdido}</b>
               </div>
             </div>
@@ -395,7 +395,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
           <div className="bg-white rounded-xl" style={{ flex: '3 1 480px', minWidth: 0, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <SectionTitle>Fluxo do Pipeline</SectionTitle>
-              <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{journeyTotal} no fluxo · {fmtBrl(journeyValue)}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-meta)' }}>{journeyTotal} no fluxo · {fmtBrl(journeyValue)}</span>
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '26px 0 22px' }}>
@@ -410,7 +410,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
                     )}
                     <div style={{ position: 'relative', zIndex: 1, width: 26, height: 26, borderRadius: '50%', background: tone.dot, border: `5px solid ${tone.ring}` }} />
                     <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '9px 0 0' }}>{n.label}</p>
-                    <p style={{ fontSize: 10, color: 'var(--text-subtle)', margin: '2px 0 0' }}>{n.small}</p>
+                    <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '2px 0 0' }}>{n.small}</p>
                     <p style={{ fontSize: 18, fontWeight: 700, color: n.done ? '#10B981' : 'var(--text-1)', margin: '6px 0 0' }}>{n.count}</p>
                   </div>
                 )
@@ -445,7 +445,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
               <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
                 <div style={{ flexShrink: 0 }}>
                   <p style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{bottleneck.rate}%</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>{bottleneck.from} → {bottleneck.to}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{bottleneck.from} → {bottleneck.to}</p>
                 </div>
                 <div style={{ flex: 1, minWidth: 160 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginBottom: 7 }}>

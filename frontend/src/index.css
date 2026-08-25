@@ -22,6 +22,7 @@ body {
   --text-3b:    #4B5563;
   --text-muted: #6B7280;
   --text-subtle:#9CA3AF;
+  --text-meta:  #7C8799;
   --border:     #E5E7EB;
   --border-lt:  #F3F4F6;
   --border-in:  #D1D5DB;
@@ -41,6 +42,7 @@ html.dark {
   --text-3b:    #A8BFCC;
   --text-muted: #8B9AB0;
   --text-subtle:#5C7080;
+  --text-meta:  #78899D;
   --border:     #334155;
   --border-lt:  #243044;
   --border-in:  #334155;
