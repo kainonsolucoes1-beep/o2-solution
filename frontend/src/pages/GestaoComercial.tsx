@@ -51,6 +51,31 @@ interface PipelineAlerts {
   pf_count?: number; pme_count?: number
 }
 interface MotivoItem { reason: string; count: number; pct: number; total_value: number }
+interface ActionLead {
+  id: string; name: string; attendant: string | null; status: string | null
+  updated_at: string | null; last_interaction_at: string | null
+}
+// filtro de status por estagio -- mesmos valores usados na navegacao dos nos
+// da jornada do Pipeline, pra buscar as oportunidades paradas no estagio de
+// origem do gargalo (Qualificado nunca e' origem de gargalo, so' Perdido usa
+// perception; por isso nao entra aqui).
+const BOTTLENECK_STAGE_STATUS: Record<string, string> = {
+  Pendente: 'pending,novo,new',
+  Agendado: 'scheduled,qualificado,qualified',
+  Enviada:  'proposal_sent',
+}
+function computeBottleneckFromStage(ov: PipelineOverview): string {
+  const total   = ov.novo + ov.qualificado + ov.proposta + ov.negociacao + ov.fechado + ov.perdido
+  const qualOL  = ov.qualificado + ov.proposta + ov.negociacao + ov.fechado
+  const propOL  = ov.proposta + ov.negociacao + ov.fechado
+  const negOL   = ov.negociacao + ov.fechado
+  const legs = [
+    { from: 'Pendente', rate: total > 0 ? qualOL / total : 0 },
+    { from: 'Agendado', rate: qualOL > 0 ? propOL / qualOL : 0 },
+    { from: 'Enviada',  rate: propOL > 0 ? negOL / propOL : 0 },
+  ]
+  return legs.reduce((a, b) => a.rate <= b.rate ? a : b).from
+}
 
 // ── Grouping constants ───────────────────────────────────────────────────────
 const O2_NAMES       = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
@@ -127,6 +152,11 @@ function sumByKey<T>(rows: T[], keyFn: (r: T) => string, valFn: (r: T) => number
 function fmtBrl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+function elapsedSince(iso: string) {
+  const hours = Math.max(0, Math.round((Date.now() - parseUTC(iso)) / 3600000))
+  const label = hours >= 48 ? `${Math.round(hours / 24)}d parado` : `${hours}h parado`
+  return { label, hot: hours >= 24 }
+}
 function nowMonth() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -186,6 +216,8 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   const [motivosLoading, setMotivosLoading]   = useState(false)
   const [role, setRole]                       = useState<string | null>(null)
   const [agendaHoje, setAgendaHoje]           = useState<AgendaItem[]>([])
+  const [actionLeads, setActionLeads]         = useState<ActionLead[]>([])
+  const [actionLoading, setActionLoading]     = useState(false)
   const isUsuario = role === 'usuario'
 
   useEffect(() => {
@@ -218,6 +250,22 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   }, [navigate, dateFrom, dateTo, selectedSources, teamParam])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Oportunidades paradas no estagio de origem do gargalo -- alimenta a
+  // superficie "Oportunidades que Precisam de Acao", abaixo do Fluxo.
+  useEffect(() => {
+    if (!overview || isUsuario) { setActionLeads([]); return }
+    const statusFilter = BOTTLENECK_STAGE_STATUS[computeBottleneckFromStage(overview)]
+    if (!statusFilter) { setActionLeads([]); return }
+    const params: Record<string, string> = { date_from: dateFrom, date_to: dateTo, status: statusFilter, page: '1', limit: '30' }
+    if (selectedSources.length > 0) params.origem = selectedSources.join(',')
+    if (teamParam) params.team = teamParam
+    setActionLoading(true)
+    api.get<{ leads: ActionLead[] }>('/api/v1/leads/by-period', { params })
+      .then(r => setActionLeads(r.data.leads))
+      .catch(() => setActionLeads([]))
+      .finally(() => setActionLoading(false))
+  }, [overview, isUsuario, dateFrom, dateTo, selectedSources, teamParam])
 
   function openLostModal() {
     setShowLostModal(true); setMotivosLoading(true)
@@ -287,6 +335,14 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
       nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }),
     },
   ].map(n => ({ ...n, warn: !n.done && n.label === bottleneck.to }))
+
+  // Prioriza quem está parado há mais tempo (vencido inclusive) -- a mesma
+  // referência (última interação, senão a última atualização) usada nos
+  // alertas de "Leads Vencidos" em outras partes da tela.
+  const priorityLeads = [...actionLeads]
+    .filter(l => l.last_interaction_at || l.updated_at)
+    .sort((a, b) => parseUTC(a.last_interaction_at ?? a.updated_at!) - parseUTC(b.last_interaction_at ?? b.updated_at!))
+    .slice(0, 5)
 
   if (distTotal === 0) {
     return <p style={{ padding: '60px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhuma oportunidade no período selecionado.</p>
@@ -441,22 +497,49 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
         {!isUsuario && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
             <div className="bg-white rounded-xl" style={{ flex: '1.1 1 380px', minWidth: 0, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <SectionTitle style={{ marginBottom: 16 }}>Transição que Merece Ação</SectionTitle>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-                <div style={{ flexShrink: 0 }}>
-                  <p style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-1)', margin: 0, lineHeight: 1 }}>{bottleneck.rate}%</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{bottleneck.from} → {bottleneck.to}</p>
+              <SectionTitle style={{ marginBottom: 14 }}>Oportunidades que Precisam de Ação</SectionTitle>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, paddingBottom: 14, borderBottom: '1px solid var(--border-lt)' }}>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>{bottleneck.from} → {bottleneck.to}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{bottleneck.fromCount} em {bottleneck.from} · {bottleneck.toCount} avançaram</span>
                 </div>
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginBottom: 7 }}>
-                    <span>{bottleneck.fromCount} em {bottleneck.from}</span>
-                    <span>{bottleneck.toCount} em {bottleneck.to}</span>
-                  </div>
-                  <div style={{ height: 7, background: 'var(--bg-subtle)', borderRadius: 8, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${bottleneck.rate}%`, background: '#F59E0B', borderRadius: 8, transition: 'width 400ms ease' }} />
-                  </div>
-                </div>
+                <b style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{bottleneck.rate}%</b>
               </div>
+
+              {actionLoading ? (
+                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>Carregando...</p>
+              ) : priorityLeads.length === 0 ? (
+                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>Nenhuma oportunidade parada nesse estágio 🎉</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+                  {priorityLeads.map(lead => {
+                    const elapsed = elapsedSince(lead.last_interaction_at ?? lead.updated_at!)
+                    return (
+                      <div key={lead.id}
+                        onClick={() => navigate(`/leads/${lead.id}`)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', margin: '0 -8px', borderRadius: 10, cursor: 'pointer', transition: 'background 150ms' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.name}</p>
+                          {(lead.attendant || lead.status) && (
+                            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {[lead.attendant, lead.status ? statusLabel(lead.status) : null].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                        <span style={{
+                          fontSize: 11, fontWeight: 600, borderRadius: 99, padding: '3px 9px', flexShrink: 0, whiteSpace: 'nowrap',
+                          color: elapsed.hot ? '#DC2626' : 'var(--text-muted)', background: elapsed.hot ? '#FEF2F2' : 'var(--bg-subtle)',
+                        }}>
+                          {elapsed.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
             {healthCard}
           </div>
