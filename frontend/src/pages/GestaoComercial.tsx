@@ -500,7 +500,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
 
         {/* Transição que merece ação + Saúde da operação — !isUsuario */}
         {!isUsuario && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 20 }}>
             <div className="bg-white rounded-xl" style={{ flex: '1.1 1 380px', minWidth: 0, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <SectionTitle style={{ marginBottom: 14 }}>Oportunidades que Precisam de Ação</SectionTitle>
 
