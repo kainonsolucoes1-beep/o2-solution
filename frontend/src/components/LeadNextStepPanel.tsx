@@ -63,7 +63,7 @@ export default function LeadNextStepPanel({
   activeSchedule, cancelingSchedule, onSaveSchedule, onCancelScheduleEdit, onRemoveSchedule,
   editingProposta, propostaValor, onPropostaValorChange, savingProposta, onSaveProposta, onCancelPropostaEdit,
   vendaValor, onVendaValorChange, vendaData, onVendaDataChange, savingVenda, onSaveVenda, faturando, onFaturar,
-  onRetrabalhar, retrabalhando,
+  showRetrabalhar, onToggleRetrabalhar, retrabalharData, onRetrabalharDataChange, onConfirmRetrabalhar, onCancelRetrabalhar, retrabalhando,
 }: {
   editing: boolean
   onToggleEditing: () => void
@@ -119,7 +119,12 @@ export default function LeadNextStepPanel({
   onSaveVenda: () => void
   faturando: boolean
   onFaturar: () => void
-  onRetrabalhar: () => void
+  showRetrabalhar: boolean
+  onToggleRetrabalhar: () => void
+  retrabalharData: string
+  onRetrabalharDataChange: (value: string) => void
+  onConfirmRetrabalhar: () => void
+  onCancelRetrabalhar: () => void
   retrabalhando: boolean
 }) {
   return (
@@ -154,13 +159,38 @@ export default function LeadNextStepPanel({
             <Mail size={14} /> Enviar e-mail
           </a>
           {status === 'sale_not_performed' ? (
-            <button
-              style={{ ...primaryActionBtnStyle, background: '#7C3AED', borderColor: '#7C3AED' }}
-              onClick={() => { if (window.confirm('Retrabalhar este lead? Ele volta pro status "Novo" e passa a contar como captação de hoje nos relatórios, mantendo o histórico original.')) onRetrabalhar() }}
-              disabled={retrabalhando}
-            >
-              {retrabalhando ? 'Retrabalhando…' : 'Retrabalhar lead'}
-            </button>
+            showRetrabalhar ? (
+              <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-3b)', whiteSpace: 'nowrap' }}>Retrabalhar em:</span>
+                <input
+                  type="date"
+                  value={retrabalharData}
+                  onChange={e => onRetrabalharDataChange(e.target.value)}
+                  title="Volta pro status Novo e passa a contar como captação nessa data, mantendo o histórico original."
+                  style={{ padding: '6px 9px', height: 34, borderRadius: 7, border: '1px solid var(--border-in)', fontSize: 12, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
+                />
+                <button
+                  style={{ ...primaryActionBtnStyle, background: '#7C3AED', borderColor: '#7C3AED' }}
+                  onClick={onConfirmRetrabalhar}
+                  disabled={retrabalhando || !retrabalharData}
+                >
+                  {retrabalhando ? 'Retrabalhando…' : 'Confirmar'}
+                </button>
+                <button
+                  onClick={onCancelRetrabalhar}
+                  style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                style={{ ...primaryActionBtnStyle, background: '#7C3AED', borderColor: '#7C3AED' }}
+                onClick={onToggleRetrabalhar}
+              >
+                Retrabalhar lead
+              </button>
+            )
           ) : (
             <>
               <button style={actionBtnStyle(true)} onClick={onOpenProposta}>

@@ -25,7 +25,7 @@ from app.schemas.lead import (
     AgendaItem, AgendaResponse, AgendaAlertsResponse,
     LeadReceitaUpdateRequest, LeadReceitaUpdateResponse,
     ParcelaRequest, ParcelaUpdateRequest, ParcelaResponse, ParcelasListResponse,
-    RetrabalharResponse,
+    RetrabalharRequest, RetrabalharResponse,
 )
 from app.schemas.user import OperatorInfo
 
@@ -102,6 +102,7 @@ def leads_by_period(
     team: Optional[str] = Query(None),
     search: Optional[str] = Query(None, description="Busca por nome, CPF/CNPJ, telefone ou email"),
     vencidos: bool = Query(False),
+    renutricao: bool = Query(False),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=10000),
     current_user: User = Depends(get_current_user),
@@ -128,6 +129,8 @@ def leads_by_period(
     def _base_query(q):
         if vencidos:
             q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
+        if renutricao:
+            q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
             q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if not admin:
@@ -245,6 +248,7 @@ def leads_report_stats(
     team: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     vencidos: bool = Query(False),
+    renutricao: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -271,6 +275,8 @@ def leads_report_stats(
     def _base_query(q):
         if vencidos:
             q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
+        if renutricao:
+            q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
             q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if not admin:
@@ -476,19 +482,29 @@ def update_lead_status(
 @router.post("/leads/{lead_id}/retrabalhar", response_model=RetrabalharResponse)
 def retrabalhar_lead(
     lead_id: str,
+    body: RetrabalharRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Reativa um lead parado/cancelado: mantem created_at intacto (historico real),
-    mas marca retrabalhado_em com a data de hoje — os relatorios de captacao por
-    periodo passam a contar esse lead na data do retrabalho, nao na original."""
+    mas marca retrabalhado_em com a data informada (ou a data/hora atual, se omitida)
+    — os relatorios de captacao por periodo passam a contar esse lead na data do
+    retrabalho, nao na original."""
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
 
-    prev_status = lead.status
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    lead.retrabalhado_em = now
+    if body.data_retrabalho:
+        try:
+            retrabalhado_em, _ = br_date_to_utc_range(body.data_retrabalho)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
+    else:
+        retrabalhado_em = now
+
+    prev_status = lead.status
+    lead.retrabalhado_em = retrabalhado_em
     lead.status = "novo"
     lead.is_renutrucao = True
     lead.updated_at = now

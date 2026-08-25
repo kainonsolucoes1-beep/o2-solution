@@ -75,6 +75,9 @@ const FILTERS_STORAGE_KEY = 'leadsReportFilters'
 
 const STATUS_PERDIDO = 'sale_not_performed'
 const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,convertido'
+// sentinel dentro do select de Status -- nao e' um status de verdade, filtra
+// pela flag is_renutrucao (indepedente do status atual do lead)
+const STATUS_RENUTRICAO = '__renutricao__'
 const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
 const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
 
@@ -337,7 +340,8 @@ export default function LeadsReport() {
       }
       if (vencidosFilter) params.vencidos = true
       if (isAdmin && origem) params.origem = origem
-      if (statusFilter) params.status = closedSubStatus || statusFilter
+      if (statusFilter === STATUS_RENUTRICAO) params.renutricao = true
+      else if (statusFilter) params.status = closedSubStatus || statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
       if (conversionPointFilter) params.conversion_point = conversionPointFilter
@@ -386,7 +390,8 @@ export default function LeadsReport() {
       }
       if (vencidosFilter) params.vencidos = true
       if (isAdmin && origem) params.origem = origem
-      if (statusFilter) params.status = closedSubStatus || statusFilter
+      if (statusFilter === STATUS_RENUTRICAO) params.renutricao = true
+      else if (statusFilter) params.status = closedSubStatus || statusFilter
       if (perceptionFilter) params.perception = perceptionFilter
       if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
       if (conversionPointFilter) params.conversion_point = conversionPointFilter
@@ -891,6 +896,7 @@ export default function LeadsReport() {
                       <option value="proposal_sent">Proposta</option>
                       <option value={STATUS_FECHADO}>Fechado</option>
                       <option value={STATUS_PERDIDO}>Perdido</option>
+                      <option value={STATUS_RENUTRICAO}>Renutrição</option>
                     </select>
                   </div>
 

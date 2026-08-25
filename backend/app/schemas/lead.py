@@ -208,6 +208,10 @@ class LeadFaturarResponse(BaseModel):
     lead_id: UUID
 
 
+class RetrabalharRequest(BaseModel):
+    data_retrabalho: Optional[str] = None  # AAAA-MM-DD; se omitido, usa a data/hora atual
+
+
 class RetrabalharResponse(BaseModel):
     success: bool
     lead_id: UUID

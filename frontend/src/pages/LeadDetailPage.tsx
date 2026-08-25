@@ -123,6 +123,8 @@ export default function LeadDetailPage() {
   const [savingVenda, setSavingVenda] = useState(false)
   const [faturando, setFaturando] = useState(false)
   const [retrabalhando, setRetrabalhando] = useState(false)
+  const [showRetrabalhar, setShowRetrabalhar] = useState(false)
+  const [retrabalharData, setRetrabalharData] = useState('')
   const [finalizarFlow, setFinalizarFlow] = useState(false)
   const [, setTick]                       = useState(0)
   const [editingInfo, setEditingInfo]     = useState(false)
@@ -215,12 +217,22 @@ export default function LeadDetailPage() {
       .finally(() => setFaturando(false))
   }
 
+  function handleToggleRetrabalhar() {
+    setRetrabalharData(new Date().toISOString().slice(0, 10))
+    setShowRetrabalhar(true)
+  }
+
+  function handleCancelRetrabalhar() {
+    setShowRetrabalhar(false)
+  }
+
   function handleRetrabalhar() {
-    if (!id) return
+    if (!id || !retrabalharData) return
     setRetrabalhando(true)
-    api.post(`/api/v1/leads/${id}/retrabalhar`)
+    api.post(`/api/v1/leads/${id}/retrabalhar`, { data_retrabalho: retrabalharData })
       .then(() => {
         setStatus('novo')
+        setShowRetrabalhar(false)
         setToast({ msg: 'Lead retrabalhado com sucesso', ok: true })
         return Promise.all([
           api.get<LeadItem>(`/api/v1/leads/${id}`),
@@ -604,7 +616,12 @@ export default function LeadDetailPage() {
         onSaveVenda={handleRegistrarVenda}
         faturando={faturando}
         onFaturar={handleFaturar}
-        onRetrabalhar={handleRetrabalhar}
+        showRetrabalhar={showRetrabalhar}
+        onToggleRetrabalhar={handleToggleRetrabalhar}
+        retrabalharData={retrabalharData}
+        onRetrabalharDataChange={setRetrabalharData}
+        onConfirmRetrabalhar={handleRetrabalhar}
+        onCancelRetrabalhar={handleCancelRetrabalhar}
         retrabalhando={retrabalhando}
       />
 
