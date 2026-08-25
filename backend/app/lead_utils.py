@@ -19,6 +19,9 @@ BASE_ALIASES: dict[str, str] = {
 }
 _BASE_RE_EMOJI  = re.compile(r'🗂️\s*Base:\s*([^|\n]+)')
 _BASE_RE_SIMPLE = re.compile(r'(?im)^Base:\s*([^\n]+)')
+# remove sufixo de data (ex: "- 23/07", "– 23/07/2026") que algumas cargas
+# anexam ao nome da base, senao cada dia vira um grupo separado na listagem.
+_BASE_DATE_SUFFIX_RE = re.compile(r'\s*[-–]\s*\d{1,2}/\d{1,2}(?:/\d{2,4})?\s*$')
 
 
 def extract_base(notes: str | None) -> str | None:
@@ -29,6 +32,7 @@ def extract_base(notes: str | None) -> str | None:
     base = m.group(1).strip()
     if not base:
         return None
+    base = _BASE_DATE_SUFFIX_RE.sub('', base).strip() or base
     return BASE_ALIASES.get(base.lower(), base)
 
 
