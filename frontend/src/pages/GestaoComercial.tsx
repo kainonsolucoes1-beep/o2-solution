@@ -504,14 +504,6 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             <div className="bg-white rounded-xl" style={{ flex: '1.1 1 380px', minWidth: 0, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <SectionTitle style={{ marginBottom: 14 }}>Oportunidades que Precisam de Ação</SectionTitle>
 
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, paddingBottom: 14, borderBottom: '1px solid var(--border-lt)' }}>
-                <div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>{bottleneck.from} → {bottleneck.to}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{bottleneck.fromCount} passaram por {bottleneck.from} no período · {bottleneck.toCount} avançaram para {bottleneck.to}</span>
-                </div>
-                <b style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{bottleneck.rate}%</b>
-              </div>
-
               {actionLoading ? (
                 <p style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>Carregando...</p>
               ) : actionError ? (
