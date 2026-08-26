@@ -74,7 +74,11 @@ def _parse_date_cell(value) -> Optional[str]:
     text = str(value).strip()
     if not text:
         return None
-    for fmt in ("%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d"):
+    for fmt in (
+        "%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d",
+        "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",  # export de banco/planilha com timestamp completo
+        "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S",
+    ):
         try:
             return datetime.strptime(text, fmt).date().isoformat()
         except ValueError:
