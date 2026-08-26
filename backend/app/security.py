@@ -69,8 +69,9 @@ COMERCIAL_ROLES = ("comercial",)
 
 
 def restrict_to_usuario_leads(user) -> bool:
-    """Perfil comercial so ve leads pertencentes a contas com role='usuario'
-    (gestao da equipe padrao)."""
+    """Perfil comercial so ve leads com Lead.origin igual ao nome de alguma
+    conta com role='usuario' (gestao da equipe padrao), mais leads de
+    origem organica -- ver filtro em database.py."""
     return user.role in COMERCIAL_ROLES
 
 

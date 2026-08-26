@@ -53,11 +53,35 @@ def _apply_lead_visibility_filter(orm_execute_state):
     if orm_execute_state.session.info.get("restrict_to_usuario_leads"):
         from app.models.lead import Lead
         from app.models.user import User
+        from app.lead_utils import ORGANICO_EXTRA
+
+        # Lead.user_id NAO identifica o vendedor real: tanto o sync do
+        # Followize quanto o endpoint publico do Gravity Forms gravam ali
+        # uma conta fixa/arbitraria, sem relacao com quem trabalhou o lead.
+        # Quem carrega o nome do vendedor de fato e' Lead.origin -- entao
+        # a visibilidade do perfil comercial precisa comparar por origin
+        # contra o nome das contas 'usuario', nao por user_id. Inclui
+        # tambem o proprio nome do comercial, pra nao esconder leads que
+        # ja eram dele de antes da troca de perfil (ex: ex-SDR promovido).
+        #
+        # own_name/organico_values sao resolvidos AQUI FORA da funcao --
+        # o cache de lambda do SQLAlchemy (with_loader_criteria) exige que
+        # toda variavel de closure seja usada como literal direto, sem
+        # transformacao dentro da funcao (senao da InvalidRequestError:
+        # "does not refer to a cacheable SQL element").
+        own_name = orm_execute_state.session.info.get("own_origin_name") or ""
+        organico_values = list(ORGANICO_EXTRA)
+
+        def _comercial_visible(cls):
+            return or_(
+                cls.origin.in_(select(User.first_name).where(User.role == "usuario", User.first_name.isnot(None))),
+                cls.origin.in_(select(User.username).where(User.role == "usuario")),
+                func.lower(cls.origin).like("%org%"),
+                func.lower(cls.origin).in_(organico_values),
+                func.lower(cls.conversion_point) == "chatgpt.com",
+                cls.origin == own_name,
+            )
 
         orm_execute_state.statement = orm_execute_state.statement.options(
-            with_loader_criteria(
-                Lead,
-                lambda cls: cls.user_id.in_(select(User.id).where(User.role == "usuario")),
-                include_aliases=True,
-            )
+            with_loader_criteria(Lead, _comercial_visible, include_aliases=True)
         )
