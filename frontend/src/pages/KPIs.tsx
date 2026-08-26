@@ -744,7 +744,11 @@ export default function KPIs() {
   const prevConv = prevSummary && prevSummary.cap > 0 ? Math.round(prevSummary.ven / prevSummary.cap * 1000) / 10 : 0
 
   const organicFontes = data.filter(d => !isSdr(d.fonte)).sort((a, b) => b.captacoes - a.captacoes)
-  const _allBp = data.flatMap(f => f.breakdown)
+  // "🔄 Renutrição" e' uma linha sintetica injetada no breakdown de cada fonte
+  // (recorte por is_renutrucao, nao um Lead.conversion_point de verdade) --
+  // incluir ela aqui fazia "Pontos de conversão" mostrar uma contagem que
+  // sempre voltava zerada ao abrir a analise (nenhum lead tem esse conversion_point).
+  const _allBp = data.flatMap(f => f.breakdown).filter(b => b.label !== '🔄 Renutrição')
   const _bpLabels = [...new Set(_allBp.map(b => b.label))]
   const allConvPoints = _bpLabels
     .map(label => {
