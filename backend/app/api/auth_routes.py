@@ -46,9 +46,6 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     db.info["restrict_admin_leads"] = not can_see_restricted_leads(user)
     db.info["restrict_team"] = team_scope(user)
     db.info["restrict_to_usuario_leads"] = restrict_to_usuario_leads(user)
-    # nome do proprio usuario -- usado pelo filtro de comercial em database.py
-    # pra nao esconder os leads que ja eram dele antes da troca de perfil
-    db.info["own_origin_name"] = user.first_name or user.username
 
     return user
 
