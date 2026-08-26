@@ -681,18 +681,6 @@ export default function LeadDetailPage() {
             onUpdateCreatedAt={handleUpdateCreatedAt}
           />
 
-          <LeadCurrentStatusPanel
-            attendantLabel={lead.attendant ?? 'Não informado'}
-            lastInteractionLabel={fmtRelative(lastActivityAt)}
-            funnelTimeLabel={funnelTimeLabel}
-            scheduleLabel={scheduleLabel}
-            interactionsLabel={String(interacoes7d)}
-            lastChangeLabel={fmtRelative(lastActivityAt)}
-            lastChangeDate={fmtDate(lastActivityAt)}
-            statusDurationLabel={statusDurationLabel}
-            retrabalhadoEmLabel={lead.retrabalhado_em ? fmtDate(lead.retrabalhado_em) : null}
-          />
-
           <LeadRegistrationPanel
             origem={lead.origem ?? ''}
             origemOptions={origins}
@@ -713,6 +701,18 @@ export default function LeadDetailPage() {
             onStartEdit={startEditInfo}
             onCancelEdit={() => setEditingInfo(false)}
             onSaveEdit={handleSaveInfo}
+          />
+
+          <LeadCurrentStatusPanel
+            attendantLabel={lead.attendant ?? 'Não informado'}
+            lastInteractionLabel={fmtRelative(lastActivityAt)}
+            funnelTimeLabel={funnelTimeLabel}
+            scheduleLabel={scheduleLabel}
+            interactionsLabel={String(interacoes7d)}
+            lastChangeLabel={fmtRelative(lastActivityAt)}
+            lastChangeDate={fmtDate(lastActivityAt)}
+            statusDurationLabel={statusDurationLabel}
+            retrabalhadoEmLabel={lead.retrabalhado_em ? fmtDate(lead.retrabalhado_em) : null}
           />
 
           {canSeeFinancials && id && (
