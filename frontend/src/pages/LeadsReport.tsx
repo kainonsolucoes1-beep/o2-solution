@@ -33,6 +33,7 @@ interface LeadItem {
   perception: string | null
   value_potential: number | null
   is_renutrucao: boolean
+  retrabalhado_em: string | null
   lost_reason: string | null
   lost_message: string | null
   created_at: string
@@ -414,6 +415,7 @@ export default function LeadsReport() {
         'Motivo de perda': l.lost_reason ?? '',
         'Valor (R$)':      l.value_potential ?? '',
         'Renutrição':      l.is_renutrucao ? 'Sim' : 'Não',
+        'Reativado em':    l.retrabalhado_em ? fmtDate(l.retrabalhado_em) : '',
       }))
       const ws   = XLSX.utils.json_to_sheet(rows)
       const wb   = XLSX.utils.book_new()
@@ -708,12 +710,14 @@ export default function LeadsReport() {
                               </span>
                               {lead.name}
                               {lead.is_renutrucao && (
-                                <span style={{
-                                  fontSize: 10, fontWeight: 700, color: '#7C3AED',
-                                  background: '#F5F3FF', border: '1px solid #DDD6FE',
-                                  borderRadius: 20, padding: '2px 8px',
-                                  letterSpacing: '0.04em', whiteSpace: 'nowrap',
-                                }}>
+                                <span
+                                  title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
+                                  style={{
+                                    fontSize: 10, fontWeight: 700, color: '#7C3AED',
+                                    background: '#F5F3FF', border: '1px solid #DDD6FE',
+                                    borderRadius: 20, padding: '2px 8px',
+                                    letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                                  }}>
                                   RENUTRIÇÃO
                                 </span>
                               )}
