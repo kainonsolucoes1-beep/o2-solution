@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
-import { fmtDate, fmtDateOnly, fmtDuration, fmtClock, fmtRelative, fmtBRL, parseBRNumber } from '../utils/leadFormat'
+import { fmtDate, fmtDateOnly, fmtDuration, fmtClock, fmtRelative, fmtLastChange, fmtBRL, parseBRNumber } from '../utils/leadFormat'
 import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
 import { useTheme } from '../ThemeContext'
 import LeadDetailHeader from '../components/LeadDetailHeader'
@@ -710,8 +710,7 @@ export default function LeadDetailPage() {
             funnelTimeLabel={funnelTimeLabel}
             scheduleLabel={scheduleLabel}
             interactionsLabel={String(interacoes7d)}
-            lastChangeLabel={fmtRelative(lastActivityAt)}
-            lastChangeDate={fmtDate(lastActivityAt)}
+            lastChangeLabel={fmtLastChange(lastActivityAt)}
             statusDurationLabel={statusDurationLabel}
             retrabalhadoEmLabel={lead.retrabalhado_em ? fmtDate(lead.retrabalhado_em) : null}
           />

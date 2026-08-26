@@ -21,7 +21,7 @@ export function fmtDuration(ms: number) {
   const days = Math.floor(totalMin / 1440)
   const hours = Math.floor((totalMin % 1440) / 60)
   const min = totalMin % 60
-  if (days > 0) return `${days}d ${hours}h`
+  if (days > 0) return `${days} dia${days !== 1 ? 's' : ''}`
   if (hours > 0) return `${hours}h ${min}min`
   return `${min}min`
 }
@@ -38,6 +38,19 @@ export function fmtClock(ms: number) {
 
 export function fmtRelative(iso: string) {
   return `há ${fmtDuration(Date.now() - parseUTC(iso))}`
+}
+
+/** "Hoje, 14:45" se for do dia corrente, senao a data cheia ("26/08/2026, 14:45") --
+ * usado onde a hora relativa ("há 7min") some' menos util que saber exatamente quando foi. */
+export function fmtLastChange(iso: string) {
+  const date = new Date(parseUTC(iso))
+  const now = new Date()
+  const isToday = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate()
+  if (isToday) {
+    const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    return `Hoje, ${time}`
+  }
+  return fmtDate(iso)
 }
 
 export function fmtBRL(n: number | null) {

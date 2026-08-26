@@ -4,7 +4,7 @@ import Field from './Field'
 
 export default function LeadCurrentStatusPanel({
   attendantLabel, lastInteractionLabel, funnelTimeLabel, scheduleLabel,
-  interactionsLabel, lastChangeLabel, lastChangeDate, statusDurationLabel,
+  interactionsLabel, lastChangeLabel, statusDurationLabel,
   retrabalhadoEmLabel,
 }: {
   attendantLabel: string
@@ -13,7 +13,6 @@ export default function LeadCurrentStatusPanel({
   scheduleLabel: string
   interactionsLabel: string
   lastChangeLabel: string
-  lastChangeDate: string
   statusDurationLabel: string | null
   retrabalhadoEmLabel?: string | null
 }) {
@@ -26,7 +25,7 @@ export default function LeadCurrentStatusPanel({
         {statusDurationLabel && <Field label="Tempo no status atual" value={statusDurationLabel} />}
         <Field label="Agendamento" value={scheduleLabel} />
         <Field label="Interações" value={interactionsLabel} />
-        <Field label="Última alteração" value={`${lastChangeLabel} · ${lastChangeDate}`} />
+        <Field label="Última alteração" value={lastChangeLabel} />
         {retrabalhadoEmLabel && <Field label="Retrabalhado em" value={retrabalhadoEmLabel} />}
       </div>
     </SectionCard>
