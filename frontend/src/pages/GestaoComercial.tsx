@@ -704,6 +704,10 @@ function prevMonthStr(month: string) {
   const [y, m] = month.split('-').map(Number)
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
 }
+function nextMonthStr(month: string) {
+  const [y, m] = month.split('-').map(Number)
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+}
 
 const O2_PERF_NAMES = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
 function mergeO2Operadores(rows: OperadorPerf[]): OperadorPerf[] {
@@ -1755,8 +1759,24 @@ export default function GestaoComercial() {
               {filterMode === 'month' && (
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mês</p>
-                  <input type="month" value={month} onChange={e => applyMonth(e.target.value)}
-                    style={{ width: '100%', fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer', boxSizing: 'border-box' }} />
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button
+                      onClick={() => applyMonth(prevMonthStr(month))}
+                      title="Mês anterior"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, flexShrink: 0, borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-muted)', cursor: 'pointer' }}
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+                    <input type="month" value={month} onChange={e => applyMonth(e.target.value)}
+                      style={{ flex: 1, minWidth: 0, fontSize: 13, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border-in)', color: 'var(--text-3)', background: 'var(--bg-input)', cursor: 'pointer', boxSizing: 'border-box' }} />
+                    <button
+                      onClick={() => applyMonth(nextMonthStr(month))}
+                      title="Próximo mês"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, flexShrink: 0, borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-muted)', cursor: 'pointer' }}
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
                 </div>
               )}
 
