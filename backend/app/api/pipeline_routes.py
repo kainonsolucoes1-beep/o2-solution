@@ -9,6 +9,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models.lead import Lead
 from app.models.user import User
+from app.security import needs_own_origin_filter
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
@@ -120,8 +121,10 @@ EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
 def _effective_source(source: Optional[str], current_user: User) -> Optional[str]:
     """Usuario nao-admin so' pode ver a propria origem (Lead.origin == nome
     dele), independente do que for pedido no parametro 'source' — mesmo
-    padrao ja usado em leads_routes.py."""
-    if _is_admin(current_user):
+    padrao ja usado em leads_routes.py. Comercial nao entra nessa restricao
+    -- a visibilidade dele ja vem do filtro global de equipe
+    (restrict_to_usuario_leads)."""
+    if not needs_own_origin_filter(current_user):
         return source
     return current_user.first_name or current_user.username
 

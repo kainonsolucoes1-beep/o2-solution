@@ -12,7 +12,7 @@ from app.lead_utils import extract_base as _extract_base
 from app.lead_utils import normalize_modalidade, modalidade_raw_variants
 from app.models.lead import Lead
 from app.models.user import User
-from app.security import can_see_financials
+from app.security import can_see_financials, needs_own_origin_filter
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, br_month_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/kpis", tags=["kpis"])
@@ -87,7 +87,7 @@ def _scope_filter(team: str | None, current_user: User) -> list:
     (Lead.origin == nome dele), independente de qualquer filtro de
     time/periodo informado na tela."""
     clause = _team_filter(team)
-    if not _is_admin(current_user):
+    if needs_own_origin_filter(current_user):
         clause = [*clause, Lead.origin == _own_name(current_user)]
     return clause
 
@@ -95,8 +95,10 @@ def _scope_filter(team: str | None, current_user: User) -> list:
 def _effective_origin(origin: str | None, current_user: User) -> str | None:
     """Usuario nao-admin so' pode pedir a propria origem, independente do
     que vier no parametro (origin/origens/fonte) — ignora e forca o nome
-    dele, mesmo padrao ja usado em leads_routes.py."""
-    if _is_admin(current_user):
+    dele, mesmo padrao ja usado em leads_routes.py. Comercial nao entra
+    nessa restricao -- a visibilidade dele ja vem do filtro global de
+    equipe (restrict_to_usuario_leads)."""
+    if not needs_own_origin_filter(current_user):
         return origin
     return _own_name(current_user)
 
@@ -280,7 +282,7 @@ def renutrucao_stats(
         EFFECTIVE_CAPTACAO >= date_from,
         EFFECTIVE_CAPTACAO <= date_to,
     ]
-    if not _is_admin(current_user):
+    if needs_own_origin_filter(current_user):
         filters.append(Lead.origin == _own_name(current_user))
 
     leads = (
@@ -1285,7 +1287,7 @@ def receita_potencial(
         EFFECTIVE_CAPTACAO <= dt_to,
         Lead.status != "sale_not_performed",
     ]
-    if not _is_admin(current_user):
+    if needs_own_origin_filter(current_user):
         filters.append(Lead.origin == _own_name(current_user))
 
     total = (

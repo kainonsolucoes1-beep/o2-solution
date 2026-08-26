@@ -74,6 +74,16 @@ def restrict_to_usuario_leads(user) -> bool:
     return user.role in COMERCIAL_ROLES
 
 
+def needs_own_origin_filter(user) -> bool:
+    """Usuario comum so' enxerga os proprios leads (Lead.origin == nome dele).
+    Admin nao tem essa restricao. Comercial tambem nao -- a visibilidade dele
+    ja e' restrita pelo filtro global de sessao (restrict_to_usuario_leads,
+    database.py), e somar os dois filtros zerava a lista pra sempre (o nome
+    do comercial nunca bate com o Lead.origin dos leads da equipe que ele
+    supervisiona, que pertencem a outras contas)."""
+    return user.role != "admin" and user.role not in COMERCIAL_ROLES
+
+
 def verify_token(token: str) -> Optional[str]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

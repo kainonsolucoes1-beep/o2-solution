@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
 from app.models.user import User
 from app.models.sdr_meta import SdrMeta
-from app.security import can_see_financials
+from app.security import can_see_financials, needs_own_origin_filter
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, br_month_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
@@ -97,7 +97,7 @@ def _scope_clause(team: str | None, current_user: User):
     (Lead.origin == nome dele), independente de qualquer filtro de
     time/periodo informado na tela."""
     clause = _team_clause(team)
-    if not _is_admin(current_user):
+    if needs_own_origin_filter(current_user):
         my_name = current_user.first_name or current_user.username
         clause = [*clause, Lead.origin == my_name]
     return clause
@@ -452,7 +452,7 @@ def performance_operadores(
         Lead.origin.isnot(None),
         Lead.origin != "",
     ]
-    if not _is_admin(current_user):
+    if needs_own_origin_filter(current_user):
         my_name = current_user.first_name or current_user.username
         filters.append(Lead.origin == my_name)
 
@@ -717,7 +717,7 @@ def vida_sdr(
 ):
     """Historico de um SDR/origem: funil, conversao e receita real, vitalicio por padrao
     ou recortado por date_from/date_to (filtro Geral / Mes atual / Entre datas no frontend)."""
-    if not _is_admin(current_user):
+    if needs_own_origin_filter(current_user):
         # usuario nao-admin so' pode ver o proprio historico, independente do
         # que vier em `origens` (ex: alguem digitando outro nome na URL)
         origens = current_user.first_name or current_user.username

@@ -10,7 +10,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.lead_utils import extract_base
 from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
-from app.security import can_see_financials
+from app.security import can_see_financials, needs_own_origin_filter
 from app.tz_utils import br_date_to_utc_range, now_br
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
@@ -133,7 +133,7 @@ def leads_by_period(
             q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
             q = q.filter(Lead.created_at >= start, Lead.created_at < end)
-        if not admin:
+        if needs_own_origin_filter(current_user):
             q = q.filter(Lead.origin == my_name)
         elif origem:
             parts = [s.strip() for s in origem.split(',') if s.strip()]
@@ -279,7 +279,7 @@ def leads_report_stats(
             q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
             q = q.filter(Lead.created_at >= start, Lead.created_at < end)
-        if not admin:
+        if needs_own_origin_filter(current_user):
             q = q.filter(Lead.origin == my_name)
         elif origem:
             parts = [s.strip() for s in origem.split(',') if s.strip()]
