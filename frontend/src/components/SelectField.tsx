@@ -1,7 +1,7 @@
 export default function SelectField({ label, value, options, onChange, saving }: { label: string; value: string; options: string[]; onChange: (v: string) => void; saving?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.035em' }}>
+      <span style={{ fontSize: 12, lineHeight: '16px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
         {label}
       </span>
       <select
