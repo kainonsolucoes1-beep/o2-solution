@@ -402,7 +402,7 @@ def leads_conv_point(
     total = db.query(func.count(Lead.id)).filter(*filters).scalar()
 
     rows = (
-        db.query(Lead.name, Lead.origin, Lead.status, Lead.value_potential)
+        db.query(Lead.id, Lead.name, Lead.origin, Lead.status, Lead.value_potential)
         .filter(*filters)
         .order_by(EFFECTIVE_CAPTACAO.desc())
         .limit(500)
@@ -424,6 +424,7 @@ def leads_conv_point(
         s = (l.status or "").lower()
         tipo = "venda" if s in venda_set else "perda" if s in cancelado_set else "ativo"
         result.append({
+            "id":     str(l.id),
             "nome":   l.name or "Sem nome",
             "origem": l.origin or "—",
             "status": STATUS_PT.get(s, l.status or "—"),
@@ -947,7 +948,7 @@ def leads_base(
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
-        db.query(Lead.name, Lead.notes, Lead.status, Lead.value_potential)
+        db.query(Lead.id, Lead.name, Lead.notes, Lead.status, Lead.value_potential)
         .filter(
             EFFECTIVE_CAPTACAO >= dt_from,
             EFFECTIVE_CAPTACAO <= dt_to,
@@ -970,13 +971,14 @@ def leads_base(
     target = (base or '').strip().lower()
 
     result = []
-    for name, notes, status, value in leads:
+    for lead_id, name, notes, status, value in leads:
         b = _extract_base(notes)
         if not b or b.lower() != target:
             continue
         s = (status or '').lower()
         tipo = "venda" if s in venda_set else "perda" if s in cancelado_set else "ativo"
         result.append({
+            "id":     str(lead_id),
             "nome":   name or "Sem nome",
             "status": STATUS_PT.get(s, status or "—"),
             "valor":  float(value) if value else None,

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, TrendingUp, TrendingDown,
   ArrowLeftRight, ArrowUp, ArrowDown, SlidersHorizontal, Cake, HeartPulse, Minus,
-  DollarSign, Target,
+  DollarSign, Target, ExternalLink,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -98,6 +98,7 @@ interface PlanoSaudeData {
 }
 
 interface OrgLead {
+  id?: string
   nome: string
   origem?: string
   status: string
@@ -292,6 +293,7 @@ function FilterableLeadsModal({ title, subtitle, loading, leads, total, statusFi
   title: string; subtitle: string; loading: boolean; leads: OrgLead[]; total?: number
   statusFilter: string | null; onFilter: (s: string | null) => void; onClose: () => void
 }) {
+  const navigate = useNavigate()
   const statusList = [...new Set(leads.map(l => l.status))]
   const filtered = statusFilter ? leads.filter(l => l.status === statusFilter) : leads
   return (
@@ -340,11 +342,23 @@ function FilterableLeadsModal({ title, subtitle, loading, leads, total, statusFi
                   const tipoBg  = l.tipo === 'venda' ? '#DCFCE7' : l.tipo === 'perda' ? '#FEE2E2' : 'var(--border-lt)'
                   return (
                     <div key={i} style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                         <span style={{ fontSize: 10, background: tipoBg, color: tipoCor, borderRadius: 4, padding: '2px 7px', fontWeight: 600, flexShrink: 0 }}>{l.status}</span>
                         <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{l.nome}</p>
                       </div>
-                      {l.valor ? <span style={{ fontSize: 13, fontWeight: 600, color: '#15803D', flexShrink: 0, marginLeft: 8, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(l.valor)}</span> : null}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 8 }}>
+                        {l.valor ? <span style={{ fontSize: 13, fontWeight: 600, color: '#15803D', fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(l.valor)}</span> : null}
+                        {l.id && (
+                          <button
+                            onClick={() => navigate(`/leads/${l.id}`)}
+                            title="Ver ficha do lead"
+                            aria-label="Ver ficha do lead"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 2, display: 'flex' }}
+                          >
+                            <ExternalLink size={13} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
