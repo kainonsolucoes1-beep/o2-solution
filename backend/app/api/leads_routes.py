@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,7 @@ from app.lead_utils import extract_base
 from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.security import can_see_financials, needs_own_origin_filter
 from app.tz_utils import br_date_to_utc_range, now_br
+from app import renutricao_import
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
     BulkDeleteRequest, BulkDeleteResponse,
@@ -26,6 +27,7 @@ from app.schemas.lead import (
     LeadReceitaUpdateRequest, LeadReceitaUpdateResponse,
     ParcelaRequest, ParcelaUpdateRequest, ParcelaResponse, ParcelasListResponse,
     RetrabalharRequest, RetrabalharResponse,
+    RenutricaoPreviewResponse, RenutricaoConfirmRequest, RenutricaoConfirmResponse,
 )
 from app.schemas.user import OperatorInfo
 
@@ -524,6 +526,60 @@ def retrabalhar_lead(
     db.commit()
     db.refresh(lead)
     return RetrabalharResponse(success=True, lead_id=lead.id, status=lead.status, retrabalhado_em=lead.retrabalhado_em)
+
+
+@router.post("/leads/renutricao-import/preview", response_model=RenutricaoPreviewResponse)
+def preview_renutricao_import(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Le a planilha (Nome, Telefone, Modalidade, Data de reativacao), casa
+    cada linha com um lead pelo telefone e devolve o resultado -- nao grava
+    nada no banco ainda (conferencia antes de aplicar)."""
+    content = file.file.read()
+    try:
+        rows = renutricao_import.parse_and_match(db, file.filename or "", content)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    matched = sum(1 for r in rows if r["match_status"] == "ok")
+    return RenutricaoPreviewResponse(
+        rows=rows, total=len(rows), matched=matched, unmatched=len(rows) - matched,
+    )
+
+
+@router.post("/leads/renutricao-import/confirm", response_model=RenutricaoConfirmResponse)
+def confirm_renutricao_import(
+    body: RenutricaoConfirmRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Aplica a reativacao em lote nos leads ja conferidos na etapa de
+    preview -- so grava retrabalhado_em/is_renutrucao, o status atual de
+    cada lead e' preservado (diferente do retrabalhar de um lead so, que
+    tambem reabre o status pra 'novo')."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    updated = 0
+    for item in body.items:
+        lead = db.query(Lead).filter(Lead.id == item.lead_id).first()
+        if not lead:
+            continue
+        try:
+            retrabalhado_em, _ = br_date_to_utc_range(item.data_reativacao)
+        except ValueError:
+            continue
+        lead.retrabalhado_em = retrabalhado_em
+        lead.is_renutrucao = True
+        lead.updated_at = now
+        db.add(LeadNote(
+            lead_id=lead.id,
+            user_id=current_user.id,
+            content=f"Renutrição importada em lote por {current_user.first_name or current_user.username}",
+        ))
+        updated += 1
+    db.commit()
+    return RenutricaoConfirmResponse(success=True, updated=updated)
 
 
 @router.post("/leads/{lead_id}/info", response_model=LeadInfoUpdateResponse)

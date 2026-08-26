@@ -303,3 +303,36 @@ class AgendaResponse(BaseModel):
 class AgendaAlertsResponse(BaseModel):
     overdue: int
     today: int
+
+
+class RenutricaoPreviewRow(BaseModel):
+    row: int
+    nome: str
+    telefone: str
+    modalidade: Optional[str] = None
+    data_reativacao: Optional[str] = None
+    match_status: str  # "ok" | "not_found" | "ambiguous" | "invalid_date"
+    lead_id: Optional[UUID] = None
+    lead_nome_atual: Optional[str] = None
+    detail: str
+
+
+class RenutricaoPreviewResponse(BaseModel):
+    rows: List[RenutricaoPreviewRow]
+    total: int
+    matched: int
+    unmatched: int
+
+
+class RenutricaoConfirmItem(BaseModel):
+    lead_id: UUID
+    data_reativacao: str  # AAAA-MM-DD
+
+
+class RenutricaoConfirmRequest(BaseModel):
+    items: List[RenutricaoConfirmItem]
+
+
+class RenutricaoConfirmResponse(BaseModel):
+    success: bool
+    updated: int
