@@ -712,7 +712,6 @@ export default function LeadDetailPage() {
             interactionsLabel={String(interacoes7d)}
             lastChangeLabel={fmtLastChange(lastActivityAt)}
             statusDurationLabel={statusDurationLabel}
-            retrabalhadoEmLabel={lead.retrabalhado_em ? fmtDate(lead.retrabalhado_em) : null}
           />
 
           {canSeeFinancials && id && (
