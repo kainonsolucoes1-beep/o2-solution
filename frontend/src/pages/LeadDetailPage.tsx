@@ -691,6 +691,7 @@ export default function LeadDetailPage() {
             savingConversionPoint={savingConvPoint}
             onConversionPointChange={v => handleQuickUpdate('conversion_point', v)}
             leadSinceLabel={fmtDateOnly(lead.created_at)}
+            retrabalhadoEmLabel={lead.retrabalhado_em ? fmtDateOnly(lead.retrabalhado_em) : null}
             documentoLabel={lead.document ?? 'Não informado'}
             empresaLabel={lead.company ?? 'Não informado'}
             visibilityTag={lead.visibility_tag}

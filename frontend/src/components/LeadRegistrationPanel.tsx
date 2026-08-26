@@ -18,7 +18,7 @@ interface InfoDraft {
 export default function LeadRegistrationPanel({
   origem, origemOptions, savingOrigem, onOrigemChange,
   conversionPoint, conversionPointOptions, savingConversionPoint, onConversionPointChange,
-  leadSinceLabel, documentoLabel, empresaLabel, visibilityTag,
+  leadSinceLabel, retrabalhadoEmLabel, documentoLabel, empresaLabel, visibilityTag,
   editingInfo, savingInfo, infoDraft, onDraftChange, onStartEdit, onCancelEdit, onSaveEdit,
 }: {
   origem: string
@@ -30,6 +30,7 @@ export default function LeadRegistrationPanel({
   savingConversionPoint: boolean
   onConversionPointChange: (v: string) => void
   leadSinceLabel: string
+  retrabalhadoEmLabel?: string | null
   documentoLabel: string
   empresaLabel: string
   visibilityTag: string | null
@@ -60,6 +61,7 @@ export default function LeadRegistrationPanel({
         <SelectField label="Origem" value={origem} options={origemOptions} saving={savingOrigem} onChange={onOrigemChange} />
         <SelectField label="Ponto de Conversão" value={conversionPoint} options={conversionPointOptions} saving={savingConversionPoint} onChange={onConversionPointChange} />
         <Field label="Lead desde" value={leadSinceLabel} />
+        {retrabalhadoEmLabel && <Field label="Retrabalhado em" value={retrabalhadoEmLabel} />}
         <Field label="Idade" value="Não informado" />
 
         {editingInfo ? (
