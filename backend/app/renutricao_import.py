@@ -42,6 +42,19 @@ def _map_headers(headers: list[str]) -> dict[str, int]:
     return mapping
 
 
+def _cell_to_text(value) -> str:
+    """Converte o valor bruto da celula pra texto. Excel costuma guardar uma
+    coluna de telefone como numero (nao texto) se o usuario nao formatar a
+    coluna antes -- um float puro vira '5511...878.0' (str() de float sempre
+    adiciona '.0'), e esse ponto sobra como um digito espurio depois do
+    regexp_replace. Numero inteiro vira texto sem essa cauda."""
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
 def _phone_key(raw: str) -> str:
     """Ultimos 8 digitos do telefone -- ignora DDI/DDD e o '9' extra do
     celular, que variam entre a planilha e o cadastro do lead."""
@@ -116,9 +129,9 @@ def parse_and_match(db: Session, filename: str, content: bytes) -> list[dict]:
             idx = col.get(field)
             return row[idx] if idx is not None and idx < len(row) else None
 
-        nome = str(cell("nome") or "").strip()
-        telefone_raw = str(cell("telefone") or "").strip()
-        modalidade = str(cell("modalidade") or "").strip() or None
+        nome = _cell_to_text(cell("nome"))
+        telefone_raw = _cell_to_text(cell("telefone"))
+        modalidade = _cell_to_text(cell("modalidade")) or None
         data_reativacao = _parse_date_cell(cell("data"))
 
         if not nome and not telefone_raw:
