@@ -2,6 +2,7 @@ import type { RefObject } from 'react'
 import { Phone, Mail } from 'lucide-react'
 import { fmtDate } from '../utils/leadFormat'
 import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
+import CurrencyInput from './CurrencyInput'
 
 const STATUS_OPTIONS = [
   { value: 'novo',        label: 'Novo' },
@@ -223,14 +224,7 @@ export default function LeadNextStepPanel({
             Valor da proposta
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              type="number"
-              inputMode="decimal"
-              placeholder="R$ 0,00"
-              value={propostaValor}
-              onChange={e => onPropostaValorChange(e.target.value)}
-              style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box', width: 130 }}
-            />
+            <CurrencyInput value={propostaValor} onChange={onPropostaValorChange} autoFocus />
             <button
               onClick={onSaveProposta}
               disabled={savingProposta || !propostaValor}
@@ -291,14 +285,7 @@ export default function LeadNextStepPanel({
                 </div>
               ) : statusSubMenu === 'venda_realizada' ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="Valor final (R$)"
-                    value={vendaValor}
-                    onChange={e => onVendaValorChange(e.target.value)}
-                    style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box', width: 130 }}
-                  />
+                  <CurrencyInput value={vendaValor} onChange={onVendaValorChange} autoFocus />
                   <input
                     type="date"
                     value={vendaData}

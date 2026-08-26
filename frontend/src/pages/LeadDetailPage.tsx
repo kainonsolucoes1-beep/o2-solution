@@ -556,7 +556,7 @@ export default function LeadDetailPage() {
           setEditingPerception(true)
           setEditingSchedule(true)
           setStatusSubMenu(null)
-          setPropostaValor(lead?.value_potential != null ? String(lead.value_potential) : '')
+          setPropostaValor(lead?.value_potential != null ? lead.value_potential.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '')
         }}
         onOpenFinalizar={() => {
           setEditingStatus(true)
