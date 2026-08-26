@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
-  BarChart, Bar, LineChart, Line, ComposedChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, LineChart, Line, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ScatterChart, Scatter, ZAxis, LabelList, ReferenceLine,
 } from 'recharts'
 import api from '../api'
@@ -1019,21 +1019,50 @@ export default function KPIs() {
                   Sem leads registrados nos últimos 6 meses.
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={trendMonths} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" vertical={false} />
-                    <XAxis dataKey="mesLabel" tick={{ fontSize: 12, fill: 'var(--text-subtle)' }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
-                    <YAxis yAxisId="cap" tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <YAxis yAxisId="ven" orientation="right" tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value: number, name: string) => [value, name === 'captacoes' ? 'Leads' : 'Vendas']}
-                      labelFormatter={l => `Período: ${l}`}
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)' }}
-                    />
-                    <Bar yAxisId="cap" dataKey="captacoes" name="captacoes" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Line yAxisId="ven" type="monotone" dataKey="vendas" name="vendas" stroke="#15803D" strokeWidth={2} dot={{ r: 3, fill: '#15803D' }} />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  {/* leads e vendas tem escalas muito diferentes (dezenas x unidades) --
+                      duas escalas no mesmo grafico faziam a linha de vendas flutuar longe
+                      das barras, sem relacao visual real com elas. Dois graficos de eixo
+                      unico, um embaixo do outro com o mesmo eixo de meses, resolve isso. */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: '#2563EB', flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Leads</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={140}>
+                      <BarChart data={trendMonths} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" vertical={false} />
+                        <XAxis dataKey="mesLabel" tick={false} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} axisLine={false} tickLine={false} allowDecimals={false} width={34} />
+                        <Tooltip
+                          formatter={(value: number) => [value, 'Leads']}
+                          labelFormatter={l => `Período: ${l}`}
+                          contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)' }}
+                        />
+                        <Bar dataKey="captacoes" name="Leads" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: '#15803D', flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Vendas</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={140}>
+                      <LineChart data={trendMonths} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" vertical={false} />
+                        <XAxis dataKey="mesLabel" tick={{ fontSize: 12, fill: 'var(--text-subtle)' }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} axisLine={false} tickLine={false} allowDecimals={false} width={34} />
+                        <Tooltip
+                          formatter={(value: number) => [value, 'Vendas']}
+                          labelFormatter={l => `Período: ${l}`}
+                          contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)' }}
+                        />
+                        <Line type="monotone" dataKey="vendas" name="Vendas" stroke="#15803D" strokeWidth={2} dot={{ r: 3, fill: '#15803D' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               )}
             </div>
           </div>
