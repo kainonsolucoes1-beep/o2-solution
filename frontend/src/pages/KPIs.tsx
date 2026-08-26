@@ -75,6 +75,7 @@ interface DetalheComum {
   pct_perda: number
   receita_potencial: number
   ticket_medio: number
+  renutricao_count?: number
   modalidades: Modalidade[]
   plano: PlanoResumo
 }
@@ -525,6 +526,21 @@ export default function KPIs() {
   function closeDrawer() {
     setDrawer(null)
     drawerTriggerRef.current?.focus()
+  }
+
+  function currentDateRange(): { date_from: string; date_to: string } {
+    if (period === 'range' && debRangeFrom && debRangeTo) return { date_from: debRangeFrom, date_to: debRangeTo }
+    if (period === 'all') return { date_from: '2000-01-01', date_to: currentMonth + '-31' }
+    const [y, m] = month.split('-').map(Number)
+    const lastDay = new Date(y, m, 0).getDate()
+    return { date_from: `${month}-01`, date_to: `${month}-${String(lastDay).padStart(2, '0')}` }
+  }
+
+  function goToRenutricaoLeads(origem: string) {
+    const { date_from, date_to } = currentDateRange()
+    const params = new URLSearchParams({ status: '__renutricao__', origem, date_from, date_to })
+    if (team !== 'all') params.set('team', TEAM_VALUES[team])
+    navigate(`/leads-report?${params}`)
   }
 
   function openDrawerLeads() {
@@ -1556,9 +1572,20 @@ export default function KPIs() {
                   <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 4px' }}>
                     Vendas: <strong style={{ color: 'var(--text-1)' }}>{drawerData.vendas}</strong> ({drawerData.conversao}% conversão) · Cancelamento: <strong style={{ color: '#B91C1C' }}>{drawerData.pct_perda}%</strong>
                   </p>
-                  <button onClick={openDrawerLeads} style={{ background: 'none', border: 'none', padding: 0, marginBottom: 24, cursor: 'pointer', color: '#2563EB', fontSize: 13, fontWeight: 600 }}>
+                  <button onClick={openDrawerLeads} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 13, fontWeight: 600 }}>
                     Ver leads →
                   </button>
+
+                  {!!drawerData.renutricao_count && (
+                    <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '10px 0 24px' }}>
+                      <span style={{ marginRight: 6 }}>🔄</span>
+                      <strong style={{ color: 'var(--text-1)' }}>{drawerData.renutricao_count}</strong> lead{drawerData.renutricao_count !== 1 ? 's' : ''} em renutrição ·{' '}
+                      <button onClick={() => goToRenutricaoLeads(drawer.label)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 12.5, fontWeight: 600 }}>
+                        Ver leads →
+                      </button>
+                    </p>
+                  )}
+                  {!drawerData.renutricao_count && <div style={{ marginBottom: 24 }} />}
 
                   {/* Potencial financeiro */}
                   <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px', paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>Potencial financeiro</p>

@@ -604,7 +604,7 @@ def sdr_detalhe(
     parts = [s.strip() for s in origens.split(',') if s.strip()]
 
     leads = (
-        db.query(Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan)
+        db.query(Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan, Lead.is_renutrucao)
         .filter(
             EFFECTIVE_CAPTACAO >= dt_from,
             EFFECTIVE_CAPTACAO <= dt_to,
@@ -625,9 +625,12 @@ def sdr_detalhe(
     plano_possui = 0
     plano_nao_possui = 0
     plano_sem_info = 0
+    renutricao_count = 0
 
-    for status, value, modalidade, current_plan in leads:
+    for status, value, modalidade, current_plan, is_renutrucao in leads:
         captacoes += 1
+        if is_renutrucao:
+            renutricao_count += 1
         s = (status or "").lower()
         is_perdido = s in cancelado_set
         if s in venda_set:
@@ -660,6 +663,7 @@ def sdr_detalhe(
         "pct_perda": round(cancelados / captacoes * 100, 1) if captacoes > 0 else 0.0,
         "receita_potencial": receita,
         "ticket_medio": round(receita / base_liquida, 2) if base_liquida > 0 else 0.0,
+        "renutricao_count": renutricao_count,
         "modalidades": sorted(
             [
                 {"nome": k, "count": v, "pct": round(v / base_liquida * 100, 1) if base_liquida > 0 else 0.0}
