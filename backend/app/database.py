@@ -63,18 +63,21 @@ def _apply_lead_visibility_filter(orm_execute_state):
         # contra o nome das contas 'usuario', nao por user_id. Inclui
         # tambem o proprio nome do comercial, pra nao esconder leads que
         # ja eram dele de antes da troca de perfil (ex: ex-SDR promovido).
-        own_name = orm_execute_state.session.info.get("own_origin_name")
+        # string fixa (nunca None) -- mantem a MESMA estrutura de clausulas em
+        # toda chamada, pra nao variar o formato da query que o SQLAlchemy
+        # cacheia (variar a quantidade de condicoes do OR conforme um valor
+        # de sessao e' o padrao que quebra esse cache).
+        own_name = orm_execute_state.session.info.get("own_origin_name") or ""
 
         def _comercial_visible(cls):
-            conds = [
-                cls.origin.in_(select(func.coalesce(User.first_name, User.username)).where(User.role == "usuario")),
+            return or_(
+                cls.origin.in_(select(User.first_name).where(User.role == "usuario", User.first_name.isnot(None))),
+                cls.origin.in_(select(User.username).where(User.role == "usuario")),
                 func.lower(cls.origin).like("%org%"),
-                func.lower(cls.origin).in_(ORGANICO_EXTRA),
+                func.lower(cls.origin).in_(list(ORGANICO_EXTRA)),
                 func.lower(cls.conversion_point) == "chatgpt.com",
-            ]
-            if own_name:
-                conds.append(cls.origin == own_name)
-            return or_(*conds)
+                cls.origin == own_name,
+            )
 
         orm_execute_state.statement = orm_execute_state.statement.options(
             with_loader_criteria(Lead, _comercial_visible, include_aliases=True)
