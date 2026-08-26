@@ -37,7 +37,7 @@ export function fmtClock(ms: number) {
 }
 
 export function fmtRelative(iso: string) {
-  return `há ${fmtDuration(Date.now() - parseUTC(iso))}`
+  return `Há ${fmtDuration(Date.now() - parseUTC(iso))}`
 }
 
 /** "Hoje, 14:45" se for do dia corrente, senao a data cheia ("26/08/2026, 14:45") --
