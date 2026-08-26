@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { Filter, X, Trash2, RotateCcw, Plus } from 'lucide-react'
+import { Filter, X, Trash2, RotateCcw, Plus, Upload } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
 import SectionTitle from '../components/SectionTitle'
 import Combobox from '../components/Combobox'
+import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
 import { useTheme } from '../ThemeContext'
 
 interface Me {
@@ -223,6 +224,7 @@ export default function LeadsReport() {
   const [deleting, setDeleting]   = useState(false)
   const [newLeadOpen, setNewLeadOpen] = useState(false)
   const [savingNewLead, setSavingNewLead] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [newLeadError, setNewLeadError] = useState('')
   const [newLead, setNewLead] = useState({
     name: '', company: '', email: '', phone: '', document: '',
@@ -552,8 +554,27 @@ export default function LeadsReport() {
               <Filter size={15} />
               Filtros
             </button>
+            <button
+              onClick={() => setImportOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)',
+                cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+              }}
+            >
+              <Upload size={15} />
+              Importar Renutrição
+            </button>
           </div>
         </div>
+
+        {importOpen && (
+          <ImportRenutricaoModal
+            onClose={() => setImportOpen(false)}
+            onImported={() => fetchReport(page)}
+          />
+        )}
 
         {stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
