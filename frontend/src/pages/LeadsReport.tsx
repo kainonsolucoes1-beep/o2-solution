@@ -774,11 +774,6 @@ export default function LeadsReport() {
                           </td>
                           <td style={{ padding: '12px 16px', borderTopRightRadius: 10, borderBottomRightRadius: 10 }}>
                             <StatusBadge status={lead.status} />
-                            {lead.lost_reason && (
-                              <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 500, marginTop: 4, whiteSpace: 'nowrap' }}>
-                                {lead.lost_reason}
-                              </div>
-                            )}
                           </td>
                         </tr>
                       ))}

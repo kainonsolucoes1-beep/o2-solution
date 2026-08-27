@@ -4,7 +4,7 @@ import Field from './Field'
 
 export default function LeadCurrentStatusPanel({
   attendantLabel, lastInteractionLabel, funnelTimeLabel, scheduleLabel,
-  interactionsLabel, lastChangeLabel, statusDurationLabel,
+  interactionsLabel, lastChangeLabel, statusDurationLabel, lostReasonLabel,
 }: {
   attendantLabel: string
   lastInteractionLabel: string
@@ -13,6 +13,7 @@ export default function LeadCurrentStatusPanel({
   interactionsLabel: string
   lastChangeLabel: string
   statusDurationLabel: string | null
+  lostReasonLabel?: string | null
 }) {
   return (
     <SectionCard title="Situação atual" icon={Clock3}>
@@ -24,6 +25,7 @@ export default function LeadCurrentStatusPanel({
         <Field label="Agendamento" value={scheduleLabel} />
         <Field label="Interações" value={interactionsLabel} />
         <Field label="Última alteração" value={lastChangeLabel} />
+        {lostReasonLabel && <Field label="Motivo da perda" value={lostReasonLabel} />}
       </div>
     </SectionCard>
   )
