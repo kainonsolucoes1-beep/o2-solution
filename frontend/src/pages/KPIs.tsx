@@ -406,10 +406,8 @@ export default function KPIs() {
   const { dark } = useTheme()
   const now = new Date()
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-  const defaultMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`
 
-  const [month, setMonth] = useState(defaultMonth)
+  const [month, setMonth] = useState(currentMonth)
   const [period, setPeriod] = useState<'month' | 'all' | 'range'>('month')
   const [rangeFrom, setRangeFrom] = useState('')
   const [rangeTo, setRangeTo] = useState('')
