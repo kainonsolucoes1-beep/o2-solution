@@ -1932,10 +1932,14 @@ function AquisicaoTable({ rows, onOpen }: {
                 }}>{initial}</span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <b style={{ display: 'block', overflow: 'hidden', color: 'var(--text-1)', fontSize: 14, fontWeight: 650, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</b>
-                  <span style={{ fontSize: 12, color: 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums' }}>
-                    <strong style={{ color: 'var(--text-1)', fontWeight: 700 }}>{share}%</strong> do volume do período
-                  </span>
                 </div>
+                <span style={{
+                  fontSize: 13, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums',
+                  background: 'var(--bg-subtle)', border: '1px solid var(--border-lt)', borderRadius: 8,
+                  padding: '3px 10px', flexShrink: 0,
+                }}>
+                  {share}%
+                </span>
                 <ChevronRight
                   size={16}
                   className="opacity-0 transition-opacity duration-150 group-hover:opacity-100"
