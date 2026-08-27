@@ -43,6 +43,7 @@ interface LeadItem {
   document: string | null
   created_at: string
   retrabalhado_em: string | null
+  lost_reason: string | null
 }
 
 interface Note {
@@ -712,6 +713,7 @@ export default function LeadDetailPage() {
             interactionsLabel={String(interacoes7d)}
             lastChangeLabel={fmtLastChange(lastActivityAt)}
             statusDurationLabel={statusDurationLabel}
+            lostReasonLabel={status === 'sale_not_performed' ? lead.lost_reason : null}
           />
 
           {canSeeFinancials && id && (
