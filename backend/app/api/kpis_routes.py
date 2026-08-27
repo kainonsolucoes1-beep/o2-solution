@@ -262,47 +262,68 @@ def leads_vendas_por_fonte(
 @router.get("/renutrucao")
 def renutrucao_stats(
     month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if month:
-        try:
-            year, mon = int(month[:4]), int(month[5:7])
-        except (ValueError, IndexError):
-            year, mon = now_br().year, now_br().month
-    else:
-        nb = now_br()
-        year, mon = nb.year, nb.month
-
-    date_from, _date_to_excl = br_month_utc_range(year, mon)
-    date_to = _date_to_excl - timedelta(microseconds=1)
+    """Visao dedicada de renutricao (aba propria em Aquisicao, separada do
+    recorte por canal): quantos leads a renutricao trouxe no periodo, vendas,
+    cancelamentos e receita — total e por canal de origem."""
+    date_from, date_to = _resolve_period(month, period, date_from, date_to)
 
     filters = [
         Lead.is_renutrucao == True,
         EFFECTIVE_CAPTACAO >= date_from,
         EFFECTIVE_CAPTACAO <= date_to,
+        *_scope_filter(team, current_user),
     ]
-    if needs_own_origin_filter(current_user):
-        filters.append(Lead.origin == _own_name(current_user))
 
     leads = (
-        db.query(Lead.status)
+        db.query(Lead.origin, Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida)
         .filter(*filters)
         .all()
     )
 
     venda_set     = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+    show_fin = can_see_financials(current_user)
 
-    cap = len(leads)
-    ven = sum(1 for (s,) in leads if (s or "").lower() in venda_set)
-    can = sum(1 for (s,) in leads if (s or "").lower() in cancelado_set)
+    total_acc = _new_acc()
+    by_canal: dict = defaultdict(_new_acc)
+    for origin, status, created_at, receita_data_venda, receita_real_recebida in leads:
+        _accumulate(total_acc, status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
+        canal = (origin or "").strip() or "Sem origem"
+        _accumulate(by_canal[canal], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
+
+    total = _finalize_acc(total_acc, show_fin)
+    base_liquida = total["captacoes"] - total["cancelados"]
+    receita = total_acc["receita_sum"] if show_fin else None
+
+    canais = []
+    for origem, acc in sorted(by_canal.items(), key=lambda x: x[1]["captacoes"], reverse=True):
+        f = _finalize_acc(acc, show_fin)
+        canais.append({
+            "origem":            origem,
+            "captacoes":         f["captacoes"],
+            "vendas":            f["vendas"],
+            "cancelados":        f["cancelados"],
+            "conversao":         f["conversao"],
+            "receita_potencial": f["receita_gerada"],
+        })
 
     return {
-        "captacoes":  cap,
-        "vendas":     ven,
-        "cancelados": can,
-        "conversao":  round(ven / cap * 100, 1) if cap > 0 else 0.0,
+        "captacoes":         total["captacoes"],
+        "vendas":             total["vendas"],
+        "cancelados":         total["cancelados"],
+        "base_liquida":       base_liquida,
+        "conversao":          total["conversao"],
+        "pct_perda":          round(total["cancelados"] / total["captacoes"] * 100, 1) if total["captacoes"] > 0 else 0.0,
+        "receita_potencial":  round(receita, 2) if receita is not None else None,
+        "ticket_medio":       round(receita / total["vendas"], 2) if receita is not None and total["vendas"] > 0 else None,
+        "canais":             canais,
     }
 
 

@@ -63,6 +63,27 @@ interface ModalidadeStat {
   receita_gerada: number | null
 }
 
+interface RenutricaoCanal {
+  origem: string
+  captacoes: number
+  vendas: number
+  cancelados: number
+  conversao: number
+  receita_potencial: number
+}
+
+interface RenutricaoOverview {
+  captacoes: number
+  vendas: number
+  cancelados: number
+  base_liquida: number
+  conversao: number
+  pct_perda: number
+  receita_potencial: number
+  ticket_medio: number
+  canais: RenutricaoCanal[]
+}
+
 interface Modalidade { nome: string; count: number; pct: number }
 interface PlanoResumo { possui: number; nao_possui: number; sem_informacao: number; pct_possui: number; pct_nao_possui: number }
 
@@ -414,7 +435,7 @@ export default function KPIs() {
   const filtersRef = useRef<HTMLDivElement>(null)
 
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('visao-geral')
-  const [aquisicaoView, setAquisicaoView] = useState<'bases' | 'canais' | 'conversao' | 'modalidade'>('bases')
+  const [aquisicaoView, setAquisicaoView] = useState<'bases' | 'canais' | 'conversao' | 'modalidade' | 'renutricao'>('bases')
   const [aquisicaoLayout, setAquisicaoLayout] = useState<'lista' | 'quadrante'>('lista')
   const [rankSortBy, setRankSortBy] = useState<'captacoes' | 'receita'>('captacoes')
 
@@ -427,6 +448,9 @@ export default function KPIs() {
   const [modalidadeData, setModalidadeData] = useState<ModalidadeStat[]>([])
   const [modalidadeLoading, setModalidadeLoading] = useState(true)
   const [modalidadeError, setModalidadeError] = useState(false)
+  const [renutricaoData, setRenutricaoData] = useState<RenutricaoOverview | null>(null)
+  const [renutricaoLoading, setRenutricaoLoading] = useState(true)
+  const [renutricaoError, setRenutricaoError] = useState(false)
   const [ageBands, setAgeBands] = useState<AgeBand[]>([])
   const [ageBandsLoading, setAgeBandsLoading] = useState(true)
   const [ageError, setAgeError] = useState(false)
@@ -644,6 +668,7 @@ export default function KPIs() {
   const mainGenRef       = useRef(0)
   const basesGenRef      = useRef(0)
   const modalidadeGenRef = useRef(0)
+  const renutricaoGenRef = useRef(0)
   const agesGenRef       = useRef(0)
   const planoGenRef      = useRef(0)
   const trendGenRef      = useRef(0)
@@ -692,6 +717,17 @@ export default function KPIs() {
       .finally(() => { if (modalidadeGenRef.current === gen) setModalidadeLoading(false) })
   }
 
+  function fetchRenutricao() {
+    const gen = ++renutricaoGenRef.current
+    const qs = new URLSearchParams(periodParams()).toString()
+    setRenutricaoLoading(true)
+    setRenutricaoError(false)
+    api.get<RenutricaoOverview>(`/api/v1/kpis/renutrucao?${qs}`)
+      .then(r => { if (renutricaoGenRef.current === gen) setRenutricaoData(r.data) })
+      .catch(() => { if (renutricaoGenRef.current === gen) { setRenutricaoData(null); setRenutricaoError(true) } })
+      .finally(() => { if (renutricaoGenRef.current === gen) setRenutricaoLoading(false) })
+  }
+
   function fetchAges() {
     const gen = ++agesGenRef.current
     const qs = new URLSearchParams(periodParams()).toString()
@@ -718,6 +754,7 @@ export default function KPIs() {
     fetchMain()
     fetchBases()
     fetchModalidade()
+    fetchRenutricao()
     fetchAges()
     fetchPlano()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1108,6 +1145,7 @@ export default function KPIs() {
                 { key: 'canais', label: 'Canais' },
                 { key: 'conversao', label: 'Pontos de conversão' },
                 { key: 'modalidade', label: 'Modalidade' },
+                { key: 'renutricao', label: '🔄 Renutrição' },
               ] as const).map(v => (
                 <button key={v.key} onClick={() => setAquisicaoView(v.key)}
                   style={{
@@ -1225,6 +1263,59 @@ export default function KPIs() {
                 rows={modalidadeData.map(m => ({ label: m.modalidade, captacoes: m.captacoes, vendas: m.vendas, conversao: m.conversao, extra: `${m.cancelados} cancel.`, tempoMedioDias: m.tempo_medio_dias, receitaGerada: m.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('modalidade', label, undefined, trigger)}
               />
+            )
+          )}
+
+          {aquisicaoView === 'renutricao' && (
+            renutricaoLoading ? (
+              <StateBox kind="loading" height={140} />
+            ) : renutricaoError ? (
+              <StateBox kind="error" height={140} message="Não foi possível carregar a renutrição." onRetry={fetchRenutricao} />
+            ) : !renutricaoData || renutricaoData.captacoes === 0 ? (
+              <StateBox kind="empty" height={140} message="Nenhum lead em renutrição encontrado neste período." />
+            ) : (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'stretch', marginBottom: 8 }}>
+                  {([
+                    ['Captados', renutricaoData.captacoes, 'var(--text-1)'],
+                    ['Perdidos', renutricaoData.cancelados, '#B91C1C'],
+                    ['Base líquida', renutricaoData.base_liquida, 'var(--text-1)'],
+                  ] as const).map(([label, value, color], i) => (
+                    <div key={label} style={{ flex: 1, padding: i > 0 ? '0 0 0 16px' : '0 16px 0 0', borderLeft: i > 0 ? '1px solid var(--border-lt)' : 'none' }}>
+                      <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 4px' }}>{label}</p>
+                      <p style={{ fontSize: 22, fontWeight: 700, color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px' }}>
+                  Vendas: <strong style={{ color: 'var(--text-1)' }}>{renutricaoData.vendas}</strong> ({renutricaoData.conversao}% conversão) · Cancelamento: <strong style={{ color: '#B91C1C' }}>{renutricaoData.pct_perda}%</strong>
+                </p>
+
+                <div style={{ display: 'flex', gap: 24, marginBottom: 24, paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>
+                  <div>
+                    <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 4px' }}>Receita gerada</p>
+                    <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(renutricaoData.receita_potencial)}</p>
+                  </div>
+                  <div style={{ borderLeft: '1px solid var(--border-lt)', paddingLeft: 24 }}>
+                    <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 4px' }}>Ticket médio</p>
+                    <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(renutricaoData.ticket_medio)}</p>
+                  </div>
+                </div>
+
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>Por canal de origem</p>
+                {renutricaoData.canais.length === 0 ? (
+                  <p style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Nenhum canal identificado neste período.</p>
+                ) : aquisicaoLayout === 'quadrante' ? (
+                  <AquisicaoQuadrant
+                    rows={renutricaoData.canais.map(c => ({ label: c.origem, captacoes: c.captacoes, vendas: c.vendas, conversao: c.conversao, extra: `${c.cancelados} cancel.`, receitaGerada: c.receita_potencial }))}
+                  />
+                ) : (
+                  <AquisicaoTable
+                    rows={renutricaoData.canais.map(c => ({ label: c.origem, captacoes: c.captacoes, vendas: c.vendas, conversao: c.conversao, extra: `${c.cancelados} cancel.`, receitaGerada: c.receita_potencial }))}
+                    onOpen={label => goToRenutricaoLeads(label)}
+                  />
+                )}
+              </div>
             )
           )}
         </div>
