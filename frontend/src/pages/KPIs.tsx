@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, TrendingUp, TrendingDown,
   ArrowLeftRight, ArrowUp, ArrowDown, SlidersHorizontal, Cake, HeartPulse, Minus,
-  DollarSign, Target, ExternalLink,
+  DollarSign, Target, ExternalLink, LayoutGrid, Share2, Tag, RefreshCw,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -1136,36 +1136,41 @@ export default function KPIs() {
       {activeMainTab === 'aquisicao' && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
-            <div style={{ display: 'flex', gap: 4, border: '1px solid var(--border)', borderRadius: 8, padding: 3, background: 'var(--bg-subtle)', width: 'fit-content' }}>
+            <div style={{ display: 'flex', gap: 6, border: '1px solid var(--border)', borderRadius: 12, padding: 5, background: 'var(--bg-subtle)', width: 'fit-content' }}>
               {([
-                { key: 'bases', label: 'Bases' },
-                { key: 'canais', label: 'Canais' },
-                { key: 'conversao', label: 'Pontos de conversão' },
-                { key: 'modalidade', label: 'Modalidade' },
-                { key: 'renutricao', label: '🔄 Renutrição' },
-              ] as const).map(v => (
-                <button key={v.key} onClick={() => setAquisicaoView(v.key)}
-                  style={{
-                    padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                    background: aquisicaoView === v.key ? 'var(--bg-card)' : 'transparent',
-                    color: aquisicaoView === v.key ? '#2563EB' : 'var(--text-muted)',
-                    boxShadow: aquisicaoView === v.key ? '0 1px 2px rgba(15,23,42,.08)' : 'none',
-                  }}>
-                  {v.label}
-                </button>
-              ))}
+                { key: 'bases', label: 'Bases', icon: LayoutGrid },
+                { key: 'canais', label: 'Canais', icon: Share2 },
+                { key: 'conversao', label: 'Pontos de conversão', icon: Target },
+                { key: 'modalidade', label: 'Modalidade', icon: Tag },
+                { key: 'renutricao', label: 'Renutrição', icon: RefreshCw },
+              ] as const).map(v => {
+                const active = aquisicaoView === v.key
+                return (
+                  <button key={v.key} onClick={() => setAquisicaoView(v.key)}
+                    style={{
+                      padding: '9px 18px', borderRadius: 9, border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      background: active ? 'var(--bg-card)' : 'transparent',
+                      color: active ? '#2563EB' : 'var(--text-muted)',
+                      boxShadow: active ? '0 2px 6px -1px rgba(15,23,42,.12), 0 0 0 1px var(--border-lt)' : 'none',
+                    }}>
+                    <v.icon size={15} color={active ? '#2563EB' : 'var(--text-subtle)'} />
+                    {v.label}
+                  </button>
+                )
+              })}
             </div>
-            <div style={{ display: 'flex', gap: 4, border: '1px solid var(--border)', borderRadius: 8, padding: 3, background: 'var(--bg-subtle)', width: 'fit-content' }}>
+            <div style={{ display: 'flex', gap: 6, border: '1px solid var(--border)', borderRadius: 12, padding: 5, background: 'var(--bg-subtle)', width: 'fit-content' }}>
               {([
                 { key: 'lista', label: 'Lista' },
                 { key: 'quadrante', label: 'Quadrante' },
               ] as const).map(v => (
                 <button key={v.key} onClick={() => setAquisicaoLayout(v.key)}
                   style={{
-                    padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    padding: '9px 18px', borderRadius: 9, border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer',
                     background: aquisicaoLayout === v.key ? 'var(--bg-card)' : 'transparent',
                     color: aquisicaoLayout === v.key ? '#2563EB' : 'var(--text-muted)',
-                    boxShadow: aquisicaoLayout === v.key ? '0 1px 2px rgba(15,23,42,.08)' : 'none',
+                    boxShadow: aquisicaoLayout === v.key ? '0 2px 6px -1px rgba(15,23,42,.12), 0 0 0 1px var(--border-lt)' : 'none',
                   }}>
                   {v.label}
                 </button>
