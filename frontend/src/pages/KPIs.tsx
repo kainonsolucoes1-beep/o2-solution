@@ -1619,7 +1619,7 @@ export default function KPIs() {
                       ['Base líquida', drawerData.base_liquida, 'var(--text-1)'],
                     ] as const).map(([label, value, color], i) => (
                       <div key={label} style={{ flex: 1, padding: i > 0 ? '0 0 0 16px' : '0 16px 0 0', borderLeft: i > 0 ? '1px solid var(--border-lt)' : 'none' }}>
-                        <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 4px' }}>{label}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>{label}</p>
                         <p style={{ fontSize: 22, fontWeight: 700, color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
                       </div>
                     ))}
@@ -1632,7 +1632,7 @@ export default function KPIs() {
                       ['Cancelamento', `${drawerData.pct_perda}%`, '#B91C1C'],
                     ] as const).map(([label, value, color]) => (
                       <div key={label} style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 10, padding: '10px 12px' }}>
-                        <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '0 0 3px' }}>{label}</p>
+                        <p style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 3px' }}>{label}</p>
                         <p style={{ fontSize: 16, fontWeight: 700, color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
                       </div>
                     ))}
@@ -1654,11 +1654,11 @@ export default function KPIs() {
 
                   <div style={{ display: 'flex', gap: 24, marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border-lt)', marginBottom: 24 }}>
                     <div>
-                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 4px' }}>Receita potencial (estimada)</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>Receita potencial (estimada)</p>
                       <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(drawerData.receita_potencial)}</p>
                     </div>
                     <div style={{ borderLeft: '1px solid var(--border-lt)', paddingLeft: 24 }}>
-                      <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 4px' }}>Ticket médio (estimado)</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>Ticket médio (estimado)</p>
                       <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(drawerData.ticket_medio)}</p>
                     </div>
                   </div>
