@@ -219,14 +219,14 @@ function InsightRow({ tone, icon: Icon, value, title, desc, ctaLabel, onOpen, fi
 }) {
   const color = INSIGHT_TONE[tone]
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 11, padding: '8px 22px', borderTop: first ? 'none' : '1px solid var(--border-lt)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', gap: 12, padding: '16px 22px', borderTop: first ? 'none' : '1px solid var(--border-lt)' }}>
       <span style={{ display: 'grid', width: 22, height: 22, placeItems: 'center', borderRadius: 6, background: INSIGHT_TONE_SOFT[tone], color, flexShrink: 0 }}>
         <Icon size={11} />
       </span>
       <div style={{ minWidth: 0 }}>
         <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', color }}>{value}</span>
         <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', marginLeft: 7 }}>{title}</span>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{desc}</p>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{desc}</p>
       </div>
       {ctaLabel && onOpen ? (
         <button onClick={e => onOpen(e.currentTarget)} style={{ fontSize: 10.5, fontWeight: 700, color: ACCENT, background: 'none', border: 0, padding: 0, cursor: 'pointer', whiteSpace: 'nowrap' }}>{ctaLabel}</button>
@@ -597,7 +597,7 @@ export default function VidaSDR() {
               <p style={{ margin: '5px 22px 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
                 <strong style={{ color: 'var(--text-1)' }}>{nome}</strong> está com bom desempenho financeiro, mas cancelamentos e leads em andamento exigem atenção.
               </p>
-              <div style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 16 }}>
                 <InsightRow
                   first tone="risk" icon={AlertTriangle}
                   value={`${cancellationRate}%`} title="Taxa de cancelamento" desc={`${data.cancelados} leads cancelados no período`}
