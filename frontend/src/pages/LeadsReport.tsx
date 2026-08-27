@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { Filter, X, Trash2, RotateCcw, Plus, Upload } from 'lucide-react'
+import { Filter, X, Trash2, RotateCcw, Plus, Upload, Calendar, Users, Search } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -82,6 +82,46 @@ const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,conver
 const STATUS_RENUTRICAO = '__renutricao__'
 const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
 const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
+const STATUS_PENDENTE = 'pending,novo,new'
+const STATUS_AGENDADO = 'scheduled,qualificado,qualified'
+const STATUS_PROPOSTA = 'proposal_sent'
+
+const STATUS_PILLS: { value: string; label: string; color: string; bg: string; border: string }[] = [
+  { value: '',                label: 'Todos',        color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
+  { value: STATUS_PENDENTE,   label: 'Pendente',      color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
+  { value: STATUS_AGENDADO,   label: 'Agendado',      color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
+  { value: STATUS_PROPOSTA,   label: 'Proposta',      color: '#9333EA', bg: '#FAF5FF', border: '#E9D5FF' },
+  { value: STATUS_FECHADO,    label: 'Fechado',       color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
+  { value: STATUS_PERDIDO,    label: 'Perdido',       color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  { value: STATUS_RENUTRICAO, label: '🔄 Renutrição', color: '#0D9488', bg: '#F0FDFA', border: '#99F6E4' },
+]
+
+// Atalhos de período do painel de filtros -- cada um calcula um intervalo
+// pronto pra Data Início/Data Fim, evitando abrir o calendário toda vez.
+function presetRange(kind: 'hoje' | '7dias' | 'mes' | 'mes-passado'): { from: string; to: string } {
+  const now = new Date()
+  const toISO = (d: Date) => d.toISOString().slice(0, 10)
+  if (kind === 'hoje') return { from: toISO(now), to: toISO(now) }
+  if (kind === '7dias') {
+    const from = new Date(now)
+    from.setDate(from.getDate() - 6)
+    return { from: toISO(from), to: toISO(now) }
+  }
+  if (kind === 'mes') {
+    return { from: toISO(new Date(now.getFullYear(), now.getMonth(), 1)), to: toISO(now) }
+  }
+  return {
+    from: toISO(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+    to: toISO(new Date(now.getFullYear(), now.getMonth(), 0)),
+  }
+}
+
+const DATE_PRESETS: { key: 'hoje' | '7dias' | 'mes' | 'mes-passado'; label: string }[] = [
+  { key: 'hoje', label: 'Hoje' },
+  { key: '7dias', label: '7 dias' },
+  { key: 'mes', label: 'Este mês' },
+  { key: 'mes-passado', label: 'Mês passado' },
+]
 
 const TEAM_OPTIONS = [
   { label: 'São Paulo', value: 'Equipe São Paulo' },
@@ -835,6 +875,17 @@ export default function LeadsReport() {
                     <Filter size={16} />
                   </span>
                   Filtros
+                  {(() => {
+                    const activeCount = [
+                      dateFrom !== monthStart || dateTo !== today,
+                      !!origem, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search,
+                    ].filter(Boolean).length
+                    return activeCount > 0 ? (
+                      <span style={{ fontFamily: 'inherit', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(37,99,235,0.12)', color: '#2563EB' }}>
+                        {activeCount} ativo{activeCount !== 1 ? 's' : ''}
+                      </span>
+                    ) : null
+                  })()}
                 </p>
                 <button onClick={() => setFilterOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }}>
                   <X size={20} />
@@ -842,108 +893,148 @@ export default function LeadsReport() {
               </div>
 
               <div style={{ padding: '24px 28px 28px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Data Início</label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={e => setDateFrom(e.target.value)}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'var(--text-2)', width: '100%' }}
-                    />
+                {/* Período */}
+                <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px dashed var(--border-lt)' }}>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', margin: '0 0 10px' }}>
+                    <Calendar size={13} color="#2563EB" />Período
+                  </p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {DATE_PRESETS.map(p => {
+                      const range = presetRange(p.key)
+                      const active = dateFrom === range.from && dateTo === range.to
+                      return (
+                        <button
+                          key={p.key}
+                          onClick={() => { setDateFrom(range.from); setDateTo(range.to) }}
+                          style={{
+                            fontSize: 11.5, fontWeight: 600, padding: '5px 12px', borderRadius: 999, cursor: 'pointer',
+                            border: `1px solid ${active ? '#2563EB' : 'var(--border)'}`,
+                            background: active ? 'rgba(37,99,235,0.1)' : 'var(--bg-subtle)',
+                            color: active ? '#2563EB' : 'var(--text-muted)',
+                          }}
+                        >
+                          {p.label}
+                        </button>
+                      )
+                    })}
                   </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Data Fim</label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={e => setDateTo(e.target.value)}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'var(--text-2)', width: '100%' }}
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Atendente</label>
-                    {isAdmin ? (
-                      <select
-                        value={origem}
-                        onChange={e => setOrigem(e.target.value)}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Data Início</label>
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={e => setDateFrom(e.target.value)}
                         className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         style={{ color: 'var(--text-2)', width: '100%' }}
-                      >
-                        <option value="">Todos</option>
-                        {operators.map(op => (
-                          <option key={op} value={op}>{op}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={myName}
-                        disabled
-                        className="border rounded-lg px-3 py-2 text-sm bg-gray-50"
-                        style={{ color: 'var(--text-muted)', width: '100%' }}
                       />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Data Fim</label>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={e => setDateTo(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', width: '100%' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quem & o quê */}
+                <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px dashed var(--border-lt)' }}>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', margin: '0 0 10px' }}>
+                    <Users size={13} color="#2563EB" />Quem &amp; o quê
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Atendente</label>
+                      {isAdmin ? (
+                        <select
+                          value={origem}
+                          onChange={e => setOrigem(e.target.value)}
+                          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ color: 'var(--text-2)', width: '100%' }}
+                        >
+                          <option value="">Todos</option>
+                          {operators.map(op => (
+                            <option key={op} value={op}>{op}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={myName}
+                          disabled
+                          className="border rounded-lg px-3 py-2 text-sm bg-gray-50"
+                          style={{ color: 'var(--text-muted)', width: '100%' }}
+                        />
+                      )}
+                    </div>
+
+                    {isAdmin && (
+                      <div className="flex flex-col gap-1">
+                        <label style={labelStyle}>Modalidade</label>
+                        <select
+                          value={modalidadeFilter}
+                          onChange={e => setModalidadeFilter(e.target.value)}
+                          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ color: 'var(--text-2)', width: '100%' }}
+                        >
+                          <option value="">Todas</option>
+                          {modalidades.map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {isAdmin && (
+                      <div className="flex flex-col gap-1">
+                        <label style={labelStyle}>Equipe</label>
+                        <select
+                          value={teamFilter}
+                          onChange={e => setTeamFilter(e.target.value)}
+                          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ color: 'var(--text-2)', width: '100%' }}
+                        >
+                          <option value="">Todas</option>
+                          {TEAM_OPTIONS.map(t => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      </div>
                     )}
                   </div>
 
-                  {isAdmin && (
-                    <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Modalidade</label>
-                      <select
-                        value={modalidadeFilter}
-                        onChange={e => setModalidadeFilter(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      >
-                        <option value="">Todas</option>
-                        {modalidades.map(m => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col gap-1">
-                    <label style={labelStyle}>Status</label>
-                    <select
-                      value={statusFilter}
-                      onChange={e => setStatusFilter(e.target.value)}
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'var(--text-2)', width: '100%' }}
-                    >
-                      <option value="">Todos</option>
-                      <option value="pending,novo,new">Pendente</option>
-                      <option value="scheduled,qualificado,qualified">Agendado</option>
-                      <option value="proposal_sent">Proposta</option>
-                      <option value={STATUS_FECHADO}>Fechado</option>
-                      <option value={STATUS_PERDIDO}>Perdido</option>
-                      <option value={STATUS_RENUTRICAO}>Renutrição</option>
-                    </select>
+                  <label style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>Status</label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {STATUS_PILLS.map(opt => {
+                      const active = statusFilter === opt.value
+                      return (
+                        <button
+                          key={opt.value || 'todos'}
+                          onClick={() => setStatusFilter(opt.value)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999,
+                            border: `1px solid ${active ? opt.border : 'var(--border)'}`,
+                            background: active ? opt.bg : 'var(--bg-card)',
+                            color: active ? opt.color : 'var(--text-muted)',
+                            cursor: 'pointer', transition: 'all 150ms',
+                          }}
+                        >
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: active ? opt.color : 'var(--text-subtle)' }} />
+                          {opt.label}
+                        </button>
+                      )
+                    })}
                   </div>
 
-                  {isAdmin && (
-                    <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Equipe</label>
-                      <select
-                        value={teamFilter}
-                        onChange={e => setTeamFilter(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      >
-                        <option value="">Todas</option>
-                        {TEAM_OPTIONS.map(t => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
                   {statusFilter === STATUS_PERDIDO && (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1" style={{ marginTop: 16, maxWidth: 280 }}>
                       <label style={labelStyle}>Motivo</label>
                       <select
                         value={lostReasonFilter}
@@ -960,7 +1051,7 @@ export default function LeadsReport() {
                   )}
 
                   {statusFilter === STATUS_FECHADO && (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1" style={{ marginTop: 16, maxWidth: 280 }}>
                       <label style={labelStyle}>Etapa</label>
                       <select
                         value={closedSubStatus}
@@ -975,53 +1066,56 @@ export default function LeadsReport() {
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-1" style={{ gridColumn: '1 / -1' }}>
-                    <label style={labelStyle}>Buscar</label>
-                    <input
-                      type="text"
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); setFilterOpen(false) } }}
-                      placeholder="Nome, CPF/CNPJ, telefone ou email"
-                      className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'var(--text-2)', width: '100%' }}
-                    />
-                  </div>
+                  {perceptionFilter !== '' && (
+                    <div className="flex items-center gap-2" style={{ marginTop: 16 }}>
+                      <span style={labelStyle}>Percepção</span>
+                      {[
+                        { label: 'Ambos', value: 'Quente,Morno' },
+                        { label: 'Quente', value: 'Quente' },
+                        { label: 'Morno', value: 'Morno' },
+                      ].map(opt => {
+                        const active = perceptionFilter === opt.value
+                        const colors: Record<string, { bg: string; color: string; border: string }> = {
+                          Quente: { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' },
+                          Morno:  { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' },
+                          Ambos:  { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' },
+                        }
+                        const c = colors[opt.label]
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => setPerceptionFilter(opt.value)}
+                            style={{
+                              fontSize: 12, fontWeight: 600, padding: '4px 14px', borderRadius: 99,
+                              border: `1px solid ${active ? c.border : 'var(--border)'}`,
+                              background: active ? c.bg : 'var(--bg-card)',
+                              color: active ? c.color : 'var(--text-muted)',
+                              cursor: 'pointer', transition: 'all 150ms',
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                {perceptionFilter !== '' && (
-                  <div className="flex items-center gap-2 mt-4 pt-4" style={{ borderTop: '1px solid var(--border-lt)' }}>
-                    <span style={labelStyle}>Percepção</span>
-                    {[
-                      { label: 'Ambos', value: 'Quente,Morno' },
-                      { label: 'Quente', value: 'Quente' },
-                      { label: 'Morno', value: 'Morno' },
-                    ].map(opt => {
-                      const active = perceptionFilter === opt.value
-                      const colors: Record<string, { bg: string; color: string; border: string }> = {
-                        Quente: { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' },
-                        Morno:  { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' },
-                        Ambos:  { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' },
-                      }
-                      const c = colors[opt.label]
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() => setPerceptionFilter(opt.value)}
-                          style={{
-                            fontSize: 12, fontWeight: 600, padding: '4px 14px', borderRadius: 99,
-                            border: `1px solid ${active ? c.border : 'var(--border)'}`,
-                            background: active ? c.bg : 'var(--bg-card)',
-                            color: active ? c.color : 'var(--text-muted)',
-                            cursor: 'pointer', transition: 'all 150ms',
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
+                {/* Busca livre */}
+                <div>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', margin: '0 0 10px' }}>
+                    <Search size={13} color="#2563EB" />Busca livre
+                  </p>
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); setFilterOpen(false) } }}
+                    placeholder="Nome, CPF/CNPJ, telefone ou email"
+                    className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{ color: 'var(--text-2)', width: '100%' }}
+                  />
+                </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border-lt)' }}>
                   <button
