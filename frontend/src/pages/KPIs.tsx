@@ -63,25 +63,13 @@ interface ModalidadeStat {
   receita_gerada: number | null
 }
 
-interface RenutricaoCanal {
-  origem: string
-  captacoes: number
-  vendas: number
-  cancelados: number
-  conversao: number
-  receita_potencial: number
-}
-
 interface RenutricaoOverview {
   captacoes: number
   vendas: number
   cancelados: number
-  base_liquida: number
   conversao: number
-  pct_perda: number
-  receita_potencial: number
-  ticket_medio: number
-  canais: RenutricaoCanal[]
+  tempo_medio_dias: number | null
+  receita_gerada: number | null
 }
 
 interface Modalidade { nome: string; count: number; pct: number }
@@ -393,8 +381,8 @@ function FilterableLeadsModal({ title, subtitle, loading, leads, total, statusFi
   )
 }
 
-type DrawerKind = 'base' | 'canal' | 'conversao' | 'modalidade'
-const DRAWER_KIND_LABEL: Record<DrawerKind, string> = { base: 'Análise da base', canal: 'Análise do canal', conversao: 'Análise do ponto de conversão', modalidade: 'Análise da modalidade' }
+type DrawerKind = 'base' | 'canal' | 'conversao' | 'modalidade' | 'renutricao'
+const DRAWER_KIND_LABEL: Record<DrawerKind, string> = { base: 'Análise da base', canal: 'Análise do canal', conversao: 'Análise do ponto de conversão', modalidade: 'Análise da modalidade', renutricao: 'Análise da renutrição' }
 
 const TEAM_VALUES: Record<'sp' | 'pe', string> = { sp: 'Equipe São Paulo', pe: 'Equipe Pernambuco' }
 const TEAM_LABELS: Record<'sp' | 'pe', string> = { sp: 'São Paulo', pe: 'Recife' }
@@ -533,6 +521,8 @@ export default function KPIs() {
     } else if (kind === 'modalidade') {
       qp.set('modalidade', label)
       url = `/api/v1/kpis/modalidade-detalhe?${qp}`
+    } else if (kind === 'renutricao') {
+      url = `/api/v1/kpis/renutrucao-detalhe?${qp}`
     } else {
       qp.set('nome', label)
       qp.set('origens', origens?.length ? origens.join(',') : label)
@@ -586,6 +576,7 @@ export default function KPIs() {
       const qp = new URLSearchParams(periodParams())
       if (drawer.kind === 'conversao') qp.set('conv_point', drawer.label)
       else if (drawer.kind === 'modalidade') qp.set('modalidade', drawer.label)
+      else if (drawer.kind === 'renutricao') qp.set('renutrucao', 'true')
       if (drawer.origens?.length) qp.set('origens', drawer.origens.join(','))
       else if (drawer.kind === 'canal') qp.set('origens', drawer.label)
       api.get<{ leads: OrgLead[]; total: number }>(`/api/v1/kpis/leads-conv-point?${qp}`)
@@ -1273,49 +1264,15 @@ export default function KPIs() {
               <StateBox kind="error" height={140} message="Não foi possível carregar a renutrição." onRetry={fetchRenutricao} />
             ) : !renutricaoData || renutricaoData.captacoes === 0 ? (
               <StateBox kind="empty" height={140} message="Nenhum lead em renutrição encontrado neste período." />
+            ) : aquisicaoLayout === 'quadrante' ? (
+              <AquisicaoQuadrant
+                rows={[{ label: 'Renutrição', captacoes: renutricaoData.captacoes, vendas: renutricaoData.vendas, conversao: renutricaoData.conversao, extra: `${renutricaoData.cancelados} cancel.`, receitaGerada: renutricaoData.receita_gerada }]}
+              />
             ) : (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'stretch', marginBottom: 8 }}>
-                  {([
-                    ['Captados', renutricaoData.captacoes, 'var(--text-1)'],
-                    ['Perdidos', renutricaoData.cancelados, '#B91C1C'],
-                    ['Base líquida', renutricaoData.base_liquida, 'var(--text-1)'],
-                  ] as const).map(([label, value, color], i) => (
-                    <div key={label} style={{ flex: 1, padding: i > 0 ? '0 0 0 16px' : '0 16px 0 0', borderLeft: i > 0 ? '1px solid var(--border-lt)' : 'none' }}>
-                      <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 4px' }}>{label}</p>
-                      <p style={{ fontSize: 22, fontWeight: 700, color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
-                    </div>
-                  ))}
-                </div>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px' }}>
-                  Vendas: <strong style={{ color: 'var(--text-1)' }}>{renutricaoData.vendas}</strong> ({renutricaoData.conversao}% conversão) · Cancelamento: <strong style={{ color: '#B91C1C' }}>{renutricaoData.pct_perda}%</strong>
-                </p>
-
-                <div style={{ display: 'flex', gap: 24, marginBottom: 24, paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>
-                  <div>
-                    <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 4px' }}>Receita gerada</p>
-                    <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(renutricaoData.receita_potencial)}</p>
-                  </div>
-                  <div style={{ borderLeft: '1px solid var(--border-lt)', paddingLeft: 24 }}>
-                    <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 4px' }}>Ticket médio</p>
-                    <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(renutricaoData.ticket_medio)}</p>
-                  </div>
-                </div>
-
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>Por canal de origem</p>
-                {renutricaoData.canais.length === 0 ? (
-                  <p style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Nenhum canal identificado neste período.</p>
-                ) : aquisicaoLayout === 'quadrante' ? (
-                  <AquisicaoQuadrant
-                    rows={renutricaoData.canais.map(c => ({ label: c.origem, captacoes: c.captacoes, vendas: c.vendas, conversao: c.conversao, extra: `${c.cancelados} cancel.`, receitaGerada: c.receita_potencial }))}
-                  />
-                ) : (
-                  <AquisicaoTable
-                    rows={renutricaoData.canais.map(c => ({ label: c.origem, captacoes: c.captacoes, vendas: c.vendas, conversao: c.conversao, extra: `${c.cancelados} cancel.`, receitaGerada: c.receita_potencial }))}
-                    onOpen={label => goToRenutricaoLeads(label)}
-                  />
-                )}
-              </div>
+              <AquisicaoTable
+                rows={[{ label: 'Renutrição', captacoes: renutricaoData.captacoes, vendas: renutricaoData.vendas, conversao: renutricaoData.conversao, extra: `${renutricaoData.cancelados} cancel.`, tempoMedioDias: renutricaoData.tempo_medio_dias, receitaGerada: renutricaoData.receita_gerada }]}
+                onOpen={(label, trigger) => openDrawer('renutricao', label, undefined, trigger)}
+              />
             )
           )}
         </div>

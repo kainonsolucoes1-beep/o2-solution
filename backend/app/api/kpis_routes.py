@@ -269,9 +269,9 @@ def renutrucao_stats(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Visao dedicada de renutricao (aba propria em Aquisicao, separada do
-    recorte por canal): quantos leads a renutricao trouxe no periodo, vendas,
-    cancelamentos e receita — total e por canal de origem."""
+    """Visao geral da renutricao: uma unica linha na aba Aquisicao (mesmo
+    padrao das outras abas — Bases/Canais/Modalidade), que abre o drawer de
+    analise (ver /renutrucao-detalhe) ao ser clicada."""
     date_from, date_to = _resolve_period(month, period, date_from, date_to)
 
     filters = [
@@ -282,7 +282,7 @@ def renutrucao_stats(
     ]
 
     leads = (
-        db.query(Lead.origin, Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida)
+        db.query(Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida)
         .filter(*filters)
         .all()
     )
@@ -291,39 +291,98 @@ def renutrucao_stats(
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
     show_fin = can_see_financials(current_user)
 
-    total_acc = _new_acc()
-    by_canal: dict = defaultdict(_new_acc)
-    for origin, status, created_at, receita_data_venda, receita_real_recebida in leads:
-        _accumulate(total_acc, status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
-        canal = (origin or "").strip() or "Sem origem"
-        _accumulate(by_canal[canal], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
+    acc = _new_acc()
+    for status, created_at, receita_data_venda, receita_real_recebida in leads:
+        _accumulate(acc, status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
-    total = _finalize_acc(total_acc, show_fin)
-    base_liquida = total["captacoes"] - total["cancelados"]
-    receita = total_acc["receita_sum"] if show_fin else None
+    return _finalize_acc(acc, show_fin)
 
-    canais = []
-    for origem, acc in sorted(by_canal.items(), key=lambda x: x[1]["captacoes"], reverse=True):
-        f = _finalize_acc(acc, show_fin)
-        canais.append({
-            "origem":            origem,
-            "captacoes":         f["captacoes"],
-            "vendas":            f["vendas"],
-            "cancelados":        f["cancelados"],
-            "conversao":         f["conversao"],
-            "receita_potencial": f["receita_gerada"],
-        })
+
+@router.get("/renutrucao-detalhe")
+def renutrucao_detalhe(
+    month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
+    team: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Detalhe da renutricao pro drawer de analise (mesmo formato de
+    modalidade-detalhe/bases-detalhe: funil, receita potencial, perfil de
+    modalidade e situacao de plano)."""
+    dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
+
+    leads = (
+        db.query(Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan)
+        .filter(
+            Lead.is_renutrucao == True,
+            EFFECTIVE_CAPTACAO >= dt_from,
+            EFFECTIVE_CAPTACAO <= dt_to,
+            *_scope_filter(team, current_user),
+        )
+        .all()
+    )
+
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+
+    captacoes = 0
+    vendas = 0
+    cancelados = 0
+    receita = 0.0
+    modalidades: dict = defaultdict(int)
+    plano_possui = 0
+    plano_nao_possui = 0
+    plano_sem_info = 0
+
+    for status, value, modalidade, current_plan in leads:
+        captacoes += 1
+        s = (status or "").lower()
+        is_perdido = s in cancelado_set
+        if s in venda_set:
+            vendas += 1
+        elif is_perdido:
+            cancelados += 1
+
+        if not is_perdido:
+            if value:
+                receita += float(value)
+            modalidades[(modalidade or "").strip() or "Não informado"] += 1
+            plano = (current_plan or "").strip()
+            if not plano:
+                plano_sem_info += 1
+            elif plano.lower() == "não possui plano":
+                plano_nao_possui += 1
+            else:
+                plano_possui += 1
+
+    base_liquida = captacoes - cancelados
+    plano_com_info = plano_possui + plano_nao_possui
 
     return {
-        "captacoes":         total["captacoes"],
-        "vendas":             total["vendas"],
-        "cancelados":         total["cancelados"],
-        "base_liquida":       base_liquida,
-        "conversao":          total["conversao"],
-        "pct_perda":          round(total["cancelados"] / total["captacoes"] * 100, 1) if total["captacoes"] > 0 else 0.0,
-        "receita_potencial":  round(receita, 2) if receita is not None else None,
-        "ticket_medio":       round(receita / total["vendas"], 2) if receita is not None and total["vendas"] > 0 else None,
-        "canais":             canais,
+        "captacoes": captacoes,
+        "cancelados": cancelados,
+        "base_liquida": base_liquida,
+        "vendas": vendas,
+        "conversao": round(vendas / captacoes * 100, 1) if captacoes > 0 else 0.0,
+        "pct_perda": round(cancelados / captacoes * 100, 1) if captacoes > 0 else 0.0,
+        "receita_potencial": receita,
+        "ticket_medio": round(receita / base_liquida, 2) if base_liquida > 0 else 0.0,
+        "modalidades": sorted(
+            [
+                {"nome": k, "count": v, "pct": round(v / base_liquida * 100, 1) if base_liquida > 0 else 0.0}
+                for k, v in modalidades.items()
+            ],
+            key=lambda x: x["count"], reverse=True,
+        ),
+        "plano": {
+            "possui": plano_possui,
+            "nao_possui": plano_nao_possui,
+            "sem_informacao": plano_sem_info,
+            "pct_possui": round(plano_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
+            "pct_nao_possui": round(plano_nao_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
+        },
     }
 
 
@@ -393,6 +452,7 @@ def leads_conv_point(
     origens: str = Query(None),
     modalidade: str = Query(None),
     status_group: str = Query(None),
+    renutrucao: bool = Query(False),
     team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -401,6 +461,8 @@ def leads_conv_point(
     origens = _effective_origin(origens, current_user)
 
     filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to]
+    if renutrucao:
+        filters.append(Lead.is_renutrucao == True)
     if conv_point:
         filters.append(Lead.conversion_point.ilike(conv_point))
     if origens:
