@@ -231,21 +231,26 @@ function StateBox({ kind, height = 140, message, onRetry }: {
   )
 }
 
+// Barra unica segmentada por modalidade + legenda -- mesmo padrao visual da
+// barra "Ja possui plano?" logo abaixo, em vez de uma barra cheia por linha.
 function ModalidadeBars({ modalidades }: { modalidades: Modalidade[] }) {
   if (modalidades.length === 0) return <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem dados de modalidade.</p>
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {modalidades.map((m, i) => (
-        <div key={m.nome}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary, var(--text-2))' }}>{m.nome}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{m.count} · {m.pct}%</span>
+    <div>
+      <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: 'var(--border-lt)', marginBottom: 12 }}>
+        {modalidades.map((m, i) => (
+          <div key={m.nome} style={{ width: `${m.pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {modalidades.map((m, i) => (
+          <div key={m.nome} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+            <span style={{ color: 'var(--text-1)' }}>{m.nome}</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{m.count} · {m.pct}%</span>
           </div>
-          <div style={{ background: 'var(--border-lt)', borderRadius: 3, height: 6, overflow: 'hidden' }}>
-            <div style={{ width: `${m.pct}%`, height: '100%', background: CHART_COLORS[i % CHART_COLORS.length] }} />
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
@@ -1603,9 +1608,11 @@ export default function KPIs() {
                 <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px 0' }}>Não foi possível carregar os dados desta análise.</p>
               ) : (
                 <>
-                  {/* Resumo do funil: Captados → Perdidos → Base líquida → Vendas */}
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>Resumo do funil</p>
-                  <div style={{ display: 'flex', alignItems: 'stretch', marginBottom: 8 }}>
+                  {/* Desempenho: funil → vendas/conversão/cancelamento → receita, numa sequência só
+                      (antes eram 2 seções + uma frase corrida — vendas/conversão são o resultado,
+                      não deveriam pesar menos visualmente que o volume bruto captado) */}
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>Desempenho</p>
+                  <div style={{ display: 'flex', alignItems: 'stretch', marginBottom: 14 }}>
                     {([
                       ['Captados', drawerData.captacoes, 'var(--text-1)'],
                       ['Perdidos', drawerData.cancelados, '#B91C1C'],
@@ -1617,15 +1624,26 @@ export default function KPIs() {
                       </div>
                     ))}
                   </div>
-                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 4px' }}>
-                    Vendas: <strong style={{ color: 'var(--text-1)' }}>{drawerData.vendas}</strong> ({drawerData.conversao}% conversão) · Cancelamento: <strong style={{ color: '#B91C1C' }}>{drawerData.pct_perda}%</strong>
-                  </p>
+
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                    {([
+                      ['Vendas', String(drawerData.vendas), 'var(--text-1)'],
+                      ['Conversão', `${drawerData.conversao}%`, 'var(--text-1)'],
+                      ['Cancelamento', `${drawerData.pct_perda}%`, '#B91C1C'],
+                    ] as const).map(([label, value, color]) => (
+                      <div key={label} style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 10, padding: '10px 12px' }}>
+                        <p style={{ fontSize: 10, color: 'var(--text-subtle)', margin: '0 0 3px' }}>{label}</p>
+                        <p style={{ fontSize: 16, fontWeight: 700, color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+                      </div>
+                    ))}
+                  </div>
+
                   <button onClick={openDrawerLeads} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 13, fontWeight: 600 }}>
                     Ver leads →
                   </button>
 
                   {!!drawerData.renutricao_count && (
-                    <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '10px 0 24px' }}>
+                    <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '10px 0 0' }}>
                       <span style={{ marginRight: 6 }}>🔄</span>
                       <strong style={{ color: 'var(--text-1)' }}>{drawerData.renutricao_count}</strong> lead{drawerData.renutricao_count !== 1 ? 's' : ''} em renutrição ·{' '}
                       <button onClick={() => goToRenutricaoLeads(drawer.label)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 12.5, fontWeight: 600 }}>
@@ -1633,11 +1651,8 @@ export default function KPIs() {
                       </button>
                     </p>
                   )}
-                  {!drawerData.renutricao_count && <div style={{ marginBottom: 24 }} />}
 
-                  {/* Potencial financeiro */}
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px', paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>Potencial financeiro</p>
-                  <div style={{ display: 'flex', gap: 24, marginBottom: 24 }}>
+                  <div style={{ display: 'flex', gap: 24, marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border-lt)', marginBottom: 24 }}>
                     <div>
                       <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '0 0 4px' }}>Receita potencial (estimada)</p>
                       <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(drawerData.receita_potencial)}</p>
@@ -1648,7 +1663,8 @@ export default function KPIs() {
                     </div>
                   </div>
 
-                  {/* Perfil do cliente */}
+                  {/* Perfil do cliente: barra segmentada + legenda, mesmo padrão da barra
+                      "Já possui plano?" logo abaixo — antes eram N barras cheias empilhadas */}
                   <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px', paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>Perfil do cliente</p>
                   <div style={{ marginBottom: 24 }}>
                     <ModalidadeBars modalidades={drawerData.modalidades} />
@@ -1911,7 +1927,9 @@ function AquisicaoTable({ rows, onOpen }: {
                 }}>{initial}</span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <b style={{ display: 'block', overflow: 'hidden', color: 'var(--text-1)', fontSize: 14, fontWeight: 650, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</b>
-                  <span style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{share}% do volume do período</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums' }}>
+                    <strong style={{ color: 'var(--text-1)', fontWeight: 700 }}>{share}%</strong> do volume do período
+                  </span>
                 </div>
                 <ChevronRight
                   size={16}
