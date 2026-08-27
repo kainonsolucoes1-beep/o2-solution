@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import {
-  ArrowLeft, Loader2, Lock, AlertTriangle, Clock3, TrendingUp, type LucideIcon,
+  ArrowLeft, Loader2, Lock, AlertTriangle, Clock3, TrendingUp, CheckCircle2, type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
@@ -180,8 +180,37 @@ function MetaDonut({ pct, color }: { pct: number; color: string }) {
   )
 }
 
-function StatCard({ label, value, simulated, delta, tall, onOpen }: {
-  label: string; value: string; simulated?: boolean; delta?: Delta | null; tall?: boolean
+// Card de destaque (Modelo B): só os 3 indicadores-resultado (vendas,
+// cancelamento, receita/conversão) -- mesmas cores de tom da Decisão Rápida
+// (INSIGHT_TONE/INSIGHT_TONE_SOFT), pra reforçar o que decide em vez de dar
+// peso igual aos 10 indicadores.
+function HeroCard({ tone, icon: Icon, label, value, sub, onOpen }: {
+  tone: 'good' | 'warn' | 'risk'; icon: LucideIcon; label: string; value: string; sub: string
+  onOpen: (trigger: HTMLElement) => void
+}) {
+  const color = INSIGHT_TONE[tone]
+  return (
+    <div
+      role="button" tabIndex={0}
+      onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e.currentTarget)}
+      onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(e.currentTarget) } }}
+      style={{ minWidth: 0, borderRadius: 14, padding: '18px 20px', background: INSIGHT_TONE_SOFT[tone], textAlign: 'left', cursor: 'pointer' }}
+    >
+      <span style={{ display: 'grid', width: 32, height: 32, placeItems: 'center', borderRadius: 10, background: 'rgba(255,255,255,0.55)', color, marginBottom: 12 }}>
+        <Icon size={16} />
+      </span>
+      <span style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color, opacity: 0.85 }}>{label}</span>
+      <strong style={{ display: 'block', marginTop: 4, fontSize: 28, fontWeight: 800, letterSpacing: '-0.01em', color, fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
+      <span style={{ display: 'block', marginTop: 4, fontSize: 12, color, opacity: 0.8 }}>{sub}</span>
+    </div>
+  )
+}
+
+// Linha compacta da lista de detalhe (Modelo B): os indicadores que não
+// viraram destaque, mesmo tamanho de linha pra todos (Operacional e
+// Financeiro compartilham a mesma grade, sem coluna de 3 vs coluna de 2).
+function DetailRow({ label, value, simulated, delta, last, onOpen }: {
+  label: string; value: string; simulated?: boolean; delta?: Delta | null; last?: boolean
   onOpen: (trigger: HTMLElement) => void
 }) {
   return (
@@ -189,20 +218,15 @@ function StatCard({ label, value, simulated, delta, tall, onOpen }: {
       role="button" tabIndex={0}
       onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e.currentTarget)}
       onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(e.currentTarget) } }}
-      style={{ position: 'relative', minWidth: 0, display: 'flex', flexDirection: 'column', padding: tall ? '26px 20px' : 20, borderRadius: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', transition: 'border-color 120ms' }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-in)' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 2px', borderBottom: last ? 'none' : '1px solid var(--border-lt)', cursor: 'pointer', textAlign: 'left' }}
     >
-      <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {label}{simulated && <em style={{ marginLeft: 4, fontStyle: 'normal', fontWeight: 700, textTransform: 'none', letterSpacing: 0, color: '#7C3AED' }}>· estimativa</em>}
+      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+        {label}{simulated && <em style={{ marginLeft: 4, fontStyle: 'normal', fontWeight: 700, color: '#7C3AED' }}>· estimativa</em>}
       </span>
-      <strong style={{ display: 'block', marginTop: 14, fontSize: 28, fontWeight: 700, lineHeight: 1, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
-      {delta ? (
-        <small style={{ display: 'block', marginTop: 10, fontSize: 11, fontWeight: 700, color: DELTA_COLOR[delta.tone] }}>{delta.text}</small>
-      ) : simulated ? (
-        <small style={{ display: 'block', marginTop: 10, fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)' }}>Sem variação no período</small>
-      ) : null}
-      <em style={{ display: 'block', marginTop: 'auto', paddingTop: 10, color: ACCENT, fontSize: 12, fontStyle: 'normal', fontWeight: 600, opacity: .9 }}>Ver detalhes →</em>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {delta && <small style={{ fontSize: 11, fontWeight: 700, color: DELTA_COLOR[delta.tone] }}>{delta.text}</small>}
+        <strong style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
+      </span>
     </div>
   )
 }
@@ -395,33 +419,78 @@ export default function VidaSDR() {
         <p style={{ textAlign: 'center', color: 'var(--text-subtle)', padding: '60px 0' }}>Nenhum lead encontrado para este SDR.</p>
       ) : (
         <>
-          {/* Operacional + Financeiro, lado a lado (.9fr/1.1fr), como no Candidate Freeze.
-              Sem container externo: só o título da seção + os cards individuais. */}
-          <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? 'minmax(0, 1.5fr) minmax(280px, 1fr)' : '1fr', gap: 18 }}>
-            <div>
-              <span style={{ ...kickerStyle, fontSize: 12.5, fontWeight: 800, color: 'var(--text-2)' }}>Operacional</span>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, marginTop: 15 }}>
-                {OPERACIONAL_CFG.map(({ key, id, label, fmt }) => (
-                  <StatCard key={key} label={label} value={fmt(data[key as keyof VidaSdrData] as number)} delta={deltas[key]} tall onOpen={trigger => openPreview(id, 0, trigger)} />
-                ))}
-                <StatCard label="Tx. Cancelamento" value={`${cancellationRate}%`} tall onOpen={trigger => openPreview('cancellationRate', 0, trigger)} />
-              </div>
+          {/* Modelo B (aprovado com a Kainon): 3 cards de destaque com os
+              indicadores-resultado (sempre os mesmos 3 — vendas, cancelamento
+              e receita/conversão, nessa ordem fixa, sem tentar "adivinhar" o
+              pior indicador do mês, que já é papel da Decisão Rápida lá
+              embaixo) + lista compacta com o resto, uma grade só pra
+              Operacional e Financeiro em vez de duas grades de tamanho
+              diferente lado a lado. */}
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
+              <HeroCard
+                tone="good" icon={CheckCircle2} label="Vendas Realizadas" value={String(data.vendas)}
+                sub={`de ${data.captacoes} leads no período`}
+                onOpen={trigger => openPreview('vendas', 0, trigger)}
+              />
+              <HeroCard
+                tone="risk" icon={AlertTriangle} label="Tx. Cancelamento" value={`${cancellationRate}%`}
+                sub={`${data.cancelados} leads cancelados`}
+                onOpen={trigger => openPreview('cancellationRate', 0, trigger)}
+              />
+              {canSeeFinance ? (
+                <HeroCard
+                  tone="good" icon={TrendingUp} label="Receita Recebida" value={fmtBrl(data.receita_recebida || 0)}
+                  sub={`${fmtBrl(data.receita_a_receber || 0)} a receber`}
+                  onOpen={trigger => openPreview('receita_recebida', 0, trigger)}
+                />
+              ) : (
+                <HeroCard
+                  tone="good" icon={TrendingUp} label="Conversão Geral" value={`${data.conversao}%`}
+                  sub="no período"
+                  onOpen={trigger => openPreview('conversao', 0, trigger)}
+                />
+              )}
             </div>
 
-            {canSeeFinance && (
+            <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? '1fr 1fr' : '1fr', gap: '0 32px' }}>
               <div>
-                <span style={{ ...kickerStyle, fontSize: 12.5, fontWeight: 800, color: 'var(--text-2)' }}>Financeiro</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7, marginTop: 15 }}>
-                  {FINANCEIRO_CFG.map(({ key, id, label, simulated }) => {
-                    const value = key === 'receita_recebida' ? fmtBrl(data.receita_recebida || 0)
-                      : key === 'receita_a_receber' ? fmtBrl(data.receita_a_receber || 0)
-                      : key === 'receita_potencial' ? fmtBrl(data.receita_potencial || 0)
-                      : fmtBrl(MOCK_CUSTO_TOTAL)
-                    return <StatCard key={key} label={label} value={value} simulated={simulated} delta={deltas[key]} onOpen={trigger => openPreview(id, 0, trigger)} />
-                  })}
+                <span style={{ ...kickerStyle, fontSize: 12.5, fontWeight: 800, color: 'var(--text-2)' }}>Operacional</span>
+                <div style={{ marginTop: 12 }}>
+                  {OPERACIONAL_CFG
+                    .filter(({ key }) => key !== 'vendas' && (canSeeFinance || key !== 'conversao'))
+                    .map(({ key, id, label, fmt }, i, arr) => (
+                      <DetailRow
+                        key={key} label={label} value={fmt(data[key as keyof VidaSdrData] as number)}
+                        delta={deltas[key]} last={i === arr.length - 1}
+                        onOpen={trigger => openPreview(id, 0, trigger)}
+                      />
+                    ))}
                 </div>
               </div>
-            )}
+
+              {canSeeFinance && (
+                <div>
+                  <span style={{ ...kickerStyle, fontSize: 12.5, fontWeight: 800, color: 'var(--text-2)' }}>Financeiro</span>
+                  <div style={{ marginTop: 12 }}>
+                    {FINANCEIRO_CFG
+                      .filter(({ key }) => key !== 'receita_recebida')
+                      .map(({ key, id, label, simulated }, i, arr) => {
+                        const value = key === 'receita_a_receber' ? fmtBrl(data.receita_a_receber || 0)
+                          : key === 'receita_potencial' ? fmtBrl(data.receita_potencial || 0)
+                          : fmtBrl(MOCK_CUSTO_TOTAL)
+                        return (
+                          <DetailRow
+                            key={key} label={label} value={value} simulated={simulated}
+                            delta={deltas[key]} last={i === arr.length - 1}
+                            onOpen={trigger => openPreview(id, 0, trigger)}
+                          />
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Evolução Mensal + Meta, pareados — não com Ranking, como no Candidate Freeze */}
