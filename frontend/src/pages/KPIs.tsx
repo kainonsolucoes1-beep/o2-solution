@@ -140,6 +140,7 @@ const isO2Member = (fonte: string) => O2_MEMBER_NAMES.has(fonte.toLowerCase())
 const isO2Self   = (fonte: string) => fonte.toLowerCase() === 'o2 solution'
 
 const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+const MESES_FULL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 function fmtBrl(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
@@ -387,7 +388,6 @@ function FilterableLeadsModal({ title, subtitle, loading, leads, total, statusFi
 }
 
 type DrawerKind = 'base' | 'canal' | 'conversao' | 'modalidade' | 'renutricao'
-const DRAWER_KIND_LABEL: Record<DrawerKind, string> = { base: 'Análise da base', canal: 'Análise do canal', conversao: 'Análise do ponto de conversão', modalidade: 'Análise da modalidade', renutricao: 'Análise da renutrição' }
 
 const TEAM_VALUES: Record<'sp' | 'pe', string> = { sp: 'Equipe São Paulo', pe: 'Equipe Pernambuco' }
 const TEAM_LABELS: Record<'sp' | 'pe', string> = { sp: 'São Paulo', pe: 'Recife' }
@@ -501,11 +501,12 @@ export default function KPIs() {
   }
 
   function periodLabel(): string {
+    const [y, m] = month.split('-').map(Number)
     const dateLabel = period === 'all'
       ? 'Todo o período'
       : period === 'range' && rangeFrom && rangeTo
       ? `${rangeFrom.split('-').reverse().join('/')} – ${rangeTo.split('-').reverse().join('/')}`
-      : month.split('-').reverse().join('/')
+      : `${MESES_FULL[m - 1]}/${y}`
     return team === 'all' ? dateLabel : `${dateLabel} · ${TEAM_LABELS[team]}`
   }
 
@@ -1588,8 +1589,7 @@ export default function KPIs() {
           >
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <p style={{ fontSize: 12, fontWeight: 600, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>{DRAWER_KIND_LABEL[drawer.kind]}</p>
-                <p id="perf-drawer-title" style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 0' }}>{drawer.label}</p>
+                <p id="perf-drawer-title" style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{drawer.label}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{periodLabel()}</p>
               </div>
               <button data-drawer-close onClick={closeDrawer} aria-label="Fechar análise" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
