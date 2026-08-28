@@ -304,6 +304,17 @@ def _parse_lead_fields(raw: dict) -> dict:
     else:
         _interest_3_name = (_interest_3.get("name") or "").strip()
         modalidade = MODALIDADE_NAME_ALIASES.get(_interest_3_name.lower(), _interest_3_name) or None
+
+    # interest_4 = categoria do plano (Com/Sem coparticipacao)
+    categoria = ((interests.get("interest_4") or {}).get("name") or "").strip() or None
+    # legado (abr-mai/2026): formularios mandavam a categoria no interest_3
+    if modalidade and "coparticipa" in modalidade.lower():
+        categoria = categoria or modalidade
+        modalidade = None
+    # Followize as vezes manda o rotulo cru do campo ("Interesse 4 - 1") no lugar do valor
+    if categoria and categoria.lower().startswith("interesse "):
+        categoria = None
+
     _interest_1 = interests.get("interest_1") or {}
     _interest_1_id = _interest_1.get("id")
     if _interest_1_id:
@@ -328,7 +339,7 @@ def _parse_lead_fields(raw: dict) -> dict:
     first_interaction_at = _parse_followize_dt(raw.get("first_interaction_at"))
     last_interaction_at = _parse_followize_dt(raw.get("last_interaction_at"))
 
-    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "current_plan": current_plan, "document": document, "tracking_campaign": tracking_campaign, "tracking_medium": tracking_medium, "tracking_term": tracking_term, "tracking_format": tracking_format, "fbclid": fbclid, "gclid": gclid, "lgpd_processing_opt_in": lgpd_processing_opt_in, "lgpd_communication_opt_in": lgpd_communication_opt_in, "first_interaction_at": first_interaction_at, "last_interaction_at": last_interaction_at, "team": team}
+    return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "categoria": categoria, "current_plan": current_plan, "document": document, "tracking_campaign": tracking_campaign, "tracking_medium": tracking_medium, "tracking_term": tracking_term, "tracking_format": tracking_format, "fbclid": fbclid, "gclid": gclid, "lgpd_processing_opt_in": lgpd_processing_opt_in, "lgpd_communication_opt_in": lgpd_communication_opt_in, "first_interaction_at": first_interaction_at, "last_interaction_at": last_interaction_at, "team": team}
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
@@ -376,6 +387,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
             or existing.notes != fields["notes"]
             or existing.ages_raw != fields["ages_raw"]
             or existing.modalidade != fields["modalidade"]
+            or existing.categoria != fields["categoria"]
             or existing.current_plan != fields["current_plan"]
             or (fields["document"] and existing.document != fields["document"])
         )
@@ -395,6 +407,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         existing.notes = fields["notes"]
         existing.ages_raw = fields["ages_raw"]
         existing.modalidade = fields["modalidade"]
+        existing.categoria = fields["categoria"]
         existing.current_plan = fields["current_plan"]
         existing.tracking_campaign = fields["tracking_campaign"]
         existing.tracking_medium = fields["tracking_medium"]
@@ -433,6 +446,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         perception=fields["perception"],
         lost_reason=fields["lost_reason"], lost_message=fields["lost_message"],
         notes=fields["notes"], ages_raw=fields["ages_raw"], modalidade=fields["modalidade"],
+        categoria=fields["categoria"],
         current_plan=fields["current_plan"], document=fields["document"],
         tracking_campaign=fields["tracking_campaign"], tracking_medium=fields["tracking_medium"],
         tracking_term=fields["tracking_term"], tracking_format=fields["tracking_format"],
