@@ -4,6 +4,7 @@
 Google Tec.txt
 logo o2.png
 backend/google_service_account.json
+*.docx
 
 # Python
 __pycache__/
