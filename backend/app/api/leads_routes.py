@@ -1130,6 +1130,8 @@ def download_lead_attachment(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if not db.query(Lead.id).filter(Lead.id == lead_id).first():
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
     attachment = db.query(LeadAttachment).filter(
         LeadAttachment.id == attachment_id, LeadAttachment.lead_id == lead_id
     ).first()
@@ -1148,6 +1150,8 @@ def delete_lead_attachment(
 ):
     if not can_delete_attachments(current_user):
         raise HTTPException(status_code=403, detail="Seu perfil pode anexar arquivos, mas não excluir")
+    if not db.query(Lead.id).filter(Lead.id == lead_id).first():
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
     attachment = db.query(LeadAttachment).filter(
         LeadAttachment.id == attachment_id, LeadAttachment.lead_id == lead_id
     ).first()
