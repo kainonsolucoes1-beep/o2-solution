@@ -138,7 +138,7 @@ export default function LeadNextStepPanel({
           <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.005em' }}>
             Avançar atendimento
           </h3>
-          <p style={{ maxWidth: 420, marginTop: 6, color: 'var(--text-subtle)', fontSize: 12, lineHeight: 1.5 }}>
+          <p style={{ maxWidth: 420, marginTop: 6, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>
             Continue o atendimento a partir das ações abaixo.
           </p>
         </div>

@@ -29,7 +29,7 @@ export default function LeadActivityTimeline({
       <div style={{ minHeight: 82, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, padding: '18px 20px' }}>
         <div>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.005em' }}>Atividade</h3>
-          <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '4px 0 0' }}>Eventos organizados do mais recente ao mais antigo</p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>Eventos organizados do mais recente ao mais antigo</p>
         </div>
         {isAdmin && (
           <button
