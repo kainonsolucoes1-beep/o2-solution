@@ -459,7 +459,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
               <span style={{ fontSize: 11.5, color: 'var(--text-meta)' }}>{journeyTotal} distribuídas nas etapas abaixo · {fmtBrl(journeyValue)}</span>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '26px 0 22px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '26px 0 32px' }}>
               {journeyNodes.map((n, i) => {
                 const tone = n.done ? { dot: '#ECFDF5', ring: '#10B981' } : n.warn ? { dot: '#FFFBEB', ring: '#F59E0B' } : { dot: '#EFF6FF', ring: '#3B82F6' }
                 return (
