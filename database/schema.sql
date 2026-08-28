@@ -44,6 +44,17 @@ CREATE TABLE lead_notes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE lead_attachments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    lead_id UUID NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_size INTEGER NOT NULL,
+    content_type VARCHAR(100),
+    storage_key VARCHAR(500) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE sdr_metas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome VARCHAR(255) NOT NULL UNIQUE,
@@ -59,3 +70,4 @@ CREATE INDEX idx_leads_user_id ON leads(user_id);
 CREATE INDEX idx_leads_status ON leads(status);
 CREATE INDEX idx_leads_created_at ON leads(created_at);
 CREATE INDEX idx_lead_notes_lead_id ON lead_notes(lead_id);
+CREATE INDEX idx_lead_attachments_lead_id ON lead_attachments(lead_id);

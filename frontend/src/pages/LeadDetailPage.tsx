@@ -13,6 +13,7 @@ import LeadNegotiationPanel from '../components/LeadNegotiationPanel'
 import LeadCurrentStatusPanel from '../components/LeadCurrentStatusPanel'
 import LeadRegistrationPanel from '../components/LeadRegistrationPanel'
 import LeadFinanceiroPanel from '../components/LeadFinanceiroPanel'
+import LeadAttachmentsPanel from '../components/LeadAttachmentsPanel'
 
 interface LeadItem {
   id: string
@@ -149,6 +150,7 @@ export default function LeadDetailPage() {
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
   const canSeeFinancials = me !== null && (me.role === 'admin' || me.role === 'diretor')
+  const canDeleteAttachments = me !== null && ['admin', 'diretor', 'financeiro', 'coordenador'].includes(me.role)
   const conversionPointOptions = Array.from(new Set([...conversionPoints, ...EXTRA_CONVERSION_POINTS])).sort()
 
   useEffect(() => {
@@ -700,6 +702,8 @@ export default function LeadDetailPage() {
             statusDurationLabel={statusDurationLabel}
             lostReasonLabel={status === 'sale_not_performed' ? lead.lost_reason : null}
           />
+
+          {id && <LeadAttachmentsPanel leadId={id} canDelete={canDeleteAttachments} />}
 
           {canSeeFinancials && id && (
             <LeadFinanceiroPanel

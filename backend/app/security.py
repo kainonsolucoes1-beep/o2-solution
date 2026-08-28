@@ -53,6 +53,15 @@ def can_see_restricted_leads(user) -> bool:
     return user.role in RESTRICTED_LEAD_ROLES
 
 
+ATTACHMENT_MANAGER_ROLES = ("admin", "diretor", "financeiro", "coordenador")
+
+
+def can_delete_attachments(user) -> bool:
+    """usuario, comercial e supervisor podem anexar arquivos na ficha do lead,
+    mas nunca excluir -- deletar apaga o objeto no R2, e irreversivel."""
+    return user.role in ATTACHMENT_MANAGER_ROLES
+
+
 TEAM_SCOPED_ROLES = ("supervisor",)
 
 

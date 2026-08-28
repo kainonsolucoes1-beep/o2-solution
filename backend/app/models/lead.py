@@ -96,6 +96,19 @@ class LeadSchedule(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
 
 
+class LeadAttachment(Base):
+    __tablename__ = "lead_attachments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    file_name = Column(String(255), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    content_type = Column(String(100), nullable=True)
+    storage_key = Column(String(500), nullable=False)  # chave do objeto no bucket R2
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+
 class LeadParcela(Base):
     """Detalhamento por parcela da receita real (planilha de vendas), por lead."""
     __tablename__ = "lead_parcelas"

@@ -1,5 +1,5 @@
 from app.models.user import User
-from app.models.lead import Lead, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela
+from app.models.lead import Lead, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, LeadAttachment
 from app.models.app_settings import AppSettings
 from app.models.form_user import FormUser
 from app.models.telefonia_daily import TelefoniaDaily

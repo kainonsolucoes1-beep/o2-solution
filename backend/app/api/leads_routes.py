@@ -1,4 +1,7 @@
+import io
+import os
 import re
+import uuid as uuid_lib
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -9,9 +12,10 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.lead_utils import extract_base
-from app.models import Lead, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
-from app.security import can_see_financials, needs_own_origin_filter
+from app.models import Lead, LeadAttachment, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
+from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter
 from app.tz_utils import br_date_to_utc_range, now_br
+from app import storage_r2
 from app import renutricao_import
 from app.schemas.lead import (
     LeadCreate, LeadReportItem, LeadResponse, LeadsReportResponse,
@@ -26,10 +30,13 @@ from app.schemas.lead import (
     AgendaItem, AgendaResponse, AgendaAlertsResponse,
     LeadReceitaUpdateRequest, LeadReceitaUpdateResponse,
     ParcelaRequest, ParcelaUpdateRequest, ParcelaResponse, ParcelasListResponse,
+    AttachmentResponse, AttachmentsListResponse, AttachmentUploadResponse, AttachmentDownloadResponse,
     RetrabalharRequest, RetrabalharResponse,
     RenutricaoPreviewResponse, RenutricaoConfirmRequest, RenutricaoConfirmResponse,
 )
 from app.schemas.user import OperatorInfo
+
+MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024  # 25 MB
 
 router = APIRouter(prefix="/api/v1", tags=["leads"])
 
@@ -1052,3 +1059,100 @@ def create_lead_note(
     db.commit()
     db.refresh(note)
     return NoteCreateResponse(success=True, note_id=note.id, created_at=note.created_at)
+
+
+def _attachment_response(att: LeadAttachment, user: Optional[User]) -> AttachmentResponse:
+    return AttachmentResponse(
+        id=att.id,
+        file_name=att.file_name,
+        file_size=att.file_size,
+        content_type=att.content_type,
+        uploaded_by=(user.first_name or user.username) if user else "Usuário",
+        created_at=att.created_at,
+    )
+
+
+@router.get("/leads/{lead_id}/attachments", response_model=AttachmentsListResponse)
+def get_lead_attachments(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not db.query(Lead.id).filter(Lead.id == lead_id).first():
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    rows = (
+        db.query(LeadAttachment, User)
+        .outerjoin(User, LeadAttachment.user_id == User.id)
+        .filter(LeadAttachment.lead_id == lead_id)
+        .order_by(LeadAttachment.created_at.desc())
+        .all()
+    )
+    return AttachmentsListResponse(attachments=[_attachment_response(a, u) for a, u in rows])
+
+
+@router.post("/leads/{lead_id}/attachments", response_model=AttachmentUploadResponse)
+def upload_lead_attachment(
+    lead_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+
+    content = file.file.read()
+    if len(content) > MAX_ATTACHMENT_SIZE:
+        raise HTTPException(status_code=413, detail="Arquivo maior que 25 MB")
+
+    safe_name = os.path.basename(file.filename or "arquivo")
+    storage_key = f"leads/{lead_id}/{uuid_lib.uuid4()}-{safe_name}"
+    storage_r2.upload_file(storage_key, io.BytesIO(content), file.content_type)
+
+    attachment = LeadAttachment(
+        lead_id=lead.id,
+        user_id=current_user.id,
+        file_name=safe_name,
+        file_size=len(content),
+        content_type=file.content_type,
+        storage_key=storage_key,
+    )
+    db.add(attachment)
+    db.commit()
+    db.refresh(attachment)
+    return AttachmentUploadResponse(success=True, attachment=_attachment_response(attachment, current_user))
+
+
+@router.get("/leads/{lead_id}/attachments/{attachment_id}/download", response_model=AttachmentDownloadResponse)
+def download_lead_attachment(
+    lead_id: str,
+    attachment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    attachment = db.query(LeadAttachment).filter(
+        LeadAttachment.id == attachment_id, LeadAttachment.lead_id == lead_id
+    ).first()
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado")
+    url = storage_r2.presigned_download_url(attachment.storage_key, attachment.file_name)
+    return AttachmentDownloadResponse(url=url)
+
+
+@router.delete("/leads/{lead_id}/attachments/{attachment_id}", status_code=204)
+def delete_lead_attachment(
+    lead_id: str,
+    attachment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not can_delete_attachments(current_user):
+        raise HTTPException(status_code=403, detail="Seu perfil pode anexar arquivos, mas não excluir")
+    attachment = db.query(LeadAttachment).filter(
+        LeadAttachment.id == attachment_id, LeadAttachment.lead_id == lead_id
+    ).first()
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado")
+    storage_r2.delete_file(attachment.storage_key)
+    db.delete(attachment)
+    db.commit()
