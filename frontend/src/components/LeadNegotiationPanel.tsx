@@ -7,6 +7,7 @@ import SelectField from './SelectField'
 import DateField from './DateField'
 import OperadorasField from './OperadorasField'
 import PlanField from './PlanField'
+import FieldLabel from './FieldLabel'
 
 export default function LeadNegotiationPanel({
   perceptionLabel, perceptionStyle,
@@ -57,8 +58,8 @@ export default function LeadNegotiationPanel({
       <div className="flex flex-col gap-4">
         {perceptionLabel && perceptionStyle ? (
           <div className="flex flex-col gap-1">
-            <span style={{ fontSize: 12, lineHeight: '16px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Temperatura</span>
-            <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: perceptionStyle.bg, color: perceptionStyle.color, padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700 }}>
+            <FieldLabel>Temperatura</FieldLabel>
+            <span style={{ display: 'inline-flex', alignSelf: 'flex-start', background: perceptionStyle.bg, color: perceptionStyle.color, padding: '2px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600 }}>
               {perceptionLabel}
             </span>
           </div>

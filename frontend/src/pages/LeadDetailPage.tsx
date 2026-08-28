@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
-import { fmtDate, fmtDateOnly, fmtDuration, fmtClock, fmtRelative, fmtLastChange, fmtBRL, parseBRNumber } from '../utils/leadFormat'
+import { fmtDate, fmtDateOnly, fmtClock, fmtRelative, fmtBRL, parseBRNumber } from '../utils/leadFormat'
 import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
 import { useTheme } from '../ThemeContext'
 import LeadDetailHeader from '../components/LeadDetailHeader'
@@ -459,11 +459,8 @@ export default function LeadDetailPage() {
   const lastActivityAt = activity.length > 0 ? activity[0].at : lead.created_at
   const activeSchedule = schedules.find(s => s.is_active)
   const acaoRapidaEditing = editingStatus || editingPerception || editingSchedule
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const interacoes7d = activity.filter(ev => parseUTC(ev.at) >= sevenDaysAgo).length
 
   const perception = lead.perception && PERCEPTION_STYLE[lead.perception] ? PERCEPTION_STYLE[lead.perception] : null
-  const funnelTimeLabel = fmtDuration(Date.now() - parseUTC(lead.created_at))
   const scheduleLabel = activeSchedule ? fmtDate(activeSchedule.scheduled_at) : 'Nada agendado'
 
   const telHref = lead.phone ? `tel:${lead.phone.replace(/\D/g, '')}` : null
@@ -645,17 +642,9 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col" style={{ gap: 12 }}>
 
-          <div style={{
-            background: 'var(--bg-card)', border: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.04)'}`,
-            borderRadius: 10, padding: '11px 15px', boxShadow: dark ? '0 1px 2px rgba(0,0,0,0.14)' : '0 1px 2px rgba(15,23,42,0.05)',
-          }}>
-            <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>
-              Consulta auxiliar
-            </p>
-            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>
-              Contexto da venda
-            </p>
-          </div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '2px 2px 0' }}>
+            Contexto da venda
+          </p>
 
           <LeadNegotiationPanel
             perceptionLabel={perception?.label ?? null}
@@ -706,12 +695,8 @@ export default function LeadDetailPage() {
           />
 
           <LeadCurrentStatusPanel
-            attendantLabel={lead.attendant ?? 'Não informado'}
             lastInteractionLabel={fmtRelative(lastActivityAt)}
-            funnelTimeLabel={funnelTimeLabel}
             scheduleLabel={scheduleLabel}
-            interactionsLabel={String(interacoes7d)}
-            lastChangeLabel={fmtLastChange(lastActivityAt)}
             statusDurationLabel={statusDurationLabel}
             lostReasonLabel={status === 'sale_not_performed' ? lead.lost_reason : null}
           />

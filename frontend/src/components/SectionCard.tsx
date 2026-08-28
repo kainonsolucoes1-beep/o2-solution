@@ -13,8 +13,8 @@ export default function SectionCard({ title, icon: Icon, action, compact, childr
       {title && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, margin: '0 0 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            {Icon && <Icon size={13} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.6 }} />}
-            <p style={{ fontSize: 16, lineHeight: '24px', fontWeight: 600, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.005em' }}>
+            {Icon && <Icon size={13} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.7 }} />}
+            <p style={{ fontSize: 13, lineHeight: '16px', fontWeight: 600, color: 'var(--text-3b)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {title}
             </p>
           </div>

@@ -69,9 +69,6 @@ export default function LeadDetailHeader({
             {initials(name)}
           </div>
           <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 7px' }}>
-              Negociação em andamento
-            </p>
             <div className="flex items-center flex-wrap" style={{ gap: 10 }}>
               <p className="text-[18px] sm:text-[26px]" style={{ fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>{name}</p>
               <div className="flex flex-wrap" style={{ gap: 5, marginTop: 3 }}>

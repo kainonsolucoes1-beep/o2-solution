@@ -1,15 +1,15 @@
+import FieldLabel from './FieldLabel'
+
 export default function DateField({ label, value, onChange, saving }: { label: string; value: string; onChange: (v: string) => void; saving?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span style={{ fontSize: 12, lineHeight: '16px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-        {label}
-      </span>
+      <FieldLabel>{label}</FieldLabel>
       <input
         type="date"
         defaultValue={value}
         disabled={saving}
         onBlur={e => e.target.value && e.target.value !== value && onChange(e.target.value)}
-        style={{ fontSize: 13, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: saving ? 'not-allowed' : 'text', opacity: saving ? 0.6 : 1 }}
+        style={{ fontSize: 14, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: saving ? 'not-allowed' : 'text', opacity: saving ? 0.6 : 1 }}
       />
     </div>
   )

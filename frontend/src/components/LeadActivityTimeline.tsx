@@ -28,7 +28,7 @@ export default function LeadActivityTimeline({
     <section className="min-h-0 sm:min-h-[650px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }}>
       <div style={{ minHeight: 82, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, padding: '18px 20px' }}>
         <div>
-          <h3 style={{ fontSize: 19, fontWeight: 750, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>Atividade</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.005em' }}>Atividade</h3>
           <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: '4px 0 0' }}>Eventos organizados do mais recente ao mais antigo</p>
         </div>
         {isAdmin && (
@@ -86,7 +86,7 @@ export default function LeadActivityTimeline({
                 minHeight: 28, padding: '0 10px', borderRadius: 6, border: 'none',
                 background: filter === f ? '#EAF2FF' : 'transparent',
                 color: filter === f ? '#245BB9' : 'var(--text-muted)',
-                fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                fontSize: 11, fontWeight: filter === f ? 600 : 500, cursor: 'pointer',
               }}
             >
               {f}

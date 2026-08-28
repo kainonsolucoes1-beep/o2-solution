@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import FieldLabel from './FieldLabel'
 
 const OPERADORAS_OPTIONS = [
   'Amil', 'Bradesco', 'Hapvida', 'Medsenior', 'Prevent Senior', 'Trasmontano', 'SulAmérica',
@@ -20,10 +21,8 @@ export default function OperadorasField({ value, saving, onChange }: { value: st
         onClick={() => setExpanded(v => !v)}
         style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
       >
-        {expanded ? <ChevronDown size={12} color="var(--text-3b)" /> : <ChevronRight size={12} color="var(--text-3b)" />}
-        <span style={{ fontSize: 12, lineHeight: '16px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          Operadoras Enviadas{selected.size > 0 ? ` (${selected.size})` : ''}
-        </span>
+        {expanded ? <ChevronDown size={12} color="var(--text-muted)" /> : <ChevronRight size={12} color="var(--text-muted)" />}
+        <FieldLabel>Operadoras enviadas{selected.size > 0 ? ` (${selected.size})` : ''}</FieldLabel>
       </button>
       {!expanded && selected.size > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginLeft: 17 }}>
