@@ -9,15 +9,15 @@ function initials(name: string) {
 
 function badgeStyle(s: { bg: string; color: string }): React.CSSProperties {
   return {
-    background: s.bg, color: s.color, border: `1.5px solid ${s.color}`,
-    padding: '4px 14px', borderRadius: 99, fontSize: 13, fontWeight: 700,
+    background: s.bg, color: s.color,
+    padding: '3px 11px', borderRadius: 99, fontSize: 12, fontWeight: 600,
   }
 }
 
 function ContactRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '78px minmax(0, 1fr)', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-      <dt style={{ margin: 0, color: 'var(--text-subtle)', fontSize: 11, fontWeight: 500 }}>{label}</dt>
+      <dt style={{ margin: 0, color: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }}>{label}</dt>
       <dd style={{ margin: 0, overflowWrap: 'anywhere', color: 'var(--text-1)', fontSize: 13, fontWeight: 600, lineHeight: 1.3 }}>{value}</dd>
     </div>
   )
@@ -62,15 +62,15 @@ export default function LeadDetailHeader({
         <div className="flex" style={{ alignItems: 'center', gap: 13 }}>
           <div style={{
             flexShrink: 0, width: 44, height: 44, borderRadius: '50%',
-            background: 'var(--bg-subtle)', color: '#2563EB',
+            background: 'var(--bg-subtle)', color: 'var(--accent)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 800, letterSpacing: '0.01em',
+            fontSize: 14, fontWeight: 700, letterSpacing: '0.01em',
           }}>
             {initials(name)}
           </div>
           <div style={{ minWidth: 0 }}>
             <div className="flex items-center flex-wrap" style={{ gap: 10 }}>
-              <p className="text-[18px] sm:text-[26px]" style={{ fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>{name}</p>
+              <p className="text-[18px] sm:text-[24px]" style={{ fontWeight: 700, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>{name}</p>
               <div className="flex flex-wrap" style={{ gap: 5, marginTop: 3 }}>
                 <span style={badgeStyle(sStyle)}>{statusLabel}</span>
                 {perceptionLabel && perceptionStyle && <span style={badgeStyle(perceptionStyle)}>{perceptionLabel}</span>}
@@ -103,7 +103,7 @@ export default function LeadDetailHeader({
               <div style={{ position: 'absolute', right: 0, top: 44, zIndex: 100, background: 'var(--bg-card)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 10, boxShadow: '0 8px 24px rgba(15,23,42,0.14)', minWidth: 160, overflow: 'hidden' }}>
                 <button
                   onClick={onRequestDelete}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#DC2626', textAlign: 'left' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--danger)', textAlign: 'left' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                 >

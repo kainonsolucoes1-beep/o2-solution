@@ -5,6 +5,7 @@ import { fmtBRL, fmtDateShort, parseBRNumber } from '../utils/leadFormat'
 import SectionCard from './SectionCard'
 import EditPencil from './EditPencil'
 import Field from './Field'
+import FieldLabel from './FieldLabel'
 import EditInput from './EditInput'
 import Combobox from './Combobox'
 
@@ -24,13 +25,13 @@ interface ParcelasListResponse {
 }
 
 const ORIGEM_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  sheet: { bg: '#EFF6FF', color: '#3B82F6', label: 'Planilha' },
-  manual: { bg: '#F5F3FF', color: '#8B5CF6', label: 'Manual' },
+  sheet: { bg: 'var(--accent-weak)', color: 'var(--accent)', label: 'Planilha' },
+  manual: { bg: 'var(--info-weak)', color: 'var(--info)', label: 'Manual' },
 }
 
 const STATUS_STYLE = {
-  recebido: { bg: '#ECFDF5', color: '#059669', label: 'Recebido' },
-  a_receber: { bg: '#FFFBEB', color: '#D97706', label: 'A Receber' },
+  recebido: { bg: 'var(--success-weak)', color: 'var(--success)', label: 'Recebido' },
+  a_receber: { bg: 'var(--warning-weak)', color: 'var(--warning)', label: 'A Receber' },
 }
 
 const PARCELAS_COLLAPSED_LIMIT = 2
@@ -196,14 +197,14 @@ export default function LeadFinanceiroPanel({
       action={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {origem && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: origem.color, background: origem.bg, padding: '2px 9px', borderRadius: 99 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: origem.color, background: origem.bg, padding: '2px 9px', borderRadius: 99 }}>
               {origem.label}
             </span>
           )}
           {editingGeral ? (
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setEditingGeral(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={saveGeral} disabled={savingGeral} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingGeral ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+              <button onClick={saveGeral} disabled={savingGeral} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: savingGeral ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                 {savingGeral ? 'Salvando…' : 'Salvar'}
               </button>
             </div>
@@ -219,7 +220,7 @@ export default function LeadFinanceiroPanel({
             <span style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Nenhuma receita registrada ainda</span>
             <button
               onClick={() => setAddingParcela(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
             >
               <Plus size={13} /> Lançar parcela
             </button>
@@ -229,22 +230,22 @@ export default function LeadFinanceiroPanel({
         {total > 0 && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div style={{ background: STATUS_STYLE.recebido.bg, border: '1px solid #A7F3D0', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 9.5, fontWeight: 700, color: STATUS_STYLE.recebido.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recebida</div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: STATUS_STYLE.recebido.color, marginTop: 4 }}>{fmtBRL(recebida)}</div>
+              <div style={{ background: STATUS_STYLE.recebido.bg, borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: STATUS_STYLE.recebido.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Recebida</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: STATUS_STYLE.recebido.color, marginTop: 4 }}>{fmtBRL(recebida)}</div>
               </div>
-              <div style={{ background: STATUS_STYLE.a_receber.bg, border: '1px solid #FDE68A', borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 9.5, fontWeight: 700, color: STATUS_STYLE.a_receber.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>A Receber</div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: STATUS_STYLE.a_receber.color, marginTop: 4 }}>{fmtBRL(aReceber)}</div>
+              <div style={{ background: STATUS_STYLE.a_receber.bg, borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: STATUS_STYLE.a_receber.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>A Receber</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: STATUS_STYLE.a_receber.color, marginTop: 4 }}>{fmtBRL(aReceber)}</div>
               </div>
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total do negócio</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-1)' }}>{fmtBRL(total)}</span>
+                <FieldLabel>Total do negócio</FieldLabel>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>{fmtBRL(total)}</span>
               </div>
-              <div style={{ height: 6, borderRadius: 99, background: '#FFFBEB', overflow: 'hidden' }}>
-                <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: '#059669' }} />
+              <div style={{ height: 6, borderRadius: 99, background: 'var(--warning-weak)', overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: 'var(--success)' }} />
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>{pct}% já recebido</div>
             </div>
@@ -256,13 +257,13 @@ export default function LeadFinanceiroPanel({
             <EditInput label="Titular do Contrato" value={geralDraft.titular} onChange={v => setGeralDraft(d => ({ ...d, titular: v }))} />
             <EditInput label="Promotora" value={geralDraft.promotora} onChange={v => setGeralDraft(d => ({ ...d, promotora: v }))} />
             <div className="flex flex-col gap-1">
-              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.035em' }}>Modalidade</span>
+              <FieldLabel>Modalidade</FieldLabel>
               <Combobox value={geralDraft.modalidade} onChange={v => setGeralDraft(d => ({ ...d, modalidade: v }))} options={modalidadeOptions} />
             </div>
             <EditInput label="Operadora" value={geralDraft.operadora} onChange={v => setGeralDraft(d => ({ ...d, operadora: v }))} />
             <EditInput label="Categoria" value={geralDraft.categoria} onChange={v => setGeralDraft(d => ({ ...d, categoria: v }))} />
             <div className="flex flex-col gap-1">
-              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.035em' }}>Data da Venda</span>
+              <FieldLabel>Data da Venda</FieldLabel>
               <input
                 type="date"
                 value={geralDraft.data_venda}
@@ -284,13 +285,13 @@ export default function LeadFinanceiroPanel({
 
         <div style={{ marginTop: 4, paddingTop: 14, borderTop: '1px solid var(--border-in)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
               Parcelas
             </p>
             {!addingParcela && (
               <button
                 onClick={() => setAddingParcela(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 <Plus size={13} /> Lançar parcela
               </button>
@@ -330,7 +331,7 @@ export default function LeadFinanceiroPanel({
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                         <button onClick={() => setEditingParcelaId(null)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancelar</button>
-                        <button onClick={saveEditParcela} disabled={savingParcelaEdit} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingParcelaEdit ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <button onClick={saveEditParcela} disabled={savingParcelaEdit} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: savingParcelaEdit ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                           {savingParcelaEdit ? 'Salvando…' : 'Salvar'}
                         </button>
                       </div>
@@ -340,15 +341,15 @@ export default function LeadFinanceiroPanel({
                 if (confirmingRecebidoId === p.id) {
                   const savingQuick = savingQuickRecebidoId === p.id
                   return (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid #FDE68A', background: s.bg, borderRadius: 8, padding: '8px 10px' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', width: 20, flexShrink: 0 }}>{p.numero ?? '—'}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{fmtBRL(p.valor)}</span>
-                      <span style={{ flex: 1, fontSize: 11.5, fontWeight: 600, color: 'var(--text-2)' }}>Marcar como recebida?</span>
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--border-lt)', background: s.bg, borderRadius: 8, padding: '8px 10px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', width: 20, flexShrink: 0 }}>{p.numero ?? '—'}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{fmtBRL(p.valor)}</span>
+                      <span style={{ flex: 1, fontSize: 11.5, fontWeight: 500, color: 'var(--text-2)' }}>Marcar como recebida?</span>
                       <button
                         onClick={() => quickMarkRecebido(p.id)}
                         disabled={savingQuick}
                         title="Confirmar recebimento"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: 'none', background: '#059669', color: '#fff', cursor: savingQuick ? 'not-allowed' : 'pointer', opacity: savingQuick ? 0.6 : 1, flexShrink: 0 }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: 'none', background: 'var(--success)', color: '#fff', cursor: savingQuick ? 'not-allowed' : 'pointer', opacity: savingQuick ? 0.6 : 1, flexShrink: 0 }}
                       >
                         <Check size={13} />
                       </button>
@@ -365,21 +366,21 @@ export default function LeadFinanceiroPanel({
                 }
                 return (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-lt)', borderRadius: 8, padding: '8px 10px' }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', width: 14, flexShrink: 0 }}>{p.numero ?? '—'}</span>
-                    <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap' }}>{fmtBRL(p.valor)}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', width: 14, flexShrink: 0 }}>{p.numero ?? '—'}</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap' }}>{fmtBRL(p.valor)}</span>
                     {p.status === 'a_receber' ? (
                       <button
                         onClick={() => setConfirmingRecebidoId(p.id)}
                         title="Marcar como recebida"
-                        style={{ fontSize: 9, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 6px', borderRadius: 99, flexShrink: 0, minWidth: 56, textAlign: 'center', border: 'none', cursor: 'pointer' }}
+                        style={{ fontSize: 10, fontWeight: 600, color: s.color, background: s.bg, padding: '2px 7px', borderRadius: 99, flexShrink: 0, minWidth: 56, textAlign: 'center', border: 'none', cursor: 'pointer' }}
                       >
                         {s.label}
                       </button>
                     ) : (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: s.color, background: s.bg, padding: '2px 6px', borderRadius: 99, flexShrink: 0, minWidth: 56, textAlign: 'center' }}>{s.label}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: s.color, background: s.bg, padding: '2px 7px', borderRadius: 99, flexShrink: 0, minWidth: 56, textAlign: 'center' }}>{s.label}</span>
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-                      <span style={{ fontSize: 10, color: 'var(--text-subtle)', flexShrink: 0, minWidth: 42, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: 10.5, color: 'var(--text-subtle)', flexShrink: 0, minWidth: 42, textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {p.previsao_recebimento ? fmtDateShort(p.previsao_recebimento) : '—'}
                       </span>
                       <button onClick={() => startEditParcela(p)} style={{ display: 'flex', color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
@@ -388,7 +389,7 @@ export default function LeadFinanceiroPanel({
                       <button
                         onClick={() => deleteParcela(p.id)}
                         disabled={deletingParcelaId === p.id}
-                        style={{ display: 'flex', color: '#EF4444', background: 'none', border: 'none', cursor: deletingParcelaId === p.id ? 'not-allowed' : 'pointer', padding: 2, opacity: deletingParcelaId === p.id ? 0.5 : 1 }}
+                        style={{ display: 'flex', color: 'var(--danger)', background: 'none', border: 'none', cursor: deletingParcelaId === p.id ? 'not-allowed' : 'pointer', padding: 2, opacity: deletingParcelaId === p.id ? 0.5 : 1 }}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -402,7 +403,7 @@ export default function LeadFinanceiroPanel({
           {data && data.parcelas.length > PARCELAS_COLLAPSED_LIMIT && (
             <button
               onClick={() => setShowAllParcelas(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', marginTop: 4, padding: '8px 0 2px', fontSize: 12, fontWeight: 600, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', marginTop: 4, padding: '8px 0 2px', fontSize: 12, fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
             >
               {showAllParcelas ? 'Ver menos' : `Ver mais ${data.parcelas.length - PARCELAS_COLLAPSED_LIMIT} parcelas`}
               <ChevronDown size={13} style={{ transform: showAllParcelas ? 'rotate(180deg)' : 'none', transition: 'transform 180ms ease' }} />
@@ -433,7 +434,7 @@ export default function LeadFinanceiroPanel({
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
                 <button onClick={() => setAddingParcela(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={saveNewParcela} disabled={savingParcela || !newParcela.valor.trim()} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: savingParcela ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                <button onClick={saveNewParcela} disabled={savingParcela || !newParcela.valor.trim()} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: savingParcela ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                   {savingParcela ? 'Salvando…' : 'Lançar'}
                 </button>
               </div>

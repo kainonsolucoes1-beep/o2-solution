@@ -26,6 +26,18 @@ body {
   --border:     #E5E7EB;
   --border-lt:  #F3F4F6;
   --border-in:  #D1D5DB;
+
+  /* cores semânticas — um valor por papel */
+  --accent:      #2563EB;
+  --accent-weak: #EFF6FF;
+  --success:     #059669;
+  --success-weak:#ECFDF5;
+  --danger:      #DC2626;
+  --danger-weak: #FEF2F2;
+  --warning:     #D97706;
+  --warning-weak:#FFFBEB;
+  --info:        #8B5CF6;
+  --info-weak:   #F5F3FF;
 }
 
 html.dark {
@@ -46,6 +58,17 @@ html.dark {
   --border:     #334155;
   --border-lt:  #243044;
   --border-in:  #334155;
+
+  --accent:      #60A5FA;
+  --accent-weak: #1E293B;
+  --success:     #34D399;
+  --success-weak:#12281F;
+  --danger:      #F87171;
+  --danger-weak: #2B1A1A;
+  --warning:     #FBBF24;
+  --warning-weak:#2A2113;
+  --info:        #A78BFA;
+  --info-weak:   #241E33;
 }
 
 body { background: var(--bg-page); }
