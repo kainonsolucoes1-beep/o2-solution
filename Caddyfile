@@ -3,5 +3,6 @@ www.o2sig.com.br {
 }
 
 o2sig.com.br {
+    encode zstd gzip
     reverse_proxy frontend:3000
 }
