@@ -41,7 +41,7 @@ const waHref = 'https://app.hbcconecta.com.br/index.html#/atendimentos/chat/'
 function actionBtnStyle(enabled: boolean): React.CSSProperties {
   return {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 34, padding: '0 12px', borderRadius: 7,
-    fontSize: 12, fontWeight: 700, border: '1px solid var(--border-in)', background: 'var(--bg-card)',
+    fontSize: 12, fontWeight: 600, border: '1px solid var(--border-in)', background: 'var(--bg-card)',
     color: 'var(--text-2)', textDecoration: 'none', cursor: enabled ? 'pointer' : 'not-allowed',
     opacity: enabled ? 1 : 0.4, whiteSpace: 'nowrap',
   }
@@ -49,7 +49,7 @@ function actionBtnStyle(enabled: boolean): React.CSSProperties {
 
 const primaryActionBtnStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 34, padding: '0 12px', borderRadius: 7,
-  fontSize: 12, fontWeight: 700, border: '1px solid #2563EB', background: '#2563EB',
+  fontSize: 12, fontWeight: 600, border: '1px solid var(--accent)', background: 'var(--accent)',
   color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap',
 }
 
@@ -130,18 +130,15 @@ export default function LeadNextStepPanel({
 }) {
   return (
     <section style={{
-      background: 'var(--bg-card)', border: '1px solid #C7D7EC',
+      background: 'var(--bg-card)', border: '1px solid var(--border)',
       borderRadius: 12, padding: '20px 22px',
     }}>
       <div className="grid grid-cols-1 sm:grid-cols-[minmax(230px,.7fr)_minmax(0,1.3fr)]" style={{ gap: 20, alignItems: 'center' }}>
         <div>
-          <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 5px' }}>
-            Próxima etapa da negociação
-          </p>
-          <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.005em' }}>
             Avançar atendimento
           </h3>
-          <p style={{ maxWidth: 420, marginTop: 6, color: 'var(--text-subtle)', fontSize: 11, lineHeight: 1.5 }}>
+          <p style={{ maxWidth: 420, marginTop: 6, color: 'var(--text-subtle)', fontSize: 12, lineHeight: 1.5 }}>
             Continue o atendimento a partir das ações abaixo.
           </p>
         </div>
@@ -151,7 +148,7 @@ export default function LeadNextStepPanel({
             Agendar
           </button>
           <a href={telHref ?? undefined} style={actionBtnStyle(!!telHref)} onClick={e => { if (!telHref) e.preventDefault() }}>
-            <Phone size={14} color={telHref ? '#2563EB' : 'currentColor'} /> Ligar
+            <Phone size={14} color={telHref ? 'var(--accent)' : 'currentColor'} /> Ligar
           </a>
           <a href={waHref} target="_blank" rel="noreferrer" style={actionBtnStyle(true)}>
             <span style={{ color: '#25D366', display: 'flex' }}><WhatsAppIcon size={14} /></span> WhatsApp
@@ -171,7 +168,7 @@ export default function LeadNextStepPanel({
                   style={{ padding: '6px 9px', height: 34, borderRadius: 7, border: '1px solid var(--border-in)', fontSize: 12, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
                 />
                 <button
-                  style={{ ...primaryActionBtnStyle, background: '#7C3AED', borderColor: '#7C3AED' }}
+                  style={{ ...primaryActionBtnStyle, background: 'var(--info)', borderColor: 'var(--info)' }}
                   onClick={onConfirmRetrabalhar}
                   disabled={retrabalhando || !retrabalharData}
                 >
@@ -186,7 +183,7 @@ export default function LeadNextStepPanel({
               </div>
             ) : (
               <button
-                style={{ ...primaryActionBtnStyle, background: '#7C3AED', borderColor: '#7C3AED' }}
+                style={{ ...primaryActionBtnStyle, background: 'var(--info)', borderColor: 'var(--info)' }}
                 onClick={onToggleRetrabalhar}
               >
                 Retrabalhar lead
@@ -220,7 +217,7 @@ export default function LeadNextStepPanel({
 
         {editingProposta && (
         <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Valor da proposta
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -229,7 +226,7 @@ export default function LeadNextStepPanel({
               onClick={onSaveProposta}
               disabled={savingProposta || !propostaValor}
               style={{
-                background: savingProposta || !propostaValor ? 'var(--bg-subtle)' : '#2563EB',
+                background: savingProposta || !propostaValor ? 'var(--bg-subtle)' : 'var(--accent)',
                 color: savingProposta || !propostaValor ? 'var(--text-subtle)' : 'white',
                 border: 'none', borderRadius: 8,
                 padding: '7px 16px', fontSize: 13, fontWeight: 500,
@@ -250,7 +247,7 @@ export default function LeadNextStepPanel({
 
         {editingStatus && (
         <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Status
           </div>
           <div style={{ marginTop: 8 }}>
@@ -296,7 +293,7 @@ export default function LeadNextStepPanel({
                     onClick={onSaveVenda}
                     disabled={savingVenda || !vendaValor || !vendaData}
                     style={{
-                      background: savingVenda || !vendaValor || !vendaData ? 'var(--bg-subtle)' : '#2563EB',
+                      background: savingVenda || !vendaValor || !vendaData ? 'var(--bg-subtle)' : 'var(--accent)',
                       color: savingVenda || !vendaValor || !vendaData ? 'var(--text-subtle)' : 'white',
                       border: 'none', borderRadius: 8,
                       padding: '7px 16px', fontSize: 13, fontWeight: 500,
@@ -321,7 +318,7 @@ export default function LeadNextStepPanel({
               ) : statusSubMenu === 'fechado' ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   {CLOSED_SUB_OPTIONS.map(opt => {
-                    const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
+                    const s = STATUS_STYLE[opt.value] ?? { bg: 'var(--bg-subtle)', color: 'var(--text-muted)' }
                     return (
                       <button
                         key={opt.value}
@@ -375,7 +372,7 @@ export default function LeadNextStepPanel({
               ) : (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {STATUS_OPTIONS.map(opt => {
-                    const s = STATUS_STYLE[opt.value] ?? { bg: '#F3F4F6', color: '#6B7280' }
+                    const s = STATUS_STYLE[opt.value] ?? { bg: 'var(--bg-subtle)', color: 'var(--text-muted)' }
                     const active = status === opt.value
                     return (
                       <button
@@ -410,7 +407,7 @@ export default function LeadNextStepPanel({
 
         {editingPerception && (
         <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Temperatura
           </div>
           <div style={{ marginTop: 8 }}>
@@ -450,7 +447,7 @@ export default function LeadNextStepPanel({
 
         {editingSchedule && (
         <div ref={agendaRef} style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Agendar
           </div>
           <div style={{ marginTop: 8 }}>
@@ -473,7 +470,7 @@ export default function LeadNextStepPanel({
                   onClick={onSaveSchedule}
                   disabled={savingSchedule || !scheduleInput}
                   style={{
-                    background: savingSchedule || !scheduleInput ? 'var(--bg-subtle)' : '#2563EB',
+                    background: savingSchedule || !scheduleInput ? 'var(--bg-subtle)' : 'var(--accent)',
                     color: savingSchedule || !scheduleInput ? 'var(--text-subtle)' : 'white',
                     border: 'none', borderRadius: 8,
                     padding: '7px 16px', fontSize: 13, fontWeight: 500,
@@ -486,7 +483,7 @@ export default function LeadNextStepPanel({
                   <button
                     onClick={onRemoveSchedule}
                     disabled={cancelingSchedule}
-                    style={{ fontSize: 11.5, color: '#DC2626', background: 'none', border: 'none', cursor: cancelingSchedule ? 'not-allowed' : 'pointer', fontWeight: 500 }}
+                    style={{ fontSize: 11.5, color: 'var(--danger)', background: 'none', border: 'none', cursor: cancelingSchedule ? 'not-allowed' : 'pointer', fontWeight: 500 }}
                   >
                     {cancelingSchedule ? 'Removendo…' : 'Remover'}
                   </button>
