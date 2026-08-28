@@ -6,6 +6,7 @@ import SectionCard from './SectionCard'
 import EditPencil from './EditPencil'
 import Field from './Field'
 import FieldLabel from './FieldLabel'
+import Pill from './Pill'
 import EditInput from './EditInput'
 import Combobox from './Combobox'
 
@@ -196,11 +197,7 @@ export default function LeadFinanceiroPanel({
       icon={Wallet}
       action={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {origem && (
-            <span style={{ fontSize: 10, fontWeight: 600, color: origem.color, background: origem.bg, padding: '2px 9px', borderRadius: 99 }}>
-              {origem.label}
-            </span>
-          )}
+          {origem && <Pill colors={origem}>{origem.label}</Pill>}
           {editingGeral ? (
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setEditingGeral(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancelar</button>

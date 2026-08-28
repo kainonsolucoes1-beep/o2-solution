@@ -1,17 +1,11 @@
 import { ArrowLeft, MoreVertical, Trash2 } from 'lucide-react'
+import Pill from './Pill'
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
-
-function badgeStyle(s: { bg: string; color: string }): React.CSSProperties {
-  return {
-    background: s.bg, color: s.color,
-    padding: '3px 11px', borderRadius: 99, fontSize: 12, fontWeight: 600,
-  }
 }
 
 function ContactRow({ label, value }: { label: string; value: string }) {
@@ -72,8 +66,8 @@ export default function LeadDetailHeader({
             <div className="flex items-center flex-wrap" style={{ gap: 10 }}>
               <p className="text-[18px] sm:text-[24px]" style={{ fontWeight: 700, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>{name}</p>
               <div className="flex flex-wrap" style={{ gap: 5, marginTop: 3 }}>
-                <span style={badgeStyle(sStyle)}>{statusLabel}</span>
-                {perceptionLabel && perceptionStyle && <span style={badgeStyle(perceptionStyle)}>{perceptionLabel}</span>}
+                <Pill colors={sStyle}>{statusLabel}</Pill>
+                {perceptionLabel && perceptionStyle && <Pill colors={perceptionStyle}>{perceptionLabel}</Pill>}
               </div>
             </div>
           </div>

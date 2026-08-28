@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import FieldLabel from './FieldLabel'
+import Pill from './Pill'
 
 const OPERADORAS_OPTIONS = [
   'Amil', 'Bradesco', 'Hapvida', 'Medsenior', 'Prevent Senior', 'Trasmontano', 'SulAmérica',
@@ -27,16 +28,7 @@ export default function OperadorasField({ value, saving, onChange }: { value: st
       {!expanded && selected.size > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginLeft: 17 }}>
           {[...selected].map(op => (
-            <span
-              key={op}
-              style={{
-                fontSize: 12.5, fontWeight: 700, textDecoration: 'underline',
-                color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE',
-                borderRadius: 99, padding: '3px 12px',
-              }}
-            >
-              {op}
-            </span>
+            <Pill key={op} tone="info">{op}</Pill>
           ))}
         </div>
       )}
