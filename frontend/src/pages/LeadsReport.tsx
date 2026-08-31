@@ -368,6 +368,10 @@ export default function LeadsReport() {
     if (searched) fetchReport(1)
   }, [conversionPointFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (searched) fetchReport(1)
+  }, [statusFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
 
   const fetchReport = useCallback(

@@ -149,12 +149,15 @@ def leads_by_period(
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
-            # lead de renutrição escapa da janela de captação — a data que importa
-            # nele é a de reativação, não quando o lead nasceu
-            q = q.filter(or_(
-                and_(Lead.created_at >= start, Lead.created_at < end),
-                Lead.is_renutrucao.is_(True),
-            ))
+            date_clause = and_(Lead.created_at >= start, Lead.created_at < end)
+            # lead de renutrição escapa da janela de captação (a data que importa
+            # nele é a de reativação) -- mas só no modo renutrição, ou pra quem
+            # tem visão restrita à própria carteira (a fila da pessoa). No
+            # relatório normal do admin, renutrição segue a janela de data.
+            if renutricao or needs_own_origin_filter(current_user):
+                q = q.filter(or_(date_clause, Lead.is_renutrucao.is_(True)))
+            else:
+                q = q.filter(date_clause)
         if needs_own_origin_filter(current_user):
             q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
         elif origem:
@@ -300,12 +303,15 @@ def leads_report_stats(
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
-            # lead de renutrição escapa da janela de captação — a data que importa
-            # nele é a de reativação, não quando o lead nasceu
-            q = q.filter(or_(
-                and_(Lead.created_at >= start, Lead.created_at < end),
-                Lead.is_renutrucao.is_(True),
-            ))
+            date_clause = and_(Lead.created_at >= start, Lead.created_at < end)
+            # lead de renutrição escapa da janela de captação (a data que importa
+            # nele é a de reativação) -- mas só no modo renutrição, ou pra quem
+            # tem visão restrita à própria carteira (a fila da pessoa). No
+            # relatório normal do admin, renutrição segue a janela de data.
+            if renutricao or needs_own_origin_filter(current_user):
+                q = q.filter(or_(date_clause, Lead.is_renutrucao.is_(True)))
+            else:
+                q = q.filter(date_clause)
         if needs_own_origin_filter(current_user):
             q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
         elif origem:
