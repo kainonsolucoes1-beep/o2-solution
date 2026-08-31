@@ -480,6 +480,20 @@ const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
 }
 function fmtDate(iso: string) { return new Date(parseUTC(iso)).toLocaleDateString('pt-BR') }
 
+const uBtn: import('react').CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5, fontWeight: 600,
+  padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)',
+  background: 'var(--bg-card)', color: 'var(--text-3b)', cursor: 'pointer',
+}
+function UField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <span style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text-subtle)' }}>{label}</span>
+      <span style={{ fontSize: 13.5, color: 'var(--text-1)', fontWeight: 500, ...(mono ? { fontFamily: 'ui-monospace, monospace', fontSize: 12 } : {}) }}>{value}</span>
+    </div>
+  )
+}
+
 function UsuariosTab() {
   const navigate = useNavigate()
   const [users, setUsers]           = useState<UserItem[]>([])
@@ -608,62 +622,54 @@ function UsuariosTab() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        {loading ? (
-          <p style={{ padding: '24px', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--border)', background: 'var(--bg-hover)' }}>
-                  {['Nome', 'Email', 'Username', 'Perfil', 'Status', 'Criado em', 'Ações'].map(h => (
-                    <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user, i) => (
-                  <tr key={user.id} style={{ borderBottom: i < users.length - 1 ? '1px solid var(--border-lt)' : 'none', background: 'var(--bg-card)', opacity: user.is_active ? 1 : 0.5 }}>
-                    <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)' }}>{user.first_name || '—'}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>{user.email}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>{user.username}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: (ROLE_STYLE[user.role] ?? ROLE_STYLE.usuario).bg, color: (ROLE_STYLE[user.role] ?? ROLE_STYLE.usuario).color }}>{user.role}</span>
-                      {user.role === 'supervisor' && user.team && (
-                        <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>{user.team}</div>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: user.is_active ? 'rgba(16,185,129,0.12)' : 'rgba(107,114,128,0.12)', color: user.is_active ? '#10B981' : '#6B7280' }}>{user.is_active ? 'Ativo' : 'Inativo'}</span>
-                      {user.must_change_password && (
-                        <div style={{ fontSize: 11, color: '#D97706', marginTop: 4 }}>Precisa trocar senha</div>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fmtDate(user.created_at)}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => openEdit(user)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'none', color: 'var(--text-3b)', cursor: 'pointer' }}>
-                          <Pencil size={12} /> Editar
-                        </button>
-                        <select
-                          value={user.role}
-                          onChange={e => changeRole(user, e.target.value)}
-                          style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-3b)', cursor: 'pointer' }}
-                        >
-                          {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                        <button onClick={() => toggleActive(user)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', background: user.is_active ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: user.is_active ? '#EF4444' : '#10B981' }}>
-                          {user.is_active ? 'Desativar' : 'Ativar'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <p style={{ padding: '24px', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
+      ) : (
+        <div className="flex flex-col" style={{ gap: 8 }}>
+          {users.map(user => {
+            const rs = ROLE_STYLE[user.role] ?? ROLE_STYLE.usuario
+            return (
+              <Accordion
+                key={user.id}
+                title={
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: user.is_active ? 'var(--text-1)' : 'var(--text-subtle)' }}>{user.first_name || user.username}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 99, background: rs.bg, color: rs.color }}>{user.role}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 99, background: user.is_active ? 'rgba(16,185,129,0.12)' : 'rgba(107,114,128,0.12)', color: user.is_active ? '#10B981' : '#6B7280' }}>{user.is_active ? 'Ativo' : 'Inativo'}</span>
+                    {user.must_change_password && <span style={{ fontSize: 11, color: '#D97706' }}>· troca de senha pendente</span>}
+                  </span>
+                }
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px 20px' }}>
+                  <UField label="E-mail" value={user.email} />
+                  <UField label="Username" value={user.username} mono />
+                  {user.team && <UField label="Equipe" value={user.team} />}
+                  <UField label="Criado em" value={fmtDate(user.created_at)} />
+                  {user.phone && <UField label="Telefone" value={user.phone} />}
+                  {user.cpf && <UField label="CPF" value={user.cpf} />}
+                  {user.birth_date && <UField label="Nascimento" value={`${fmtDate(user.birth_date)}${user.idade ? ` · ${user.idade}` : ''}`} />}
+                  {user.hire_date && <UField label="Início" value={fmtDate(user.hire_date)} />}
+                  {user.termination_date && <UField label="Desligamento" value={fmtDate(user.termination_date)} />}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-lt)' }}>
+                  <button onClick={() => openEdit(user)} style={{ ...uBtn, color: 'var(--accent)', borderColor: 'var(--accent-weak)', background: 'var(--accent-weak)' }}>
+                    <Pencil size={12} /> Editar dados
+                  </button>
+                  <select value={user.role} onChange={e => changeRole(user, e.target.value)} style={{ ...uBtn }}>
+                    {ROLE_OPTIONS.map(r => <option key={r} value={r}>Perfil: {r}</option>)}
+                  </select>
+                  <button
+                    onClick={() => toggleActive(user)}
+                    style={{ ...uBtn, borderColor: 'transparent', ...(user.is_active ? { color: '#EF4444', background: 'rgba(239,68,68,0.1)' } : { color: '#10B981', background: 'rgba(16,185,129,0.1)' }) }}
+                  >
+                    {user.is_active ? 'Desativar' : 'Ativar'}
+                  </button>
+                </div>
+              </Accordion>
+            )
+          })}
+        </div>
+      )}
 
       {editUser && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={() => setEditUser(null)}>
@@ -1068,12 +1074,11 @@ export default function Settings() {
       </div>
 
       {isUsuarios ? (
-        <div className="flex flex-col" style={{ gap: 40 }}>
+        <div className="flex flex-col" style={{ gap: 10 }}>
           <UsuariosTab />
-          <div>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)', marginBottom: 16 }}>Acesso ao Formulário</h2>
+          <Accordion title="Acesso ao formulário" summary="logins usados pelo formulário externo (Gravity Forms)">
             <FormularioTab />
-          </div>
+          </Accordion>
         </div>
       ) : (
         <ConfiguracoesTab />

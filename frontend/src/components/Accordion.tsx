@@ -6,7 +6,7 @@ import { ChevronRight } from 'lucide-react'
 export default function Accordion({
   title, summary, statusColor, defaultOpen = false, right, children,
 }: {
-  title: string
+  title: ReactNode
   summary?: ReactNode
   statusColor?: string
   defaultOpen?: boolean
@@ -29,7 +29,9 @@ export default function Accordion({
         }}
       >
         {statusColor && <span style={{ width: 7, height: 7, borderRadius: 999, background: statusColor, flexShrink: 0 }} />}
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{title}</span>
+        {typeof title === 'string'
+          ? <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{title}</span>
+          : title}
         {summary != null && (
           <span style={{ fontSize: 12.5, color: 'var(--text-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {summary}
