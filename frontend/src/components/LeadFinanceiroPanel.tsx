@@ -53,7 +53,7 @@ interface GeralDraft {
 export default function LeadFinanceiroPanel({
   leadId, modalidadeOptions,
   titularLabel, promotoraLabel, modalidadeLabel, operadoraLabel, categoriaLabel, dataVendaLabel, dataVendaRaw,
-  onSaved,
+  onSaved, locked,
 }: {
   leadId: string
   modalidadeOptions: string[]
@@ -65,6 +65,7 @@ export default function LeadFinanceiroPanel({
   dataVendaLabel: string
   dataVendaRaw: string | null
   onSaved: () => void
+  locked?: boolean
 }) {
   const [data, setData] = useState<ParcelasListResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -198,7 +199,7 @@ export default function LeadFinanceiroPanel({
       action={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {origem && <Pill colors={origem}>{origem.label}</Pill>}
-          {editingGeral ? (
+          {locked ? null : editingGeral ? (
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setEditingGeral(false)} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancelar</button>
               <button onClick={saveGeral} disabled={savingGeral} style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: savingGeral ? 'not-allowed' : 'pointer', fontWeight: 600 }}>

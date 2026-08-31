@@ -16,7 +16,7 @@ export default function LeadNegotiationPanel({
   planoAtual, valorCotacaoLabel,
   operadoras, savingOperadoras, onOperadorasChange,
   editingDetalhes, savingDetalhes, detalhesDraft, onDraftChange, onStartEdit, onCancelEdit, onSaveEdit,
-  isAdmin, createdAtValue, savingCreatedAt, onUpdateCreatedAt,
+  isAdmin, createdAtValue, savingCreatedAt, onUpdateCreatedAt, locked,
 }: {
   perceptionLabel: string | null
   perceptionStyle: { bg: string; color: string } | null
@@ -40,10 +40,11 @@ export default function LeadNegotiationPanel({
   createdAtValue: string
   savingCreatedAt: boolean
   onUpdateCreatedAt: (v: string) => void
+  locked?: boolean
 }) {
   return (
     <SectionCard title="Negociação" icon={Tag} action={
-      editingDetalhes ? (
+      locked ? null : editingDetalhes ? (
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onCancelEdit} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
             Cancelar
@@ -66,7 +67,7 @@ export default function LeadNegotiationPanel({
           <Field label="Temperatura" value="Sem temperatura" />
         )}
 
-        <SelectField label="Modalidade" value={modalidade} options={modalidadeOptions} saving={savingModalidade} onChange={onModalidadeChange} />
+        <SelectField label="Modalidade" value={modalidade} options={modalidadeOptions} saving={savingModalidade || locked} onChange={onModalidadeChange} />
 
         {editingDetalhes ? (
           <EditInput label="Plano Atual" value={detalhesDraft.current_plan} onChange={v => onDraftChange('current_plan', v)} />
@@ -80,7 +81,7 @@ export default function LeadNegotiationPanel({
           <Field label="Valor da Cotação" value={valorCotacaoLabel} />
         )}
 
-        <OperadorasField value={operadoras} saving={savingOperadoras} onChange={onOperadorasChange} />
+        <OperadorasField value={operadoras} saving={savingOperadoras || locked} onChange={onOperadorasChange} />
 
         {editingDetalhes && isAdmin && (
           <DateField

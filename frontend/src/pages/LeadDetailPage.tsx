@@ -669,6 +669,7 @@ export default function LeadDetailPage() {
           </p>
 
           <LeadNegotiationPanel
+            locked={renutricaoLock}
             perceptionLabel={perception?.label ?? null}
             perceptionStyle={perception}
             modalidade={lead.modalidade ?? ''}
@@ -694,6 +695,7 @@ export default function LeadDetailPage() {
           />
 
           <LeadRegistrationPanel
+            locked={renutricaoLock}
             origem={lead.origem ?? ''}
             origemOptions={origins}
             savingOrigem={savingOrigin}
@@ -727,6 +729,7 @@ export default function LeadDetailPage() {
 
           {canSeeFinancials && id && (
             <LeadFinanceiroPanel
+            locked={renutricaoLock}
               leadId={id}
               modalidadeOptions={modalidades}
               titularLabel={lead.receita_titular ?? 'Não informado'}

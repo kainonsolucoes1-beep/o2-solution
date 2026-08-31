@@ -19,7 +19,7 @@ export default function LeadRegistrationPanel({
   origem, origemOptions, savingOrigem, onOrigemChange,
   conversionPoint, conversionPointOptions, savingConversionPoint, onConversionPointChange,
   leadSinceLabel, retrabalhadoEmLabel, documentoLabel, empresaLabel, visibilityTag,
-  editingInfo, savingInfo, infoDraft, onDraftChange, onStartEdit, onCancelEdit, onSaveEdit,
+  editingInfo, savingInfo, infoDraft, onDraftChange, onStartEdit, onCancelEdit, onSaveEdit, locked,
 }: {
   origem: string
   origemOptions: string[]
@@ -41,10 +41,11 @@ export default function LeadRegistrationPanel({
   onStartEdit: () => void
   onCancelEdit: () => void
   onSaveEdit: () => void
+  locked?: boolean
 }) {
   return (
     <SectionCard title="Cadastro" icon={User} action={
-      editingInfo ? (
+      locked ? null : editingInfo ? (
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onCancelEdit} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
             Cancelar
@@ -58,8 +59,8 @@ export default function LeadRegistrationPanel({
       )
     }>
       <div className="flex flex-col gap-4">
-        <SelectField label="Origem" value={origem} options={origemOptions} saving={savingOrigem} onChange={onOrigemChange} />
-        <SelectField label="Ponto de Conversão" value={conversionPoint} options={conversionPointOptions} saving={savingConversionPoint} onChange={onConversionPointChange} />
+        <SelectField label="Origem" value={origem} options={origemOptions} saving={savingOrigem || locked} onChange={onOrigemChange} />
+        <SelectField label="Ponto de Conversão" value={conversionPoint} options={conversionPointOptions} saving={savingConversionPoint || locked} onChange={onConversionPointChange} />
         <Field label="Lead desde" value={leadSinceLabel} />
         {retrabalhadoEmLabel && <Field label="Retrabalhado em" value={retrabalhadoEmLabel} />}
         <Field label="Idade" value="Não informado" />
