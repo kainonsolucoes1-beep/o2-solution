@@ -612,18 +612,20 @@ export default function LeadsReport() {
               <Filter size={15} />
               Filtros
             </button>
-            <button
-              onClick={() => setImportOpen(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)',
-                cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
-            >
-              <Upload size={15} />
-              Importar Renutrição
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setImportOpen(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                  background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)',
+                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                }}
+              >
+                <Upload size={15} />
+                Importar Renutrição
+              </button>
+            )}
           </div>
         </div>
 

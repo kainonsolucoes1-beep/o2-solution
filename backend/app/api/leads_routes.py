@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -142,7 +142,12 @@ def leads_by_period(
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
-            q = q.filter(Lead.created_at >= start, Lead.created_at < end)
+            # lead de renutrição escapa da janela de captação — a data que importa
+            # nele é a de reativação, não quando o lead nasceu
+            q = q.filter(or_(
+                and_(Lead.created_at >= start, Lead.created_at < end),
+                Lead.is_renutrucao.is_(True),
+            ))
         if needs_own_origin_filter(current_user):
             q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
         elif origem:
@@ -288,7 +293,12 @@ def leads_report_stats(
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
-            q = q.filter(Lead.created_at >= start, Lead.created_at < end)
+            # lead de renutrição escapa da janela de captação — a data que importa
+            # nele é a de reativação, não quando o lead nasceu
+            q = q.filter(or_(
+                and_(Lead.created_at >= start, Lead.created_at < end),
+                Lead.is_renutrucao.is_(True),
+            ))
         if needs_own_origin_filter(current_user):
             q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
         elif origem:
