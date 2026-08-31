@@ -8,6 +8,7 @@ import { parseUTC } from '../utils/date'
 import SectionTitle from '../components/SectionTitle'
 import Combobox from '../components/Combobox'
 import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
+import AssignRenutricaoModal from '../components/AssignRenutricaoModal'
 import { useTheme } from '../ThemeContext'
 
 interface Me {
@@ -266,6 +267,7 @@ export default function LeadsReport() {
   const [newLeadOpen, setNewLeadOpen] = useState(false)
   const [savingNewLead, setSavingNewLead] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [assignOpen, setAssignOpen] = useState(false)
   const [newLeadError, setNewLeadError] = useState('')
   const [newLead, setNewLead] = useState({
     name: '', company: '', email: '', phone: '', document: '',
@@ -559,18 +561,32 @@ export default function LeadsReport() {
               </div>
             )}
             {isAdmin && selected.size > 0 && (
-              <button
-                onClick={() => setConfirmDeleteOpen(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
-                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                }}
-              >
-                <Trash2 size={15} />
-                Excluir ({selected.size})
-              </button>
+              <>
+                <button
+                  onClick={() => setAssignOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: 'var(--accent-weak)', color: 'var(--accent)', border: '1px solid var(--accent-weak)',
+                    cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                  }}
+                >
+                  <RotateCcw size={15} />
+                  Atribuir renutrição ({selected.size})
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
+                    cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                  }}
+                >
+                  <Trash2 size={15} />
+                  Excluir ({selected.size})
+                </button>
+              </>
             )}
             <button
               onClick={() => { resetNewLead(); setNewLeadOpen(true) }}
@@ -615,6 +631,14 @@ export default function LeadsReport() {
           <ImportRenutricaoModal
             onClose={() => setImportOpen(false)}
             onImported={() => fetchReport(page)}
+          />
+        )}
+
+        {assignOpen && (
+          <AssignRenutricaoModal
+            leadIds={[...selected]}
+            onClose={() => setAssignOpen(false)}
+            onAssigned={() => { setAssignOpen(false); setSelected(new Set()); fetchReport(page) }}
           />
         )}
 

@@ -22,6 +22,10 @@ class Lead(Base):
     value_potential = Column(Numeric(12, 2))
     notes = Column(Text)
     is_renutrucao = Column(Boolean, default=False, nullable=False, server_default='false')
+    # dono da renutricao: quando preenchido, o lead "pertence" a esse usuario
+    # pra trabalhar a reativacao. Um usuario passa a ver esses leads mesmo que
+    # o origin nao seja o nome dele; a ficha avisa quem nao e' o dono.
+    renutricao_owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     # quando um lead cancelado/parado e' retrabalhado, esta data marca a
     # "captacao efetiva" pros relatorios de periodo, sem apagar created_at
     # (historico real de quando o lead nasceu)

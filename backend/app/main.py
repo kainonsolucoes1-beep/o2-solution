@@ -56,6 +56,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_origem VARCHAR(10) NOT NULL DEFAULT 'sheet'"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS retrabalhado_em TIMESTAMP"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS origin_locked BOOLEAN NOT NULL DEFAULT false"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS renutricao_owner_id UUID REFERENCES users(id) ON DELETE SET NULL"))
     _conn.commit()
 
 # seed via ORM (nao SQL puro) pra que o id UUID seja gerado pelo default do

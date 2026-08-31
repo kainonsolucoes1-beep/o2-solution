@@ -31,6 +31,7 @@ from app.schemas.lead import (
     LeadReceitaUpdateRequest, LeadReceitaUpdateResponse,
     ParcelaRequest, ParcelaUpdateRequest, ParcelaResponse, ParcelasListResponse,
     AttachmentResponse, AttachmentsListResponse, AttachmentUploadResponse, AttachmentDownloadResponse,
+    RenutricaoAssignRequest, RenutricaoAssignConflict, RenutricaoAssignResponse,
     RetrabalharRequest, RetrabalharResponse,
     RenutricaoPreviewResponse, RenutricaoConfirmRequest, RenutricaoConfirmResponse,
 )
@@ -143,7 +144,7 @@ def leads_by_period(
         if not searching:
             q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if needs_own_origin_filter(current_user):
-            q = q.filter(Lead.origin == my_name)
+            q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
         elif origem:
             parts = [s.strip() for s in origem.split(',') if s.strip()]
             if len(parts) == 1:
@@ -289,7 +290,7 @@ def leads_report_stats(
         if not searching:
             q = q.filter(Lead.created_at >= start, Lead.created_at < end)
         if needs_own_origin_filter(current_user):
-            q = q.filter(Lead.origin == my_name)
+            q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
         elif origem:
             parts = [s.strip() for s in origem.split(',') if s.strip()]
             if len(parts) == 1:
@@ -587,6 +588,64 @@ def confirm_renutricao_import(
         updated += 1
     db.commit()
     return RenutricaoConfirmResponse(success=True, updated=updated)
+
+
+_ATTENDANT_PLACEHOLDERS = {"", "-", "não informado", "nao informado", "sem atendente", "não atribuído", "nao atribuido"}
+
+
+@router.post("/leads/renutricao/assign", response_model=RenutricaoAssignResponse)
+def assign_renutricao(
+    body: RenutricaoAssignRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Atribui um lote de leads a um usuario pra trabalhar a renutricao.
+    Recusa (lista em `conflicts`) o lead cujo origin e' o nome de uma conta
+    ativa OU que ja tem um atendente de verdade -- a menos que o id esteja
+    em force_ids. So admin."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Apenas administradores podem atribuir renutrição")
+    owner = db.query(User).filter(User.id == body.owner_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Usuário de destino não encontrado")
+
+    people = set()
+    for fn, un in db.query(User.first_name, User.username).filter(User.is_active.is_(True)).all():
+        if fn:
+            people.add(fn.strip().lower())
+        if un:
+            people.add(un.strip().lower())
+
+    def _conflict(lead: Lead):
+        att = (lead.attendant or "").strip()
+        if att.lower() not in _ATTENDANT_PLACEHOLDERS:
+            return f"atendente {att}"
+        org = (lead.origin or "").strip()
+        if org.lower() in people:
+            return f"origin {org}"
+        return None
+
+    force = set(body.force_ids)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    assigned = 0
+    conflicts: list = []
+    for lead in db.query(Lead).filter(Lead.id.in_(body.lead_ids)).all():
+        reason = _conflict(lead)
+        if reason and lead.id not in force:
+            conflicts.append(RenutricaoAssignConflict(lead_id=lead.id, name=lead.name, reason=reason))
+            continue
+        lead.renutricao_owner_id = owner.id
+        lead.is_renutrucao = True
+        if lead.retrabalhado_em is None:
+            lead.retrabalhado_em = now
+        lead.updated_at = now
+        db.add(LeadNote(
+            lead_id=lead.id, user_id=current_user.id,
+            content=f"Renutrição atribuída a {owner.first_name or owner.username} por {current_user.first_name or current_user.username}",
+        ))
+        assigned += 1
+    db.commit()
+    return RenutricaoAssignResponse(assigned=assigned, conflicts=conflicts)
 
 
 @router.post("/leads/{lead_id}/info", response_model=LeadInfoUpdateResponse)

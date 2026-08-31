@@ -361,3 +361,20 @@ class RenutricaoConfirmRequest(BaseModel):
 class RenutricaoConfirmResponse(BaseModel):
     success: bool
     updated: int
+
+
+class RenutricaoAssignRequest(BaseModel):
+    lead_ids: List[UUID]
+    owner_id: UUID
+    force_ids: List[UUID] = []  # leads em conflito que o admin decidiu atribuir mesmo assim
+
+
+class RenutricaoAssignConflict(BaseModel):
+    lead_id: UUID
+    name: str
+    reason: str  # ex: "origin Isaac", "atendente Julia"
+
+
+class RenutricaoAssignResponse(BaseModel):
+    assigned: int
+    conflicts: List[RenutricaoAssignConflict]
