@@ -94,7 +94,6 @@ const STATUS_PILLS: { value: string; label: string; color: string; bg: string; b
   { value: STATUS_PROPOSTA,   label: 'Proposta',      color: '#9333EA', bg: '#FAF5FF', border: '#E9D5FF' },
   { value: STATUS_FECHADO,    label: 'Fechado',       color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
   { value: STATUS_PERDIDO,    label: 'Perdido',       color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
-  { value: STATUS_RENUTRICAO, label: '🔄 Renutrição', color: '#0D9488', bg: '#F0FDFA', border: '#99F6E4' },
 ]
 
 // Atalhos de período do painel de filtros -- cada um calcula um intervalo
@@ -612,6 +611,25 @@ export default function LeadsReport() {
               <Filter size={15} />
               Filtros
             </button>
+            {(() => {
+              const on = statusFilter === STATUS_RENUTRICAO
+              return (
+                <button
+                  onClick={() => setStatusFilter(on ? '' : STATUS_RENUTRICAO)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    background: on ? '#0D9488' : 'var(--bg-card)',
+                    color: on ? '#fff' : '#0D9488',
+                    border: `1px solid ${on ? '#0D9488' : '#99F6E4'}`,
+                    cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                  }}
+                >
+                  <RotateCcw size={15} />
+                  Renutrição
+                </button>
+              )
+            })()}
             {isAdmin && (
               <button
                 onClick={() => setImportOpen(true)}
