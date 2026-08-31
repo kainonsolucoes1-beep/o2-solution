@@ -7,6 +7,7 @@ import {
 import api from '../api'
 import { parseUTC } from '../utils/date'
 import { useTheme } from '../ThemeContext'
+import Accordion from '../components/Accordion'
 
 // ── Configurações tab ────────────────────────────────────────────────────────
 interface SyncHealth {
@@ -171,12 +172,14 @@ function ConfiguracoesTab() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 700 }}>
-      <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Status do Sync Automático</h2>
-          <button onClick={fetchHealth} style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, backgroundColor: 'var(--bg-subtle)' }}>Atualizar</button>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 720 }}>
+      <Accordion
+        title="Status do sync automático"
+        defaultOpen
+        statusColor={healthLoading ? 'var(--text-subtle)' : !health ? 'var(--danger)' : !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444'}
+        summary={!health ? undefined : health.last_sync_ok ? `OK · ${formatAgo(health.last_sync_at)}` : 'Falha no último sync'}
+      >
+        <div className="flex flex-col gap-3">
         {healthLoading ? (
           <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
         ) : health ? (
@@ -202,13 +205,17 @@ function ConfiguracoesTab() {
         ) : (
           <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar o status.</p>
         )}
-      </div>
-
-      <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Tokens Followize</h2>
-          <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>Cole os tokens gerados pelo script <code>renovar_token.py</code>. O sistema atualiza imediatamente sem precisar reiniciar.</p>
+        <button onClick={fetchHealth} style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', padding: '6px 12px', borderRadius: 8 }}>Atualizar agora</button>
         </div>
+      </Accordion>
+
+      <Accordion
+        title="Tokens Followize"
+        statusColor={health?.tokens_configured ? '#10B981' : '#EF4444'}
+        summary={health?.tokens_configured ? 'configurados' : 'não encontrados'}
+      >
+        <div className="flex flex-col gap-5">
+        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Cole os tokens gerados pelo script <code>renovar_token.py</code>. O sistema atualiza imediatamente sem precisar reiniciar.</p>
         <div className="flex flex-col gap-2">
           <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>Access Token</label>
           <textarea value={accessToken} onChange={e => setAccessToken(e.target.value)} rows={4} placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
@@ -224,13 +231,16 @@ function ConfiguracoesTab() {
         <button onClick={handleSave} disabled={status === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: status === 'loading' ? '#93C5FD' : '#2563EB', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: status === 'loading' ? 'not-allowed' : 'pointer' }}>
           {status === 'loading' ? 'Salvando...' : 'Salvar Tokens'}
         </button>
-      </div>
-
-      <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Chaves de Integração — Leads públicos (sites)</h2>
-          <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>Use no webhook do Gravity Forms (ou outro formulário externo) para enviar leads direto pro sistema, sem passar pelo Followize.</p>
         </div>
+      </Accordion>
+
+      <Accordion
+        title="Chaves de integração — leads públicos"
+        statusColor="var(--accent)"
+        summary={publicKeyLoading ? undefined : `1 chave de conta · ${Object.keys(teamKeys).length} de equipe`}
+      >
+        <div className="flex flex-col gap-4">
+        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Use no webhook do Gravity Forms (ou outro formulário externo) para enviar leads direto pro sistema, sem passar pelo Followize.</p>
 
         <div>
           <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Conta</p>
@@ -285,13 +295,12 @@ function ConfiguracoesTab() {
         <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>
           Endpoint: <code>POST /api/v1/public/leads</code> · Headers: <code>X-API-Key</code> (conta) + <code>X-Team-Key</code> (equipe) · Campos: name, email, phone, company, message, origin, conversion_point.
         </p>
-      </div>
-
-      <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Documentação da API — Leads públicos</h2>
-          <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>Referência para integrar sites e automações (Gravity Forms, Make.com, etc.) direto com o o2-solution.</p>
         </div>
+      </Accordion>
+
+      <Accordion title="Documentação da API — leads públicos" summary="endpoint, campos e exemplo de payload">
+        <div className="flex flex-col gap-4">
+        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Referência para integrar sites e automações (Gravity Forms, Make.com, etc.) direto com o o2-solution.</p>
 
         <div className="flex items-center" style={{ gap: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: '#2563EB', padding: '3px 9px', borderRadius: 5, letterSpacing: '0.03em' }}>POST</span>
@@ -402,25 +411,23 @@ function ConfiguracoesTab() {
             <pre style={{ margin: 0, fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', fontSize: 12, lineHeight: 1.6, color: '#E2E8F0', whiteSpace: 'pre' }}>{buildCurlExample()}</pre>
           </div>
         </div>
-      </div>
-
-      <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Reprocessamento Histórico</h2>
-          <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>Rebusca os últimos 90 dias de leads alterados no Followize e atualiza motivo de cancelamento e status no banco.</p>
         </div>
+      </Accordion>
+
+      <Accordion title="Reprocessamento histórico" summary="re-puxar leads antigos do Followize">
+        <div className="flex flex-col gap-5">
+        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Rebusca os últimos 90 dias de leads alterados no Followize e atualiza motivo de cancelamento e status no banco.</p>
         {syncStatus === 'success' && <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}><p style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>{syncMsg}</p></div>}
         {syncStatus === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{syncMsg}</p></div>}
         <button onClick={handleSync} disabled={syncStatus === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: syncStatus === 'loading' ? '#FCA5A5' : '#EF4444', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: syncStatus === 'loading' ? 'not-allowed' : 'pointer' }}>
           {syncStatus === 'loading' ? 'Processando... (pode demorar)' : 'Reprocessar 90 dias'}
         </button>
-      </div>
-
-      <div className="bg-white rounded-xl p-6 flex flex-col gap-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Sincronização do Financeiro (Google Sheets)</h2>
-          <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 2 }}>Rebusca a planilha de vendas e atualiza recebido/a receber dos leads. Mostra quais leads não foram encontrados ou ficaram ambíguos (telefone/email duplicado em mais de um cadastro) — esses não são atualizados até a duplicidade ser corrigida.</p>
         </div>
+      </Accordion>
+
+      <Accordion title="Sincronização do financeiro (Google Sheets)" summary="recebido / a receber dos leads">
+        <div className="flex flex-col gap-5">
+        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Rebusca a planilha de vendas e atualiza recebido/a receber dos leads. Mostra quais leads não foram encontrados ou ficaram ambíguos (telefone/email duplicado em mais de um cadastro) — esses não são atualizados até a duplicidade ser corrigida.</p>
         {receitaSyncStatus === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{receitaSyncMsg}</p></div>}
         {receitaSyncStatus === 'success' && receitaSyncResult && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -444,7 +451,8 @@ function ConfiguracoesTab() {
         <button onClick={handleReceitaSync} disabled={receitaSyncStatus === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: receitaSyncStatus === 'loading' ? '#93C5FD' : '#2563EB', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: receitaSyncStatus === 'loading' ? 'not-allowed' : 'pointer' }}>
           {receitaSyncStatus === 'loading' ? 'Sincronizando...' : 'Sincronizar planilha agora'}
         </button>
-      </div>
+        </div>
+      </Accordion>
     </div>
   )
 }
