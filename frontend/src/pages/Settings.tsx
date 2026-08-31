@@ -1063,7 +1063,8 @@ export default function Settings() {
   const isUsuarios = section === 'usuarios'
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
+    <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
+    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>
           {isUsuarios ? 'Usuários' : 'API'}
@@ -1083,6 +1084,7 @@ export default function Settings() {
       ) : (
         <ConfiguracoesTab />
       )}
+    </div>
     </div>
   )
 }
