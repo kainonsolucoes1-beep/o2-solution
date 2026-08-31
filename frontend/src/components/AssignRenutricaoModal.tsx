@@ -97,7 +97,7 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
               <AlertTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 1 }} />
               <p style={{ fontSize: 12.5, color: 'var(--text-2)', margin: 0, lineHeight: 1.45 }}>
                 {doneCount ? `${doneCount} atribuído${doneCount !== 1 ? 's' : ''}. ` : ''}
-                {conflicts.length} lead{conflicts.length !== 1 ? 's' : ''} <b>não pode{conflicts.length !== 1 ? 'm' : ''} ir</b> — já {conflicts.length !== 1 ? 'estão' : 'está'} com alguém. Marque quais transferir mesmo assim.
+                {conflicts.length} lead{conflicts.length !== 1 ? 's' : ''} <b>precisa{conflicts.length !== 1 ? 'm' : ''} de conferência</b> antes de ir pra renutrição. Marque quais transferir mesmo assim.
               </p>
             </div>
             <div style={{ maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>

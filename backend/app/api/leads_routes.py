@@ -590,9 +590,6 @@ def confirm_renutricao_import(
     return RenutricaoConfirmResponse(success=True, updated=updated)
 
 
-_ATTENDANT_PLACEHOLDERS = {"", "-", "não informado", "nao informado", "sem atendente", "não atribuído", "nao atribuido"}
-
-
 @router.post("/leads/renutricao/assign", response_model=RenutricaoAssignResponse)
 def assign_renutricao(
     body: RenutricaoAssignRequest,
@@ -600,33 +597,39 @@ def assign_renutricao(
     db: Session = Depends(get_db),
 ):
     """Atribui um lote de leads a um usuario pra trabalhar a renutricao.
-    Recusa (lista em `conflicts`) o lead cujo origin e' o nome de uma conta
-    ativa OU que ja tem um atendente de verdade -- a menos que o id esteja
-    em force_ids. So admin."""
+    So leads em "venda nao realizada" sao candidatos -- qualquer outro status
+    (`conflicts`) significa negociacao em andamento. Dentro de venda nao
+    realizada, aviso suave se teve interacao nos ultimos 30 dias. force_ids
+    passa por cima. So admin."""
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Apenas administradores podem atribuir renutrição")
     owner = db.query(User).filter(User.id == body.owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Usuário de destino não encontrado")
 
-    people = set()
-    for fn, un in db.query(User.first_name, User.username).filter(User.is_active.is_(True)).all():
-        if fn:
-            people.add(fn.strip().lower())
-        if un:
-            people.add(un.strip().lower())
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    _SALE_NOT_PERFORMED = {"sale_not_performed", "sale not performed"}
+    _STATUS_PT = {
+        "novo": "novo", "new": "novo", "pending": "pendente",
+        "qualificado": "agendado", "qualified": "agendado", "scheduled": "agendado",
+        "proposal_sent": "proposta enviada", "proposta": "proposta enviada",
+        "waiting_billing": "aguardando faturamento", "sale_performed": "venda realizada",
+        "fechado": "fechado", "closed": "fechado", "won": "ganho", "convertido": "convertido",
+    }
 
     def _conflict(lead: Lead):
-        att = (lead.attendant or "").strip()
-        if att.lower() not in _ATTENDANT_PLACEHOLDERS:
-            return f"atendente {att}"
-        org = (lead.origin or "").strip()
-        if org.lower() in people:
-            return f"origin {org}"
+        st = (lead.status or "").strip().lower()
+        if st not in _SALE_NOT_PERFORMED:
+            label = _STATUS_PT.get(st, lead.status or "sem status")
+            return f"está em negociação ({label})"
+        ref = lead.last_interaction_at or lead.updated_at
+        if ref is not None:
+            dias = (now - ref).days
+            if dias < 30:
+                return f"venda não realizada, mas com atividade há {dias} dia{'s' if dias != 1 else ''}"
         return None
 
     force = set(body.force_ids)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
     assigned = 0
     conflicts: list = []
     for lead in db.query(Lead).filter(Lead.id.in_(body.lead_ids)).all():
