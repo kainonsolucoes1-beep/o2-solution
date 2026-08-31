@@ -55,6 +55,8 @@ class LeadReportItem(BaseModel):
     receita_origem: Optional[str] = None
     visibility_tag: Optional[str] = None
     is_renutrucao: bool = False
+    renutricao_owner_id: Optional[UUID] = None
+    renutricao_owner_nome: Optional[str] = None
     retrabalhado_em: Optional[datetime] = None
     lost_reason: Optional[str] = None
     lost_message: Optional[str] = None

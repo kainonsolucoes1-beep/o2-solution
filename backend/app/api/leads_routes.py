@@ -46,6 +46,13 @@ def _is_admin(user: User) -> bool:
     return user.role == "admin"
 
 
+def _assert_renutricao_unlocked(lead, user: User) -> None:
+    """Lead atribuido a alguem pra renutricao so aceita edicao do proprio dono
+    ou de um admin -- os outros veem a ficha, mas nao mexem."""
+    if lead.renutricao_owner_id and lead.renutricao_owner_id != user.id and not _is_admin(user):
+        raise HTTPException(status_code=403, detail="Este lead está em renutrição com outra pessoa — você não pode editá-lo")
+
+
 @router.get("/leads", response_model=List[LeadResponse])
 def list_leads(
     current_user: User = Depends(get_current_user),
@@ -439,6 +446,11 @@ def get_lead(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     show_fin = can_see_financials(current_user)
+    ren_nome = None
+    if lead.renutricao_owner_id:
+        _o = db.query(User).filter(User.id == lead.renutricao_owner_id).first()
+        if _o:
+            ren_nome = _o.first_name or _o.username
     return LeadReportItem(
         id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
         company=lead.company, attendant=lead.attendant,
@@ -457,6 +469,8 @@ def get_lead(
         receita_origem=lead.receita_origem if show_fin else None,
         visibility_tag=lead.visibility_tag,
         is_renutrucao=bool(lead.is_renutrucao),
+        renutricao_owner_id=lead.renutricao_owner_id,
+        renutricao_owner_nome=ren_nome,
         retrabalhado_em=lead.retrabalhado_em,
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
         modalidade=lead.modalidade, current_plan=lead.current_plan,
@@ -482,6 +496,7 @@ def update_lead_status(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
     prev_status = lead.status
     lead.status = body.status
     if body.lost_reason is not None:
@@ -513,6 +528,7 @@ def retrabalhar_lead(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     if body.data_retrabalho:
@@ -671,6 +687,7 @@ def update_lead_info(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
     if body.name is not None and body.name.strip():
         lead.name = body.name.strip()
     if body.company is not None:
@@ -755,6 +772,7 @@ def update_lead_receita(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
     if body.titular is not None:
         lead.receita_titular = body.titular.strip() or None
     if body.promotora is not None:
@@ -897,6 +915,7 @@ def registrar_venda(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
     try:
         data_venda, _ = br_date_to_utc_range(body.data_venda)
     except ValueError:
@@ -917,6 +936,7 @@ def faturar_venda(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
     pendente = lead.receita_real_a_receber or 0
     lead.receita_real_recebida = (lead.receita_real_recebida or 0) + pendente
     lead.receita_real_a_receber = 0
@@ -1005,6 +1025,7 @@ def create_schedule(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
     db.query(LeadSchedule).filter(
         LeadSchedule.lead_id == lead_id, LeadSchedule.is_active.is_(True)
     ).update({"is_active": False})
@@ -1124,6 +1145,7 @@ def create_lead_note(
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
     note = LeadNote(lead_id=lead.id, user_id=current_user.id, content=body.content)
     db.add(note)
     if 'renutrição' in body.content.lower():

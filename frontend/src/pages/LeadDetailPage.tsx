@@ -44,6 +44,8 @@ interface LeadItem {
   document: string | null
   created_at: string
   retrabalhado_em: string | null
+  renutricao_owner_id: string | null
+  renutricao_owner_nome: string | null
   lost_reason: string | null
 }
 
@@ -468,6 +470,9 @@ export default function LeadDetailPage() {
   const telHref = lead.phone ? `tel:${lead.phone.replace(/\D/g, '')}` : null
   const mailHref = lead.email ? `mailto:${lead.email}` : null
 
+  // lead em renutrição com outra pessoa: quem não é o dono (nem admin) só olha
+  const renutricaoLock = !!lead.renutricao_owner_id && me !== null && lead.renutricao_owner_id !== me.id && !isAdmin
+
   return (
     <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%', ...(dark ? {} : { ['--bg-input' as string]: '#FBFCFE' }) } as React.CSSProperties}>
     <div style={{ maxWidth: 1440, margin: '0 auto', padding: '20px 24px 60px' }}>
@@ -482,6 +487,19 @@ export default function LeadDetailPage() {
           }}
         >
           {toast.msg}
+        </div>
+      )}
+
+      {renutricaoLock && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16,
+          padding: '11px 16px', borderRadius: 12,
+          background: 'var(--warning-weak)', color: 'var(--text-1)', fontSize: 13,
+        }}>
+          <span aria-hidden style={{ color: 'var(--warning)', flexShrink: 0 }}>🔄</span>
+          <span>
+            Este lead está em <b>renutrição com {lead.renutricao_owner_nome || 'outra pessoa'}</b>. Você pode ver o histórico, mas não editar.
+          </span>
         </div>
       )}
 
@@ -534,6 +552,7 @@ export default function LeadDetailPage() {
         editing={acaoRapidaEditing}
         telHref={telHref}
         mailHref={mailHref}
+        locked={renutricaoLock}
         onToggleEditing={() => {
           const next = !acaoRapidaEditing
           setEditingStatus(next)
@@ -635,6 +654,7 @@ export default function LeadDetailPage() {
             onNoteTextChange={setNoteText}
             savingNote={savingNote}
             onSaveNote={handleSaveNote}
+            locked={renutricaoLock}
             loadingActivity={loadingActivity}
             activity={visibleActivity}
             filter={activityFilter}

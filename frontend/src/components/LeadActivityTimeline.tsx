@@ -10,7 +10,7 @@ const FILTERS: ActivityFilter[] = ['Todos', 'Status', 'Notas']
 export default function LeadActivityTimeline({
   isAdmin, savingRealign, onRealignHistory,
   noteText, onNoteTextChange, savingNote, onSaveNote,
-  loadingActivity, activity, filter, onFilterChange,
+  loadingActivity, activity, filter, onFilterChange, locked,
 }: {
   isAdmin: boolean
   savingRealign: boolean
@@ -23,6 +23,7 @@ export default function LeadActivityTimeline({
   activity: ActivityEvent[]
   filter: ActivityFilter
   onFilterChange: (value: ActivityFilter) => void
+  locked?: boolean
 }) {
   return (
     <section className="min-h-0 sm:min-h-[650px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }}>
@@ -43,6 +44,7 @@ export default function LeadActivityTimeline({
         )}
       </div>
       <div className="flex flex-col gap-3" style={{ padding: '0 20px 22px' }}>
+        {!locked && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid var(--border-lt)', borderRadius: 8, padding: 14, background: 'var(--bg-subtle)' }}>
           <textarea
             value={noteText}
@@ -76,6 +78,7 @@ export default function LeadActivityTimeline({
             </button>
           </div>
         </div>
+        )}
 
         <div style={{ display: 'flex', gap: 4, paddingBottom: 10, borderBottom: '1px solid var(--border-lt)' }}>
           {FILTERS.map(f => (

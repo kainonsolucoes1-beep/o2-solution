@@ -55,7 +55,7 @@ const primaryActionBtnStyle: React.CSSProperties = {
 
 export default function LeadNextStepPanel({
   editing, onToggleEditing, onOpenSchedule, onOpenProposta, onOpenFinalizar,
-  telHref, mailHref,
+  telHref, mailHref, locked,
   status, editingStatus, statusSubMenu, savingStatus,
   onStatusOptionClick, onClosedSubClick, onLostReasonClick, onBackToStatusOptions, onCancelStatusEdit,
   onVendaRealizadaClick, onBackToFinalizar,
@@ -74,6 +74,7 @@ export default function LeadNextStepPanel({
 
   telHref: string | null
   mailHref: string | null
+  locked?: boolean
 
   status: string
   editingStatus: boolean
@@ -144,9 +145,11 @@ export default function LeadNextStepPanel({
         </div>
 
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end" style={{ gap: 7 }}>
+          {!locked && (
           <button style={primaryActionBtnStyle} onClick={onOpenSchedule}>
             Agendar
           </button>
+          )}
           <a href={telHref ?? undefined} style={actionBtnStyle(!!telHref)} onClick={e => { if (!telHref) e.preventDefault() }}>
             <Phone size={14} color={telHref ? 'var(--accent)' : 'currentColor'} /> Ligar
           </a>
@@ -156,7 +159,7 @@ export default function LeadNextStepPanel({
           <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
             <Mail size={14} /> Enviar e-mail
           </a>
-          {status === 'sale_not_performed' ? (
+          {locked ? null : status === 'sale_not_performed' ? (
             showRetrabalhar ? (
               <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, color: 'var(--text-3b)', whiteSpace: 'nowrap' }}>Retrabalhar em:</span>
@@ -205,9 +208,11 @@ export default function LeadNextStepPanel({
               )}
             </>
           )}
-          <button style={actionBtnStyle(true)} onClick={onToggleEditing}>
-            {editing ? 'Concluir edição' : 'Editar ação rápida'}
-          </button>
+          {!locked && (
+            <button style={actionBtnStyle(true)} onClick={onToggleEditing}>
+              {editing ? 'Concluir edição' : 'Editar ação rápida'}
+            </button>
+          )}
         </div>
       </div>
 
