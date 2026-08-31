@@ -669,11 +669,11 @@ def assign_renutricao(
         if reason and lead.id not in force:
             conflicts.append(RenutricaoAssignConflict(lead_id=lead.id, name=lead.name, reason=reason))
             continue
+        # Só marca a posse. NÃO mexe em retrabalhado_em nem updated_at: atribuir
+        # não é reativar -- o lead só volta a contar como captação do período
+        # quando a pessoa clica em "retrabalhar lead" (endpoint retrabalhar_lead).
         lead.renutricao_owner_id = owner.id
         lead.is_renutrucao = True
-        if lead.retrabalhado_em is None:
-            lead.retrabalhado_em = now
-        lead.updated_at = now
         db.add(LeadNote(
             lead_id=lead.id, user_id=current_user.id,
             content=f"Renutrição atribuída a {owner.first_name or owner.username} por {current_user.first_name or current_user.username}",
