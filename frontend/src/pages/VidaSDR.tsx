@@ -40,8 +40,8 @@ interface VidaSdrData {
   atividades: Atividade[]
 }
 
-const ACCENT = '#2563EB'
-const ACCENT_SOFT = 'rgba(37,99,235,0.1)'
+const ACCENT = 'var(--accent)'
+const ACCENT_SOFT = 'var(--accent-weak)'
 
 function fmtBrl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -130,18 +130,6 @@ function ChartTooltipContent({ active, payload, metric, trend }: { active?: bool
   )
 }
 
-// Card Operacional (Candidate Freeze "Vida do Agente"). Cada indicador abre um
-// Smart Preview (ver buildSmartPreview em utils/vidaSdrPreview.ts) em vez de
-// navegar direto — a navegação real fica na ação do drawer. Sem ícone/cor por
-// métrica: o Candidate Freeze usa tiles neutros (rótulo, valor, ação).
-const OPERACIONAL_CFG = [
-  { key: 'captacoes',    id: 'captacoes' as SmartPreviewId,    label: 'Total de Leads',    fmt: (v: number) => String(v) },
-  { key: 'em_andamento', id: 'em_andamento' as SmartPreviewId, label: 'Em Andamento',      fmt: (v: number) => String(v) },
-  { key: 'vendas',       id: 'vendas' as SmartPreviewId,       label: 'Vendas Realizadas', fmt: (v: number) => String(v) },
-  { key: 'conversao',    id: 'conversao' as SmartPreviewId,    label: 'Conversão Geral',   fmt: (v: number) => `${v}%` },
-  { key: 'cancelados',   id: 'cancelados' as SmartPreviewId,   label: 'Cancelados',        fmt: (v: number) => String(v) },
-] as const
-
 // Card Financeiro: apenas os 4 itens aprovados no Candidate Freeze. Custo
 // total ainda não tem fonte real — ver limitações no handoff.
 const FINANCEIRO_CFG = [
@@ -152,10 +140,16 @@ const FINANCEIRO_CFG = [
 ] as const
 
 const kickerStyle: import('react').CSSProperties = {
-  display: 'block', color: 'var(--text-subtle)', fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em',
+  display: 'block', color: 'var(--text-3b)', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
 }
 
-const DELTA_COLOR: Record<Delta['tone'], string> = { good: '#059669', bad: '#DC2626', neutral: 'var(--text-subtle)' }
+// Mesmo tratamento de card das outras seções da tela (gráfico, meta, ranking)
+const panelStyle: import('react').CSSProperties = {
+  padding: 20, border: '1px solid var(--border)', borderRadius: 16,
+  background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
+}
+
+const DELTA_COLOR: Record<Delta['tone'], string> = { good: 'var(--success)', bad: 'var(--danger)', neutral: 'var(--text-subtle)' }
 
 function MetaDonut({ pct, color }: { pct: number; color: string }) {
   const size = 108
@@ -174,7 +168,7 @@ function MetaDonut({ pct, color }: { pct: number; color: string }) {
         />
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
       </div>
     </div>
   )
@@ -184,8 +178,9 @@ function MetaDonut({ pct, color }: { pct: number; color: string }) {
 // cancelamento, receita/conversão) -- mesmas cores de tom da Decisão Rápida
 // (INSIGHT_TONE/INSIGHT_TONE_SOFT), pra reforçar o que decide em vez de dar
 // peso igual aos 10 indicadores.
-function HeroCard({ tone, icon: Icon, label, value, sub, onOpen }: {
+function HeroCard({ tone, icon: Icon, label, value, sub, context, onOpen }: {
   tone: 'good' | 'warn' | 'risk'; icon: LucideIcon; label: string; value: string; sub: string
+  context?: { text: string; tone: 'good' | 'bad' | 'neutral' } | null
   onOpen: (trigger: HTMLElement) => void
 }) {
   const color = INSIGHT_TONE[tone]
@@ -194,14 +189,19 @@ function HeroCard({ tone, icon: Icon, label, value, sub, onOpen }: {
       role="button" tabIndex={0}
       onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e.currentTarget)}
       onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(e.currentTarget) } }}
-      style={{ minWidth: 0, borderRadius: 14, padding: '18px 20px', background: INSIGHT_TONE_SOFT[tone], textAlign: 'left', cursor: 'pointer' }}
+      style={{ minWidth: 0, borderRadius: 14, padding: '15px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer' }}
     >
-      <span style={{ display: 'grid', width: 32, height: 32, placeItems: 'center', borderRadius: 10, background: 'rgba(255,255,255,0.55)', color, marginBottom: 12 }}>
-        <Icon size={16} />
+      <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <Icon size={13} style={{ color, opacity: 0.75 }} />
+        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-3b)' }}>{label}</span>
       </span>
-      <span style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color, opacity: 0.85 }}>{label}</span>
-      <strong style={{ display: 'block', marginTop: 4, fontSize: 28, fontWeight: 800, letterSpacing: '-0.01em', color, fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
-      <span style={{ display: 'block', marginTop: 4, fontSize: 12, color, opacity: 0.8 }}>{sub}</span>
+      <strong style={{ display: 'block', marginTop: 4, fontSize: 25, fontWeight: 700, letterSpacing: '-0.01em', color, fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
+      <span style={{ display: 'block', marginTop: 3, fontSize: 11.5, color: 'var(--text-muted)' }}>{sub}</span>
+      {context && (
+        <span style={{ display: 'block', marginTop: 7, fontSize: 11.5, color: 'var(--text-muted)' }}>
+          <em style={{ fontStyle: 'normal', fontWeight: 600, color: DELTA_COLOR[context.tone] }}>{context.text}</em>
+        </span>
+      )}
     </div>
   )
 }
@@ -221,18 +221,43 @@ function DetailRow({ label, value, simulated, delta, last, onOpen }: {
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 2px', borderBottom: last ? 'none' : '1px solid var(--border-lt)', cursor: 'pointer', textAlign: 'left' }}
     >
       <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-        {label}{simulated && <em style={{ marginLeft: 4, fontStyle: 'normal', fontWeight: 700, color: '#7C3AED' }}>· estimativa</em>}
+        {label}{simulated && <em style={{ marginLeft: 4, fontStyle: 'normal', fontWeight: 600, color: 'var(--info)' }}>· estimativa</em>}
       </span>
       <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        {delta && <small style={{ fontSize: 11, fontWeight: 700, color: DELTA_COLOR[delta.tone] }}>{delta.text}</small>}
-        <strong style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
+        {delta && <small style={{ fontSize: 11, fontWeight: 600, color: DELTA_COLOR[delta.tone] }}>{delta.text}</small>}
+        <strong style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
       </span>
     </div>
   )
 }
 
-const INSIGHT_TONE: Record<'good' | 'warn' | 'risk', string> = { good: '#059669', warn: '#D97706', risk: '#DC2626' }
-const INSIGHT_TONE_SOFT: Record<'good' | 'warn' | 'risk', string> = { good: 'rgba(5,150,105,0.1)', warn: 'rgba(217,119,6,0.1)', risk: 'rgba(220,38,38,0.08)' }
+// Etapa do funil operacional — rótulo + valor + barra proporcional ao total
+// de leads captados. Cada etapa abre o mesmo Smart Preview da lista antiga.
+function FunnelStep({ label, value, share, tone, onOpen }: {
+  label: string; value: string; share: number; tone?: 'accent' | 'bad' | 'muted'
+  onOpen: (t: HTMLElement) => void
+}) {
+  const bar = tone === 'bad' ? 'var(--danger)' : tone === 'muted' ? 'var(--border-in)' : 'var(--accent)'
+  return (
+    <div
+      role="button" tabIndex={0}
+      onClick={(e: MouseEvent<HTMLDivElement>) => onOpen(e.currentTarget)}
+      onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(e.currentTarget) } }}
+      style={{ cursor: 'pointer' }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{label}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 999, background: 'var(--border-lt)', marginTop: 5, overflow: 'hidden' }}>
+        <div style={{ width: `${Math.max(2, Math.min(100, share))}%`, height: '100%', borderRadius: 999, background: bar }} />
+      </div>
+    </div>
+  )
+}
+
+const INSIGHT_TONE: Record<'good' | 'warn' | 'risk', string> = { good: 'var(--success)', warn: 'var(--warning)', risk: 'var(--danger)' }
+const INSIGHT_TONE_SOFT: Record<'good' | 'warn' | 'risk', string> = { good: 'var(--success-weak)', warn: 'var(--warning-weak)', risk: 'var(--danger-weak)' }
 
 // Linha do "Resumo Executivo" — indicador em destaque, título e descrição
 // secundários, divisor no topo (exceto a primeira), CTA opcional alinhado à
@@ -385,8 +410,8 @@ export default function VidaSDR() {
               onChange={e => setFiltro(e.target.value as FiltroPeriodo)}
               style={{ minWidth: 168, height: 40, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }}
             >
+              <option value="geral">Todo o período</option>
               <option value="mes_atual">Mês atual</option>
-              <option value="geral">Geral</option>
               <option value="entre_datas">Entre datas</option>
             </select>
           </label>
@@ -429,50 +454,55 @@ export default function VidaSDR() {
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
               <HeroCard
-                tone="good" icon={CheckCircle2} label="Vendas Realizadas" value={String(data.vendas)}
+                tone="good" icon={CheckCircle2} label="Vendas realizadas" value={String(data.vendas)}
                 sub={`de ${data.captacoes} leads no período`}
+                context={deltas.vendas ? { text: `${deltas.vendas.text} vs. mês passado`, tone: deltas.vendas.tone } : null}
                 onOpen={trigger => openPreview('vendas', 0, trigger)}
               />
               <HeroCard
-                tone="risk" icon={AlertTriangle} label="Tx. Cancelamento" value={`${cancellationRate}%`}
-                sub={`${data.cancelados} leads cancelados`}
+                tone="risk" icon={AlertTriangle} label="Taxa de cancelamento" value={`${cancellationRate}%`}
+                sub={`${data.cancelados} de ${data.captacoes} leads`}
                 onOpen={trigger => openPreview('cancellationRate', 0, trigger)}
               />
               {canSeeFinance ? (
                 <HeroCard
-                  tone="good" icon={TrendingUp} label="Receita Recebida" value={fmtBrl(data.receita_recebida || 0)}
+                  tone="good" icon={TrendingUp} label="Receita recebida" value={fmtBrl(data.receita_recebida || 0)}
                   sub={`${fmtBrl(data.receita_a_receber || 0)} a receber`}
+                  context={deltas.receita_recebida ? { text: `${deltas.receita_recebida.text} vs. mês passado`, tone: deltas.receita_recebida.tone } : null}
                   onOpen={trigger => openPreview('receita_recebida', 0, trigger)}
                 />
               ) : (
                 <HeroCard
-                  tone="good" icon={TrendingUp} label="Conversão Geral" value={`${data.conversao}%`}
+                  tone="good" icon={TrendingUp} label="Conversão geral" value={`${data.conversao}%`}
                   sub="no período"
+                  context={deltas.conversao ? { text: `${deltas.conversao.text} vs. mês passado`, tone: deltas.conversao.tone } : null}
                   onOpen={trigger => openPreview('conversao', 0, trigger)}
                 />
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? '1fr 1fr' : '1fr', gap: '0 32px' }}>
-              <div>
-                <span style={{ ...kickerStyle, fontSize: 12.5, fontWeight: 800, color: 'var(--text-2)' }}>Operacional</span>
-                <div style={{ marginTop: 12 }}>
-                  {OPERACIONAL_CFG
-                    .filter(({ key }) => key !== 'vendas' && (canSeeFinance || key !== 'conversao'))
-                    .map(({ key, id, label, fmt }, i, arr) => (
-                      <DetailRow
-                        key={key} label={label} value={fmt(data[key as keyof VidaSdrData] as number)}
-                        delta={deltas[key]} last={i === arr.length - 1}
-                        onOpen={trigger => openPreview(id, 0, trigger)}
-                      />
-                    ))}
+            <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? 'minmax(0, 1.5fr) minmax(280px, 1fr)' : '1fr', gap: 18, alignItems: 'start' }}>
+              <section style={panelStyle}>
+                <span style={kickerStyle}>O funil dele · {data.captacoes} leads</span>
+                <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 13 }}>
+                  <FunnelStep label="Captados" value={String(data.captacoes)} share={100}
+                    onOpen={t => openPreview('captacoes', 0, t)} />
+                  <FunnelStep label="Ainda em andamento" value={String(data.em_andamento)}
+                    share={data.captacoes ? (data.em_andamento / data.captacoes) * 100 : 0}
+                    onOpen={t => openPreview('em_andamento', 0, t)} />
+                  <FunnelStep label="Cancelados" value={String(data.cancelados)} tone="bad"
+                    share={data.captacoes ? (data.cancelados / data.captacoes) * 100 : 0}
+                    onOpen={t => openPreview('cancelados', 0, t)} />
+                  <FunnelStep label="Viraram venda" value={`${data.vendas} · ${data.conversao}%`}
+                    share={data.captacoes ? (data.vendas / data.captacoes) * 100 : 0}
+                    onOpen={t => openPreview('vendas', 0, t)} />
                 </div>
-              </div>
+              </section>
 
               {canSeeFinance && (
-                <div>
-                  <span style={{ ...kickerStyle, fontSize: 12.5, fontWeight: 800, color: 'var(--text-2)' }}>Financeiro</span>
-                  <div style={{ marginTop: 12 }}>
+                <section style={panelStyle}>
+                  <span style={kickerStyle}>Financeiro</span>
+                  <div style={{ marginTop: 6 }}>
                     {FINANCEIRO_CFG
                       .filter(({ key }) => key !== 'receita_recebida')
                       .map(({ key, id, label, simulated }, i, arr) => {
@@ -488,7 +518,7 @@ export default function VidaSDR() {
                         )
                       })}
                   </div>
-                </div>
+                </section>
               )}
             </div>
           </div>
@@ -516,11 +546,11 @@ export default function VidaSDR() {
                 <BarChart key={chartMetric} data={chartData} barGap={-26} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
                   <defs>
                     <linearGradient id="vidaSdrBarGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#5B93F5" />
-                      <stop offset="100%" stopColor={ACCENT} />
+                      <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.7} />
+                      <stop offset="100%" stopColor="var(--accent)" />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="mes_label" axisLine={false} tickLine={false} tick={{ fontSize: 10.5, fill: '#94A3B8' }} interval={Math.max(0, Math.ceil(data.trend.length / 12) - 1)} />
+                  <XAxis dataKey="mes_label" axisLine={false} tickLine={false} tick={{ fontSize: 10.5, fill: 'var(--text-subtle)' }} interval={Math.max(0, Math.ceil(data.trend.length / 12) - 1)} />
                   <YAxis domain={[0, chartTrackMax]} hide />
                   <Tooltip cursor={false} content={<ChartTooltipContent metric={chartMetric} trend={data.trend} />} />
                   <Bar dataKey="__track" fill="var(--bg-subtle)" radius={[8, 8, 8, 8]} barSize={26} isAnimationActive={false} />
