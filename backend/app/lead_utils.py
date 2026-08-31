@@ -38,6 +38,7 @@ BASE_ALIASES: dict[str, str] = {
     "até 9 colaboradores":                             "Empresas SP capital LTDA - Até 9 colaboradores",
     "até 9 colaboradores parte":                       "Empresas SP capital LTDA - Até 9 colaboradores",
     "até 9 colaboradores parte 1":                     "Empresas SP capital LTDA - Até 9 colaboradores",
+    "até 9 colaboradores parte 2":                     "Empresas SP capital LTDA - Até 9 colaboradores",
     "até 9 colaboradores parte 9":                     "Empresas SP capital LTDA - Até 9 colaboradores",
     "9 colaboradores parte 1":                         "Empresas SP capital LTDA - Até 9 colaboradores",
     "base_9_colaboradores":                            "Empresas SP capital LTDA - Até 9 colaboradores",
@@ -47,6 +48,20 @@ BASE_ALIASES: dict[str, str] = {
     "base_até9colaboradoresparte11":                   "Empresas SP capital LTDA - Até 9 colaboradores",
     "base_até_nove_colaboradores parte 2":             "Empresas SP capital LTDA - Até 9 colaboradores",
     "base_empresas_ddd11":                             "Empresas SP capital LTDA - Até 9 colaboradores",
+    # SulAmerica (grafias variadas)
+    "sulamerica":                                      "SulAmerica",
+    "sulamerica filtrada":                             "SulAmerica",
+    "base_sulamerica":                                 "SulAmerica",
+    # Bradesco
+    "base_bradesco":                                   "Base Bradesco",
+    # São Paulo, Campinas e Jundiaí (grafias variadas)
+    "base_skill_padrao_lote_sao_paulo_campinas_e_jundiai_novas_empresas": "São Paulo, Campinas e Jundiaí",
+    "sp, campinas, jundiai novas empresas parte 2":    "São Paulo, Campinas e Jundiaí",
+    "sp, campinas e jundiai nova empresas":            "São Paulo, Campinas e Jundiaí",
+    "sao paulo, campinas e jundiai":                   "São Paulo, Campinas e Jundiaí",
+    # Indicação
+    "cliente indicação":                              "Indicação",
+    "indicação (cliente que entrou em contato)":      "Indicação",
 }
 _BASE_RE_EMOJI  = re.compile(r'🗂️\s*Base:\s*([^|\n]+)')
 _BASE_RE_SIMPLE = re.compile(r'(?im)^Base:\s*([^\n]+)')
