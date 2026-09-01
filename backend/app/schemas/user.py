@@ -67,6 +67,7 @@ class UserAdminUpdate(BaseModel):
     hire_date: Optional[date] = None
     termination_date: Optional[date] = None
     horario_estendido: Optional[bool] = None
+    acesso_externo_liberado: Optional[bool] = None
 
 
 class UserAdminResponse(BaseModel):
@@ -85,6 +86,7 @@ class UserAdminResponse(BaseModel):
     hire_date: Optional[date]
     termination_date: Optional[date]
     horario_estendido: bool = False
+    acesso_externo_liberado: bool = False
 
     class Config:
         from_attributes = True

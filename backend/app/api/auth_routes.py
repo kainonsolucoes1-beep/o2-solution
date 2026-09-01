@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 from app.models.login_event import LoginEvent
-from app.access_policy import check_time_window
-from app.request_utils import client_ip
+from app.models.trusted_device import TrustedDevice
+from app.access_policy import check_time_window, check_device, RESTRICTED_ROLES
+from app.request_utils import client_ip, ua_short
 from app.schemas import UserLogin, TokenResponse, UserResponse, ChangePasswordRequest
-from app.security import verify_password, create_access_token, verify_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, hash_password
+from app.security import verify_password, create_access_token, decode_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, hash_password
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -43,15 +44,17 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
         raise HTTPException(status_code=401, detail="Formato inválido: Bearer <token>")
     
     token = parts[1]
-    user_id = verify_token(token)
+    payload = decode_token(token)
+    user_id = payload.get("sub") if payload else None
     if not user_id:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
     check_time_window(user, db)
+    check_device(user, db, payload.get("did"))
 
     # liga o filtro global de leads ADM-only pro resto da sessao desta requisicao
     db.info["restrict_admin_leads"] = not can_see_restricted_leads(user)
@@ -68,6 +71,7 @@ async def login(credentials: UserLogin, request: Request, db: Session = Depends(
     ip = client_ip(request)
     _check_login_rate_limit(ip)
     ua = (request.headers.get("user-agent") or "")[:400]
+    device_id = (request.headers.get("x-device-id") or "").strip() or None
 
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not verify_password(credentials.password, user.password_hash):
@@ -76,8 +80,21 @@ async def login(credentials: UserLogin, request: Request, db: Session = Depends(
         db.commit()
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
 
+    # registra o dispositivo (pendente) pra aparecer na lista de aprovação
+    if user.role in RESTRICTED_ROLES and device_id:
+        dev = db.query(TrustedDevice).filter(
+            TrustedDevice.user_id == user.id, TrustedDevice.device_id == device_id
+        ).first()
+        if dev is None:
+            dev = TrustedDevice(user_id=user.id, device_id=device_id, approved=False)
+            db.add(dev)
+        dev.label = ua_short(ua)
+        dev.last_seen_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.commit()
+
     try:
         check_time_window(user, db)
+        check_device(user, db, device_id)
     except HTTPException as exc:
         db.add(LoginEvent(user_id=user.id, email_tried=credentials.email, success=False, ip=ip, user_agent=ua))
         db.commit()
@@ -91,7 +108,10 @@ async def login(credentials: UserLogin, request: Request, db: Session = Depends(
     user.last_login_ip = ip
     db.commit()
 
-    access_token = create_access_token(data={"sub": str(user.id)})
+    token_data = {"sub": str(user.id)}
+    if device_id:
+        token_data["did"] = device_id
+    access_token = create_access_token(data=token_data)
     return {"access_token": access_token, "token_type": "bearer", "must_change_password": user.must_change_password}
 
 @router.get("/me", response_model=UserResponse)

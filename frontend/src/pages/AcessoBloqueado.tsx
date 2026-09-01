@@ -31,9 +31,9 @@ export default function AcessoBloqueado() {
         <div style={{ width: 52, height: 52, borderRadius: 14, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
           <Clock size={26} color="#F97316" />
         </div>
-        <h1 style={{ fontSize: 19, fontWeight: 700, color: '#101C2E', margin: '0 0 8px' }}>Acesso fora do horário</h1>
+        <h1 style={{ fontSize: 19, fontWeight: 700, color: '#101C2E', margin: '0 0 8px' }}>Acesso bloqueado</h1>
         <p style={{ fontSize: 14, color: '#46566B', lineHeight: 1.5, margin: '0 0 24px' }}>
-          {msg || 'Acesso liberado apenas em dias úteis, das 9h às 16h.'} Sua sessão continua ativa — volte dentro do horário.
+          {msg || 'Acesso liberado apenas em dias úteis, das 9h às 16h.'} Sua sessão continua ativa.
         </p>
         <button
           onClick={tentarDeNovo}

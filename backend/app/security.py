@@ -101,3 +101,10 @@ def verify_token(token: str) -> Optional[str]:
         return user_id
     except JWTError:
         return None
+
+
+def decode_token(token: str) -> Optional[dict]:
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        return None

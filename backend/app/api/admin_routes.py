@@ -492,9 +492,14 @@ def update_user(
         user.is_active = False
     if body.horario_estendido is not None:
         user.horario_estendido = body.horario_estendido
+    if body.acesso_externo_liberado is not None:
+        user.acesso_externo_liberado = body.acesso_externo_liberado
     db.commit()
     db.refresh(user)
     return user
+
+
+_ACCESS_KEYS = {"janela_ativa": "acesso_janela_ativa", "dispositivo_ativo": "acesso_dispositivo_ativo"}
 
 
 @router.get("/access-settings")
@@ -503,12 +508,13 @@ def get_access_settings(
     db: Session = Depends(get_db),
 ):
     _require_admin(current_user)
-    rows = {r.key: r.value for r in db.query(AppSettings).filter(AppSettings.key == "acesso_janela_ativa").all()}
-    return {"janela_ativa": rows.get("acesso_janela_ativa") == "1"}
+    rows = {r.key: r.value for r in db.query(AppSettings).filter(AppSettings.key.in_(_ACCESS_KEYS.values())).all()}
+    return {name: rows.get(key) == "1" for name, key in _ACCESS_KEYS.items()}
 
 
 class AccessSettingsBody(BaseModel):
-    janela_ativa: bool
+    janela_ativa: bool | None = None
+    dispositivo_ativo: bool | None = None
 
 
 @router.post("/access-settings")
@@ -518,15 +524,82 @@ def set_access_settings(
     db: Session = Depends(get_db),
 ):
     _require_admin(current_user)
-    val = "1" if body.janela_ativa else "0"
-    row = db.query(AppSettings).filter(AppSettings.key == "acesso_janela_ativa").first()
-    if row:
-        row.value = val
-    else:
-        db.add(AppSettings(key="acesso_janela_ativa", value=val))
+    for name, key in _ACCESS_KEYS.items():
+        v = getattr(body, name)
+        if v is None:
+            continue
+        val = "1" if v else "0"
+        row = db.query(AppSettings).filter(AppSettings.key == key).first()
+        if row:
+            row.value = val
+        else:
+            db.add(AppSettings(key=key, value=val))
+        logger.warning("Acesso: %s %s por %s", name, "LIGADO" if v else "DESLIGADO", current_user.email)
     db.commit()
-    logger.warning("Janela de horário %s por %s", "LIGADA" if body.janela_ativa else "DESLIGADA", current_user.email)
-    return {"janela_ativa": body.janela_ativa}
+    rows = {r.key: r.value for r in db.query(AppSettings).filter(AppSettings.key.in_(_ACCESS_KEYS.values())).all()}
+    return {name: rows.get(key) == "1" for name, key in _ACCESS_KEYS.items()}
+
+
+@router.get("/trusted-devices")
+def list_trusted_devices(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from app.models.trusted_device import TrustedDevice
+    rows = (
+        db.query(TrustedDevice, User.first_name, User.username)
+        .join(User, User.id == TrustedDevice.user_id)
+        .order_by(TrustedDevice.approved.asc(), TrustedDevice.last_seen_at.desc().nullslast())
+        .all()
+    )
+    return [
+        {
+            "id": str(d.id),
+            "usuario": fn or un,
+            "label": d.label,
+            "approved": d.approved,
+            "approved_by": d.approved_by,
+            "last_seen_at": d.last_seen_at.isoformat() if d.last_seen_at else None,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        }
+        for d, fn, un in rows
+    ]
+
+
+@router.post("/trusted-devices/{device_pk}/approve")
+def approve_trusted_device(
+    device_pk: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from app.models.trusted_device import TrustedDevice
+    dev = db.query(TrustedDevice).filter(TrustedDevice.id == device_pk).first()
+    if not dev:
+        raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
+    dev.approved = True
+    dev.approved_by = current_user.first_name or current_user.username
+    db.commit()
+    logger.warning("Dispositivo %s aprovado por %s", device_pk, current_user.email)
+    return {"success": True}
+
+
+@router.delete("/trusted-devices/{device_pk}")
+def revoke_trusted_device(
+    device_pk: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    from app.models.trusted_device import TrustedDevice
+    dev = db.query(TrustedDevice).filter(TrustedDevice.id == device_pk).first()
+    if not dev:
+        raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
+    db.delete(dev)
+    db.commit()
+    logger.warning("Dispositivo %s revogado por %s", device_pk, current_user.email)
+    return {"success": True}
 
 
 @router.get("/login-events")

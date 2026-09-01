@@ -5,3 +5,4 @@ from app.models.form_user import FormUser
 from app.models.telefonia_daily import TelefoniaDaily
 from app.models.sdr_meta import SdrMeta
 from app.models.login_event import LoginEvent
+from app.models.trusted_device import TrustedDevice

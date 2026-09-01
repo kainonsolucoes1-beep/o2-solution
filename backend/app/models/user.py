@@ -26,5 +26,7 @@ class User(Base):
     last_login_ip = Column(String(64), nullable=True)
     # exceção à janela de horário (frente 1b) — libera acesso fora de 9h–16h
     horario_estendido = Column(Boolean, nullable=False, server_default='false', default=False)
+    # exceção ao dispositivo confiável (frente 1c) — acessa de qualquer aparelho
+    acesso_externo_liberado = Column(Boolean, nullable=False, server_default='false', default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())

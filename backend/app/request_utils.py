@@ -17,3 +17,15 @@ def client_ip(request: Request) -> str:
     if real:
         return real
     return request.client.host if request.client else "desconhecido"
+
+
+def ua_short(ua: str | None) -> str:
+    """Resumo do user-agent pra rotular um dispositivo (ex.: 'Chrome · Windows')."""
+    ua = ua or ""
+    so = ("Windows" if "Windows" in ua else "Mac" if ("Mac OS X" in ua or "Macintosh" in ua)
+          else "Android" if "Android" in ua else "iOS" if ("iPhone" in ua or "iPad" in ua)
+          else "Linux" if "Linux" in ua else "")
+    br = ("Edge" if "Edg/" in ua else "Opera" if ("OPR/" in ua or "Opera" in ua)
+          else "Chrome" if "Chrome/" in ua else "Firefox" if "Firefox/" in ua
+          else "Safari" if "Safari/" in ua else "")
+    return " · ".join(p for p in (br, so) if p) or "dispositivo"

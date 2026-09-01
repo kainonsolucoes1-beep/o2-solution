@@ -463,7 +463,7 @@ interface UserItem {
   is_active: boolean; must_change_password: boolean; created_at: string
   birth_date: string | null; phone: string | null; cpf: string | null
   hire_date: string | null; termination_date: string | null; idade: number | null
-  horario_estendido: boolean
+  horario_estendido: boolean; acesso_externo_liberado: boolean
 }
 const RESTRICTED_ROLES = ['usuario', 'comercial', 'supervisor']
 interface UserCreatedResponse extends UserItem { temp_password: string }
@@ -508,6 +508,7 @@ function UsuariosTab() {
   const [editUser, setEditUser]     = useState<UserItem | null>(null)
   const [editForm, setEditForm]     = useState(EMPTY_EDIT)
   const [editHorarioEst, setEditHorarioEst] = useState(false)
+  const [editAcessoExt, setEditAcessoExt] = useState(false)
   const [editError, setEditError]   = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [createdCreds, setCreatedCreds] = useState<{ username: string; password: string } | null>(null)
@@ -575,6 +576,7 @@ function UsuariosTab() {
       hire_date: user.hire_date ?? '', termination_date: user.termination_date ?? '',
     })
     setEditHorarioEst(!!user.horario_estendido)
+    setEditAcessoExt(!!user.acesso_externo_liberado)
     setEditError('')
   }
 
@@ -584,6 +586,7 @@ function UsuariosTab() {
     try {
       const payload: Record<string, string | boolean | null> = {}
       if (editHorarioEst !== !!editUser.horario_estendido) payload.horario_estendido = editHorarioEst
+      if (editAcessoExt !== !!editUser.acesso_externo_liberado) payload.acesso_externo_liberado = editAcessoExt
       if (editForm.first_name !== (editUser.first_name ?? '')) payload.first_name = editForm.first_name
       if (editForm.email !== editUser.email) payload.email = editForm.email
       if (editForm.username !== editUser.username) payload.username = editForm.username
@@ -707,12 +710,20 @@ function UsuariosTab() {
               </div>
 
               {editUser && RESTRICTED_ROLES.includes(editUser.role) && (
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={editHorarioEst} onChange={e => setEditHorarioEst(e.target.checked)} style={{ marginTop: 2 }} />
-                  <span style={{ fontSize: 12.5, color: 'var(--text-3b)' }}>
-                    <b style={{ fontWeight: 600 }}>Horário estendido</b> — libera o acesso fora da janela de 9h–16h (para quem faz hora extra).
-                  </span>
-                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={editHorarioEst} onChange={e => setEditHorarioEst(e.target.checked)} style={{ marginTop: 2 }} />
+                    <span style={{ fontSize: 12.5, color: 'var(--text-3b)' }}>
+                      <b style={{ fontWeight: 600 }}>Horário estendido</b> — libera o acesso fora da janela de 9h–16h (para quem faz hora extra).
+                    </span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={editAcessoExt} onChange={e => setEditAcessoExt(e.target.checked)} style={{ marginTop: 2 }} />
+                    <span style={{ fontSize: 12.5, color: 'var(--text-3b)' }}>
+                      <b style={{ fontWeight: 600 }}>Acesso externo liberado</b> — dispensa a aprovação de dispositivo (acessa de qualquer aparelho).
+                    </span>
+                  </label>
+                </div>
               )}
 
               <div style={{ borderTop: '1px solid var(--border-lt)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1071,49 +1082,117 @@ function FormularioTab() {
 }
 
 // ── Controle de acesso ───────────────────────────────────────────────────────
-function ControleAcessoTab() {
-  const [ativa, setAtiva] = useState<boolean | null>(null)
-  const [saving, setSaving] = useState(false)
+interface AccessSettings { janela_ativa: boolean; dispositivo_ativo: boolean }
+interface DeviceItem {
+  id: string; usuario: string; label: string | null; approved: boolean
+  approved_by: string | null; last_seen_at: string | null; created_at: string | null
+}
 
-  useEffect(() => {
-    api.get<{ janela_ativa: boolean }>('/api/v1/admin/access-settings')
-      .then(r => setAtiva(r.data.janela_ativa)).catch(() => setAtiva(false))
+function AccessToggle({ on, busy, onClick, title, children }: {
+  on: boolean | null; busy: boolean; onClick: () => void; title: string; children: React.ReactNode
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{title}</p>
+        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>{children}</p>
+      </div>
+      <button onClick={onClick} disabled={on === null || busy}
+        style={{
+          flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7,
+          padding: '7px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+          border: '1px solid', borderColor: on ? '#10B981' : 'var(--border)',
+          background: on ? 'rgba(16,185,129,0.12)' : 'var(--bg-card)',
+          color: on ? '#059669' : 'var(--text-muted)',
+        }}>
+        {on ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+        {on === null ? '...' : on ? 'Ligada' : 'Desligada'}
+      </button>
+    </div>
+  )
+}
+
+function ControleAcessoTab() {
+  const [cfg, setCfg] = useState<AccessSettings | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [devices, setDevices] = useState<DeviceItem[]>([])
+
+  const loadDevices = useCallback(() => {
+    api.get<DeviceItem[]>('/api/v1/admin/trusted-devices').then(r => setDevices(r.data)).catch(() => setDevices([]))
   }, [])
 
-  async function toggle() {
-    if (ativa === null) return
+  useEffect(() => {
+    api.get<AccessSettings>('/api/v1/admin/access-settings')
+      .then(r => setCfg(r.data)).catch(() => setCfg({ janela_ativa: false, dispositivo_ativo: false }))
+    loadDevices()
+  }, [loadDevices])
+
+  async function patch(body: Partial<AccessSettings>) {
     setSaving(true)
     try {
-      const { data } = await api.post<{ janela_ativa: boolean }>('/api/v1/admin/access-settings', { janela_ativa: !ativa })
-      setAtiva(data.janela_ativa)
+      const { data } = await api.post<AccessSettings>('/api/v1/admin/access-settings', body)
+      setCfg(data)
     } catch { /* ignore */ }
     setSaving(false)
   }
 
+  async function approve(id: string) {
+    await api.post(`/api/v1/admin/trusted-devices/${id}/approve`).catch(() => {})
+    loadDevices()
+  }
+  async function revoke(id: string) {
+    await api.delete(`/api/v1/admin/trusted-devices/${id}`).catch(() => {})
+    loadDevices()
+  }
+
+  const pendentes = devices.filter(d => !d.approved)
+
   return (
-    <div className="flex flex-col" style={{ gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Janela de horário</p>
-          <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
-            Quando ligada, os perfis <b>usuário, comercial e supervisor</b> só acessam em dias úteis, das <b>9h às 16h</b> (exceto feriados nacionais).
-            Admin e diretor não são afetados. Exceções individuais pelo campo "Horário estendido" na edição do usuário.
-          </p>
-        </div>
-        <button
-          onClick={toggle}
-          disabled={ativa === null || saving}
-          style={{
-            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7,
-            padding: '7px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-            border: '1px solid', borderColor: ativa ? '#10B981' : 'var(--border)',
-            background: ativa ? 'rgba(16,185,129,0.12)' : 'var(--bg-card)',
-            color: ativa ? '#059669' : 'var(--text-muted)',
-          }}
-        >
-          {ativa ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-          {ativa === null ? '...' : ativa ? 'Ligada' : 'Desligada'}
-        </button>
+    <div className="flex flex-col" style={{ gap: 18 }}>
+      <AccessToggle title="Janela de horário" on={cfg?.janela_ativa ?? null} busy={saving}
+        onClick={() => cfg && patch({ janela_ativa: !cfg.janela_ativa })}>
+        Quando ligada, os perfis <b>usuário, comercial e supervisor</b> só acessam em dias úteis, das <b>9h às 16h</b> (exceto feriados nacionais).
+        Admin e diretor não são afetados. Exceções pelo campo "Horário estendido" na edição do usuário.
+      </AccessToggle>
+
+      <div style={{ height: 1, background: 'var(--border-lt)' }} />
+
+      <AccessToggle title="Dispositivo confiável" on={cfg?.dispositivo_ativo ?? null} busy={saving}
+        onClick={() => cfg && patch({ dispositivo_ativo: !cfg.dispositivo_ativo })}>
+        Quando ligada, esses perfis só acessam de aparelhos aprovados aqui embaixo. Um aparelho novo entra como <b>pendente</b> no primeiro login.
+        Exceção pelo campo "Acesso externo liberado" na edição do usuário.
+      </AccessToggle>
+
+      <div>
+        <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+          Dispositivos {pendentes.length > 0 && <span style={{ color: '#D97706' }}>· {pendentes.length} pendente{pendentes.length > 1 ? 's' : ''}</span>}
+        </p>
+        {devices.length === 0 ? (
+          <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Nenhum dispositivo registrado ainda.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {devices.map((d, i) => (
+              <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, alignItems: 'center', padding: '9px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border-lt)', fontSize: 12.5 }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-1)' }}>
+                  {d.usuario}
+                  {!d.approved && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#D97706', background: '#FFFBEB', padding: '1px 7px', borderRadius: 99 }}>pendente</span>}
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  {d.label || 'dispositivo'}
+                  {d.last_seen_at && ` · ${new Date(parseUTC(d.last_seen_at)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`}
+                </span>
+                <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  {!d.approved && (
+                    <button onClick={() => approve(d.id)} style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 10px', borderRadius: 7, border: 'none', background: '#059669', color: '#fff', cursor: 'pointer' }}>Aprovar</button>
+                  )}
+                  <button onClick={() => revoke(d.id)} style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-card)', color: '#DC2626', cursor: 'pointer' }}>
+                    {d.approved ? 'Revogar' : 'Recusar'}
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
