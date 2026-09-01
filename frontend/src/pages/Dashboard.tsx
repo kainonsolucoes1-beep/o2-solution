@@ -230,7 +230,7 @@ export default function Dashboard() {
   const [draftTo, setDraftTo] = useState('')
   const [filterErr, setFilterErr] = useState('')
   const [feed, setFeed] = useState<FeedItem[]>([])
-  const [feedOpen, setFeedOpen] = useState(true)
+  const [feedOpen, setFeedOpen] = useState(false)
   const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
   const [telefonia, setTelefonia] = useState<{ tma: string; ligacoes: Record<string, number> }>({ tma: '—', ligacoes: {} })
   const [atendimentos, setAtendimentos] = useState<{ hoje: number; ontem: number | null; diff: number | null }>({ hoje: 0, ontem: null, diff: null })
