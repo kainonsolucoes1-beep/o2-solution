@@ -324,34 +324,34 @@ export default function Dashboard() {
               <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Sem captações {selectedDate ? 'nesse dia' : 'no dia'}.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
-                    Pontos de conversão
-                  </p>
-                  {data.captacao_hoje_origem.conversion_points.length === 0
-                    ? <p style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>—</p>
-                    : data.captacao_hoje_origem.conversion_points.map(c => (
+                {data.captacao_hoje_origem.conversion_points.length > 0 && (
+                  <div>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
+                      Pontos de conversão
+                    </p>
+                    {data.captacao_hoje_origem.conversion_points.map(c => (
                       <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-2)', padding: '2px 0' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
                         <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{c.count}</span>
                       </div>
                     ))}
-                </div>
-                <div>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
-                    Bases (SDR)
-                  </p>
-                  {data.captacao_hoje_origem.bases.length === 0
-                    ? <p style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>Nenhum lead de SDR.</p>
-                    : data.captacao_hoje_origem.bases.map(b => (
+                  </div>
+                )}
+                {data.captacao_hoje_origem.bases.length > 0 && (
+                  <div>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
+                      Bases (SDR)
+                    </p>
+                    {data.captacao_hoje_origem.bases.map(b => (
                       <div key={b.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-2)', padding: '2px 0' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.label}</span>
                         <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{b.count}</span>
                       </div>
                     ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
