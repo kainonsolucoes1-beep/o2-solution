@@ -22,5 +22,7 @@ class User(Base):
     cpf = Column(String(14), nullable=True)
     hire_date = Column(Date, nullable=True)
     termination_date = Column(Date, nullable=True)
+    last_login_at = Column(TIMESTAMP, nullable=True)
+    last_login_ip = Column(String(64), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())

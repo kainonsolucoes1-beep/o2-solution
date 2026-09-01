@@ -10,6 +10,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models import User
 from app.models.app_settings import AppSettings
+from app.models.login_event import LoginEvent
 from app.teams import TEAMS, TEAM_BY_SLUG, team_key_setting
 from app.sync_followize import update_tokens_in_memory, _fetch_all_leads, _upsert_lead, _date_from_lookback, _load_tokens_from_db, _save_sync_status
 from app.models import Lead
@@ -492,3 +493,35 @@ def update_user(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.get("/login-events")
+def list_login_events(
+    limit: int = Query(60, ge=1, le=300),
+    only_new: bool = Query(False, description="só logins de IP novo pro usuário"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Histórico de acesso — quem logou, quando, de qual IP e dispositivo."""
+    _require_admin(current_user)
+    q = (
+        db.query(LoginEvent, User.first_name, User.username)
+        .outerjoin(User, User.id == LoginEvent.user_id)
+        .order_by(LoginEvent.created_at.desc())
+    )
+    if only_new:
+        q = q.filter(LoginEvent.new_ip.is_(True), LoginEvent.success.is_(True))
+    rows = q.limit(limit).all()
+    return [
+        {
+            "id": str(ev.id),
+            "nome": fn or un or ev.email_tried or "—",
+            "email": ev.email_tried,
+            "success": ev.success,
+            "ip": ev.ip,
+            "user_agent": ev.user_agent,
+            "new_ip": ev.new_ip,
+            "created_at": ev.created_at.isoformat() if ev.created_at else None,
+        }
+        for ev, fn, un in rows
+    ]

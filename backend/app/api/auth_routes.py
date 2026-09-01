@@ -1,28 +1,36 @@
 import time
 from collections import defaultdict, deque
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
+from app.models.login_event import LoginEvent
+from app.request_utils import client_ip
 from app.schemas import UserLogin, TokenResponse, UserResponse, ChangePasswordRequest
 from app.security import verify_password, create_access_token, verify_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, hash_password
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 _LOGIN_RATE_WINDOW = 300
-_LOGIN_RATE_MAX = 8
-_login_attempts: dict[str, deque] = defaultdict(deque)
+_LOGIN_RATE_MAX = 10
+_login_failures: dict[str, deque] = defaultdict(deque)
 
 
 def _check_login_rate_limit(ip: str):
+    # só falhas contam — o escritório inteiro sai de um IP só (NAT), logins
+    # bem-sucedidos em massa não podem estourar o limite.
     now = time.time()
-    hits = _login_attempts[ip]
+    hits = _login_failures[ip]
     while hits and now - hits[0] > _LOGIN_RATE_WINDOW:
         hits.popleft()
     if len(hits) >= _LOGIN_RATE_MAX:
         raise HTTPException(status_code=429, detail="Muitas tentativas de login. Tente novamente em alguns minutos.")
-    hits.append(now)
+
+
+def _record_login_failure(ip: str):
+    _login_failures[ip].append(time.time())
 
 
 def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)):
@@ -54,11 +62,24 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
 
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, request: Request, db: Session = Depends(get_db)):
-    _check_login_rate_limit(request.client.host if request.client else "unknown")
+    ip = client_ip(request)
+    _check_login_rate_limit(ip)
+    ua = (request.headers.get("user-agent") or "")[:400]
 
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not verify_password(credentials.password, user.password_hash):
+        _record_login_failure(ip)
+        db.add(LoginEvent(user_id=user.id if user else None, email_tried=credentials.email, success=False, ip=ip, user_agent=ua))
+        db.commit()
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
+
+    seen_ip = db.query(LoginEvent.id).filter(
+        LoginEvent.user_id == user.id, LoginEvent.success.is_(True), LoginEvent.ip == ip
+    ).first() is not None
+    db.add(LoginEvent(user_id=user.id, email_tried=credentials.email, success=True, ip=ip, user_agent=ua, new_ip=not seen_ip))
+    user.last_login_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    user.last_login_ip = ip
+    db.commit()
 
     access_token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer", "must_change_password": user.must_change_password}

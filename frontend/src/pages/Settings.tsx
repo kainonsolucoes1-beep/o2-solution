@@ -1056,6 +1056,71 @@ function FormularioTab() {
   )
 }
 
+// ── Histórico de acesso ──────────────────────────────────────────────────────
+interface LoginEventItem {
+  id: string; nome: string; email: string | null; success: boolean
+  ip: string | null; user_agent: string | null; new_ip: boolean; created_at: string | null
+}
+
+function deviceLabel(ua: string | null): string {
+  if (!ua) return '—'
+  const os = /Windows/.test(ua) ? 'Windows' : /Mac OS X|Macintosh/.test(ua) ? 'Mac'
+    : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS'
+    : /Linux/.test(ua) ? 'Linux' : ''
+  const br = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera'
+    : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox'
+    : /Safari\//.test(ua) ? 'Safari' : ''
+  return [br, os].filter(Boolean).join(' · ') || 'outro'
+}
+
+function HistoricoAcessoTab() {
+  const [events, setEvents] = useState<LoginEventItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [onlyNew, setOnlyNew] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    api.get<LoginEventItem[]>(`/api/v1/admin/login-events?limit=80${onlyNew ? '&only_new=true' : ''}`)
+      .then(r => setEvents(r.data))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false))
+  }, [onlyNew])
+
+  return (
+    <div className="flex flex-col" style={{ gap: 12 }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-3b)', cursor: 'pointer' }}>
+        <input type="checkbox" checked={onlyNew} onChange={e => setOnlyNew(e.target.checked)} />
+        Só acessos de local novo
+      </label>
+      {loading ? (
+        <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
+      ) : events.length === 0 ? (
+        <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum acesso registrado ainda.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {events.map((ev, i) => (
+            <div key={ev.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.1fr 1fr 1fr auto', gap: 10, alignItems: 'center', padding: '9px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border-lt)', fontSize: 12.5 }}>
+              <span style={{ fontWeight: 600, color: ev.success ? 'var(--text-1)' : '#DC2626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {ev.nome}{!ev.success && ' · falhou'}
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                {ev.created_at ? new Date(parseUTC(ev.created_at)).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+              </span>
+              <span style={{ color: 'var(--text-2)', fontFamily: 'ui-monospace, monospace', fontSize: 11.5 }}>{ev.ip || '—'}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{deviceLabel(ev.user_agent)}</span>
+              <span>
+                {ev.new_ip && ev.success && (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#D97706', background: '#FFFBEB', padding: '1px 7px', borderRadius: 99 }}>local novo</span>
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function Settings() {
   const { dark } = useTheme()
@@ -1077,6 +1142,9 @@ export default function Settings() {
       {isUsuarios ? (
         <div className="flex flex-col" style={{ gap: 10 }}>
           <UsuariosTab />
+          <Accordion title="Histórico de acesso" summary="quem logou, quando, de qual IP e dispositivo">
+            <HistoricoAcessoTab />
+          </Accordion>
           <Accordion title="Acesso ao formulário" summary="logins usados pelo formulário externo (Gravity Forms)">
             <FormularioTab />
           </Accordion>
