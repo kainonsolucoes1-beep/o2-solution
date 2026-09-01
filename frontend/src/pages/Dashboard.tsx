@@ -108,6 +108,43 @@ function Sparkline({ values }: { values: number[] }) {
   )
 }
 
+// Subseção de "De onde vieram". Vira accordion (fechado por padrão) quando a
+// lista é longa — o que acontece ao filtrar intervalos grandes.
+function OrigemGroup({ dot, label, items }: { dot: string; label: string; items: { label: string; count: number }[] }) {
+  const long = items.length > 6
+  const [open, setOpen] = useState(!long)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => long && setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+          background: 'none', border: 'none', padding: 0, textAlign: 'left',
+          cursor: long ? 'pointer' : 'default',
+          fontSize: 10, fontWeight: 700, color: 'var(--text-2)',
+          textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: open ? 4 : 0,
+        }}
+      >
+        <span style={{ width: 5, height: 5, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+        {label}
+        <span style={{ color: 'var(--text-subtle)' }}>· {items.length}</span>
+        {long && (
+          <span style={{ marginLeft: 'auto', display: 'flex' }}>
+            {open ? <ChevronDown size={12} color="var(--text-subtle)" /> : <ChevronRight size={12} color="var(--text-subtle)" />}
+          </span>
+        )}
+      </button>
+      {open && items.map(it => (
+        <div key={it.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-2)', padding: '2px 0' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
+          <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{it.count}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ZoneHeader({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginTop: 4 }}>
@@ -419,32 +456,10 @@ export default function Dashboard() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {data.captacao_hoje_origem.conversion_points.length > 0 && (
-                  <div>
-                    <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
-                      Pontos de conversão
-                    </p>
-                    {data.captacao_hoje_origem.conversion_points.map(c => (
-                      <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-2)', padding: '2px 0' }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
-                        <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{c.count}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <OrigemGroup key={`${diaLabel}-conv`} dot="#3B82F6" label="Pontos de conversão" items={data.captacao_hoje_origem.conversion_points} />
                 )}
                 {data.captacao_hoje_origem.bases.length > 0 && (
-                  <div>
-                    <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
-                      Bases (SDR)
-                    </p>
-                    {data.captacao_hoje_origem.bases.map(b => (
-                      <div key={b.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-2)', padding: '2px 0' }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.label}</span>
-                        <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{b.count}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <OrigemGroup key={`${diaLabel}-base`} dot="#F59E0B" label="Bases (SDR)" items={data.captacao_hoje_origem.bases} />
                 )}
               </div>
             )}
