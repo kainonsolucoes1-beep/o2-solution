@@ -1,5 +1,4 @@
 import os
-import calendar as _cal
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import List
@@ -10,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
+from app.br_calendar import business_days_in_month
 from app.lead_utils import extract_base, is_organico
 from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
@@ -365,7 +365,6 @@ def dashboard_performance(
     prev_month_end = month_start
     prev_month_start = (month_start - timedelta(days=1)).replace(day=1)
     day_of_month = month_ref.day
-    days_in_month = _cal.monthrange(month_ref.year, month_ref.month)[1]
     now = month_ref  # base do mês (ano/mês/dia) para ranking, evolução e projeção
 
     def _pct(curr, prev):
@@ -408,9 +407,12 @@ def dashboard_performance(
     # Meta de leads — captação do mês vs meta de 200
     meta_pct = round(min(captacao_mes / META_LEADS * 100, 100), 1)
 
-    # Projeção: ritmo diário de captação × dias no mês
-    daily_rate = captacao_mes / day_of_month if day_of_month > 0 else 0
-    projecao_mes = round(daily_rate * days_in_month)
+    # Projeção: ritmo por dia útil × dias úteis do mês (fim de semana e
+    # feriado nacional não contam — a meta é um alvo de esforço do time).
+    dias_uteis_decorridos = business_days_in_month(month_ref.year, month_ref.month, day_of_month)
+    dias_uteis_mes = business_days_in_month(month_ref.year, month_ref.month)
+    daily_rate = captacao_mes / dias_uteis_decorridos if dias_uteis_decorridos > 0 else 0
+    projecao_mes = round(daily_rate * dias_uteis_mes)
 
     # Ranking de operadores — mês atual até a data de referência (todas as origens)
     ranking_rows = (
@@ -500,6 +502,8 @@ def dashboard_performance(
         "meta_leads": META_LEADS,
         "meta_pct": meta_pct,
         "projecao_mes": projecao_mes,
+        "dias_uteis_mes": dias_uteis_mes,
+        "dias_uteis_decorridos": dias_uteis_decorridos,
         "ranking": ranking,
         "evolucao_diaria": evolucao_diaria,
         "captacao_hoje_por_fonte": captacao_hoje_por_fonte,
