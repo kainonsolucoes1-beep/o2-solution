@@ -157,8 +157,8 @@ def create_public_lead(
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=422, detail="Nome é obrigatório")
-    if not body.email and not body.phone:
-        raise HTTPException(status_code=422, detail="Informe email ou telefone")
+    if not body.phone or not body.phone.strip():
+        raise HTTPException(status_code=422, detail="Telefone é obrigatório")
 
     existing = None
     if body.email:

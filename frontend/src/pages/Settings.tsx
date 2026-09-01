@@ -333,8 +333,8 @@ function ConfiguracoesTab() {
             <tbody>
               {[
                 { field: 'name', required: true, desc: 'Nome do lead' },
-                { field: 'email', required: false, desc: 'Opcional* — email ou phone precisa vir preenchido' },
-                { field: 'phone', required: false, desc: 'Opcional* — email ou phone precisa vir preenchido' },
+                { field: 'phone', required: true, desc: 'Telefone do lead' },
+                { field: 'email', required: false, desc: 'E-mail do lead' },
                 { field: 'company', required: false, desc: 'Empresa do lead' },
                 { field: 'message', required: false, desc: 'Mensagem livre do formulário' },
                 { field: 'origin', required: false, desc: 'Ex: "Site Institucional" (padrão: "Orgânico")' },
@@ -367,7 +367,7 @@ function ConfiguracoesTab() {
               { code: '201', color: '#059669', desc: <>Lead criado — retorna <code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>lead_id</code></> },
               { code: '403', color: '#DC2626', desc: 'Chave da conta ou da equipe inválida' },
               { code: '409', color: '#D97706', desc: 'Lead já cadastrado (mesmo e-mail, ou telefone+nome)' },
-              { code: '422', color: '#D97706', desc: 'Faltou nome, ou faltou e-mail e telefone' },
+              { code: '422', color: '#D97706', desc: 'Faltou nome ou telefone' },
               { code: '429', color: '#D97706', desc: 'Mais de 10 requisições/min do mesmo IP' },
             ].map(row => (
               <div key={row.code} className="flex items-baseline" style={{ gap: 10, fontSize: 12.5 }}>
