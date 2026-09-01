@@ -66,6 +66,7 @@ class UserAdminUpdate(BaseModel):
     cpf: Optional[str] = None
     hire_date: Optional[date] = None
     termination_date: Optional[date] = None
+    horario_estendido: Optional[bool] = None
 
 
 class UserAdminResponse(BaseModel):
@@ -83,6 +84,7 @@ class UserAdminResponse(BaseModel):
     cpf: Optional[str]
     hire_date: Optional[date]
     termination_date: Optional[date]
+    horario_estendido: bool = False
 
     class Config:
         from_attributes = True

@@ -59,6 +59,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS renutricao_owner_id UUID REFERENCES users(id) ON DELETE SET NULL"))
     _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP"))
     _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(64)"))
+    _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS horario_estendido BOOLEAN NOT NULL DEFAULT false"))
     _conn.execute(text("CREATE INDEX IF NOT EXISTS idx_login_events_user_created ON login_events(user_id, created_at DESC)"))
     _conn.commit()
 

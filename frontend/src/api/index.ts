@@ -23,6 +23,13 @@ api.interceptors.response.use(
     if (error.response?.status === 403 && error.response?.data?.must_change_password && window.location.pathname !== '/change-password') {
       window.location.href = '/change-password'
     }
+    // Fora da janela de horário permitida — mostra tela dedicada, sem derrubar
+    // a sessão (o usuário volta às 9h e continua logado).
+    const detail = error.response?.data?.detail
+    if (error.response?.status === 403 && detail?.code === 'fora_janela' && window.location.pathname !== '/acesso-bloqueado') {
+      try { sessionStorage.setItem('acessoBloqueadoMsg', detail.message ?? '') } catch { /* ignore */ }
+      window.location.href = '/acesso-bloqueado'
+    }
     return Promise.reject(error)
   }
 )

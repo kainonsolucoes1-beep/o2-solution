@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
 from app.models.login_event import LoginEvent
+from app.access_policy import check_time_window
 from app.request_utils import client_ip
 from app.schemas import UserLogin, TokenResponse, UserResponse, ChangePasswordRequest
 from app.security import verify_password, create_access_token, verify_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, hash_password
@@ -50,6 +51,8 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
+    check_time_window(user, db)
+
     # liga o filtro global de leads ADM-only pro resto da sessao desta requisicao
     db.info["restrict_admin_leads"] = not can_see_restricted_leads(user)
     db.info["restrict_team"] = team_scope(user)
@@ -72,6 +75,13 @@ async def login(credentials: UserLogin, request: Request, db: Session = Depends(
         db.add(LoginEvent(user_id=user.id if user else None, email_tried=credentials.email, success=False, ip=ip, user_agent=ua))
         db.commit()
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
+
+    try:
+        check_time_window(user, db)
+    except HTTPException as exc:
+        db.add(LoginEvent(user_id=user.id, email_tried=credentials.email, success=False, ip=ip, user_agent=ua))
+        db.commit()
+        raise exc
 
     seen_ip = db.query(LoginEvent.id).filter(
         LoginEvent.user_id == user.id, LoginEvent.success.is_(True), LoginEvent.ip == ip

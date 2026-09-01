@@ -463,7 +463,9 @@ interface UserItem {
   is_active: boolean; must_change_password: boolean; created_at: string
   birth_date: string | null; phone: string | null; cpf: string | null
   hire_date: string | null; termination_date: string | null; idade: number | null
+  horario_estendido: boolean
 }
+const RESTRICTED_ROLES = ['usuario', 'comercial', 'supervisor']
 interface UserCreatedResponse extends UserItem { temp_password: string }
 const EMPTY_FORM = { email: '', username: '', first_name: '', role: 'usuario', team: '', birth_date: '', phone: '', cpf: '', hire_date: '' }
 const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '', team: '', birth_date: '', phone: '', cpf: '', hire_date: '', termination_date: '' }
@@ -505,6 +507,7 @@ function UsuariosTab() {
   const [toast, setToast]           = useState<{ msg: string; ok: boolean } | null>(null)
   const [editUser, setEditUser]     = useState<UserItem | null>(null)
   const [editForm, setEditForm]     = useState(EMPTY_EDIT)
+  const [editHorarioEst, setEditHorarioEst] = useState(false)
   const [editError, setEditError]   = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [createdCreds, setCreatedCreds] = useState<{ username: string; password: string } | null>(null)
@@ -571,6 +574,7 @@ function UsuariosTab() {
       birth_date: user.birth_date ?? '', phone: user.phone ?? '', cpf: user.cpf ?? '',
       hire_date: user.hire_date ?? '', termination_date: user.termination_date ?? '',
     })
+    setEditHorarioEst(!!user.horario_estendido)
     setEditError('')
   }
 
@@ -578,7 +582,8 @@ function UsuariosTab() {
     if (!editUser) return
     setEditSaving(true); setEditError('')
     try {
-      const payload: Record<string, string | null> = {}
+      const payload: Record<string, string | boolean | null> = {}
+      if (editHorarioEst !== !!editUser.horario_estendido) payload.horario_estendido = editHorarioEst
       if (editForm.first_name !== (editUser.first_name ?? '')) payload.first_name = editForm.first_name
       if (editForm.email !== editUser.email) payload.email = editForm.email
       if (editForm.username !== editUser.username) payload.username = editForm.username
@@ -700,6 +705,15 @@ function UsuariosTab() {
                   {TEAM_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
+
+              {editUser && RESTRICTED_ROLES.includes(editUser.role) && (
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={editHorarioEst} onChange={e => setEditHorarioEst(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span style={{ fontSize: 12.5, color: 'var(--text-3b)' }}>
+                    <b style={{ fontWeight: 600 }}>Horário estendido</b> — libera o acesso fora da janela de 9h–16h (para quem faz hora extra).
+                  </span>
+                </label>
+              )}
 
               <div style={{ borderTop: '1px solid var(--border-lt)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Dados pessoais</span>
@@ -1056,6 +1070,55 @@ function FormularioTab() {
   )
 }
 
+// ── Controle de acesso ───────────────────────────────────────────────────────
+function ControleAcessoTab() {
+  const [ativa, setAtiva] = useState<boolean | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.get<{ janela_ativa: boolean }>('/api/v1/admin/access-settings')
+      .then(r => setAtiva(r.data.janela_ativa)).catch(() => setAtiva(false))
+  }, [])
+
+  async function toggle() {
+    if (ativa === null) return
+    setSaving(true)
+    try {
+      const { data } = await api.post<{ janela_ativa: boolean }>('/api/v1/admin/access-settings', { janela_ativa: !ativa })
+      setAtiva(data.janela_ativa)
+    } catch { /* ignore */ }
+    setSaving(false)
+  }
+
+  return (
+    <div className="flex flex-col" style={{ gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Janela de horário</p>
+          <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
+            Quando ligada, os perfis <b>usuário, comercial e supervisor</b> só acessam em dias úteis, das <b>9h às 16h</b> (exceto feriados nacionais).
+            Admin e diretor não são afetados. Exceções individuais pelo campo "Horário estendido" na edição do usuário.
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={ativa === null || saving}
+          style={{
+            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7,
+            padding: '7px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+            border: '1px solid', borderColor: ativa ? '#10B981' : 'var(--border)',
+            background: ativa ? 'rgba(16,185,129,0.12)' : 'var(--bg-card)',
+            color: ativa ? '#059669' : 'var(--text-muted)',
+          }}
+        >
+          {ativa ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+          {ativa === null ? '...' : ativa ? 'Ligada' : 'Desligada'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Histórico de acesso ──────────────────────────────────────────────────────
 interface LoginEventItem {
   id: string; nome: string; email: string | null; success: boolean
@@ -1142,6 +1205,9 @@ export default function Settings() {
       {isUsuarios ? (
         <div className="flex flex-col" style={{ gap: 10 }}>
           <UsuariosTab />
+          <Accordion title="Controle de acesso" summary="janela de horário dos perfis internos">
+            <ControleAcessoTab />
+          </Accordion>
           <Accordion title="Histórico de acesso" summary="quem logou, quando, de qual IP e dispositivo">
             <HistoricoAcessoTab />
           </Accordion>

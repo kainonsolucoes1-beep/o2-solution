@@ -490,9 +490,43 @@ def update_user(
         user.termination_date = body.termination_date
         # data de desligamento preenchida desativa o acesso automaticamente
         user.is_active = False
+    if body.horario_estendido is not None:
+        user.horario_estendido = body.horario_estendido
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.get("/access-settings")
+def get_access_settings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    rows = {r.key: r.value for r in db.query(AppSettings).filter(AppSettings.key == "acesso_janela_ativa").all()}
+    return {"janela_ativa": rows.get("acesso_janela_ativa") == "1"}
+
+
+class AccessSettingsBody(BaseModel):
+    janela_ativa: bool
+
+
+@router.post("/access-settings")
+def set_access_settings(
+    body: AccessSettingsBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_admin(current_user)
+    val = "1" if body.janela_ativa else "0"
+    row = db.query(AppSettings).filter(AppSettings.key == "acesso_janela_ativa").first()
+    if row:
+        row.value = val
+    else:
+        db.add(AppSettings(key="acesso_janela_ativa", value=val))
+    db.commit()
+    logger.warning("Janela de horário %s por %s", "LIGADA" if body.janela_ativa else "DESLIGADA", current_user.email)
+    return {"janela_ativa": body.janela_ativa}
 
 
 @router.get("/login-events")

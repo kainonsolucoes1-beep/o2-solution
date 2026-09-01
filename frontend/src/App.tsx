@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import ChangePassword from './pages/ChangePassword'
+import AcessoBloqueado from './pages/AcessoBloqueado'
 import Dashboard from './pages/Dashboard'
 import LeadsReport from './pages/LeadsReport'
 import LeadDetailPage from './pages/LeadDetailPage'
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/change-password" element={<ChangePassword />} />
+        <Route path="/acesso-bloqueado" element={<AcessoBloqueado />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/leads-report" element={<LeadsReport />} />
