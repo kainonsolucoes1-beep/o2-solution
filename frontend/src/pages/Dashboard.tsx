@@ -32,7 +32,6 @@ interface PerformanceData {
   meta_pct: number
   projecao_mes: number
   dias_uteis_mes: number
-  dias_uteis_decorridos: number
   ranking: { name: string; count: number; pct: number; bar_pct: number }[]
   evolucao_diaria: { day: number; date: string; count: number }[]
   captacao_hoje_por_fonte: { name: string; count: number }[]
@@ -349,11 +348,8 @@ export default function Dashboard() {
   const projDelta = projecao - metaLeads
   const projPct = metaLeads > 0 ? Math.round(projecao / metaLeads * 100) : 0
   const diasUteisMes = data.dias_uteis_mes ?? 0
-  const diasUteisDecorridos = data.dias_uteis_decorridos ?? 0
-  const ritmoReal = diasUteisDecorridos > 0 ? captMes / diasUteisDecorridos : 0
   const metaPorDia = diasUteisMes > 0 ? metaLeads / diasUteisMes : 0
 
-  const paceLabel: React.CSSProperties = { fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginTop: 2 }
   const rkHead: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)', paddingBottom: 8 }
   const rkCell: React.CSSProperties = { padding: '9px 0 9px 14px', borderLeft: '1px solid var(--border-lt)', fontSize: 14, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', alignSelf: 'center' }
 
@@ -540,15 +536,11 @@ export default function Dashboard() {
               <span>realizado / projeção</span><span>meta {metaLeads}</span>
             </div>
 
-            <div style={{ display: 'flex', gap: 22 }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: ritmoReal < metaPorDia ? '#EF4444' : '#10B981', fontVariantNumeric: 'tabular-nums' }}>~{fmt1(ritmoReal)}</span>
-                <span style={paceLabel}>leads/dia útil no mês</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>~{fmt1(metaPorDia)}</span>
-                <span style={paceLabel}>a meta pede/dia útil</span>
-              </div>
+            <div style={{ marginTop: 14, paddingTop: 13, borderTop: '1px solid var(--border-lt)' }}>
+              <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginBottom: 4 }}>Ritmo necessário</p>
+              <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
+                {metaPorDia > 0 ? Math.ceil(metaPorDia) : '—'} leads/dia útil
+              </span>
             </div>
           </div>
 

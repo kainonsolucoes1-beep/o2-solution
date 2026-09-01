@@ -503,7 +503,6 @@ def dashboard_performance(
         "meta_pct": meta_pct,
         "projecao_mes": projecao_mes,
         "dias_uteis_mes": dias_uteis_mes,
-        "dias_uteis_decorridos": dias_uteis_decorridos,
         "ranking": ranking,
         "evolucao_diaria": evolucao_diaria,
         "captacao_hoje_por_fonte": captacao_hoje_por_fonte,
