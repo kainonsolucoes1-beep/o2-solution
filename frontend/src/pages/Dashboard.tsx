@@ -641,7 +641,7 @@ export default function Dashboard() {
         {/* Evolução diária */}
         <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={H2_STYLE}>Evolução da Captação — {mesNome}</h2>
+            <h2 style={H2_STYLE}>Evolução da Captação</h2>
             <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Clique no número do dia para ver os leads</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
