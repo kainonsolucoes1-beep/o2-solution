@@ -506,26 +506,28 @@ export default function Dashboard() {
 
           {/* Meta + projeção */}
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <h2 style={H2_STYLE}>Meta Mensal — {mesNome}</h2>
+            <h2 style={H2_STYLE}>Meta Mensal</h2>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>Realizado</span>
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 22, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                  {captMes}<span style={{ fontSize: 13, fontWeight: 700, color: metaColor }}>{data.meta_pct}%</span>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
+                  <b style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{captMes}</b>
+                  <span style={{ fontSize: 12, color: 'var(--text-subtle)' }}>de {metaLeads} leads · {data.meta_pct}% da meta</span>
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>de {metaLeads} leads</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingLeft: 14, borderLeft: '1px solid var(--border-lt)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 15 }}>
                 <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>Projeção do mês</span>
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 22, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                  {projecao}<span style={{ fontSize: 13, fontWeight: 700, color: projDelta >= 0 ? '#10B981' : '#EF4444' }}>{projDelta >= 0 ? `+${projDelta}` : projDelta}</span>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
+                  <b style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{projecao}</b>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: projDelta >= 0 ? '#059669' : '#DC2626' }}>
+                    {projDelta >= 0 ? `${projDelta} acima da meta` : `${Math.abs(projDelta)} abaixo da meta`}
+                  </span>
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{projDelta >= 0 ? 'acima da meta' : 'abaixo da meta'}</span>
               </div>
             </div>
 
-            <div style={{ position: 'relative', paddingTop: 9 }}>
+            <div style={{ position: 'relative', paddingTop: 9, marginTop: 2 }}>
               <div style={{ position: 'relative', height: 12, borderRadius: 99, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
                 <div style={{ width: `${Math.min(data.meta_pct, 100)}%`, height: '100%', borderRadius: 99, background: metaColor, transition: 'width 700ms ease' }} />
               </div>
@@ -547,7 +549,7 @@ export default function Dashboard() {
           {/* Ranking do mês */}
           <div className="bg-white rounded-xl flex flex-col" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
             <div style={{ padding: '24px 24px 0' }}>
-              <h2 style={{ ...H2_STYLE, marginBottom: 20 }}>Ranking de Operadores — {mesNome}</h2>
+              <h2 style={{ ...H2_STYLE, marginBottom: 20 }}>Ranking de Operadores</h2>
               {ranking.length === 0 ? (
                 <p style={{ fontSize: 13, color: 'var(--text-subtle)', paddingBottom: 24 }}>Sem captações no período.</p>
               ) : (
