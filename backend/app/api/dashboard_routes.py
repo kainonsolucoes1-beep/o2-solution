@@ -340,21 +340,33 @@ META_LEADS = 200
 @router.get("/performance")
 def dashboard_performance(
     date: str = None,
+    date_to: str = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if date:
+    # `date` sozinho = um dia; `date` + `date_to` = intervalo (o front garante
+    # mesmo mês). A faixa do mês (meta, projeção, ranking, evolução) sempre se
+    # apoia na data final do intervalo.
+    if date and date_to:
+        today_start, _ = br_date_to_utc_range(date)
+        _, today_end = br_date_to_utc_range(date_to)
+        if today_end <= today_start:
+            today_start, today_end = br_date_to_utc_range(date_to)
+        month_ref, _ = br_date_to_utc_range(date_to)
+    elif date:
         today_start, today_end = br_date_to_utc_range(date)
+        month_ref = today_start
     else:
         today_start, today_end = today_utc_range()
+        month_ref = today_start
 
     yesterday_start = today_start - timedelta(days=1)
-    month_start = today_start.replace(day=1)
+    month_start = month_ref.replace(day=1)
     prev_month_end = month_start
     prev_month_start = (month_start - timedelta(days=1)).replace(day=1)
-    day_of_month = today_start.day
-    days_in_month = _cal.monthrange(today_start.year, today_start.month)[1]
-    now = today_start  # alias para compatibilidade com uso de `now.year/month` abaixo
+    day_of_month = month_ref.day
+    days_in_month = _cal.monthrange(month_ref.year, month_ref.month)[1]
+    now = month_ref  # base do mês (ano/mês/dia) para ranking, evolução e projeção
 
     def _pct(curr, prev):
         if prev == 0:

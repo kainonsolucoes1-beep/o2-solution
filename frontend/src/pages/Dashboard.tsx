@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { TrendingUp, TrendingDown, Users, Zap, Clock, Calendar, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, Users, Zap, Filter, X, ChevronDown, ChevronRight } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -141,6 +141,42 @@ function mergeO2Ranking(ranking: RankItem[]): RankItem[] {
 
 const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString().replace('.', ',')
 
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const fmtBR = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+const fmtBRShort = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+
+// Feriados nacionais do Brasil (fixos + móveis a partir da Páscoa). Usado só
+// para o atalho "dia útil anterior".
+function easterSunday(year: number): Date {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31)
+  const day = ((h + l - 7 * m + 114) % 31) + 1
+  return new Date(year, month - 1, day)
+}
+function brHolidays(year: number): Set<string> {
+  const easter = easterSunday(year)
+  const shift = (n: number) => { const x = new Date(easter); x.setDate(x.getDate() + n); return iso(x) }
+  return new Set([
+    `${year}-01-01`, `${year}-04-21`, `${year}-05-01`, `${year}-09-07`,
+    `${year}-10-12`, `${year}-11-02`, `${year}-11-15`, `${year}-11-20`, `${year}-12-25`,
+    shift(-48), shift(-47), shift(-2), shift(60), // carnaval seg/ter, sexta santa, corpus christi
+  ])
+}
+function lastBusinessDayISO(from: Date): string {
+  const d = new Date(from)
+  d.setDate(d.getDate() - 1)
+  for (let guard = 0; guard < 40; guard++) {
+    const dow = d.getDay()
+    if (dow !== 0 && dow !== 6 && !brHolidays(d.getFullYear()).has(iso(d))) return iso(d)
+    d.setDate(d.getDate() - 1)
+  }
+  return iso(d)
+}
+
 
 const todayStr = new Date().toISOString().slice(0, 10)
 
@@ -150,8 +186,11 @@ export default function Dashboard() {
   const [data, setData] = useState<PerformanceData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [showPicker, setShowPicker] = useState(false)
+  const [filter, setFilter] = useState<{ from: string; to: string } | null>(null)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [draftFrom, setDraftFrom] = useState('')
+  const [draftTo, setDraftTo] = useState('')
+  const [filterErr, setFilterErr] = useState('')
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [feedOpen, setFeedOpen] = useState(true)
   const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
@@ -165,11 +204,12 @@ export default function Dashboard() {
   const fetchAllGenRef = useRef(0)
   const fetchSideGenRef = useRef(0)
 
-  const fetchAll = useCallback((date?: string | null, silent = false) => {
+  const fetchAll = useCallback((f: { from: string; to: string } | null, silent = false) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
     const gen = ++fetchAllGenRef.current
     if (!silent) setLoading(true)
-    const params = date ? { date } : {}
+    const params: Record<string, string> = {}
+    if (f) { params.date = f.from; if (f.to !== f.from) params.date_to = f.to }
     api.get<PerformanceData>('/api/v1/dashboard/performance', { params })
       .then(r => { if (fetchAllGenRef.current === gen) setData(r.data) })
       .catch(err => {
@@ -180,11 +220,13 @@ export default function Dashboard() {
       .finally(() => { if (fetchAllGenRef.current === gen && !silent) setLoading(false) })
   }, [navigate])
 
-  const fetchSide = useCallback((date?: string | null) => {
+  const fetchSide = useCallback((f: { from: string; to: string } | null) => {
     const gen = ++fetchSideGenRef.current
     api.get<FeedItem[]>('/api/v1/dashboard/activity-feed')
       .then(r => { if (fetchSideGenRef.current === gen) setFeed(r.data) })
       .catch(() => {})
+    // Telefonia é por dia; num intervalo usa a data final como referência.
+    const date = f ? f.to : null
     const params = date ? { date } : {}
     const telefoniaUrl = date ? '/api/v1/telefonia/by-date' : '/api/v1/telefonia/settings'
     api.get<{ tma: string; ligacoes: Record<string, number> }>(telefoniaUrl, { params })
@@ -195,22 +237,48 @@ export default function Dashboard() {
       .catch(() => {})
   }, [])
 
-  useEffect(() => { fetchAll(selectedDate) }, [fetchAll, selectedDate])
-  useEffect(() => { fetchSide(selectedDate) }, [fetchSide, selectedDate])
+  useEffect(() => { fetchAll(filter) }, [fetchAll, filter])
+  useEffect(() => { fetchSide(filter) }, [fetchSide, filter])
 
   useEffect(() => {
-    const id = setInterval(() => { fetchAll(selectedDate, true); fetchSide(selectedDate) }, 45000)
+    if (filter) return   // vista histórica não precisa de polling
+    const id = setInterval(() => { fetchAll(null, true); fetchSide(null) }, 45000)
     return () => clearInterval(id)
-  }, [fetchAll, fetchSide, selectedDate])
+  }, [fetchAll, fetchSide, filter])
 
-  function handleDateChange(d: string) {
-    setShowPicker(false)
-    setSelectedDate(d === todayStr ? null : d)
+  useEffect(() => {
+    if (!filterOpen) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setFilterOpen(false) }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [filterOpen])
+
+  function openFilter() {
+    setDraftFrom(filter?.from ?? todayStr)
+    setDraftTo(filter?.to ?? todayStr)
+    setFilterErr('')
+    setFilterOpen(o => !o)
   }
 
-  function resetDate() {
-    setSelectedDate(null)
-    setShowPicker(false)
+  function applyRange() {
+    if (!draftFrom || !draftTo) { setFilterErr('Escolha as duas datas.'); return }
+    const a = draftFrom <= draftTo ? draftFrom : draftTo
+    const b = draftFrom <= draftTo ? draftTo : draftFrom
+    if (a.slice(0, 7) !== b.slice(0, 7)) { setFilterErr('As duas datas precisam ser do mesmo mês.'); return }
+    setFilterErr('')
+    setFilter(a === todayStr && b === todayStr ? null : { from: a, to: b })
+    setFilterOpen(false)
+  }
+
+  function applyLastBusinessDay() {
+    const d = lastBusinessDayISO(new Date())
+    setFilter({ from: d, to: d })
+    setFilterOpen(false)
+  }
+
+  function clearFilter() {
+    setFilter(null)
+    setFilterOpen(false)
   }
 
 
@@ -219,12 +287,11 @@ export default function Dashboard() {
 
   const metaLeads = data.meta_leads ?? 200
   const metaColor = data.meta_pct >= 80 ? '#10B981' : data.meta_pct >= 50 ? '#F59E0B' : '#EF4444'
-  const refDate = selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date()
+  const single = !!filter && filter.from === filter.to
+  const refDate = filter ? new Date(filter.to + 'T12:00:00') : new Date()
   const mesNome = refDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
-  const dateDisplayStr = selectedDate
-    ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    : null
-  const diaLabel = selectedDate ? dateDisplayStr : 'Hoje'
+  const diaLabel = !filter ? 'Hoje' : single ? fmtBR(filter.from) : `${fmtBRShort(filter.from)} – ${fmtBRShort(filter.to)}`
+  const capLabel = !filter ? 'Captação Hoje' : single ? `Captação — ${fmtBR(filter.from)}` : 'Captação no período'
   const ranking = mergeO2Ranking(data.ranking)
 
   const totalLig = Object.values(telefonia.ligacoes).reduce((a: number, b: number) => a + b, 0)
@@ -260,34 +327,61 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
-          {selectedDate && (
+          {filter && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563EB' }}>{dateDisplayStr}</span>
-              <button onClick={resetDate} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center', padding: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#2563EB' }}>{diaLabel}</span>
+              <button onClick={clearFilter} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', display: 'flex', alignItems: 'center', padding: 0 }}>
                 <X size={13} />
               </button>
             </div>
           )}
           <div style={{ position: 'relative' }}>
             <button
-              onClick={() => setShowPicker(p => !p)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}
+              onClick={openFilter}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, border: `1px solid ${filter ? '#2563EB' : 'var(--border)'}`, background: filter ? 'rgba(37,99,235,0.08)' : 'var(--bg-card)', color: filter ? '#2563EB' : 'var(--text-muted)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}
             >
-              <Calendar size={14} />
-              {!selectedDate && 'Ver dia anterior'}
+              <Filter size={14} />
+              Filtros
             </button>
-            {showPicker && (
-              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 20, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
-                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Selecionar data</p>
-                <input
-                  type="date"
-                  max={todayStr}
-                  defaultValue={selectedDate ?? todayStr}
-                  autoFocus
-                  onChange={e => handleDateChange(e.target.value)}
-                  style={{ fontSize: 13, padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border-in)', color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}
-                />
-              </div>
+            {filterOpen && (
+              <>
+                <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 19 }} />
+                <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 20, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, boxShadow: '0 8px 28px rgba(15,23,42,0.16)', width: 292 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filtros</p>
+
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', marginBottom: 7 }}>
+                    Entre datas <span style={{ fontWeight: 400, color: 'var(--text-subtle)' }}>· mesmo mês</span>
+                  </p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input type="date" value={draftFrom} max={todayStr}
+                      onChange={e => { setDraftFrom(e.target.value); setFilterErr('') }}
+                      style={{ flex: 1, minWidth: 0, fontSize: 12.5, padding: '6px 8px', borderRadius: 7, border: '1px solid var(--border-in)', color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
+                    <input type="date" value={draftTo} max={todayStr} min={draftFrom || undefined}
+                      onChange={e => { setDraftTo(e.target.value); setFilterErr('') }}
+                      style={{ flex: 1, minWidth: 0, fontSize: 12.5, padding: '6px 8px', borderRadius: 7, border: '1px solid var(--border-in)', color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }} />
+                  </div>
+                  {filterErr && <p style={{ fontSize: 11, color: '#EF4444', marginTop: 6 }}>{filterErr}</p>}
+                  <button onClick={applyRange}
+                    style={{ width: '100%', marginTop: 10, padding: '8px 12px', borderRadius: 8, border: 'none', background: '#2563EB', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+                    Aplicar
+                  </button>
+
+                  <div style={{ height: 1, background: 'var(--border-lt)', margin: '14px 0' }} />
+
+                  <button onClick={applyLastBusinessDay}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-3b)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+                    Dia útil anterior
+                  </button>
+                  <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 5 }}>Pula sábado, domingo e feriados nacionais.</p>
+
+                  {filter && (
+                    <button onClick={clearFilter}
+                      style={{ width: '100%', marginTop: 12, padding: '4px', border: 'none', background: 'none', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      Limpar filtro
+                    </button>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -295,11 +389,11 @@ export default function Dashboard() {
 
       {/* ─────────────────────────── FAIXA: HOJE ─────────────────────────── */}
       <section className="flex flex-col gap-4">
-        <ZoneHeader>{diaLabel}{!selectedDate && ' · ao vivo'}</ZoneHeader>
+        <ZoneHeader>{diaLabel}{!filter && ' · ao vivo'}</ZoneHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xl:gap-6">
           <KpiCard
-            label={selectedDate ? `Captação — ${dateDisplayStr}` : 'Captação Hoje'}
+            label={capLabel}
             value={String(data.captacao_hoje)}
             Icon={Zap}
             iconBg="#EFF6FF" iconColor="#3B82F6"
@@ -321,7 +415,7 @@ export default function Dashboard() {
               De onde vieram
             </p>
             {data.captacao_hoje_origem.bases.length === 0 && data.captacao_hoje_origem.conversion_points.length === 0 ? (
-              <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Sem captações {selectedDate ? 'nesse dia' : 'no dia'}.</p>
+              <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Sem captações {filter && !single ? 'no período' : 'no dia'}.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {data.captacao_hoje_origem.conversion_points.length > 0 && (
@@ -361,7 +455,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <h2 style={H2_STYLE}>Ranking de Operadores — {diaLabel}</h2>
           {data.captacao_hoje_por_fonte.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações {selectedDate ? 'nesse dia' : 'hoje'}.</p>
+            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações {filter && !single ? 'no período' : filter ? 'nesse dia' : 'hoje'}.</p>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr' }}>
               {['Operador', 'Captação', 'Ligações', 'Conversão'].map((hd, c) => (
