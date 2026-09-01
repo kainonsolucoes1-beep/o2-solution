@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { TrendingUp, TrendingDown, Users, Zap, PhoneCall, Clock, Calendar, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, Users, Zap, Clock, Calendar, X, ChevronDown, ChevronRight } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -57,35 +57,67 @@ function Trend({ value, label }: { value: number; label: string }) {
 }
 
 function KpiCard({
-  label, value, trend, trendLabel, Icon, iconBg, iconColor, large, subtitle,
+  label, value, trend, trendLabel, Icon, iconBg, iconColor, subtitle, chart,
 }: {
   label: string; value: string; trend?: number; trendLabel?: string
-  Icon: React.ElementType; iconBg: string; iconColor: string; large?: boolean; subtitle?: string
+  Icon: React.ElementType; iconBg: string; iconColor: string; subtitle?: string
+  chart?: React.ReactNode
 }) {
   return (
     <div
       className="bg-white rounded-xl flex flex-col gap-3"
       style={{
-        padding: large ? '24px' : '20px',
-        boxShadow: large ? '0 2px 12px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.08)',
-        border: large ? '2px solid var(--kpi-accent-border)' : '1px solid transparent',
+        padding: '20px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        border: '1px solid transparent',
         transition: 'transform 200ms, box-shadow 200ms',
       }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)' }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = large ? '0 2px 12px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.08)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)' }}
     >
       <div style={{ width: 38, height: 38, borderRadius: 10, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon size={19} color={iconColor} />
       </div>
       <div>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, marginBottom: 4 }}>{label}</p>
-        <p style={{ fontSize: large ? 28 : 26, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</p>
+        <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</p>
         {subtitle && <p style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 4 }}>{subtitle}</p>}
       </div>
+      {chart}
       {trend !== undefined && trendLabel !== undefined && <Trend value={trend} label={trendLabel} />}
     </div>
   )
 }
+
+// Mini-gráfico dos últimos dias — substitui o "0% vs ontem" na captação do dia.
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return null
+  const w = 120, h = 34
+  const max = Math.max(...values, 1)
+  const x = (i: number) => (i / (values.length - 1)) * (w - 2) + 1
+  const y = (v: number) => (h - 3) - (v / max) * (h - 8)
+  const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  const area = `1,${h} ${pts} ${w - 1},${h}`
+  const last = values.length - 1
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: 34, marginTop: 2 }}>
+      <polygon points={area} fill="rgba(59,130,246,0.12)" />
+      <polyline points={pts} fill="none" stroke="#3B82F6" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={x(last)} cy={y(values[last])} r={2.6} fill="#3B82F6" />
+    </svg>
+  )
+}
+
+function ZoneHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginTop: 4 }}>
+      <span style={{ flexShrink: 0 }}>{children}</span>
+      <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+    </div>
+  )
+}
+
+const H2_STYLE: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }
 
 const MEDALS = ['🥇', '🥈', '🥉']
 const BAR_COLORS = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6']
@@ -107,6 +139,7 @@ function mergeO2Ranking(ranking: RankItem[]): RankItem[] {
   return sorted.map(r => ({ ...r, bar_pct: Math.round(r.count / maxCount * 100) }))
 }
 
+const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString().replace('.', ',')
 
 
 const todayStr = new Date().toISOString().slice(0, 10)
@@ -120,7 +153,7 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const [feed, setFeed] = useState<FeedItem[]>([])
-  const [feedOpen, setFeedOpen] = useState(false)
+  const [feedOpen, setFeedOpen] = useState(true)
   const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
   const [telefonia, setTelefonia] = useState<{ tma: string; ligacoes: Record<string, number> }>({ tma: '—', ligacoes: {} })
   const [atendimentos, setAtendimentos] = useState<{ hoje: number; ontem: number | null; diff: number | null }>({ hoje: 0, ontem: null, diff: null })
@@ -186,18 +219,39 @@ export default function Dashboard() {
 
   const metaLeads = data.meta_leads ?? 200
   const metaColor = data.meta_pct >= 80 ? '#10B981' : data.meta_pct >= 50 ? '#F59E0B' : '#EF4444'
-  const projecaoColor = (data.projecao_mes ?? 0) >= metaLeads ? '#10B981' : '#F59E0B'
-  const faltam = Math.max(0, metaLeads - (data.captacao_mes ?? 0))
   const refDate = selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date()
   const mesNome = refDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
-  const dateFmtDisplay = selectedDate
+  const dateDisplayStr = selectedDate
     ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : null
-  const dateDisplayStr = dateFmtDisplay
+  const diaLabel = selectedDate ? dateDisplayStr : 'Hoje'
   const ranking = mergeO2Ranking(data.ranking)
 
+  const totalLig = Object.values(telefonia.ligacoes).reduce((a: number, b: number) => a + b, 0)
+
+  // Captação do dia — mini-série dos últimos 7 dias até o dia de referência.
+  const refDay = refDate.getDate()
+  const evoIdx = data.evolucao_diaria.findIndex(d => d.day === refDay)
+  const spark7 = (evoIdx >= 0
+    ? data.evolucao_diaria.slice(Math.max(0, evoIdx - 6), evoIdx + 1)
+    : data.evolucao_diaria.slice(-7)
+  ).map(d => d.count)
+
+  // Meta + projeção — mesma linguagem, mesmo card.
+  const captMes = data.captacao_mes ?? 0
+  const projecao = data.projecao_mes ?? 0
+  const projDelta = projecao - metaLeads
+  const projPct = metaLeads > 0 ? Math.round(projecao / metaLeads * 100) : 0
+  const daysInMonth = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0).getDate()
+  const ritmoReal = refDay > 0 ? captMes / refDay : 0
+  const metaPorDia = daysInMonth > 0 ? metaLeads / daysInMonth : 0
+
+  const paceLabel: React.CSSProperties = { fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginTop: 2 }
+  const rkHead: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)', paddingBottom: 8 }
+  const rkCell: React.CSSProperties = { padding: '9px 0 9px 14px', borderLeft: '1px solid var(--border-lt)', fontSize: 14, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', alignSelf: 'center' }
+
   return (
-    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
+    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-7" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
@@ -239,407 +293,370 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 xl:gap-6">
-        <KpiCard
-          label={selectedDate ? `Captação — ${dateDisplayStr}` : 'Captação Hoje'}
-          value={String(data.captacao_hoje)}
-          trend={data.vs_ontem}
-          trendLabel="vs ontem"
-          Icon={Zap}
-          iconBg="#EFF6FF" iconColor="#3B82F6"
-        />
-        <KpiCard
-          label="Atendimentos"
-          value={String(atendimentos.hoje)}
-          trend={atendimentos.diff ?? undefined}
-          trendLabel="vs ontem"
-          Icon={Users}
-          iconBg="#ECFDF5" iconColor="#10B981"
-        />
-        <KpiCard
-          label="Taxa de Conversão Diária"
-          value={(() => {
-            const totalLig = Object.values(telefonia.ligacoes).reduce((a: number, b: number) => a + b, 0)
-            return totalLig > 0 ? `${+((data.captacao_hoje / totalLig) * 100).toFixed(1)}%` : '—'
-          })()}
-          subtitle={(() => {
-            const totalLig = Object.values(telefonia.ligacoes).reduce((a: number, b: number) => a + b, 0)
-            return totalLig > 0 ? `${data.captacao_hoje} captações · ${totalLig} ligações` : 'Sem ligações registradas'
-          })()}
-          Icon={PhoneCall}
-          iconBg="#F0FDF4" iconColor="#10B981"
-          large
-        />
-        <KpiCard
-          label="Tempo Médio de Atendimento"
-          value={telefonia.tma}
-          subtitle="Atualizado em Telefonia"
-          Icon={Clock}
-          iconBg="#FFF7ED" iconColor="#F97316"
-        />
-      </div>
+      {/* ─────────────────────────── FAIXA: HOJE ─────────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <ZoneHeader>{diaLabel}{!selectedDate && ' · ao vivo'}</ZoneHeader>
 
-      {/* Rankings lado a lado */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xl:gap-6">
+          <KpiCard
+            label={selectedDate ? `Captação — ${dateDisplayStr}` : 'Captação Hoje'}
+            value={String(data.captacao_hoje)}
+            Icon={Zap}
+            iconBg="#EFF6FF" iconColor="#3B82F6"
+            chart={<Sparkline values={spark7} />}
+          />
+          <KpiCard
+            label="Atendimentos"
+            value={String(atendimentos.hoje)}
+            trend={atendimentos.diff ?? undefined}
+            trendLabel="vs ontem"
+            subtitle={totalLig > 0 ? `de ${totalLig} ligações no dia` : undefined}
+            Icon={Users}
+            iconBg="#ECFDF5" iconColor="#10B981"
+          />
 
-        {/* Ranking Hoje — ligações + captação + conversão */}
-        <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Ranking de Operadores — {selectedDate ? dateDisplayStr : 'Hoje'}
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 72px 72px 82px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
-            {['Operador', 'Captação', 'Ligações', 'Conversão'].map(h => (
-              <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h === 'Operador' ? 'left' : 'right' }}>{h}</span>
-            ))}
+          <div className="bg-white rounded-xl flex flex-col gap-3" style={{ padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+            <p style={{ display: 'flex', alignItems: 'center', gap: 8, ...H2_STYLE, fontSize: 12 }}>
+              <span style={{ width: 3, height: 12, borderRadius: 2, background: '#6366F1', flexShrink: 0 }} />
+              De onde vieram
+            </p>
+            {data.captacao_hoje_origem.bases.length === 0 && data.captacao_hoje_origem.conversion_points.length === 0 ? (
+              <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Sem captações {selectedDate ? 'nesse dia' : 'no dia'}.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
+                    Pontos de conversão
+                  </p>
+                  {data.captacao_hoje_origem.conversion_points.length === 0
+                    ? <p style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>—</p>
+                    : data.captacao_hoje_origem.conversion_points.map(c => (
+                      <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-2)', padding: '2px 0' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
+                        <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{c.count}</span>
+                      </div>
+                    ))}
+                </div>
+                <div>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
+                    Bases (SDR)
+                  </p>
+                  {data.captacao_hoje_origem.bases.length === 0
+                    ? <p style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>Nenhum lead de SDR.</p>
+                    : data.captacao_hoje_origem.bases.map(b => (
+                      <div key={b.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: 'var(--text-2)', padding: '2px 0' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.label}</span>
+                        <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{b.count}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Ranking de hoje — colunas segmentadas (só divisórias verticais) */}
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <h2 style={H2_STYLE}>Ranking de Operadores — {diaLabel}</h2>
           {data.captacao_hoje_por_fonte.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações hoje.</p>
+            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações {selectedDate ? 'nesse dia' : 'hoje'}.</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr' }}>
+              {['Operador', 'Captação', 'Ligações', 'Conversão'].map((hd, c) => (
+                <div key={hd} style={{ ...rkHead, paddingLeft: c ? 14 : 0, borderLeft: c ? '1px solid var(--border-lt)' : 'none' }}>{hd}</div>
+              ))}
               {data.captacao_hoje_por_fonte.map((op, i) => {
                 const ligacoes = telefonia.ligacoes[op.name] ?? 0
                 const taxa = ligacoes > 0 ? +((op.count / ligacoes) * 100).toFixed(1) : null
                 const taxaColor = taxa === null ? 'var(--text-subtle)' : taxa >= 10 ? '#10B981' : taxa >= 5 ? '#F59E0B' : '#EF4444'
                 return (
-                  <div
-                    key={op.name}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 72px 72px 82px', gap: 8, alignItems: 'center', padding: '11px 4px', borderBottom: i < data.captacao_hoje_por_fonte.length - 1 ? '1px solid var(--border-lt)' : 'none', borderRadius: 6, transition: 'background 150ms' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                      <span style={{ fontSize: i < 3 ? 17 : 12, width: 22, flexShrink: 0, textAlign: 'center', color: 'var(--text-subtle)', fontWeight: 700 }}>
+                  <div key={op.name} style={{ display: 'contents' }}>
+                    <span style={{ padding: '9px 0 9px', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <span style={{ fontSize: i < 3 ? 15 : 11, width: 20, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
                         {i < 3 ? MEDALS[i] : `${i + 1}°`}
                       </span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
-                    </div>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>{op.count}</span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right' }}>
-                      {ligacoes > 0 ? ligacoes : <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>}
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
                     </span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: taxaColor, textAlign: 'right' }}>
-                      {taxa !== null ? `${taxa}%` : <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>}
-                    </span>
+                    <span style={{ ...rkCell, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)] }}>{op.count}</span>
+                    <span style={rkCell}>{ligacoes > 0 ? ligacoes : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
+                    <span style={{ ...rkCell, color: taxaColor }}>{taxa !== null ? `${fmt1(taxa)}%` : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
                   </div>
                 )
               })}
             </div>
           )}
         </div>
+      </section>
 
-        {/* Ranking Mensal — nome + captação + barra + expander de fontes */}
-        <div className="bg-white rounded-xl flex flex-col" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-          <div style={{ padding: '24px 24px 0' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
-              Ranking de Operadores — {mesNome}
-            </h2>
-            {ranking.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)', paddingBottom: 24 }}>Sem captações no período.</p>
-            ) : (
-              <div className="flex flex-col gap-4" style={{ paddingBottom: 20 }}>
-                {ranking.slice(0, 3).map((op, i) => (
-                  <div
-                    key={op.name}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity 150ms' }}
-                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
-                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                  >
-                    <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
-                      {i < 3 ? MEDALS[i] : `${i + 1}°`}
-                    </span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {op.name}
-                        </span>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{op.count}</span>
-                          <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
+      {/* ────────────────────────── FAIXA: MÊS ──────────────────────────── */}
+      <section className="flex flex-col gap-4">
+        <ZoneHeader>{mesNome} · acumulado</ZoneHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6 items-start">
+
+          {/* Meta + projeção */}
+          <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+            <h2 style={H2_STYLE}>Meta Mensal — {mesNome}</h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>Realizado</span>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 22, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                  {captMes}<span style={{ fontSize: 13, fontWeight: 700, color: metaColor }}>{data.meta_pct}%</span>
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>de {metaLeads} leads</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingLeft: 14, borderLeft: '1px solid var(--border-lt)' }}>
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>Projeção do mês</span>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 22, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                  {projecao}<span style={{ fontSize: 13, fontWeight: 700, color: projDelta >= 0 ? '#10B981' : '#EF4444' }}>{projDelta >= 0 ? `+${projDelta}` : projDelta}</span>
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{projDelta >= 0 ? 'acima da meta' : 'abaixo da meta'}</span>
+              </div>
+            </div>
+
+            <div style={{ position: 'relative', paddingTop: 9 }}>
+              <div style={{ position: 'relative', height: 12, borderRadius: 99, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(data.meta_pct, 100)}%`, height: '100%', borderRadius: 99, background: metaColor, transition: 'width 700ms ease' }} />
+              </div>
+              <div style={{ position: 'absolute', top: 0, left: `${Math.min(Math.max(projPct, 0), 100)}%`, transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '6px solid var(--text-2)' }} />
+              <div style={{ position: 'absolute', top: 5, right: 0, width: 2, height: 20, background: 'var(--text-subtle)', borderRadius: 2 }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, fontWeight: 600, color: 'var(--text-subtle)', marginTop: -6 }}>
+              <span>realizado / projeção</span><span>meta {metaLeads}</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 22 }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: ritmoReal < metaPorDia ? '#EF4444' : '#10B981', fontVariantNumeric: 'tabular-nums' }}>~{fmt1(ritmoReal)}</span>
+                <span style={paceLabel}>leads/dia no mês</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>~{fmt1(metaPorDia)}</span>
+                <span style={paceLabel}>a meta pedia/dia</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Ranking do mês */}
+          <div className="bg-white rounded-xl flex flex-col" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            <div style={{ padding: '24px 24px 0' }}>
+              <h2 style={{ ...H2_STYLE, marginBottom: 20 }}>Ranking de Operadores — {mesNome}</h2>
+              {ranking.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)', paddingBottom: 24 }}>Sem captações no período.</p>
+              ) : (
+                <div className="flex flex-col gap-4" style={{ paddingBottom: 20 }}>
+                  {ranking.slice(0, 3).map((op, i) => (
+                    <div
+                      key={op.name}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity 150ms' }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                    >
+                      <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
+                        {i < 3 ? MEDALS[i] : `${i + 1}°`}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {op.name}
+                          </span>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{op.count}</span>
+                            <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
+                          </div>
+                        </div>
+                        <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 7, overflow: 'hidden' }}>
+                          <div style={{ width: `${op.bar_pct}%`, height: '100%', borderRadius: 99, background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], transition: 'width 600ms ease' }} />
                         </div>
                       </div>
-                      <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 7, overflow: 'hidden' }}>
-                        <div style={{ width: `${op.bar_pct}%`, height: '100%', borderRadius: 99, background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], transition: 'width 600ms ease' }} />
-                      </div>
                     </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {ranking.length > 3 && (
+              <>
+                <button
+                  onClick={() => setRankMonthExpanded(o => !o)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '12px 24px', background: 'var(--bg-subtle)', border: 'none',
+                    borderTop: '1px solid var(--border-lt)', cursor: 'pointer',
+                    width: '100%', textAlign: 'left',
+                  }}
+                >
+                  {rankMonthExpanded ? <ChevronDown size={13} color="var(--text-muted)" /> : <ChevronRight size={13} color="var(--text-muted)" />}
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Outras origens
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.1)', borderRadius: 99, padding: '1px 7px', marginLeft: 4 }}>
+                    {ranking.length - 3}
+                  </span>
+                </button>
+                {rankMonthExpanded && (
+                  <div style={{ padding: '8px 24px 16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
+                      {['Origem', 'Captação', 'Part.'].map(h => (
+                        <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h === 'Origem' ? 'left' : 'right' }}>{h}</span>
+                      ))}
+                    </div>
+                    {ranking.slice(3).map((op, idx) => {
+                      const i = idx + 3
+                      return (
+                        <div
+                          key={op.name}
+                          style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, alignItems: 'center', padding: '10px 4px', borderBottom: idx < ranking.length - 4 ? '1px solid var(--border-lt)' : 'none', borderRadius: 6, transition: 'background 150ms' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <span style={{ fontSize: 11, width: 20, flexShrink: 0, textAlign: 'center', color: 'var(--text-subtle)', fontWeight: 700 }}>
+                              {i + 1}°
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
+                          </div>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>{op.count}</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-subtle)', textAlign: 'right' }}>{op.pct}%</span>
+                        </div>
+                      )
+                    })}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* Expander — origens fora do top 3 */}
-          {ranking.length > 3 && (
-            <>
-              <button
-                onClick={() => setRankMonthExpanded(o => !o)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '12px 24px', background: 'var(--bg-subtle)', border: 'none',
-                  borderTop: '1px solid var(--border-lt)', cursor: 'pointer',
-                  width: '100%', textAlign: 'left',
+        </div>
+
+        {/* Evolução diária */}
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 style={H2_STYLE}>Evolução da Captação — {mesNome}</h2>
+            <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Clique no número do dia para ver os leads</span>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart
+              data={data.evolucao_diaria}
+              margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="captGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" vertical={false} />
+              <XAxis
+                dataKey="day"
+                tickLine={false}
+                axisLine={false}
+                tick={(props: { x: number; y: number; payload: { value: number } }) => {
+                  const { x, y, payload } = props
+                  const item = data.evolucao_diaria.find(d => d.day === payload.value)
+                  return (
+                    <text
+                      x={x} y={y} dy={14}
+                      textAnchor="middle"
+                      fontSize={11}
+                      fill={item ? '#3B82F6' : 'var(--text-subtle)'}
+                      style={{ cursor: item ? 'pointer' : 'default', fontWeight: item ? 600 : 400, textDecoration: item ? 'underline' : 'none' }}
+                      onClick={() => item && navigate(`/leads-report?date_from=${item.date}&date_to=${item.date}`)}
+                    >
+                      {payload.value}
+                    </text>
+                  )
                 }}
-              >
-                {rankMonthExpanded ? <ChevronDown size={13} color="var(--text-muted)" /> : <ChevronRight size={13} color="var(--text-muted)" />}
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Outras origens
+              />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} tickLine={false} axisLine={false} allowDecimals={false} width={30} />
+              <Tooltip
+                contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12, background: 'var(--bg-card)', color: 'var(--text-2)' }}
+                formatter={(v: number) => [v, 'Leads']}
+                labelFormatter={(l) => `Dia ${l}`}
+              />
+              <Area
+                type="monotone"
+                dataKey="count"
+                stroke="#3B82F6"
+                strokeWidth={2}
+                fill="url(#captGrad)"
+                dot={{ r: 3, fill: '#3B82F6', strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: '#2563EB', stroke: '#fff', strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Feed de atividades */}
+        <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <button
+            onClick={() => setFeedOpen(o => !o)}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 24px', background: 'none', border: 'none', cursor: 'pointer',
+              borderBottom: feedOpen ? '1px solid var(--border-lt)' : 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {feedOpen ? <ChevronDown size={15} color="var(--text-muted)" /> : <ChevronRight size={15} color="var(--text-muted)" />}
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Atividades Recentes
+              </span>
+              {feed.length > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.1)', borderRadius: 99, padding: '1px 8px' }}>
+                  {feed.length}
                 </span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.1)', borderRadius: 99, padding: '1px 7px', marginLeft: 4 }}>
-                  {ranking.length - 3}
-                </span>
-              </button>
-              {rankMonthExpanded && (
-                <div style={{ padding: '8px 24px 16px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
-                    {['Origem', 'Captação', 'Part.'].map(h => (
-                      <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h === 'Origem' ? 'left' : 'right' }}>{h}</span>
-                    ))}
-                  </div>
-                  {ranking.slice(3).map((op, idx) => {
-                    const i = idx + 3
-                    return (
-                      <div
-                        key={op.name}
-                        style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, alignItems: 'center', padding: '10px 4px', borderBottom: idx < ranking.length - 4 ? '1px solid var(--border-lt)' : 'none', borderRadius: 6, transition: 'background 150ms' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                          <span style={{ fontSize: 11, width: 20, flexShrink: 0, textAlign: 'center', color: 'var(--text-subtle)', fontWeight: 700 }}>
-                            {i + 1}°
-                          </span>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
-                        </div>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>{op.count}</span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-subtle)', textAlign: 'right' }}>{op.pct}%</span>
-                      </div>
-                    )
-                  })}
-                </div>
               )}
-            </>
+            </div>
+          </button>
+
+          {feedOpen && (
+            <div style={{ padding: '8px 24px 16px' }}>
+              {feed.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)', paddingTop: 8 }}>Nenhuma atividade registrada.</p>
+              ) : (
+                feed.map((item, i) => {
+                  const dt = new Date(parseUTC(item.changed_at))
+                  const dtStr = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                    + ' ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '10px 0',
+                        borderBottom: i < feed.length - 1 ? '1px solid var(--border-lt)' : 'none',
+                      }}
+                    >
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
+                          {item.lead_name}
+                        </span>
+                        <span style={{ fontSize: 13, color: 'var(--text-subtle)', marginLeft: 6 }}>
+                          {item.from_status
+                            ? <>{statusLabel(item.from_status)} <span style={{ color: 'var(--text-subtle)' }}>→</span> <strong style={{ color: 'var(--text-2)' }}>{statusLabel(item.to_status)}</strong></>
+                            : <>entrou como <strong style={{ color: 'var(--text-2)' }}>{statusLabel(item.to_status)}</strong></>
+                          }
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{dtStr}</span>
+                        {item.changed_by && (
+                          <span style={{ fontSize: 11, color: 'var(--text-subtle)', fontStyle: 'italic' }}>{item.changed_by}</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           )}
         </div>
-
-      </div>
-
-      {/* De onde vieram os leads de hoje — bases (SDR) e pontos de conversão (orgânico) */}
-      <div className="bg-white rounded-xl p-6" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 20 }}>
-          <span style={{ width: 3, height: 14, borderRadius: 2, background: '#6366F1', flexShrink: 0 }} />
-          De Onde Vieram os Leads de {selectedDate ? dateDisplayStr : 'Hoje'}
-        </h2>
-        {data.captacao_hoje_origem.bases.length === 0 && data.captacao_hoje_origem.conversion_points.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações no dia.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div style={{ background: 'var(--bg-subtle)', borderRadius: 10, padding: '14px 16px' }}>
-              <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
-                Bases (SDR)
-              </p>
-              {data.captacao_hoje_origem.bases.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum lead de SDR hoje.</p>
-              ) : (
-                <div>
-                  {data.captacao_hoje_origem.bases.map((b, i) => (
-                    <div key={b.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border-lt)' }}>
-                      <span style={{ fontSize: 13, color: b.label === 'Sem base informada' ? 'var(--text-subtle)' : 'var(--text-2)', fontStyle: b.label === 'Sem base informada' ? 'italic' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {b.label}
-                      </span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{b.count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div style={{ background: 'var(--bg-subtle)', borderRadius: 10, padding: '14px 16px' }}>
-              <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
-                Pontos de Conversão (Orgânico)
-              </p>
-              {data.captacao_hoje_origem.conversion_points.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum lead orgânico hoje.</p>
-              ) : (
-                <div>
-                  {data.captacao_hoje_origem.conversion_points.map((c, i) => (
-                    <div key={c.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border-lt)' }}>
-                      <span style={{ fontSize: 13, color: c.label === 'Não informado' ? 'var(--text-subtle)' : 'var(--text-2)', fontStyle: c.label === 'Não informado' ? 'italic' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.label}
-                      </span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{c.count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Meta + Projeção */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
-
-        <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Meta Mensal
-          </h2>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-            <div>
-              <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>{data.captacao_mes ?? 0}</p>
-              <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 4 }}>de {metaLeads} leads</p>
-            </div>
-            <p style={{ fontSize: 30, fontWeight: 700, color: metaColor, lineHeight: 1 }}>{data.meta_pct}%</p>
-          </div>
-          <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 10, overflow: 'hidden' }}>
-            <div style={{ width: `${data.meta_pct}%`, height: '100%', background: metaColor, borderRadius: 99, transition: 'width 700ms ease' }} />
-          </div>
-          <p style={{ fontSize: 12, color: faltam === 0 ? '#10B981' : 'var(--text-muted)', fontWeight: faltam === 0 ? 600 : 400 }}>
-            {faltam === 0 ? 'Meta atingida! 🎉' : `Faltam ${faltam} leads para a meta`}
-          </p>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Projeção do Mês
-          </h2>
-          <p style={{ fontSize: 30, fontWeight: 700, color: projecaoColor, lineHeight: 1 }}>{data.projecao_mes ?? 0} leads</p>
-          <p style={{ fontSize: 12, color: projecaoColor, fontWeight: 600 }}>
-            {(data.projecao_mes ?? 0) >= metaLeads
-              ? `+${(data.projecao_mes ?? 0) - metaLeads} acima da meta`
-              : `${metaLeads - (data.projecao_mes ?? 0)} abaixo da meta`}
-          </p>
-          <p style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Baseado no ritmo atual de fechamentos</p>
-        </div>
-
-      </div>
-
-      {/* Evolução diária */}
-      <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Evolução da Captação — {mesNome}
-          </h2>
-          <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Clique no número do dia para ver os leads</span>
-        </div>
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart
-            data={data.evolucao_diaria}
-            margin={{ top: 5, right: 20, left: 0, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="captGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" vertical={false} />
-            <XAxis
-              dataKey="day"
-              tickLine={false}
-              axisLine={false}
-              tick={(props: { x: number; y: number; payload: { value: number } }) => {
-                const { x, y, payload } = props
-                const item = data.evolucao_diaria.find(d => d.day === payload.value)
-                return (
-                  <text
-                    x={x} y={y} dy={14}
-                    textAnchor="middle"
-                    fontSize={11}
-                    fill={item ? '#3B82F6' : 'var(--text-subtle)'}
-                    style={{ cursor: item ? 'pointer' : 'default', fontWeight: item ? 600 : 400, textDecoration: item ? 'underline' : 'none' }}
-                    onClick={() => item && navigate(`/leads-report?date_from=${item.date}&date_to=${item.date}`)}
-                  >
-                    {payload.value}
-                  </text>
-                )
-              }}
-            />
-            <YAxis tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} tickLine={false} axisLine={false} allowDecimals={false} width={30} />
-            <Tooltip
-              contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', fontSize: 12, background: 'var(--bg-card)', color: 'var(--text-2)' }}
-              formatter={(v: number) => [v, 'Leads']}
-              labelFormatter={(l) => `Dia ${l}`}
-            />
-            <Area
-              type="monotone"
-              dataKey="count"
-              stroke="#3B82F6"
-              strokeWidth={2}
-              fill="url(#captGrad)"
-              dot={{ r: 3, fill: '#3B82F6', strokeWidth: 0 }}
-              activeDot={{ r: 6, fill: '#2563EB', stroke: '#fff', strokeWidth: 2 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Feed de atividades — expansor */}
-      <div className="bg-white rounded-xl" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        <button
-          onClick={() => setFeedOpen(o => !o)}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '16px 24px', background: 'none', border: 'none', cursor: 'pointer',
-            borderBottom: feedOpen ? '1px solid var(--border-lt)' : 'none',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {feedOpen ? <ChevronDown size={15} color="var(--text-muted)" /> : <ChevronRight size={15} color="var(--text-muted)" />}
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Atividades Recentes
-            </span>
-            {feed.length > 0 && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.1)', borderRadius: 99, padding: '1px 8px' }}>
-                {feed.length}
-              </span>
-            )}
-          </div>
-        </button>
-
-        {feedOpen && (
-          <div style={{ padding: '8px 24px 16px' }}>
-            {feed.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-subtle)', paddingTop: 8 }}>Nenhuma atividade registrada.</p>
-            ) : (
-              feed.map((item, i) => {
-                const dt = new Date(parseUTC(item.changed_at))
-                const dtStr = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-                  + ' ' + dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                return (
-                  <div
-                    key={item.id}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '10px 0',
-                      borderBottom: i < feed.length - 1 ? '1px solid var(--border-lt)' : 'none',
-                    }}
-                  >
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
-                        {item.lead_name}
-                      </span>
-                      <span style={{ fontSize: 13, color: 'var(--text-subtle)', marginLeft: 6 }}>
-                        {item.from_status
-                          ? <>{statusLabel(item.from_status)} <span style={{ color: 'var(--text-subtle)' }}>→</span> <strong style={{ color: 'var(--text-2)' }}>{statusLabel(item.to_status)}</strong></>
-                          : <>entrou como <strong style={{ color: 'var(--text-2)' }}>{statusLabel(item.to_status)}</strong></>
-                        }
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{dtStr}</span>
-                      {item.changed_by && (
-                        <span style={{ fontSize: 11, color: 'var(--text-subtle)', fontStyle: 'italic' }}>{item.changed_by}</span>
-                      )}
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        )}
-      </div>
+      </section>
 
     </main>
   )
