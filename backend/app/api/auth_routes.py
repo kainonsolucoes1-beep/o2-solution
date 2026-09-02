@@ -11,7 +11,7 @@ from app.models.trusted_device import TrustedDevice
 from app.access_policy import check_time_window, check_device, RESTRICTED_ROLES
 from app.request_utils import client_ip, ua_short
 from app.schemas import UserLogin, TokenResponse, UserResponse, ChangePasswordRequest
-from app.security import verify_password, create_access_token, decode_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, hash_password
+from app.security import verify_password, create_access_token, decode_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, needs_own_origin_filter, hash_password
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -63,6 +63,11 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     # nome do proprio usuario -- usado pelo filtro de comercial em database.py
     # pra nao esconder os leads que ja eram dele antes da troca de perfil
     db.info["own_origin_name"] = user.first_name or user.username
+    # visibilidade do perfil `usuario`: so' os proprios leads (Lead.origin ==
+    # nome) + os de renutricao atribuidos a ele (renutricao_owner_id). Usado
+    # pelo _apply_filters do pipeline_routes.
+    db.info["restrict_to_own_origin"] = needs_own_origin_filter(user)
+    db.info["own_user_id"] = user.id
 
     return user
 

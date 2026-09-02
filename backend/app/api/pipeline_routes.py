@@ -119,17 +119,20 @@ EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
 
 
 def _effective_source(source: Optional[str], current_user: User) -> Optional[str]:
-    """Usuario nao-admin so' pode ver a propria origem (Lead.origin == nome
-    dele), independente do que for pedido no parametro 'source' — mesmo
-    padrao ja usado em leads_routes.py. Comercial nao entra nessa restricao
-    -- a visibilidade dele ja vem do filtro global de equipe
-    (restrict_to_usuario_leads)."""
-    if not needs_own_origin_filter(current_user):
-        return source
-    return current_user.first_name or current_user.username
+    """Usuario nao-admin nao pode escolher a origem — a visibilidade dele
+    (proprios leads + os de renutricao atribuidos) e' aplicada no
+    _apply_filters via a flag de sessao restrict_to_own_origin."""
+    if needs_own_origin_filter(current_user):
+        return None
+    return source
 
 
 def _apply_filters(q, date_from: Optional[str], date_to: Optional[str], source: Optional[str], team: Optional[str] = None):
+    sess = getattr(q, "session", None)
+    if sess is not None and sess.info.get("restrict_to_own_origin"):
+        name = sess.info.get("own_origin_name") or ""
+        uid = sess.info.get("own_user_id")
+        q = q.filter(or_(Lead.origin == name, Lead.renutricao_owner_id == uid))
     if date_from:
         try:
             dt_from, _ = br_date_to_utc_range(date_from)
@@ -297,6 +300,8 @@ def pipeline_alerts(
         date_to_dt   = br_date_to_utc_range(date_to)[1] if date_to else None
         team_parts = [s.strip() for s in team.split(',') if s.strip()] if team else None
         team_clause = "AND l.team IN :team_parts" if team_parts else ""
+        restrict_own = bool(db.info.get("restrict_to_own_origin"))
+        own_clause = "AND (l.origin = :own_name OR l.renutricao_owner_id = :own_uid)" if restrict_own else ""
         stmt = sa_text(f"""
             SELECT l.created_at, ne.first_exit
             FROM leads l
@@ -310,9 +315,13 @@ def pipeline_alerts(
               AND (:date_from IS NULL OR COALESCE(l.retrabalhado_em, l.created_at) >= :date_from)
               AND (:date_to   IS NULL OR COALESCE(l.retrabalhado_em, l.created_at) <  :date_to)
               AND (:source    IS NULL OR l.origin = :source)
+              {own_clause}
               {team_clause}
         """)
         params = {"date_from": date_from_dt, "date_to": date_to_dt, "source": source or None}
+        if restrict_own:
+            params["own_name"] = db.info.get("own_origin_name") or ""
+            params["own_uid"] = db.info.get("own_user_id")
         if team_parts:
             stmt = stmt.bindparams(bindparam("team_parts", expanding=True))
             params["team_parts"] = team_parts
