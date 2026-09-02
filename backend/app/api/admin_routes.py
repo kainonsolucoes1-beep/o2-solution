@@ -303,6 +303,8 @@ async def sync_historico(
             continue
         if result == "inserted":
             inserted += 1
+        elif result == "skipped":
+            pass
         else:
             updated += 1
     db.commit()

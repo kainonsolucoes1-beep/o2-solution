@@ -343,7 +343,11 @@ def _parse_lead_fields(raw: dict) -> dict:
 
 
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
-    """Insere ou atualiza um lead. Retorna 'inserted' ou 'updated'."""
+    """Insere ou atualiza um lead. Retorna 'inserted', 'updated' ou 'skipped'.
+
+    Lead em renutrição (is_renutrucao) é pulado: o o2 Sig passou a ser o dono
+    dele, então o sync não pode mais sobrescrever status/temperatura/notas com
+    os valores do Followize (senão o retrabalho é anulado a cada sync)."""
     fields = _parse_lead_fields(raw)
     followize_id = int(raw["id"]) if raw.get("id") else None
 
@@ -370,6 +374,9 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     if existing:
+        if existing.is_renutrucao:
+            return "skipped"
+
         prev_status = existing.status
         new_status = fields["status"]
         new_origin = existing.origin if existing.origin_locked else fields["origin"]
@@ -513,16 +520,20 @@ async def sync_leads_from_followize() -> None:
             logger.error("Nenhum usuário encontrado no banco — sync abortado")
             return
 
-        inserted = updated = 0
+        inserted = updated = skipped = 0
         for raw in raw_leads:
             result = _upsert_lead(db, raw, default_user.id)
             if result == "inserted":
                 inserted += 1
+            elif result == "skipped":
+                skipped += 1
             else:
                 updated += 1
 
         db.commit()
         counts = f"{inserted} inseridos, {updated} atualizados"
+        if skipped:
+            counts += f", {skipped} em renutrição (pulados)"
         _save_sync_status(True, counts=counts)
         logger.info(
             "Followize sync concluído: %d leads (%d inseridos, %d atualizados)",
@@ -570,6 +581,8 @@ async def sync_leads_backfill(days: int = 365) -> None:
                     continue
                 if result == "inserted":
                     batch_inserted += 1
+                elif result == "skipped":
+                    pass
                 else:
                     batch_updated += 1
             try:
