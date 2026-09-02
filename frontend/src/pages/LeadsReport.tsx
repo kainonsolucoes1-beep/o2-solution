@@ -85,7 +85,7 @@ const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
 const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
 const STATUS_PENDENTE = 'pending,novo,new'
 const STATUS_AGENDADO = 'scheduled,qualificado,qualified'
-const STATUS_PROPOSTA = 'proposal_sent'
+const STATUS_PROPOSTA = 'proposal_sent,proposta,proposal sent'
 
 const STATUS_PILLS: { value: string; label: string; color: string; bg: string; border: string }[] = [
   { value: '',                label: 'Todos',        color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
