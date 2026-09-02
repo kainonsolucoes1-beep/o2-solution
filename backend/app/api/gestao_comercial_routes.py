@@ -99,7 +99,8 @@ def _scope_clause(team: str | None, current_user: User):
     clause = _team_clause(team)
     if needs_own_origin_filter(current_user):
         my_name = current_user.first_name or current_user.username
-        clause = [*clause, Lead.origin == my_name]
+        # inclui os leads de renutrição atribuídos a ele (origem é a original)
+        clause = [*clause, or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id)]
     return clause
 
 
@@ -458,7 +459,7 @@ def performance_operadores(
     ]
     if needs_own_origin_filter(current_user):
         my_name = current_user.first_name or current_user.username
-        filters.append(Lead.origin == my_name)
+        filters.append(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
 
     leads = (
         db.query(Lead.origin, Lead.status, Lead.value_potential)

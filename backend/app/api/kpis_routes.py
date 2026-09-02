@@ -88,7 +88,8 @@ def _scope_filter(team: str | None, current_user: User) -> list:
     time/periodo informado na tela."""
     clause = _team_filter(team)
     if needs_own_origin_filter(current_user):
-        clause = [*clause, Lead.origin == _own_name(current_user)]
+        # inclui os leads de renutrição atribuídos a ele (origem é a original)
+        clause = [*clause, or_(Lead.origin == _own_name(current_user), Lead.renutricao_owner_id == current_user.id)]
     return clause
 
 
@@ -1375,7 +1376,7 @@ def receita_potencial(
         Lead.status != "sale_not_performed",
     ]
     if needs_own_origin_filter(current_user):
-        filters.append(Lead.origin == _own_name(current_user))
+        filters.append(or_(Lead.origin == _own_name(current_user), Lead.renutricao_owner_id == current_user.id))
 
     total = (
         db.query(func.coalesce(func.sum(Lead.value_potential), 0))
