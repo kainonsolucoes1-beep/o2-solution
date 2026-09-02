@@ -39,6 +39,11 @@ from app.schemas.user import OperatorInfo
 
 MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024  # 25 MB
 
+# Data que "vale" pra captação: se o lead foi retrabalhado (cancelou e voltou
+# noutra data), conta a partir da reativação — um lead retrabalhado é uma
+# captação nova. Mesmo critério do Dashboard, Pipeline e KPIs.
+EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
+
 router = APIRouter(prefix="/api/v1", tags=["leads"])
 
 
@@ -149,11 +154,12 @@ def leads_by_period(
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
-            date_clause = and_(Lead.created_at >= start, Lead.created_at < end)
-            # lead de renutrição escapa da janela de captação (a data que importa
-            # nele é a de reativação) -- mas só no modo renutrição, ou pra quem
-            # tem visão restrita à própria carteira (a fila da pessoa). No
-            # relatório normal do admin, renutrição segue a janela de data.
+            # data efetiva = reativação (retrabalhado_em) ou criação. Assim um
+            # lead retrabalhado hoje aparece sob "hoje", igual ao Dashboard.
+            date_clause = and_(EFFECTIVE_CAPTACAO >= start, EFFECTIVE_CAPTACAO < end)
+            # lead de renutrição ainda não retrabalhado (só atribuído) tem data
+            # efetiva antiga -- pra quem trabalha a carteira (fila) ou no modo
+            # renutrição, mostra mesmo assim.
             if renutricao or needs_own_origin_filter(current_user):
                 q = q.filter(or_(date_clause, Lead.is_renutrucao.is_(True)))
             else:
@@ -303,11 +309,12 @@ def leads_report_stats(
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
         if not searching:
-            date_clause = and_(Lead.created_at >= start, Lead.created_at < end)
-            # lead de renutrição escapa da janela de captação (a data que importa
-            # nele é a de reativação) -- mas só no modo renutrição, ou pra quem
-            # tem visão restrita à própria carteira (a fila da pessoa). No
-            # relatório normal do admin, renutrição segue a janela de data.
+            # data efetiva = reativação (retrabalhado_em) ou criação. Assim um
+            # lead retrabalhado hoje aparece sob "hoje", igual ao Dashboard.
+            date_clause = and_(EFFECTIVE_CAPTACAO >= start, EFFECTIVE_CAPTACAO < end)
+            # lead de renutrição ainda não retrabalhado (só atribuído) tem data
+            # efetiva antiga -- pra quem trabalha a carteira (fila) ou no modo
+            # renutrição, mostra mesmo assim.
             if renutricao or needs_own_origin_filter(current_user):
                 q = q.filter(or_(date_clause, Lead.is_renutrucao.is_(True)))
             else:
