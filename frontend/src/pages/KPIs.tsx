@@ -126,6 +126,15 @@ interface AgeLead {
 
 const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']
 
+// tooltip do Recharts — usa tokens pra adaptar ao tema (o default é branco fixo)
+const CHART_TOOLTIP: {
+  contentStyle: React.CSSProperties; labelStyle: React.CSSProperties; itemStyle: React.CSSProperties
+} = {
+  contentStyle: { fontSize: 12, borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--bg-card)', color: 'var(--text-2)' },
+  labelStyle: { color: 'var(--text-1)', fontWeight: 600, marginBottom: 2 },
+  itemStyle: { color: 'var(--text-2)' },
+}
+
 const SDR_NAMES = new Set([
   'isaac', 'julia', 'leticia', 'maria eduarda', 'anny', 'emily', 'emilly',
   'pedro', 'lucas', 'guilherme', 'lucascardoso', 'lucas cardoso', 'rodolfo', 'discadora',
@@ -1080,7 +1089,7 @@ export default function KPIs() {
                     <Tooltip
                       formatter={(value: number, name: string) => [value, name === 'captacoes' ? 'Leads' : 'Vendas']}
                       labelFormatter={l => `Período: ${l}`}
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)' }}
+                      {...CHART_TOOLTIP}
                     />
                     <Bar yAxisId="cap" dataKey="captacoes" name="captacoes" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={40} />
                     <Line yAxisId="ven" type="monotone" dataKey="vendas" name="vendas" stroke="#15803D" strokeWidth={2} dot={{ r: 3, fill: '#15803D' }} />
@@ -1779,7 +1788,7 @@ export default function KPIs() {
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" />
                         <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} />
                         <YAxis tick={{ fontSize: 10, fill: 'var(--text-subtle)' }} allowDecimals={false} />
-                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border)' }} />
+                        <Tooltip {...CHART_TOOLTIP} />
                         <Legend formatter={v => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                         <Line type="monotone" dataKey="captacoes" name="captacoes" stroke="#2563EB" strokeWidth={2}
                           dot={(dp: unknown) => {
@@ -1813,7 +1822,7 @@ export default function KPIs() {
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" />
                         <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} />
                         <YAxis tick={{ fontSize: 10, fill: 'var(--text-subtle)' }} allowDecimals={false} />
-                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border)' }} />
+                        <Tooltip {...CHART_TOOLTIP} />
                         <Legend formatter={v => v === 'captacoes' ? 'Captações' : 'Vendas'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                         <Line type="monotone" dataKey="captacoes" name="captacoes" stroke="#2563EB" strokeWidth={2} dot={{ r: 4, fill: '#2563EB' }} activeDot={{ r: 6 }} />
                         <Line type="monotone" dataKey="vendas" name="vendas" stroke="#15803D" strokeWidth={2} dot={{ r: 4, fill: '#15803D' }} activeDot={{ r: 6 }} />
