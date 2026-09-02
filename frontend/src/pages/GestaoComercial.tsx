@@ -130,6 +130,22 @@ const STAGE_ORDER: Record<string, number> = {
 const stageLabel = (s: string) => STAGE_LABELS[s?.toLowerCase()] ?? s
 const stageOrder = (s: string) => STAGE_ORDER[s?.toLowerCase()] ?? 99
 
+// Lead.status é gravado em grafias diferentes (proposta/proposal_sent,
+// qualificado/scheduled…). Canoniza pra não duplicar linhas em "Por etapa".
+const STAGE_CANON: Record<string, string> = {
+  novo: 'novo', new: 'novo', pending: 'novo',
+  qualificado: 'scheduled', qualified: 'scheduled', scheduled: 'scheduled', agendado: 'scheduled',
+  proposta: 'proposal_sent', proposal: 'proposal_sent', proposal_sent: 'proposal_sent', 'proposal sent': 'proposal_sent',
+  negociacao: 'negociacao', 'negociação': 'negociacao', negotiation: 'negociacao',
+  waiting_billing: 'waiting_billing', 'waiting billing': 'waiting_billing',
+  sale_performed: 'sale_performed', 'sale performed': 'sale_performed',
+  fechado: 'fechado', closed: 'fechado', won: 'fechado', convertido: 'fechado', converted: 'fechado',
+}
+const canonStage = (s: string) => STAGE_CANON[s?.toLowerCase()] ?? (s?.toLowerCase() || s)
+const STAGE_SPELLINGS: Record<string, string[]> = {}
+for (const [raw, canon] of Object.entries(STAGE_CANON)) (STAGE_SPELLINGS[canon] ??= []).push(raw)
+const stageSpellings = (canon: string) => (STAGE_SPELLINGS[canon] ?? [canon]).join(',')
+
 function normalizeDrill(raw: DrillRawRow[]): DrillRow[] {
   return raw.map(r => ({
     ...r,
@@ -1650,13 +1666,13 @@ export default function GestaoComercial() {
 
   const filtered      = filterDrill(drillRows, drillPath)
   const totalFiltered = filtered.reduce((s, r) => s + r.total_value, 0)
-  const stages        = sumByKey(filtered, r => r.status, r => r.total_value).sort((a, b) => stageOrder(a.key) - stageOrder(b.key))
+  const stages        = sumByKey(filtered, r => canonStage(r.status), r => r.total_value).sort((a, b) => stageOrder(a.key) - stageOrder(b.key))
   const maxStage      = stages[0]?.total ?? 1
 
   function openStage(status: string) {
     setSelectedStage(status); setContractsLoading(true)
     const origins = [...new Set(filtered.map(r => r.origem))]
-    const params  = new URLSearchParams({ month, status, tipo: drillTipo })
+    const params  = new URLSearchParams({ month, status: stageSpellings(status), tipo: drillTipo })
     if (origins.length > 0) params.set('origens', origins.join(','))
     if (teamParam) params.set('team', teamParam)
     api.get<ContractItem[]>(`/api/v1/gestao-comercial/receita-contratos?${params}`)

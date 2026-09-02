@@ -395,10 +395,14 @@ def receita_contratos(
         *_scope_clause(team, current_user),
     ]
 
+    def _status_eq(s: str):
+        parts = [p.strip() for p in s.split(",") if p.strip()]
+        return Lead.status == parts[0] if len(parts) == 1 else Lead.status.in_(parts)
+
     if tipo == "vendas":
         filters.append(Lead.status.in_(VENDA_STATUSES))
         if status:
-            filters.append(Lead.status == status)
+            filters.append(_status_eq(status))
     elif tipo == "perda":
         filters.append(Lead.status == CANCELADO_STATUS)
         if status:
@@ -409,7 +413,7 @@ def receita_contratos(
     else:
         filters.append(Lead.status != CANCELADO_STATUS)
         if status:
-            filters.append(Lead.status == status)
+            filters.append(_status_eq(status))
 
     if origens:
         parts = [s.strip() for s in origens.split(',') if s.strip()]
