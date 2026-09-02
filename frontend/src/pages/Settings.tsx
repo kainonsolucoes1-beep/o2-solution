@@ -340,6 +340,7 @@ function ConfiguracoesTab() {
                 { field: 'origin', required: false, desc: 'Ex: "Site Institucional" (padrão: "Orgânico")' },
                 { field: 'conversion_point', required: false, desc: 'Ex: use {embed_url} no Gravity Forms pra capturar a URL da página automaticamente' },
                 { field: 'modalidade', required: false, desc: 'Tipo de contratação / modalidade do plano (ex: "Empresarial", "Individual", "PME Porte II")' },
+                { field: 'current_plan', required: false, desc: 'Plano que o lead já tem hoje. Se não tem, envie exatamente "Não possui plano". Se tem, o nome do plano (ex: "Amil 400"). Variações de "não tenho plano" são normalizadas.' },
                 { field: 'faixa_0_18 … faixa_59_mais', required: false, desc: 'Quantidade de pessoas por faixa etária (número inteiro, padrão 0). 10 campos: faixa_0_18, faixa_19_23, faixa_24_28, faixa_29_33, faixa_34_38, faixa_39_43, faixa_44_48, faixa_49_53, faixa_54_58, faixa_59_mais' },
               ].map((row, i, arr) => (
                 <tr key={row.field}>

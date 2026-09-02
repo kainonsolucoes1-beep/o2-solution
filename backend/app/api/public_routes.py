@@ -40,6 +40,7 @@ class PublicLeadCreate(BaseModel):
     origin: Optional[str] = None
     conversion_point: Optional[str] = None
     modalidade: Optional[str] = None
+    current_plan: Optional[str] = None
     faixa_0_18: Optional[int] = 0
     faixa_19_23: Optional[int] = 0
     faixa_24_28: Optional[int] = 0
@@ -61,6 +62,23 @@ def _normalize_modalidade(modalidade: Optional[str]) -> Optional[str]:
     if not modalidade:
         return modalidade
     return _MODALIDADE_ALIASES.get(modalidade.strip().lower(), modalidade)
+
+
+# "plano atual" — o formulário do Meta manda o rótulo da opção que a pessoa
+# marcou. Normaliza as grafias de "não tem plano" pro sentinela que os KPIs
+# usam ("Não possui plano"); qualquer outra coisa é o nome do plano.
+_SEM_PLANO = {
+    "não possui plano", "nao possui plano", "não possuo plano", "nao possuo plano",
+    "sem plano", "não tenho plano", "nao tenho plano", "nenhum", "nenhum", "não", "nao",
+}
+
+
+def _normalize_current_plan(current_plan: Optional[str]) -> Optional[str]:
+    if not current_plan or not current_plan.strip():
+        return None
+    if current_plan.strip().lower() in _SEM_PLANO:
+        return "Não possui plano"
+    return current_plan.strip()
 
 
 _FAIXA_LABELS = [
@@ -179,6 +197,7 @@ def create_public_lead(
         origin=body.origin or "Orgânico",
         conversion_point=body.conversion_point,
         modalidade=_normalize_modalidade(body.modalidade),
+        current_plan=_normalize_current_plan(body.current_plan),
         attendant=attendant,
         team=team["name"],
         status="novo",
