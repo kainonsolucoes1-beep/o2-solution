@@ -322,7 +322,7 @@ export default function FinanceiroDashboard() {
   }, [previsaoMes]);
 
   return (
-    <div className="min-h-full w-full bg-[#F6F7FB] p-8">
+    <div className="min-h-full w-full bg-[var(--bg-page)] p-8">
       <div className="mx-auto max-w-[1180px]">
         {/* Header */}
         <div className="mb-6 flex items-end justify-between">
@@ -476,7 +476,7 @@ export default function FinanceiroDashboard() {
                   eyebrow="Contratos"
                   value={previsaoMes.contratosCount}
                   sub={`${previsaoMes.parcelas.length} parcela${previsaoMes.parcelas.length !== 1 ? "s" : ""}`}
-                  accent="#10142B"
+                  accent="#64748B"
                   format={(n) => String(n)}
                 />
               </div>
@@ -587,7 +587,7 @@ export default function FinanceiroDashboard() {
                 eyebrow="Valor do contrato"
                 value={totals.valorContrato}
                 sub={`${contracts.length} contratos ativos`}
-                accent="#10142B"
+                accent="#64748B"
               />
               <KpiCard
                 icon={Wallet}
