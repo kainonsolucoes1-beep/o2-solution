@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { TrendingUp, TrendingDown, Users, Zap, Filter, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, Zap, Filter, X, ChevronDown, ChevronRight } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -177,8 +177,6 @@ function mergeO2Ranking(ranking: RankItem[]): RankItem[] {
   return sorted.map(r => ({ ...r, bar_pct: Math.round(r.count / maxCount * 100) }))
 }
 
-const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString().replace('.', ',')
-
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const fmtBR = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 const fmtBRShort = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
@@ -232,8 +230,6 @@ export default function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [feedOpen, setFeedOpen] = useState(false)
   const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
-  const [telefonia, setTelefonia] = useState<{ tma: string; ligacoes: Record<string, number> }>({ tma: '—', ligacoes: {} })
-  const [atendimentos, setAtendimentos] = useState<{ hoje: number; ontem: number | null; diff: number | null }>({ hoje: 0, ontem: null, diff: null })
 
   // Contadores de geração — ignora resposta se, quando ela chega, já não é
   // mais a última chamada em andamento (evita resposta antiga de um dia
@@ -258,29 +254,19 @@ export default function Dashboard() {
       .finally(() => { if (fetchAllGenRef.current === gen && !silent) setLoading(false) })
   }, [navigate])
 
-  const fetchSide = useCallback((f: { from: string; to: string } | null) => {
+  const fetchSide = useCallback(() => {
     const gen = ++fetchSideGenRef.current
     api.get<FeedItem[]>('/api/v1/dashboard/activity-feed')
       .then(r => { if (fetchSideGenRef.current === gen) setFeed(r.data) })
       .catch(() => {})
-    // Telefonia é por dia; num intervalo usa a data final como referência.
-    const date = f ? f.to : null
-    const params = date ? { date } : {}
-    const telefoniaUrl = date ? '/api/v1/telefonia/by-date' : '/api/v1/telefonia/settings'
-    api.get<{ tma: string; ligacoes: Record<string, number> }>(telefoniaUrl, { params })
-      .then(r => { if (fetchSideGenRef.current === gen) setTelefonia({ tma: r.data.tma || '—', ligacoes: r.data.ligacoes }) })
-      .catch(() => {})
-    api.get<{ hoje: number; ontem: number | null; diff: number | null }>('/api/v1/telefonia/atendimentos-comparativo', { params })
-      .then(r => { if (fetchSideGenRef.current === gen) setAtendimentos(r.data) })
-      .catch(() => {})
   }, [])
 
   useEffect(() => { fetchAll(filter) }, [fetchAll, filter])
-  useEffect(() => { fetchSide(filter) }, [fetchSide, filter])
+  useEffect(() => { fetchSide() }, [fetchSide])
 
   useEffect(() => {
     if (filter) return   // vista histórica não precisa de polling
-    const id = setInterval(() => { fetchAll(null, true); fetchSide(null) }, 45000)
+    const id = setInterval(() => { fetchAll(null, true); fetchSide() }, 45000)
     return () => clearInterval(id)
   }, [fetchAll, fetchSide, filter])
 
@@ -331,8 +317,6 @@ export default function Dashboard() {
   const diaLabel = !filter ? 'Hoje' : single ? fmtBR(filter.from) : `${fmtBRShort(filter.from)} – ${fmtBRShort(filter.to)}`
   const capLabel = !filter ? 'Captação Hoje' : single ? `Captação — ${fmtBR(filter.from)}` : 'Captação no período'
   const ranking = mergeO2Ranking(data.ranking)
-
-  const totalLig = Object.values(telefonia.ligacoes).reduce((a: number, b: number) => a + b, 0)
 
   // Captação do dia — mini-série dos últimos 7 dias até o dia de referência.
   const refDay = refDate.getDate()
@@ -427,22 +411,13 @@ export default function Dashboard() {
       <section className="flex flex-col gap-4">
         <ZoneHeader>{diaLabel}{!filter && ' · ao vivo'}</ZoneHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xl:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
           <KpiCard
             label={capLabel}
             value={String(data.captacao_hoje)}
             Icon={Zap}
             iconBg="#EFF6FF" iconColor="#3B82F6"
             chart={<Sparkline values={spark7} />}
-          />
-          <KpiCard
-            label="Atendimentos"
-            value={String(atendimentos.hoje)}
-            trend={atendimentos.diff ?? undefined}
-            trendLabel="vs ontem"
-            subtitle={totalLig > 0 ? `de ${totalLig} ligações no dia` : undefined}
-            Icon={Users}
-            iconBg="#ECFDF5" iconColor="#10B981"
           />
 
           <div className="bg-white rounded-xl flex flex-col gap-3" style={{ padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
@@ -471,28 +446,21 @@ export default function Dashboard() {
           {data.captacao_hoje_por_fonte.length === 0 ? (
             <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações {filter && !single ? 'no período' : filter ? 'nesse dia' : 'hoje'}.</p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr' }}>
-              {['Operador', 'Captação', 'Ligações', 'Conversão'].map((hd, c) => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr' }}>
+              {['Operador', 'Captação'].map((hd, c) => (
                 <div key={hd} style={{ ...rkHead, paddingLeft: c ? 14 : 0, borderLeft: c ? '1px solid var(--border-lt)' : 'none' }}>{hd}</div>
               ))}
-              {data.captacao_hoje_por_fonte.map((op, i) => {
-                const ligacoes = telefonia.ligacoes[op.name] ?? 0
-                const taxa = ligacoes > 0 ? +((op.count / ligacoes) * 100).toFixed(1) : null
-                const taxaColor = taxa === null ? 'var(--text-subtle)' : taxa >= 10 ? '#10B981' : taxa >= 5 ? '#F59E0B' : '#EF4444'
-                return (
-                  <div key={op.name} style={{ display: 'contents' }}>
-                    <span style={{ padding: '9px 0 9px', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                      <span style={{ fontSize: i < 3 ? 15 : 11, width: 20, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
-                        {i < 3 ? MEDALS[i] : `${i + 1}°`}
-                      </span>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
+              {data.captacao_hoje_por_fonte.map((op, i) => (
+                <div key={op.name} style={{ display: 'contents' }}>
+                  <span style={{ padding: '9px 0 9px', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <span style={{ fontSize: i < 3 ? 15 : 11, width: 20, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
+                      {i < 3 ? MEDALS[i] : `${i + 1}°`}
                     </span>
-                    <span style={{ ...rkCell, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)] }}>{op.count}</span>
-                    <span style={rkCell}>{ligacoes > 0 ? ligacoes : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
-                    <span style={{ ...rkCell, color: taxaColor }}>{taxa !== null ? `${fmt1(taxa)}%` : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
-                  </div>
-                )
-              })}
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
+                  </span>
+                  <span style={{ ...rkCell, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)] }}>{op.count}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
