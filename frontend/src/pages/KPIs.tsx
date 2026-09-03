@@ -241,30 +241,6 @@ function StateBox({ kind, height = 140, message, onRetry }: {
   )
 }
 
-// Barra unica segmentada por modalidade + legenda -- mesmo padrao visual da
-// barra "Ja possui plano?" logo abaixo, em vez de uma barra cheia por linha.
-function ModalidadeBars({ modalidades }: { modalidades: Modalidade[] }) {
-  if (modalidades.length === 0) return <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem dados de modalidade.</p>
-  return (
-    <div>
-      <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: 'var(--border-lt)', marginBottom: 12 }}>
-        {modalidades.map((m, i) => (
-          <div key={m.nome} style={{ width: `${m.pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }} />
-        ))}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        {modalidades.map((m, i) => (
-          <div key={m.nome} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: CHART_COLORS[i % CHART_COLORS.length] }} />
-            <span style={{ color: 'var(--text-1)' }}>{m.nome}</span>
-            <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{m.count} · {m.pct}%</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ─── Modal simples de leads (sem filtro de status) ───────────────────────────
 function SimpleLeadsModal({ title, subtitle, loading, leads, ageMode, onClose }: {
   title: string; subtitle: string; loading: boolean
@@ -1630,38 +1606,32 @@ export default function KPIs() {
                 <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px 0' }}>Não foi possível carregar os dados desta análise.</p>
               ) : (
                 <>
-                  {/* Desempenho: funil → vendas/conversão/cancelamento → receita, numa sequência só
-                      (antes eram 2 seções + uma frase corrida — vendas/conversão são o resultado,
-                      não deveriam pesar menos visualmente que o volume bruto captado) */}
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>Desempenho</p>
-                  <div style={{ display: 'flex', alignItems: 'stretch', marginBottom: 14 }}>
+                  {/* Do captado à venda: funil (captados → em aberto → vendas), com
+                      conversão/cancelamento numa linha discreta abaixo. Antes eram
+                      3 números + 3 chips cinza com o mesmo peso visual. */}
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>Do captado à venda</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {([
-                      ['Captados', drawerData.captacoes, 'var(--text-1)'],
-                      ['Perdidos', drawerData.cancelados, '#B91C1C'],
-                      ['Base líquida', drawerData.base_liquida, 'var(--text-1)'],
-                    ] as const).map(([label, value, color], i) => (
-                      <div key={label} style={{ flex: 1, padding: i > 0 ? '0 0 0 16px' : '0 16px 0 0', borderLeft: i > 0 ? '1px solid var(--border-lt)' : 'none' }}>
-                        <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>{label}</p>
-                        <p style={{ fontSize: 22, fontWeight: 700, color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+                      ['Captados',  drawerData.captacoes,   100,                                                                'rgba(37,99,235,0.16)'],
+                      ['Em aberto', drawerData.base_liquida, drawerData.captacoes > 0 ? Math.round(drawerData.base_liquida / drawerData.captacoes * 100) : 0, 'rgba(37,99,235,0.55)'],
+                      ['Vendas',    drawerData.vendas,       drawerData.captacoes > 0 ? Math.round(drawerData.vendas / drawerData.captacoes * 100) : 0,       'rgba(21,128,61,0.30)'],
+                    ] as const).map(([label, count, width, fill]) => (
+                      <div key={label} style={{ display: 'grid', gridTemplateColumns: '76px 1fr 26px', alignItems: 'center', gap: 14 }}>
+                        <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{label}</span>
+                        <div style={{ height: 26, borderRadius: 7, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
+                          {width > 0 && <div style={{ width: `${width}%`, height: '100%', borderRadius: 7, background: fill }} />}
+                        </div>
+                        <span style={{ fontSize: 13.5, fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: count > 0 ? 'var(--text-1)' : 'var(--text-muted)' }}>{count}</span>
                       </div>
                     ))}
                   </div>
+                  <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '14px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width={11} height={11} viewBox="0 0 24 24" fill="#B91C1C" aria-hidden="true"><path d="M12 21 3 6h18z" /></svg>
+                    Conversão {drawerData.conversao}% · <span style={{ color: '#B91C1C', fontWeight: 600 }}>cancelamento {drawerData.pct_perda}%</span>
+                  </p>
 
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                    {([
-                      ['Vendas', String(drawerData.vendas), 'var(--text-1)'],
-                      ['Conversão', `${drawerData.conversao}%`, 'var(--text-1)'],
-                      ['Cancelamento', `${drawerData.pct_perda}%`, '#B91C1C'],
-                    ] as const).map(([label, value, color]) => (
-                      <div key={label} style={{ flex: 1, background: 'var(--bg-subtle)', borderRadius: 10, padding: '10px 12px' }}>
-                        <p style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 3px' }}>{label}</p>
-                        <p style={{ fontSize: 16, fontWeight: 700, color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button onClick={openDrawerLeads} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 13, fontWeight: 600 }}>
-                    Ver leads →
+                  <button onClick={openDrawerLeads} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 13, fontWeight: 600, marginTop: 18 }}>
+                    Ver {drawerData.captacoes === 1 ? 'o lead' : `os ${drawerData.captacoes} leads`} →
                   </button>
 
                   {!!drawerData.renutricao_count && (
@@ -1674,34 +1644,64 @@ export default function KPIs() {
                     </p>
                   )}
 
-                  <div style={{ display: 'flex', gap: 24, marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border-lt)', marginBottom: 24 }}>
+                  <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border-lt)', marginBottom: 22 }}>
                     <div>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>Receita potencial (estimada)</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>Receita potencial <span style={{ fontWeight: 400 }}>· estimada</span></p>
                       <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(drawerData.receita_potencial)}</p>
                     </div>
-                    <div style={{ borderLeft: '1px solid var(--border-lt)', paddingLeft: 24 }}>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>Ticket médio (estimado)</p>
+                    <div>
+                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>Ticket médio <span style={{ fontWeight: 400 }}>· estimado</span></p>
                       <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(drawerData.ticket_medio)}</p>
                     </div>
                   </div>
 
-                  {/* Perfil do cliente: barra segmentada + legenda, mesmo padrão da barra
-                      "Já possui plano?" logo abaixo — antes eram N barras cheias empilhadas */}
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px', paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>Perfil do cliente</p>
-                  <div style={{ marginBottom: 24 }}>
-                    <ModalidadeBars modalidades={drawerData.modalidades} />
+                  {/* Perfil dos leads: modalidade + plano, uma linha cada
+                      (rótulo · barra segmentada · legenda inline com bolinha) */}
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px', paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>Perfil dos leads</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '86px minmax(40px,1fr) auto', alignItems: 'center', gap: 14 }}>
+                      <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>Modalidade</span>
+                      {drawerData.modalidades.length === 0 ? (
+                        <span style={{ gridColumn: '2 / 4', fontSize: 12.5, color: 'var(--text-muted)' }}>sem dados</span>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', gap: 2, height: 8, borderRadius: 9999, overflow: 'hidden', background: 'var(--bg-subtle)' }}>
+                            {drawerData.modalidades.map((m, i) => (
+                              <div key={m.nome} style={{ flex: m.pct || 0.001, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            ))}
+                          </div>
+                          <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '4px 10px', fontSize: 12, color: 'var(--text-muted)' }}>
+                            {drawerData.modalidades.map((m, i) => (
+                              <span key={m.nome} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+                                <i style={{ width: 7, height: 7, borderRadius: 9999, flexShrink: 0, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                {m.nome} <b style={{ color: 'var(--text-1)', fontWeight: 600 }}>{m.count}</b>
+                              </span>
+                            ))}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '86px minmax(40px,1fr) auto', alignItems: 'center', gap: 14 }}>
+                      <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>Já tem plano</span>
+                      <div style={{ display: 'flex', gap: 2, height: 8, borderRadius: 9999, overflow: 'hidden', background: 'var(--bg-subtle)' }}>
+                        <div style={{ flex: drawerData.plano.pct_possui || 0.001, background: '#15803D' }} />
+                        <div style={{ flex: drawerData.plano.pct_nao_possui || 0.001, background: '#B91C1C' }} />
+                      </div>
+                      <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '4px 10px', fontSize: 12, color: 'var(--text-muted)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+                          <i style={{ width: 7, height: 7, borderRadius: 9999, flexShrink: 0, background: '#15803D' }} />
+                          Possui <b style={{ color: 'var(--text-1)', fontWeight: 600 }}>{drawerData.plano.possui}</b>
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+                          <i style={{ width: 7, height: 7, borderRadius: 9999, flexShrink: 0, background: '#B91C1C' }} />
+                          Não <b style={{ color: 'var(--text-1)', fontWeight: 600 }}>{drawerData.plano.nao_possui}</b>
+                        </span>
+                      </span>
+                    </div>
                   </div>
-
-                  {/* Plano de saúde */}
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px', paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>Já possui plano?</p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-1)' }}><ShieldCheck size={14} color="#15803D" />Possui <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{drawerData.plano.possui}</strong> <span style={{ color: 'var(--text-muted)' }}>({drawerData.plano.pct_possui}%)</span></span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-1)' }}>Não possui <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{drawerData.plano.nao_possui}</strong> <span style={{ color: 'var(--text-muted)' }}>({drawerData.plano.pct_nao_possui}%)</span><ShieldX size={14} color="#B91C1C" /></span>
-                  </div>
-                  <ProportionBar pctA={drawerData.plano.pct_possui} pctB={drawerData.plano.pct_nao_possui} colorA="#15803D" colorB="#B91C1C" />
                   {drawerData.plano.sem_informacao > 0 && (
-                    <p style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 10 }}>
-                      {drawerData.plano.sem_informacao} lead(s) sem essa informação não entram na proporção acima.
+                    <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '10px 0 0' }}>
+                      {drawerData.plano.sem_informacao} lead(s) sem essa informação não entram na proporção.
                     </p>
                   )}
                 </>
