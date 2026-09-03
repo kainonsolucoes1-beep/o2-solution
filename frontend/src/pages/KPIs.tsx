@@ -465,6 +465,16 @@ export default function KPIs() {
   const [trendLoading, setTrendLoading] = useState(true)
   const [trendError, setTrendError] = useState(false)
 
+  // hire_date: operador não é comparado com meses em que não estava na empresa
+  const [me, setMe] = useState<{ role: string; hire_date: string | null; created_at: string } | null>(null)
+  useEffect(() => {
+    api.get<{ role: string; hire_date: string | null; created_at: string }>('/api/v1/auth/me').then(r => setMe(r.data)).catch(() => {})
+  }, [])
+  const _hireYM = me && me.role !== 'admin' && me.role !== 'comercial'
+    ? (me.hire_date || me.created_at || '').slice(0, 7)
+    : ''
+  const visibleTrend = _hireYM ? trendMonths.filter(m => m.mes >= _hireYM) : trendMonths
+
   const [orgPopup, setOrgPopup] = useState<string | null>(null)
   const [orgLeads, setOrgLeads] = useState<OrgLead[]>([])
   const [orgLeadsTotal, setOrgLeadsTotal] = useState(0)
@@ -1064,7 +1074,7 @@ export default function KPIs() {
           <div>
             <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-1)', margin: '0 0 4px' }}>Evolução de leads e vendas</p>
             <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: '0 0 16px' }}>
-              Últimos 6 meses até {monthLabel(period === 'range' && debRangeTo ? debRangeTo.slice(0, 7) : period === 'month' ? month : currentMonth)} · leads (barra) e vendas (linha)
+              {_hireYM && visibleTrend.length < 6 ? 'Desde a entrada na empresa' : 'Últimos 6 meses'} até {monthLabel(period === 'range' && debRangeTo ? debRangeTo.slice(0, 7) : period === 'month' ? month : currentMonth)} · leads (barra) e vendas (linha)
             </p>
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
               {trendLoading ? (
@@ -1075,13 +1085,13 @@ export default function KPIs() {
                   <button onClick={fetchTrend} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 13, fontWeight: 600 }}>Tentar novamente</button>
                   <p style={{ color: 'var(--text-subtle)', fontSize: 12, margin: 0 }}>Os KPIs e as demais abas continuam disponíveis normalmente.</p>
                 </div>
-              ) : trendMonths.every(m => m.captacoes === 0) ? (
+              ) : visibleTrend.every(m => m.captacoes === 0) ? (
                 <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                  Sem leads registrados nos últimos 6 meses.
+                  Sem leads registrados no período.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={trendMonths} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <ComposedChart data={visibleTrend} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-lt)" vertical={false} />
                     <XAxis dataKey="mesLabel" tick={{ fontSize: 12, fill: 'var(--text-subtle)' }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
                     <YAxis yAxisId="cap" tick={{ fontSize: 11, fill: 'var(--text-subtle)' }} axisLine={false} tickLine={false} allowDecimals={false} />

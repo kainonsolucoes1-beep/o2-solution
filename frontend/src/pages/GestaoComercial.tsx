@@ -1713,7 +1713,11 @@ export default function GestaoComercial() {
   const grupos      = groupOrigens(origens)
   const maxCap      = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
   const dailyPoints   = diario.map(d => ({ x: d.dia, captacoes: d.captacoes, vendas: d.vendas }))
-  const monthlyPoints = mensal.map(m => ({ x: m.mes_label, captacoes: m.captacoes, vendas: m.vendas }))
+  // operador não é comparado com meses anteriores à entrada na empresa (hire_date)
+  const _hireYM = me && me.role !== 'admin' && me.role !== 'comercial' ? startYM : ''
+  const monthlyPoints = mensal
+    .filter(m => !_hireYM || m.mes >= _hireYM)
+    .map(m => ({ x: m.mes_label, captacoes: m.captacoes, vendas: m.vendas }))
 
   return (
     <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
@@ -1895,7 +1899,7 @@ export default function GestaoComercial() {
             <TrendChart
               title="Evolução"
               subtitleDia="Captações e vendas por dia do mês"
-              subtitleMes="Captações e vendas dos últimos 6 meses"
+              subtitleMes={_hireYM && monthlyPoints.length < 6 ? 'Captações e vendas desde a entrada na empresa' : 'Captações e vendas dos últimos 6 meses'}
               daily={dailyPoints}
               monthly={monthlyPoints}
             />
