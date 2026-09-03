@@ -87,6 +87,8 @@ interface DetalheComum {
   renutricao_count?: number
   modalidades: Modalidade[]
   plano: PlanoResumo
+  por_canal?: { nome: string; count: number; pct: number }[]
+  por_ponto_conversao?: { nome: string; count: number; pct: number }[]
 }
 
 interface PlanoStat {
@@ -1594,10 +1596,10 @@ export default function KPIs() {
                   {/* Do captado à venda: funil (captados → em aberto → vendas), com
                       conversão/cancelamento numa linha discreta abaixo. Antes eram
                       3 números + 3 chips cinza com o mesmo peso visual. */}
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>Do captado à venda</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>{drawer.kind === 'renutricao' ? 'Do retrabalho à venda' : 'Do captado à venda'}</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {([
-                      ['Captados',  drawerData.captacoes,   100,                                                                'rgba(37,99,235,0.16)'],
+                      [drawer.kind === 'renutricao' ? 'Retrabalhados' : 'Captados', drawerData.captacoes, 100,                    'rgba(37,99,235,0.16)'],
                       ['Em aberto', drawerData.base_liquida, drawerData.captacoes > 0 ? Math.round(drawerData.base_liquida / drawerData.captacoes * 100) : 0, 'rgba(37,99,235,0.55)'],
                       ['Vendas',    drawerData.vendas,       drawerData.captacoes > 0 ? Math.round(drawerData.vendas / drawerData.captacoes * 100) : 0,       'rgba(21,128,61,0.30)'],
                     ] as const).map(([label, count, width, fill]) => (
@@ -1629,6 +1631,34 @@ export default function KPIs() {
                       <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(drawerData.ticket_medio)}</p>
                     </div>
                   </div>
+
+                  {/* De onde vieram: só no drawer de renutrição — os leads retrabalhados
+                      guardam a origem e o ponto de conversão originais */}
+                  {drawer.kind === 'renutricao' && !!(drawerData.por_canal?.length || drawerData.por_ponto_conversao?.length) && (
+                    <div style={{ paddingTop: 20, borderTop: '1px solid var(--border-lt)', marginBottom: 22 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>De onde vieram</p>
+                      {([
+                        ['Por canal', drawerData.por_canal],
+                        ['Por ponto de conversão', drawerData.por_ponto_conversao],
+                      ] as const).map(([sub, rows]) => !rows || rows.length === 0 ? null : (
+                        <div key={sub} style={{ marginBottom: 18 }}>
+                          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 9px' }}>{sub}</p>
+                          {rows.slice(0, 6).map((r, i) => (
+                            <div key={r.nome} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 22px', alignItems: 'center', gap: 12, marginTop: i === 0 ? 0 : 7 }}>
+                              <span title={r.nome} style={{ fontSize: 12.5, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.nome}</span>
+                              <div style={{ height: 6, borderRadius: 9999, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
+                                <div style={{ width: `${rows[0].count > 0 ? Math.round(r.count / rows[0].count * 100) : 0}%`, height: '100%', borderRadius: 9999, background: '#2563EB' }} />
+                              </div>
+                              <span style={{ fontSize: 12.5, fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }}>{r.count}</span>
+                            </div>
+                          ))}
+                          {rows.length > 6 && (
+                            <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '8px 0 0' }}>+{rows.length - 6} outros</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Perfil dos leads: modalidade + plano, uma linha cada
                       (rótulo · barra segmentada · legenda inline com bolinha) */}

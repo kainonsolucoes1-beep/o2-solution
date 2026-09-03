@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.lead_utils import extract_base as _extract_base
-from app.lead_utils import normalize_modalidade, modalidade_raw_variants
+from app.lead_utils import normalize_modalidade, modalidade_raw_variants, is_organico
 from app.models.lead import Lead
 from app.models.user import User
 from app.security import can_see_financials, needs_own_origin_filter
@@ -304,7 +304,7 @@ def renutrucao_detalhe(
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     leads = (
-        db.query(Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan)
+        db.query(Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan, Lead.origin, Lead.conversion_point)
         .filter(
             Lead.is_renutrucao == True,
             EFFECTIVE_CAPTACAO >= dt_from,
@@ -325,8 +325,10 @@ def renutrucao_detalhe(
     plano_possui = 0
     plano_nao_possui = 0
     plano_sem_info = 0
+    por_canal: dict = defaultdict(int)
+    por_ponto: dict = defaultdict(int)
 
-    for status, value, modalidade, current_plan in leads:
+    for status, value, modalidade, current_plan, origin, conv_point in leads:
         captacoes += 1
         s = (status or "").lower()
         is_perdido = s in cancelado_set
@@ -334,6 +336,11 @@ def renutrucao_detalhe(
             vendas += 1
         elif is_perdido:
             cancelados += 1
+
+        # de onde veio o lead retrabalhado (origem/ponto de conversao originais)
+        canal = "Orgânico" if is_organico(origin, conv_point) else ((origin or "").strip() or "Sem origem")
+        por_canal[canal] += 1
+        por_ponto[(conv_point or "").strip() or "Não informado"] += 1
 
         if not is_perdido:
             if value:
@@ -373,6 +380,20 @@ def renutrucao_detalhe(
             "pct_possui": round(plano_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
             "pct_nao_possui": round(plano_nao_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
         },
+        "por_canal": sorted(
+            [
+                {"nome": k, "count": v, "pct": round(v / captacoes * 100, 1) if captacoes > 0 else 0.0}
+                for k, v in por_canal.items()
+            ],
+            key=lambda x: x["count"], reverse=True,
+        ),
+        "por_ponto_conversao": sorted(
+            [
+                {"nome": k, "count": v, "pct": round(v / captacoes * 100, 1) if captacoes > 0 else 0.0}
+                for k, v in por_ponto.items()
+            ],
+            key=lambda x: x["count"], reverse=True,
+        ),
     }
 
 
