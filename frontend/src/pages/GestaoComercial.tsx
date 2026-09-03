@@ -1536,11 +1536,14 @@ export default function GestaoComercial() {
   const [selectedSources, setSelectedSources] = useState<string[]>([])
   const [sources, setSources]         = useState<string[]>([])
   const [teamFilter, setTeamFilter]   = useState('')
+  const [me, setMe]                   = useState<{ role: string; hire_date: string | null; created_at: string } | null>(null)
   const month = dateFrom.slice(0, 7)
   const teamParam = teamFilter
+  const isUsuario = me?.role === 'usuario'
 
   useEffect(() => {
     api.get<string[]>('/api/v1/leads/origins').then(r => setSources(r.data)).catch(() => {})
+    api.get<{ role: string; hire_date: string | null; created_at: string }>('/api/v1/auth/me').then(r => setMe(r.data)).catch(() => {})
   }, [])
 
 
@@ -1798,6 +1801,7 @@ export default function GestaoComercial() {
                 </div>
               )}
 
+              {!isUsuario && (
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-lt)' }}>
                 <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Equipe</p>
                 <div style={{ display: 'flex', gap: 4, background: 'var(--bg-input)', borderRadius: 8, padding: 3 }}>
@@ -1811,8 +1815,9 @@ export default function GestaoComercial() {
                   ))}
                 </div>
               </div>
+              )}
 
-              {activeTab === 'Pipeline' && (
+              {activeTab === 'Pipeline' && !isUsuario && (
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-lt)' }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Origem</p>
                   <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--border-in)', borderRadius: 8 }}>
