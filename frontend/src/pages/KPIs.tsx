@@ -541,21 +541,6 @@ export default function KPIs() {
     drawerTriggerRef.current?.focus()
   }
 
-  function currentDateRange(): { date_from: string; date_to: string } {
-    if (period === 'range' && debRangeFrom && debRangeTo) return { date_from: debRangeFrom, date_to: debRangeTo }
-    if (period === 'all') return { date_from: '2000-01-01', date_to: currentMonth + '-31' }
-    const [y, m] = month.split('-').map(Number)
-    const lastDay = new Date(y, m, 0).getDate()
-    return { date_from: `${month}-01`, date_to: `${month}-${String(lastDay).padStart(2, '0')}` }
-  }
-
-  function goToRenutricaoLeads(origem: string) {
-    const { date_from, date_to } = currentDateRange()
-    const params = new URLSearchParams({ status: '__renutricao__', origem, date_from, date_to })
-    if (team !== 'all') params.set('team', TEAM_VALUES[team])
-    navigate(`/leads-report?${params}`)
-  }
-
   function openDrawerLeads() {
     if (!drawer) return
     if (drawer.kind === 'base') {
@@ -1633,16 +1618,6 @@ export default function KPIs() {
                   <button onClick={openDrawerLeads} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 13, fontWeight: 600, marginTop: 18 }}>
                     Ver {drawerData.captacoes === 1 ? 'o lead' : `os ${drawerData.captacoes} leads`} →
                   </button>
-
-                  {!!drawerData.renutricao_count && (
-                    <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '10px 0 0' }}>
-                      <span style={{ marginRight: 6 }}>🔄</span>
-                      <strong style={{ color: 'var(--text-1)' }}>{drawerData.renutricao_count}</strong> lead{drawerData.renutricao_count !== 1 ? 's' : ''} em renutrição ·{' '}
-                      <button onClick={() => goToRenutricaoLeads(drawer.label)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 12.5, fontWeight: 600 }}>
-                        Ver leads →
-                      </button>
-                    </p>
-                  )}
 
                   <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border-lt)', marginBottom: 22 }}>
                     <div>
