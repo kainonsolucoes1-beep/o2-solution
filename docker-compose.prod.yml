@@ -75,8 +75,17 @@ services:
       - caddy_config:/config
     depends_on:
       - frontend
+    # o2-edge: rede compartilhada com o projeto de staging (o2-staging), pra o
+    # Caddy alcançar o `staging-frontend` quando ele estiver no ar.
+    networks:
+      - default
+      - o2-edge
 
 volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+
+networks:
+  o2-edge:
+    external: true

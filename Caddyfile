@@ -10,3 +10,11 @@ o2sig.com.br {
         lb_try_interval 250ms
     }
 }
+
+# ── Staging (co-hospedado, sob demanda) ──────────────────────────────────────
+# `staging-frontend` só existe quando o projeto o2-staging está no ar; quando
+# está desligado, este host responde 502 e não afeta o o2sig.com.br.
+staging.o2sig.com.br {
+    encode zstd gzip
+    reverse_proxy staging-frontend:3000
+}

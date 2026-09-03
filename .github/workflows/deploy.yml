@@ -82,6 +82,9 @@ jobs:
             git pull origin main
             NEW_COMMIT=$(git rev-parse HEAD)
 
+            echo ">>> Garantir a rede compartilhada com o staging"
+            docker network create o2-edge 2>/dev/null || true
+
             echo ">>> Login no GHCR"
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 

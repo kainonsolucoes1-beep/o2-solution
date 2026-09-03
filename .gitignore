@@ -1,6 +1,7 @@
 # Environment — nunca commitar secrets
 .env
 .env.production
+.env.staging
 Google Tec.txt
 logo o2.png
 backend/google_service_account.json
