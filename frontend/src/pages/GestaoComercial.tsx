@@ -185,6 +185,8 @@ function pctDiff(cur: number, prev: number): number | null {
 const _gcNow        = new Date()
 const _gcToday      = `${_gcNow.getFullYear()}-${String(_gcNow.getMonth() + 1).padStart(2, '0')}-${String(_gcNow.getDate()).padStart(2, '0')}`
 const _gcMonthStart = `${_gcNow.getFullYear()}-${String(_gcNow.getMonth() + 1).padStart(2, '0')}-01`
+// "2026-09-01" -> "01/09/2026"
+const _gcFmtBR = (s: string) => s.split('-').reverse().join('/')
 
 // ── Card config ──────────────────────────────────────────────────────────────
 const CARD_CFG = [
@@ -441,7 +443,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <p style={{ fontSize: 12.5, color: 'var(--text-meta)' }}>
-          {distTotal} leads captados no período · {dateFrom} até {dateTo}
+          {distTotal} leads captados no período · {_gcFmtBR(dateFrom)} até {_gcFmtBR(dateTo)}
         </p>
 
         {/* Resultado do período + Fluxo do pipeline — protagonista, visível pra todos os papéis */}
@@ -651,7 +653,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Motivos de Cancelamento</h2>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{dateFrom} até {dateTo} · {overview.perdido} leads perdidos</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{_gcFmtBR(dateFrom)} até {_gcFmtBR(dateTo)} · {overview.perdido} leads perdidos</p>
               </div>
               <button onClick={() => setShowLostModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
             </div>
