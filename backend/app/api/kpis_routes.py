@@ -94,14 +94,13 @@ def _scope_filter(team: str | None, current_user: User) -> list:
 
 
 def _effective_origin(origin: str | None, current_user: User) -> str | None:
-    """Usuario nao-admin so' pode pedir a propria origem, independente do
-    que vier no parametro (origin/origens/fonte) — ignora e forca o nome
-    dele, mesmo padrao ja usado em leads_routes.py. Comercial nao entra
-    nessa restricao -- a visibilidade dele ja vem do filtro global de
-    equipe (restrict_to_usuario_leads)."""
-    if not needs_own_origin_filter(current_user):
-        return origin
-    return _own_name(current_user)
+    """Usuario nao-admin nao escolhe a origem — a visibilidade dele (proprios
+    leads + os de renutricao atribuidos, cuja origem e' a original) e'
+    aplicada via _scope_filter. Antes isto forcava Lead.origin == nome, o que
+    zerava os leads de renutricao. Comercial nao entra nessa restricao."""
+    if needs_own_origin_filter(current_user):
+        return None
+    return origin
 
 
 def _new_acc() -> dict:
@@ -235,6 +234,7 @@ def leads_vendas_por_fonte(
         EFFECTIVE_CAPTACAO >= date_from,
         EFFECTIVE_CAPTACAO <= date_to,
         Lead.status.in_(VENDA_STATUSES),
+        *_scope_filter(None, current_user),
     ]
     if fonte:
         filters.append(Lead.origin.ilike(fonte))
@@ -405,6 +405,7 @@ def motivos_cancelamento(
         Lead.status == "sale_not_performed",
         EFFECTIVE_CAPTACAO >= dt_from,
         EFFECTIVE_CAPTACAO <= dt_to,
+        *_scope_filter(team, current_user),
     ]
     if origin:
         parts = [s.strip() for s in origin.split(',') if s.strip()]
@@ -461,7 +462,7 @@ def leads_conv_point(
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
     origens = _effective_origin(origens, current_user)
 
-    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to]
+    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user)]
     if renutrucao:
         filters.append(Lead.is_renutrucao == True)
     if conv_point:
