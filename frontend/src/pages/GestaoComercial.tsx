@@ -1540,6 +1540,9 @@ export default function GestaoComercial() {
   const month = dateFrom.slice(0, 7)
   const teamParam = teamFilter
   const isUsuario = me?.role === 'usuario'
+  // primeiro mês na empresa: não há mês anterior pra comparar (a pessoa não trabalhava aqui)
+  const startYM = (me?.hire_date || me?.created_at || '').slice(0, 7)
+  const canCompare = !startYM || prevMonthStr(month) >= startYM
 
   useEffect(() => {
     api.get<string[]>('/api/v1/leads/origins').then(r => setSources(r.data)).catch(() => {})
@@ -1730,7 +1733,7 @@ export default function GestaoComercial() {
 
       {/* ── FILTRO GLOBAL ── */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16, position: 'relative' }}>
-        {(activeTab === 'Visão Geral' || activeTab === 'Pipeline' || activeTab === 'Performance') && (
+        {(activeTab === 'Visão Geral' || activeTab === 'Pipeline' || activeTab === 'Performance') && canCompare && (
           <button
             onClick={() => setShowComparison(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
@@ -1859,7 +1862,7 @@ export default function GestaoComercial() {
             {MAIN_CARD_CFG.map(({ key, label, icon, fmt, clickable, invert, alertIfZero }) => {
               const value = key === 'qualificados' ? qualificados : (kpis ? (kpis as Record<string, number>)[key] : 0)
               const prevValue = key === 'qualificados' ? prevQualificados : (prevKpis ? (prevKpis as Record<string, number>)[key] : undefined)
-              const trend = prevValue !== undefined ? pctDiff(value, prevValue) : null
+              const trend = canCompare && prevValue !== undefined ? pctDiff(value, prevValue) : null
               const onCardClick = !clickable ? undefined
                 : key === 'qualificados' ? () => navigate(`/leads-report?date_from=${dateFrom}&date_to=${dateTo}&perception=${encodeURIComponent('Quente,Morno')}`)
                 : () => openDrill(KEY_TO_TIPO[key])

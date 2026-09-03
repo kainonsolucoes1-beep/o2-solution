@@ -25,6 +25,7 @@ class UserResponse(BaseModel):
     first_name: Optional[str]
     role: str = "usuario"
     created_at: datetime
+    hire_date: Optional[date] = None
     must_change_password: bool = False
 
     class Config:
