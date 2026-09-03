@@ -1572,7 +1572,7 @@ export default function KPIs() {
               display: 'flex', flexDirection: 'column',
             }}
           >
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
                 <p id="perf-drawer-title" style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{drawer.label}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{periodLabel()}</p>
@@ -1621,7 +1621,7 @@ export default function KPIs() {
                     Ver {drawerData.captacoes === 1 ? 'o lead' : `os ${drawerData.captacoes} leads`} →
                   </button>
 
-                  <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border-lt)', marginBottom: 22 }}>
+                  <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border)', marginBottom: 22 }}>
                     <div>
                       <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>Receita potencial <span style={{ fontWeight: 400 }}>· estimada</span></p>
                       <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(drawerData.receita_potencial)}</p>
@@ -1635,7 +1635,7 @@ export default function KPIs() {
                   {/* De onde vieram: só no drawer de renutrição — os leads retrabalhados
                       guardam a origem e o ponto de conversão originais */}
                   {drawer.kind === 'renutricao' && !!(drawerData.por_canal?.length || drawerData.por_ponto_conversao?.length) && (
-                    <div style={{ paddingTop: 20, borderTop: '1px solid var(--border-lt)', marginBottom: 22 }}>
+                    <div style={{ paddingTop: 20, borderTop: '1px solid var(--border)', marginBottom: 22 }}>
                       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>De onde vieram</p>
                       {([
                         ['Por canal', drawerData.por_canal],
@@ -1662,7 +1662,7 @@ export default function KPIs() {
 
                   {/* Perfil dos leads: modalidade + plano, uma linha cada
                       (rótulo · barra segmentada · legenda inline com bolinha) */}
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px', paddingTop: 20, borderTop: '1px solid var(--border-lt)' }}>Perfil dos leads</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px', paddingTop: 20, borderTop: '1px solid var(--border)' }}>Perfil dos leads</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '86px minmax(40px,1fr) auto', alignItems: 'center', gap: 14 }}>
                       <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>Modalidade</span>
