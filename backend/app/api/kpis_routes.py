@@ -93,16 +93,6 @@ def _scope_filter(team: str | None, current_user: User) -> list:
     return clause
 
 
-def _effective_origin(origin: str | None, current_user: User) -> str | None:
-    """Usuario nao-admin nao escolhe a origem — a visibilidade dele (proprios
-    leads + os de renutricao atribuidos, cuja origem e' a original) e'
-    aplicada via _scope_filter. Antes isto forcava Lead.origin == nome, o que
-    zerava os leads de renutricao. Comercial nao entra nessa restricao."""
-    if needs_own_origin_filter(current_user):
-        return None
-    return origin
-
-
 def _new_acc() -> dict:
     return {"captacoes": 0, "vendas": 0, "cancelados": 0, "tempo_sum": 0, "tempo_count": 0, "receita_sum": 0.0}
 
@@ -228,7 +218,6 @@ def leads_vendas_por_fonte(
     db: Session = Depends(get_db),
 ):
     date_from, date_to = _resolve_period(month, period, date_from, date_to)
-    fonte = _effective_origin(fonte, current_user)
 
     filters = [
         EFFECTIVE_CAPTACAO >= date_from,
@@ -399,7 +388,6 @@ def motivos_cancelamento(
     db: Session = Depends(get_db),
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
-    origin = _effective_origin(origin, current_user)
 
     filters = [
         Lead.status == "sale_not_performed",
@@ -460,7 +448,6 @@ def leads_conv_point(
     db: Session = Depends(get_db),
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
-    origens = _effective_origin(origens, current_user)
 
     filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user)]
     if renutrucao:
