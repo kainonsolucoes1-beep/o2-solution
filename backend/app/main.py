@@ -38,6 +38,11 @@ from app.sync_followize import start_sync_scheduler, start_token_refresh_schedul
 from app.security import verify_token
 
 load_dotenv()
+
+# staging (co-hospedado): não roda os schedulers de sync nem os backfills que
+# batem no Followize — o ambiente é só pra teste de UI/lógica.
+_STAGING = os.getenv("APP_ENV") == "staging"
+
 Base.metadata.create_all(bind=engine)
 with engine.connect() as _conn:
     _conn.execute(text("CREATE EXTENSION IF NOT EXISTS unaccent"))
@@ -230,10 +235,11 @@ async def startup_event():
         _seed_form_users(db)
     finally:
         db.close()
-    asyncio.create_task(start_sync_scheduler())
-    asyncio.create_task(start_token_refresh_scheduler())
-    from app.sheets_receita import start_receita_sync_scheduler
-    asyncio.create_task(start_receita_sync_scheduler())
+    if not _STAGING:
+        asyncio.create_task(start_sync_scheduler())
+        asyncio.create_task(start_token_refresh_scheduler())
+        from app.sheets_receita import start_receita_sync_scheduler
+        asyncio.create_task(start_receita_sync_scheduler())
     from app.models.app_settings import AppSettings as _AS
     from app.database import SessionLocal as _SL
     _db = _SL()
@@ -241,11 +247,13 @@ async def startup_event():
         if not _db.query(_AS).filter(_AS.key == "conversion_point_backfill_done").first():
             _db.add(_AS(key="conversion_point_backfill_done", value="1"))
             _db.commit()
-            asyncio.create_task(sync_leads_backfill(days=365))
+            if not _STAGING:
+                asyncio.create_task(sync_leads_backfill(days=365))
         if not _db.query(_AS).filter(_AS.key == "modalidade_id_backfill_done").first():
             _db.add(_AS(key="modalidade_id_backfill_done", value="1"))
             _db.commit()
-            asyncio.create_task(sync_leads_backfill(days=365))
+            if not _STAGING:
+                asyncio.create_task(sync_leads_backfill(days=365))
         if not _db.query(_AS).filter(_AS.key == "public_leads_api_key").first():
             _db.add(_AS(key="public_leads_api_key", value=secrets.token_urlsafe(32)))
             _db.commit()
@@ -266,11 +274,13 @@ async def startup_event():
         if not _db.query(_AS).filter(_AS.key == "current_plan_backfill_done_v3").first():
             _db.add(_AS(key="current_plan_backfill_done_v3", value="1"))
             _db.commit()
-            asyncio.create_task(sync_leads_backfill(days=365))
+            if not _STAGING:
+                asyncio.create_task(sync_leads_backfill(days=365))
         if not _db.query(_AS).filter(_AS.key == "document_backfill_done").first():
             _db.add(_AS(key="document_backfill_done", value="1"))
             _db.commit()
-            asyncio.create_task(sync_leads_backfill(days=365))
+            if not _STAGING:
+                asyncio.create_task(sync_leads_backfill(days=365))
     finally:
         _db.close()
 
