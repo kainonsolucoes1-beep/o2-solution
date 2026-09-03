@@ -47,7 +47,10 @@ services:
       retries: 3
       start_period: 20s
 
-  frontend:
+  # nome do serviço = staging-frontend de propósito: na rede compartilhada
+  # o2-edge o Docker registra o nome do serviço como alias, e "frontend"
+  # colidiria com o frontend da produção (o Caddy resolveria os dois).
+  staging-frontend:
     image: ghcr.io/kainonsolucoes1-beep/o2-solution-frontend:${STAGING_TAG:-staging}
     restart: unless-stopped
     expose:
@@ -55,10 +58,8 @@ services:
     depends_on:
       - backend
     networks:
-      default: {}
-      o2-edge:
-        aliases:
-          - staging-frontend
+      - default
+      - o2-edge
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
       interval: 15s
