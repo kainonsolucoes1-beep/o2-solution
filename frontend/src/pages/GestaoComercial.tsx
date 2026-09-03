@@ -1540,10 +1540,14 @@ export default function GestaoComercial() {
   const month = dateFrom.slice(0, 7)
   const teamParam = teamFilter
   const isUsuario = me?.role === 'usuario'
-  // só compara quando o mês anterior foi trabalhado por inteiro — senão a
-  // pessoa "perde" contra um mês em que mal estava (ou nem estava) na empresa
-  const startYM = (me?.hire_date || me?.created_at || '').slice(0, 7)
-  const canCompare = !startYM || prevMonthStr(month) > startYM
+  // só compara quando o mês-base foi trabalhado por inteiro — senão a pessoa
+  // "perde" contra um mês em que mal estava (ou nem estava) na empresa. Quem
+  // entrou no dia 1º já conta o próprio mês de entrada como mês cheio.
+  const _startDate = me?.hire_date || me?.created_at || ''
+  const startYM = _startDate.slice(0, 7)
+  const _startsDay1 = _startDate.slice(8, 10) === '01'
+  const _prevYM = prevMonthStr(month)
+  const canCompare = !startYM || _prevYM > startYM || (_prevYM === startYM && _startsDay1)
 
   useEffect(() => {
     api.get<string[]>('/api/v1/leads/origins').then(r => setSources(r.data)).catch(() => {})
