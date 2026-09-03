@@ -20,9 +20,25 @@ import Agenda from './pages/Agenda'
 import Layout from './components/Layout'
 import { ThemeProvider } from './ThemeContext'
 
+// tarja fixa quando rodando em staging.o2sig.com.br — não afeta produção
+function StagingBanner() {
+  if (!window.location.hostname.startsWith('staging.')) return null
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, zIndex: 99999, pointerEvents: 'none',
+      background: '#B45309', color: '#fff', fontSize: 11, fontWeight: 700,
+      letterSpacing: '0.08em', padding: '3px 10px', borderBottomRightRadius: 8,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+    }}>
+      STAGING · DADOS DE TESTE
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <ThemeProvider>
+    <StagingBanner />
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
