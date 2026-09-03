@@ -1540,9 +1540,10 @@ export default function GestaoComercial() {
   const month = dateFrom.slice(0, 7)
   const teamParam = teamFilter
   const isUsuario = me?.role === 'usuario'
-  // primeiro mês na empresa: não há mês anterior pra comparar (a pessoa não trabalhava aqui)
+  // só compara quando o mês anterior foi trabalhado por inteiro — senão a
+  // pessoa "perde" contra um mês em que mal estava (ou nem estava) na empresa
   const startYM = (me?.hire_date || me?.created_at || '').slice(0, 7)
-  const canCompare = !startYM || prevMonthStr(month) >= startYM
+  const canCompare = !startYM || prevMonthStr(month) > startYM
 
   useEffect(() => {
     api.get<string[]>('/api/v1/leads/origins').then(r => setSources(r.data)).catch(() => {})
