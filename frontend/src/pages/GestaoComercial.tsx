@@ -1547,8 +1547,10 @@ export default function GestaoComercial() {
   function applyMonth(val: string) {
     const [y, m] = val.split('-').map(Number)
     const lastDay = new Date(y, m, 0).getDate()
+    const end = `${val}-${String(lastDay).padStart(2, '0')}`
     setDateFrom(`${val}-01`)
-    setDateTo(`${val}-${String(lastDay).padStart(2, '0')}`)
+    // mês corrente não avança pro futuro — mostra 01 → hoje
+    setDateTo(end > _gcToday ? _gcToday : end)
   }
 
   const filterLabel = (() => {
