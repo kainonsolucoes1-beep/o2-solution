@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronUp, ChevronRight, Building2, Layers3, CalendarClock, Filter, Search } from "lucide-react";
 import api from "../api";
+import { useTheme } from "../ThemeContext";
 
 // ---------------------------------------------------------------------------
 // Design tokens
@@ -208,6 +209,7 @@ function Donut({ data, colors, centerLabel, centerSub }: { data: { name: string;
 }
 
 export default function FinanceiroDashboard() {
+  const { dark } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlMode = (searchParams.get("period") as PeriodMode) || "mes";
 
@@ -322,7 +324,7 @@ export default function FinanceiroDashboard() {
   }, [previsaoMes]);
 
   return (
-    <div className="min-h-full w-full bg-[var(--bg-page)] p-8">
+    <div className="min-h-full w-full bg-[var(--bg-page)] p-8" style={{ background: dark ? undefined : "#EEF1F5" }}>
       <div className="mx-auto max-w-[1180px]">
         {/* Header */}
         <div className="mb-6 flex items-end justify-between">
