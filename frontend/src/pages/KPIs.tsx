@@ -1572,7 +1572,7 @@ export default function KPIs() {
               display: 'flex', flexDirection: 'column',
             }}
           >
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
                 <p id="perf-drawer-title" style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{drawer.label}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{periodLabel()}</p>
