@@ -21,6 +21,9 @@ services:
 
   # ─── Backend FastAPI ──────────────────────────────────────────────────────────
   backend:
+    # imagem pré-montada no GitHub Actions (GHCR). `build:` fica só de fallback
+    # pra rebuild manual na máquina; o deploy normal faz `pull`, nunca `--build`.
+    image: ghcr.io/kainonsolucoes1-beep/o2-solution-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -41,6 +44,7 @@ services:
 
   # ─── Frontend React + Nginx ───────────────────────────────────────────────────
   frontend:
+    image: ghcr.io/kainonsolucoes1-beep/o2-solution-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile

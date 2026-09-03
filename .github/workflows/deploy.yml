@@ -54,11 +54,15 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-  # ── Deploy na máquina (por enquanto ainda faz build local; a Etapa 2 troca
-  #    isto por `docker compose pull`) ─────────────────────────────────────────
+  # ── Deploy na máquina: só `git pull` + `docker compose pull` + `up`.
+  #    A instância nunca mais compila imagem (era o que travava a produção). ────
   deploy:
     name: SSH deploy
     runs-on: ubuntu-latest
+    needs: build-images
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -66,6 +70,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: GHCR_TOKEN,GHCR_USER,IMAGE_TAG
           script: |
             set -e
             cd /home/${{ secrets.EC2_USER }}/o2-solution
@@ -77,16 +82,37 @@ jobs:
             git pull origin main
             NEW_COMMIT=$(git rev-parse HEAD)
 
-            echo ">>> Build e subir containers (aguardando health check dos serviços)"
-            if ! docker compose -f docker-compose.prod.yml up -d --build --remove-orphans --wait --wait-timeout 150; then
-              echo "!!! Deploy do commit $NEW_COMMIT falhou no health check — revertendo pro commit anterior ($PREV_COMMIT)"
+            echo ">>> Login no GHCR"
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            echo ">>> Puxar imagens ($IMAGE_TAG) e subir sem build (health check dos serviços)"
+            DEPLOY_FAIL=""
+            if ! docker compose -f docker-compose.prod.yml pull backend frontend; then
+              echo "!!! pull das imagens falhou"; DEPLOY_FAIL=1
+            elif ! docker compose -f docker-compose.prod.yml up -d --no-build --remove-orphans --wait --wait-timeout 150; then
+              echo "!!! containers não passaram no health check"; DEPLOY_FAIL=1
+            fi
+
+            if [ -n "$DEPLOY_FAIL" ]; then
+              echo "!!! Deploy do commit $NEW_COMMIT falhou — revertendo pro commit anterior ($PREV_COMMIT)"
               git reset --hard "$PREV_COMMIT"
               docker compose -f docker-compose.prod.yml up -d --build --remove-orphans --wait --wait-timeout 150 || true
+              docker logout ghcr.io || true
               echo "!!! Rollback concluído. Investigar o commit $NEW_COMMIT antes de tentar de novo."
               exit 1
             fi
 
+            docker logout ghcr.io || true
+
+            echo ">>> Recarregar Caddy (Caddyfile pode ter mudado)"
+            docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null \
+              || docker compose -f docker-compose.prod.yml restart caddy || true
+
             echo ">>> Limpar imagens antigas"
             docker image prune -f
 
-            echo "Deploy concluído em $(date) — commit $NEW_COMMIT"
+            echo "Deploy concluído em $(date) — commit $NEW_COMMIT (imagem $IMAGE_TAG)"
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          IMAGE_TAG: ${{ github.sha }}
