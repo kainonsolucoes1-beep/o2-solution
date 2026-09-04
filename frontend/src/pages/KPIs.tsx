@@ -141,7 +141,7 @@ const SDR_NAMES = new Set([
   'isaac', 'julia', 'leticia', 'maria eduarda', 'anny', 'emily', 'emilly',
   'pedro', 'lucas', 'guilherme', 'lucascardoso', 'lucas cardoso', 'rodolfo', 'discadora',
   'gabrieli', 'gabrielli', 'kauany', 'kauanny', 'clara', 'o2 solution',
-  'lucas carvalho', 'lucascarvalho', 'thaynara',
+  'lucas carvalho', 'lucascarvalho', 'thaynara', 'pamela',
 ])
 
 const O2_MEMBER_NAMES = new Set(['clara', 'maria eduarda', 'gabrieli', 'kauany'])

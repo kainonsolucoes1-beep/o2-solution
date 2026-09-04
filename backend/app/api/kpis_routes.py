@@ -146,15 +146,9 @@ def conversao_por_fonte(
     ]
 
     leads = (
-        db.query(Lead.origin, Lead.status, Lead.conversion_point, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida)
+        db.query(Lead.origin, Lead.status, Lead.conversion_point, Lead.created_at,
+                 Lead.receita_data_venda, Lead.receita_real_recebida, Lead.renutricao_owner_id)
         .filter(*base_filter)
-        .all()
-    )
-
-    # Renutrição counts per origin (subset — not a new origin)
-    rn_leads = (
-        db.query(Lead.origin, Lead.status)
-        .filter(*base_filter, Lead.is_renutrucao == True)
         .all()
     )
 
@@ -162,20 +156,25 @@ def conversao_por_fonte(
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
     show_fin = can_see_financials(current_user)
 
-    rn_by_fonte: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "cancelados": 0})
-    for origin, status in rn_leads:
-        fonte = (origin or "").strip() or "Sem origem"
-        rn_by_fonte[fonte]["captacoes"] += 1
-        s = (status or "").lower()
-        if s in venda_set:
-            rn_by_fonte[fonte]["vendas"] += 1
-        elif s in cancelado_set:
-            rn_by_fonte[fonte]["cancelados"] += 1
+    # Quem trabalha só renutrição (ex: Pamela) nunca captura um lead com o
+    # proprio nome como origem -- sem isso, essas pessoas nao aparecem em
+    # nenhum ranking "por operador". Um lead com renutricao_owner_id conta
+    # pra quem esta' retrabalhando ele, nao pra origem antiga.
+    owner_ids = {r.renutricao_owner_id for r in leads if r.renutricao_owner_id}
+    owner_names = {
+        u.id: (u.first_name or u.username)
+        for u in (db.query(User).filter(User.id.in_(owner_ids)).all() if owner_ids else [])
+    }
+
+    def _effective_fonte(origin, owner_id):
+        if owner_id and owner_id in owner_names:
+            return owner_names[owner_id]
+        return (origin or "").strip() or "Sem origem"
 
     data: dict = defaultdict(lambda: {"acc": _new_acc(), "breakdown": defaultdict(_new_acc)})
 
-    for origin, status, conv_point, created_at, receita_data_venda, receita_real_recebida in leads:
-        fonte = (origin or "").strip() or "Sem origem"
+    for origin, status, conv_point, created_at, receita_data_venda, receita_real_recebida, owner_id in leads:
+        fonte = _effective_fonte(origin, owner_id)
         _accumulate(data[fonte]["acc"], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
         if conv_point:
@@ -187,19 +186,6 @@ def conversao_por_fonte(
         breakdown = []
         for label, bc in sorted(entry["breakdown"].items(), key=lambda x: x[1]["captacoes"], reverse=True):
             breakdown.append({"label": label, **_finalize_acc(bc, show_fin)})
-        # Inject Renutrição as breakdown item if this fonte has flagged leads
-        rn = rn_by_fonte.get(fonte)
-        if rn and rn["captacoes"] > 0:
-            rn_cap = rn["captacoes"]
-            breakdown.insert(0, {
-                "label":      "🔄 Renutrição",
-                "captacoes":  rn_cap,
-                "vendas":     rn["vendas"],
-                "cancelados": rn["cancelados"],
-                "conversao":  round(rn["vendas"] / rn_cap * 100, 1) if rn_cap > 0 else 0.0,
-                "tempo_medio_dias": None,
-                "receita_gerada": None,
-            })
         result.append({"fonte": fonte, **_finalize_acc(entry["acc"], show_fin), "breakdown": breakdown})
 
     return result

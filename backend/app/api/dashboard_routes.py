@@ -43,6 +43,22 @@ def _s_in(statuses):
     return or_(*[func.lower(Lead.status) == s.lower() for s in statuses])
 
 
+# Quem trabalha só renutrição (ex: Pamela) nunca captura um lead com o
+# proprio nome como origem -- sem isso, essas pessoas nao aparecem em
+# nenhum ranking "por operador". Um lead com renutricao_owner_id conta
+# pra quem esta' retrabalhando ele, nao pra origem antiga.
+def _owner_names(db, owner_ids):
+    if not owner_ids:
+        return {}
+    return {u.id: (u.first_name or u.username) for u in db.query(User).filter(User.id.in_(owner_ids)).all()}
+
+
+def _effective_fonte(origin, owner_id, owner_names):
+    if owner_id and owner_id in owner_names:
+        return owner_names[owner_id]
+    return origin or "Sem origem"
+
+
 # "Captacao efetiva": quando um lead cancelado/parado e' retrabalhado
 # (Lead.retrabalhado_em preenchido), ele passa a contar na data do retrabalho
 # pros relatorios de periodo — sem apagar Lead.created_at (historico real).
@@ -415,26 +431,25 @@ def dashboard_performance(
     projecao_mes = round(daily_rate * dias_uteis_mes)
 
     # Ranking de operadores — mês atual até a data de referência (todas as origens)
-    ranking_rows = (
-        db.query(
-            func.coalesce(Lead.origin, "Sem origem").label("name"),
-            func.count(Lead.id).label("count"),
-        )
+    ranking_leads = (
+        db.query(Lead.origin, Lead.renutricao_owner_id)
         .filter(EFFECTIVE_CAPTACAO >= month_start, EFFECTIVE_CAPTACAO < today_end)
-        .group_by(Lead.origin)
-        .order_by(func.count(Lead.id).desc())
         .all()
     )
-    total_ranking = sum(r.count for r in ranking_rows)
-    max_count = ranking_rows[0].count if ranking_rows else 1
+    _owner_names_month = _owner_names(db, {r.renutricao_owner_id for r in ranking_leads if r.renutricao_owner_id})
+    ranking_counts: dict = defaultdict(int)
+    for origin, owner_id in ranking_leads:
+        ranking_counts[_effective_fonte(origin, owner_id, _owner_names_month)] += 1
+    total_ranking = sum(ranking_counts.values())
+    max_count = max(ranking_counts.values()) if ranking_counts else 1
     ranking = [
         {
-            "name": r.name,
-            "count": r.count,
-            "pct": round(r.count / total_ranking * 100, 1) if total_ranking else 0.0,
-            "bar_pct": round(r.count / max_count * 100, 1) if max_count else 0.0,
+            "name": name,
+            "count": count,
+            "pct": round(count / total_ranking * 100, 1) if total_ranking else 0.0,
+            "bar_pct": round(count / max_count * 100, 1) if max_count else 0.0,
         }
-        for r in ranking_rows
+        for name, count in sorted(ranking_counts.items(), key=lambda kv: kv[1], reverse=True)
     ]
 
     # Evolução diária — leads por dia no mês até a data de referência
@@ -451,30 +466,24 @@ def dashboard_performance(
         for d in range(1, day_of_month + 1)
     ]
 
-    # Captação do dia por fonte
-    hoje_fonte_rows = (
-        db.query(
-            func.coalesce(Lead.origin, "Sem origem").label("name"),
-            func.count(Lead.id).label("count"),
-        )
+    # Captação do dia por fonte (operador efetivo: dono da renutrição, senão a origem)
+    hoje_leads = (
+        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status)
         .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end)
-        .group_by(Lead.origin)
-        .order_by(func.count(Lead.id).desc())
         .all()
     )
-    hoje_proposta_rows = (
-        db.query(
-            func.coalesce(Lead.origin, "Sem origem").label("name"),
-            func.count(Lead.id).label("count"),
-        )
-        .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end, _s_in(_PROPOSTA))
-        .group_by(Lead.origin)
-        .all()
-    )
-    proposta_hoje_map = {r.name: r.count for r in hoje_proposta_rows}
+    _owner_names_hoje = _owner_names(db, {r.renutricao_owner_id for r in hoje_leads if r.renutricao_owner_id})
+    _proposta_set = {s.lower() for s in _PROPOSTA}
+    hoje_counts: dict = defaultdict(int)
+    hoje_proposta_counts: dict = defaultdict(int)
+    for origin, owner_id, status in hoje_leads:
+        fonte = _effective_fonte(origin, owner_id, _owner_names_hoje)
+        hoje_counts[fonte] += 1
+        if (status or "").lower() in _proposta_set:
+            hoje_proposta_counts[fonte] += 1
     captacao_hoje_por_fonte = [
-        {"name": r.name, "count": r.count, "propostas": proposta_hoje_map.get(r.name, 0)}
-        for r in hoje_fonte_rows
+        {"name": name, "count": count, "propostas": hoje_proposta_counts.get(name, 0)}
+        for name, count in sorted(hoje_counts.items(), key=lambda kv: kv[1], reverse=True)
     ]
 
     # Captação do dia por base (origin/SDR) e ponto de conversão (orgânico)

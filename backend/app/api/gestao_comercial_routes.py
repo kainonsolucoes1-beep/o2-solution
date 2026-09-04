@@ -736,7 +736,18 @@ def vida_sdr(
         _, _dt_to_excl = br_date_to_utc_range(date_to)
         date_filters.append(EFFECTIVE_CAPTACAO <= _dt_to_excl - timedelta(microseconds=1))
 
-    filters = [Lead.origin.in_(parts), *date_filters] if parts else []
+    # Quem trabalha só renutrição (ex: Pamela) nunca captura um lead com o
+    # proprio nome como origem -- inclui tambem os leads que essa pessoa
+    # possui via renutricao_owner_id, senao a "Vida do Agente" dela vem vazia.
+    matched_users = (
+        db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).all()
+        if parts else []
+    )
+    owner_ids = [u.id for u in matched_users]
+    origin_or_owner = Lead.origin.in_(parts) if parts else None
+    if owner_ids:
+        origin_or_owner = or_(origin_or_owner, Lead.renutricao_owner_id.in_(owner_ids))
+    filters = [origin_or_owner, *date_filters] if parts else []
 
     # tenure do agente ("Desde X - N meses ativo") independe do filtro de
     # periodo selecionado na tela, por isso e' calculado sem os date_filters.
@@ -745,10 +756,7 @@ def vida_sdr(
     # antigo reatribuido a esse agente preserva o created_at original
     # (historico real) e faria parecer que ele esta' no sistema desde muito
     # antes do que realmente esta'.
-    user_match = (
-        db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).first()
-        if parts else None
-    )
+    user_match = matched_users[0] if matched_users else None
     lead_min_created = db.query(func.min(Lead.created_at)).filter(Lead.origin.in_(parts)).scalar() if parts else None
     if user_match and user_match.hire_date:
         ativo_desde = datetime.combine(user_match.hire_date, datetime.min.time())
