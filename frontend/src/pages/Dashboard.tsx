@@ -34,7 +34,7 @@ interface PerformanceData {
   dias_uteis_mes: number
   ranking: { name: string; count: number; pct: number; bar_pct: number }[]
   evolucao_diaria: { day: number; date: string; count: number }[]
-  captacao_hoje_por_fonte: { name: string; count: number }[]
+  captacao_hoje_por_fonte: { name: string; count: number; propostas: number }[]
   captacao_hoje_origem: {
     bases: { label: string; count: number }[]
     conversion_points: { label: string; count: number }[]
@@ -446,8 +446,8 @@ export default function Dashboard() {
           {data.captacao_hoje_por_fonte.length === 0 ? (
             <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações {filter && !single ? 'no período' : filter ? 'nesse dia' : 'hoje'}.</p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr' }}>
-              {['Operador', 'Captação'].map((hd, c) => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr' }}>
+              {['Operador', 'Captação', 'Propostas'].map((hd, c) => (
                 <div key={hd} style={{ ...rkHead, paddingLeft: c ? 14 : 0, borderLeft: c ? '1px solid var(--border-lt)' : 'none' }}>{hd}</div>
               ))}
               {data.captacao_hoje_por_fonte.map((op, i) => (
@@ -459,6 +459,7 @@ export default function Dashboard() {
                     <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
                   </span>
                   <span style={{ ...rkCell, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)] }}>{op.count}</span>
+                  <span style={rkCell}>{op.propostas > 0 ? op.propostas : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
                 </div>
               ))}
             </div>

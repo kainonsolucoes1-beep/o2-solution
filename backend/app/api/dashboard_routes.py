@@ -34,7 +34,7 @@ QUALIFIED_STATUSES = ("qualificado", "qualified", "convertido")
 
 _PENDENTE    = ("pending", "novo", "new")
 _QUALIFICADO = ("scheduled", "qualificado", "qualified")
-_PROPOSTA    = ("proposal_sent",)
+_PROPOSTA    = ("proposal_sent", "proposta")
 _FECHADO     = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 _PERDIDO     = ("sale_not_performed",)
 
@@ -462,7 +462,20 @@ def dashboard_performance(
         .order_by(func.count(Lead.id).desc())
         .all()
     )
-    captacao_hoje_por_fonte = [{"name": r.name, "count": r.count} for r in hoje_fonte_rows]
+    hoje_proposta_rows = (
+        db.query(
+            func.coalesce(Lead.origin, "Sem origem").label("name"),
+            func.count(Lead.id).label("count"),
+        )
+        .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end, _s_in(_PROPOSTA))
+        .group_by(Lead.origin)
+        .all()
+    )
+    proposta_hoje_map = {r.name: r.count for r in hoje_proposta_rows}
+    captacao_hoje_por_fonte = [
+        {"name": r.name, "count": r.count, "propostas": proposta_hoje_map.get(r.name, 0)}
+        for r in hoje_fonte_rows
+    ]
 
     # Captação do dia por base (origin/SDR) e ponto de conversão (orgânico)
     hoje_origem_rows = (
