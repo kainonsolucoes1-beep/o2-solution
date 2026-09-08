@@ -78,10 +78,6 @@ const FILTERS_STORAGE_KEY = 'leadsReportFilters'
 
 const STATUS_PERDIDO = 'sale_not_performed'
 const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,convertido'
-// sentinel dentro do select de Status -- nao e' um status de verdade, filtra
-// pela flag is_renutrucao (indepedente do status atual do lead)
-const STATUS_RENUTRICAO = '__renutricao__'
-const STATUS_FORA_RENUTRICAO = '__sem_renutricao__'
 const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
 const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
 const STATUS_PENDENTE = 'pending,novo,new'
@@ -140,6 +136,7 @@ interface StoredFilters {
   lostReasonFilter: string
   closedSubStatus: string
   teamFilter: string
+  renutFilter: string
 }
 
 function loadStoredFilters(): Partial<StoredFilters> {
@@ -256,6 +253,10 @@ export default function LeadsReport() {
   const [lostReasonFilter, setLostReasonFilter] = useState(() => searchParams.get('lost_reason') ?? (cameFromUrlFilters ? '' : storedFilters.lostReasonFilter ?? ''))
   const [closedSubStatus, setClosedSubStatus] = useState(() => (cameFromUrlFilters ? '' : storedFilters.closedSubStatus ?? ''))
   const [teamFilter, setTeamFilter] = useState(() => searchParams.get('team') ?? (cameFromUrlFilters ? '' : storedFilters.teamFilter ?? ''))
+  const [renutFilter, setRenutFilter] = useState<'' | 'em' | 'fora'>(() => {
+    const q = searchParams.get('renutricao') === 'true' ? 'em' : searchParams.get('sem_renutricao') === 'true' ? 'fora' : ''
+    return (q || (cameFromUrlFilters ? '' : storedFilters.renutFilter ?? '')) as '' | 'em' | 'fora'
+  })
   const vencidosFilter = searchParams.get('vencidos') === '1'
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
@@ -315,9 +316,9 @@ export default function LeadsReport() {
   }, [filterOpen])
 
   useEffect(() => {
-    const toStore: StoredFilters = { dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter }
+    const toStore: StoredFilters = { dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter }
     localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore))
-  }, [dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter])
+  }, [dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter])
 
   const [clearTrigger, setClearTrigger] = useState(0)
 
@@ -333,6 +334,7 @@ export default function LeadsReport() {
     setLostReasonFilter('')
     setClosedSubStatus('')
     setTeamFilter('')
+    setRenutFilter('')
     setFilterOpen(false)
     setClearTrigger(c => c + 1)
   }
@@ -373,15 +375,19 @@ export default function LeadsReport() {
     if (searched) fetchReport(1)
   }, [statusFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (searched) fetchReport(1)
+  }, [renutFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
 
   const reportFilterParams = useCallback((): Record<string, string | number | boolean> => {
     const params: Record<string, string | number | boolean> = { date_from: dateFrom, date_to: dateTo }
     if (vencidosFilter) params.vencidos = true
     if (isAdmin && origem) params.origem = origem
-    if (statusFilter === STATUS_RENUTRICAO) params.renutricao = true
-    else if (statusFilter === STATUS_FORA_RENUTRICAO) params.sem_renutricao = true
-    else if (statusFilter) params.status = closedSubStatus || statusFilter
+    if (renutFilter === 'em') params.renutricao = true
+    else if (renutFilter === 'fora') params.sem_renutricao = true
+    if (statusFilter) params.status = closedSubStatus || statusFilter
     if (perceptionFilter) params.perception = perceptionFilter
     if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
     if (conversionPointFilter) params.conversion_point = conversionPointFilter
@@ -389,7 +395,7 @@ export default function LeadsReport() {
     if (teamFilter) params.team = teamFilter
     if (search.trim()) params.search = search.trim()
     return params
-  }, [dateFrom, dateTo, vencidosFilter, isAdmin, origem, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, search])
+  }, [dateFrom, dateTo, vencidosFilter, isAdmin, origem, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, search])
 
   const [selectingAll, setSelectingAll] = useState(false)
   async function selectAllFiltered() {
@@ -614,9 +620,9 @@ export default function LeadsReport() {
             >
               <Filter size={15} />
               Filtros
-              {(statusFilter === STATUS_RENUTRICAO || statusFilter === STATUS_FORA_RENUTRICAO) && (
+              {renutFilter !== '' && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#0D9488', background: '#F0FDFA', border: '1px solid #99F6E4', borderRadius: 999, padding: '1px 8px' }}>
-                  <RotateCcw size={11} /> {statusFilter === STATUS_RENUTRICAO ? 'Em renutrição' : 'Fora da renutrição'}
+                  <RotateCcw size={11} /> {renutFilter === 'em' ? 'Em renutrição' : 'Fora da renutrição'}
                 </span>
               )}
             </button>
@@ -928,7 +934,7 @@ export default function LeadsReport() {
                   {(() => {
                     const activeCount = [
                       dateFrom !== monthStart || dateTo !== today,
-                      !!origem, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search,
+                      !!origem, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '',
                     ].filter(Boolean).length
                     return activeCount > 0 ? (
                       <span style={{ fontFamily: 'inherit', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(37,99,235,0.12)', color: '#2563EB' }}>
@@ -1089,14 +1095,14 @@ export default function LeadsReport() {
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {([
                       ['', 'Todos'],
-                      [STATUS_RENUTRICAO, 'Em renutrição'],
-                      [STATUS_FORA_RENUTRICAO, 'Fora da renutrição'],
+                      ['em', 'Em renutrição'],
+                      ['fora', 'Fora da renutrição'],
                     ] as const).map(([val, lbl]) => {
-                      const active = statusFilter === val
+                      const active = renutFilter === val
                       return (
                         <button
                           key={lbl}
-                          onClick={() => setStatusFilter(val)}
+                          onClick={() => setRenutFilter(val)}
                           style={{
                             fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999,
                             border: `1px solid ${active ? '#0D9488' : 'var(--border)'}`,
