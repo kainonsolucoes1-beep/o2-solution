@@ -614,33 +614,12 @@ export default function LeadsReport() {
             >
               <Filter size={15} />
               Filtros
+              {(statusFilter === STATUS_RENUTRICAO || statusFilter === STATUS_FORA_RENUTRICAO) && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#0D9488', background: '#F0FDFA', border: '1px solid #99F6E4', borderRadius: 999, padding: '1px 8px' }}>
+                  <RotateCcw size={11} /> {statusFilter === STATUS_RENUTRICAO ? 'Em renutrição' : 'Fora da renutrição'}
+                </span>
+              )}
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #99F6E4', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px 9px 12px', fontSize: 12.5, fontWeight: 700, color: '#0D9488' }}>
-                <RotateCcw size={14} /> Renutrição
-              </span>
-              {([
-                ['', 'Todos'],
-                [STATUS_RENUTRICAO, 'Em'],
-                [STATUS_FORA_RENUTRICAO, 'Fora'],
-              ] as const).map(([val, lbl]) => {
-                const active = statusFilter === val
-                return (
-                  <button
-                    key={lbl}
-                    onClick={() => setStatusFilter(val)}
-                    style={{
-                      padding: '9px 14px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
-                      borderLeft: '1px solid #CCFBF1',
-                      background: active ? '#0D9488' : 'var(--bg-card)',
-                      color: active ? '#fff' : '#0D9488',
-                    }}
-                  >
-                    {lbl}
-                  </button>
-                )
-              })}
-            </div>
             {isAdmin && (
               <button
                 onClick={() => setImportOpen(true)}
@@ -1099,6 +1078,34 @@ export default function LeadsReport() {
                         >
                           <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: active ? opt.color : 'var(--text-subtle)' }} />
                           {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6, marginTop: 18, marginBottom: 8 }}>
+                    <RotateCcw size={13} style={{ color: '#0D9488' }} /> Renutrição
+                  </label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {([
+                      ['', 'Todos'],
+                      [STATUS_RENUTRICAO, 'Em renutrição'],
+                      [STATUS_FORA_RENUTRICAO, 'Fora da renutrição'],
+                    ] as const).map(([val, lbl]) => {
+                      const active = statusFilter === val
+                      return (
+                        <button
+                          key={lbl}
+                          onClick={() => setStatusFilter(val)}
+                          style={{
+                            fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999,
+                            border: `1px solid ${active ? '#0D9488' : 'var(--border)'}`,
+                            background: active ? '#0D9488' : 'var(--bg-card)',
+                            color: active ? '#fff' : 'var(--text-muted)',
+                            cursor: 'pointer', transition: 'all 150ms',
+                          }}
+                        >
+                          {lbl}
                         </button>
                       )
                     })}
