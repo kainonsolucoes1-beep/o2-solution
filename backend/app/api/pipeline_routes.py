@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -186,36 +186,40 @@ def pipeline_overview(
 ):
     source = _effective_source(source, current_user)
     # lead quente/morno ainda nao fechado/perdido conta so em "Qualificado" (negociacao),
-    # mesmo que o status dele ainda seja pendente/agendado/proposta
-    not_hot_warm = ~Lead.perception.in_(list(HOT_WARM_PERCEPTIONS))
+    # mesmo que o status dele ainda seja pendente/agendado/proposta.
+    # percepção vazia (NULL) conta como fria — senão o lead some de todos os baldes.
+    hot_warm = Lead.perception.in_(list(HOT_WARM_PERCEPTIONS))
+    not_hot_warm = or_(Lead.perception.is_(None), ~hot_warm)
 
     neg_q = db.query(func.count(Lead.id)).filter(
-        Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
-        ~_status_in(FECHADO_STATUSES),
-        ~_status_in(PERDIDO_STATUSES),
+        hot_warm, ~_status_in(FECHADO_STATUSES), ~_status_in(PERDIDO_STATUSES),
     )
     negociacao = _apply_filters(neg_q, date_from, date_to, source, team).scalar() or 0
 
     neg_val_q = db.query(func.coalesce(func.sum(Lead.value_potential), 0)).filter(
-        Lead.perception.in_(list(HOT_WARM_PERCEPTIONS)),
-        ~_status_in(FECHADO_STATUSES),
-        ~_status_in(PERDIDO_STATUSES),
+        hot_warm, ~_status_in(FECHADO_STATUSES), ~_status_in(PERDIDO_STATUSES),
     )
     negociacao_value = float(_apply_filters(neg_val_q, date_from, date_to, source, team).scalar() or 0.0)
 
-    # total real de captações do período (sem filtro de status) -- os baldes
-    # abaixo podem não somar isto (lead com status estranho/vazio + percepção
-    # fria não cai em balde nenhum); a Visão Geral conta assim.
     total = _apply_filters(db.query(func.count(Lead.id)), date_from, date_to, source, team).scalar() or 0
 
-    novo        = _count_status(db, PENDENTE_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
     qualificado = _count_status(db, AGENDADO_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
     proposta    = _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
     fechado     = _count_status(db, FECHADO_STATUSES,  date_from, date_to, source, team)
     perdido     = _count_status(db, PERDIDO_STATUSES,  date_from, date_to, source, team)
-    # leads do período que não caíram em nenhum balde (status fora do funil +
-    # percepção fria/vazia) — expõe pra Visão Geral e Pipeline reconciliarem
-    outros = max(0, total - novo - qualificado - proposta - negociacao - fechado - perdido)
+
+    # "Novo" = tudo que ainda não avançou: percepção fria/vazia e status que não
+    # é fechado, perdido, agendado nem proposta (inclui status cru do Followize
+    # que não mapeia pra etapa). Assim os baldes SEMPRE somam o total.
+    nao_avancou = and_(
+        not_hot_warm,
+        ~_status_in(FECHADO_STATUSES), ~_status_in(PERDIDO_STATUSES),
+        ~_status_in(AGENDADO_STATUSES), ~_status_in(PROPOSTA_STATUSES),
+    )
+    novo = _apply_filters(db.query(func.count(Lead.id)).filter(nao_avancou), date_from, date_to, source, team).scalar() or 0
+    novo_value = float(_apply_filters(
+        db.query(func.coalesce(func.sum(Lead.value_potential), 0)).filter(nao_avancou), date_from, date_to, source, team,
+    ).scalar() or 0.0)
 
     return {
         "total":       total,
@@ -225,8 +229,7 @@ def pipeline_overview(
         "negociacao":  negociacao,
         "fechado":     fechado,
         "perdido":     perdido,
-        "outros":      outros,
-        "novo_value":        _sum_value(db, [_status_in(PENDENTE_STATUSES), not_hot_warm],  date_from, date_to, source, team),
+        "novo_value":        novo_value,
         "qualificado_value": _sum_value(db, [_status_in(AGENDADO_STATUSES), not_hot_warm],  date_from, date_to, source, team),
         "proposta_value":    _sum_value(db, [_status_in(PROPOSTA_STATUSES), not_hot_warm],  date_from, date_to, source, team),
         "negociacao_value":  negociacao_value,
