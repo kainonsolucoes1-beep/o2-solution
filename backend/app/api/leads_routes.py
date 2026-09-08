@@ -50,6 +50,24 @@ router = APIRouter(prefix="/api/v1", tags=["leads"])
 _MODALIDADE_SEM_VALOR = {"não informado", "nao informado", "sem modalidade"}
 
 
+def _origem_clause(db, origem: str):
+    """Filtro de "Operador": casa com Lead.origin e também com quem tem a posse
+    via renutrição (renutricao_owner_id) — assim dá pra filtrar leads de quem
+    só trabalha renutrição (ex: Pamela), que nunca aparece como origem."""
+    parts = [s.strip() for s in origem.split(",") if s.strip()]
+    if not parts:
+        return None
+    conds = [Lead.origin == parts[0]] if len(parts) == 1 else [Lead.origin.in_(parts)]
+    owner_ids = [
+        u.id for u in db.query(User.id).filter(
+            or_(User.first_name.in_(parts), User.username.in_(parts))
+        ).all()
+    ]
+    if owner_ids:
+        conds.append(Lead.renutricao_owner_id.in_(owner_ids))
+    return or_(*conds) if len(conds) > 1 else conds[0]
+
+
 def _modalidade_clause(modalidade: str):
     """Filtro de modalidade que casa com o breakdown de Gestão Comercial:
     "PME" também pega "Empresarial"; "Não informado" pega null/vazio."""
@@ -188,11 +206,9 @@ def leads_by_period(
         if needs_own_origin_filter(current_user):
             q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
         elif origem:
-            parts = [s.strip() for s in origem.split(',') if s.strip()]
-            if len(parts) == 1:
-                q = q.filter(Lead.origin == parts[0])
-            else:
-                q = q.filter(Lead.origin.in_(parts))
+            _oc = _origem_clause(db, origem)
+            if _oc is not None:
+                q = q.filter(_oc)
         if status:
             statuses = [s.strip().lower() for s in status.split(',')]
             q = q.filter(func.lower(Lead.status).in_(statuses))
@@ -348,11 +364,9 @@ def leads_report_stats(
         if needs_own_origin_filter(current_user):
             q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
         elif origem:
-            parts = [s.strip() for s in origem.split(',') if s.strip()]
-            if len(parts) == 1:
-                q = q.filter(Lead.origin == parts[0])
-            else:
-                q = q.filter(Lead.origin.in_(parts))
+            _oc = _origem_clause(db, origem)
+            if _oc is not None:
+                q = q.filter(_oc)
         if status:
             statuses = [s.strip().lower() for s in status.split(',')]
             q = q.filter(func.lower(Lead.status).in_(statuses))
@@ -420,11 +434,19 @@ def list_origins(
         .order_by(Lead.origin)
         .all()
     )
-    origins = [r.origin for r in rows]
-    if "ADM" not in origins:
-        origins.append("ADM")
-        origins.sort()
-    return origins
+    origins = {r.origin for r in rows}
+    origins.add("ADM")
+    # donos de renutrição (ex: Pamela) — nunca aparecem como origem, mas dá pra
+    # filtrar os leads deles pelo mesmo campo (ver _origem_clause)
+    owner_rows = (
+        db.query(User.first_name, User.username)
+        .join(Lead, Lead.renutricao_owner_id == User.id)
+        .distinct()
+        .all()
+    )
+    for fn, un in owner_rows:
+        origins.add(fn or un)
+    return sorted(origins)
 
 
 @router.get("/leads/conversion-points", response_model=List[str])

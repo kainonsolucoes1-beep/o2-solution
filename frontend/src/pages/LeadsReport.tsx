@@ -1006,7 +1006,7 @@ export default function LeadsReport() {
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
                     <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Atendente</label>
+                      <label style={labelStyle}>Operador</label>
                       {isAdmin ? (
                         <select
                           value={origem}
