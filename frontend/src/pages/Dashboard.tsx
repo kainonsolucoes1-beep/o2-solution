@@ -34,7 +34,7 @@ interface PerformanceData {
   dias_uteis_mes: number
   ranking: { name: string; count: number; pct: number; bar_pct: number }[]
   evolucao_diaria: { day: number; date: string; count: number }[]
-  captacao_hoje_por_fonte: { name: string; count: number; propostas: number }[]
+  captacao_hoje_por_fonte: { name: string; count: number; propostas_valor: number }[]
   captacao_hoje_origem: {
     bases: { label: string; count: number }[]
     conversion_points: { label: string; count: number }[]
@@ -156,6 +156,7 @@ function ZoneHeader({ children }: { children: React.ReactNode }) {
 }
 
 const H2_STYLE: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }
+const fmtBrlShort = (n: number) => n > 0 ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }) : ''
 
 const MEDALS = ['🥇', '🥈', '🥉']
 const BAR_COLORS = ['#F59E0B', '#6B7280', '#B45309', '#3B82F6', '#8B5CF6']
@@ -433,7 +434,7 @@ export default function Dashboard() {
                   <OrigemGroup key={`${diaLabel}-conv`} dot="#3B82F6" label="Pontos de conversão" items={data.captacao_hoje_origem.conversion_points} />
                 )}
                 {data.captacao_hoje_origem.bases.length > 0 && (
-                  <OrigemGroup key={`${diaLabel}-base`} dot="#F59E0B" label="Bases (SDR)" items={data.captacao_hoje_origem.bases} />
+                  <OrigemGroup key={`${diaLabel}-base`} dot="#F59E0B" label="SDR" items={data.captacao_hoje_origem.bases} />
                 )}
               </div>
             )}
@@ -447,7 +448,7 @@ export default function Dashboard() {
             <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações {filter && !single ? 'no período' : filter ? 'nesse dia' : 'hoje'}.</p>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr' }}>
-              {['Operador', 'Captação', 'Propostas'].map((hd, c) => (
+              {['Operador', 'Captação', 'Em propostas'].map((hd, c) => (
                 <div key={hd} style={{ ...rkHead, paddingLeft: c ? 14 : 0, borderLeft: c ? '1px solid var(--border-lt)' : 'none' }}>{hd}</div>
               ))}
               {data.captacao_hoje_por_fonte.map((op, i) => (
@@ -459,7 +460,7 @@ export default function Dashboard() {
                     <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
                   </span>
                   <span style={{ ...rkCell, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)] }}>{op.count}</span>
-                  <span style={rkCell}>{op.propostas > 0 ? op.propostas : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
+                  <span style={rkCell}>{op.propostas_valor > 0 ? fmtBrlShort(op.propostas_valor) : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
                 </div>
               ))}
             </div>
@@ -477,41 +478,38 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl p-6 flex flex-col gap-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <h2 style={H2_STYLE}>Meta Mensal</h2>
 
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+              <b style={{ fontSize: 34, fontWeight: 700, color: 'var(--text-1)', lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{data.meta_pct}%</b>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>{captMes} / {metaLeads} leads</span>
+            </div>
+
             <div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>Realizado</span>
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
-                  <b style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{captMes}</b>
-                  <span style={{ fontSize: 12, color: 'var(--text-subtle)' }}>de {metaLeads} leads · {data.meta_pct}% da meta</span>
-                </span>
+              <div style={{ position: 'relative', height: 8, borderRadius: 99, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, width: `${Math.min(Math.max(projPct, 0), 100)}%`, borderRadius: 99, background: metaColor, opacity: 0.28 }} />
+                <div style={{ position: 'absolute', inset: 0, width: `${Math.min(data.meta_pct, 100)}%`, borderRadius: 99, background: metaColor, transition: 'width 700ms ease' }} />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 15 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>Projeção do mês</span>
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
-                  <b style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{projecao}</b>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: projDelta >= 0 ? '#059669' : '#DC2626' }}>
-                    {projDelta >= 0 ? `${projDelta} acima da meta` : `${Math.abs(projDelta)} abaixo da meta`}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 600, color: 'var(--text-subtle)', marginTop: 6 }}>
+                <span>realizado</span><span>projeção {projecao}</span>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, fontSize: 12.5, padding: '9px 0', borderTop: '1px solid var(--border-lt)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Projeção do mês</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
+                  {projecao}
+                  <span style={{ fontWeight: 600, fontSize: 11.5, marginLeft: 6, color: projDelta >= 0 ? '#059669' : '#DC2626' }}>
+                    {projDelta >= 0 ? `${projDelta} acima` : `${Math.abs(projDelta)} abaixo`}
                   </span>
                 </span>
               </div>
-            </div>
-
-            <div style={{ position: 'relative', paddingTop: 9, marginTop: 2 }}>
-              <div style={{ position: 'relative', height: 12, borderRadius: 99, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(data.meta_pct, 100)}%`, height: '100%', borderRadius: 99, background: metaColor, transition: 'width 700ms ease' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, fontSize: 12.5, padding: '9px 0', borderTop: '1px solid var(--border-lt)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Ritmo necessário</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
+                  {metaPorDia > 0 ? Math.ceil(metaPorDia) : '—'}
+                  <span style={{ fontWeight: 500, fontSize: 11.5, marginLeft: 4, color: 'var(--text-muted)' }}>/dia útil</span>
+                </span>
               </div>
-              <div style={{ position: 'absolute', top: 0, left: `${Math.min(Math.max(projPct, 0), 100)}%`, transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '6px solid var(--text-2)' }} />
-              <div style={{ position: 'absolute', top: 5, right: 0, width: 2, height: 20, background: 'var(--text-subtle)', borderRadius: 2 }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, fontWeight: 600, color: 'var(--text-subtle)', marginTop: -6 }}>
-              <span>realizado / projeção</span><span>meta {metaLeads}</span>
-            </div>
-
-            <div style={{ marginTop: 14, paddingTop: 13, borderTop: '1px solid var(--border-lt)' }}>
-              <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginBottom: 4 }}>Ritmo necessário</p>
-              <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
-                {metaPorDia > 0 ? Math.ceil(metaPorDia) : '—'} leads/dia útil
-              </span>
             </div>
           </div>
 
