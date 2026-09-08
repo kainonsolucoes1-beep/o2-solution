@@ -255,7 +255,6 @@ def modalidades_captacao(
         db.query(Lead.modalidade, Lead.status)
         .filter(
             EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to,
-            Lead.modalidade.isnot(None), Lead.modalidade != "",
             *_scope_clause(team, current_user),
         )
         .all()
@@ -264,6 +263,7 @@ def modalidades_captacao(
     venda_set = {s.lower() for s in VENDA_STATUSES}
     data: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0})
     for modalidade, status in leads:
+        modalidade = (modalidade or "").strip() or "Não informado"
         if modalidade == "Empresarial":
             modalidade = "PME"
         data[modalidade]["captacoes"] += 1
