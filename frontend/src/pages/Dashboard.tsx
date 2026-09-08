@@ -113,6 +113,7 @@ function Sparkline({ values }: { values: number[] }) {
 // lista é longa — o que acontece ao filtrar intervalos grandes.
 function OrigemGroup({ dot, label, items }: { dot: string; label: string; items: { label: string; count: number }[] }) {
   const long = items.length > 6
+  const total = items.reduce((s, it) => s + it.count, 0)
   const [open, setOpen] = useState(!long)
   return (
     <div>
@@ -129,7 +130,7 @@ function OrigemGroup({ dot, label, items }: { dot: string; label: string; items:
       >
         <span style={{ width: 5, height: 5, borderRadius: '50%', background: dot, flexShrink: 0 }} />
         {label}
-        <span style={{ color: 'var(--text-subtle)' }}>· {items.length}</span>
+        <span style={{ color: 'var(--text-subtle)' }}>· {total}</span>
         {long && (
           <span style={{ marginLeft: 'auto', display: 'flex' }}>
             {open ? <ChevronDown size={12} color="var(--text-subtle)" /> : <ChevronRight size={12} color="var(--text-subtle)" />}
