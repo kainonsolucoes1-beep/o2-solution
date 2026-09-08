@@ -1,7 +1,9 @@
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, computed_field
-from typing import Optional
+from typing import Optional, Literal
 from datetime import datetime, date
+
+ContractType = Literal["clt", "estagiario"]
 
 class UserRegister(BaseModel):
     email: EmailStr
@@ -48,6 +50,7 @@ class UserAdminCreate(BaseModel):
     first_name: Optional[str] = None
     role: str = "usuario"
     team: Optional[str] = None
+    contract_type: ContractType = "clt"
     birth_date: Optional[date] = None
     phone: Optional[str] = None
     cpf: Optional[str] = None
@@ -57,6 +60,7 @@ class UserAdminCreate(BaseModel):
 class UserAdminUpdate(BaseModel):
     role: Optional[str] = None
     team: Optional[str] = None
+    contract_type: Optional[ContractType] = None
     is_active: Optional[bool] = None
     first_name: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -78,6 +82,7 @@ class UserAdminResponse(BaseModel):
     first_name: Optional[str]
     role: str
     team: Optional[str]
+    contract_type: str = "clt"
     is_active: bool
     must_change_password: bool
     created_at: datetime

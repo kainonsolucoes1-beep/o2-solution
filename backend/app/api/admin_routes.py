@@ -436,6 +436,7 @@ def create_user(
         first_name=body.first_name,
         role=body.role,
         team=body.team,
+        contract_type=body.contract_type,
         must_change_password=True,
         birth_date=body.birth_date,
         phone=body.phone,
@@ -463,6 +464,8 @@ def update_user(
         user.role = body.role
     if body.team is not None:
         user.team = body.team
+    if body.contract_type is not None:
+        user.contract_type = body.contract_type
     if body.is_active is not None:
         user.is_active = body.is_active
     if body.first_name is not None:

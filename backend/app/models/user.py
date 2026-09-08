@@ -24,7 +24,9 @@ class User(Base):
     termination_date = Column(Date, nullable=True)
     last_login_at = Column(TIMESTAMP, nullable=True)
     last_login_ip = Column(String(64), nullable=True)
-    # exceção à janela de horário (frente 1b) — libera acesso fora de 9h–16h
+    # vínculo empregatício — define a janela de horário: estagiário 9h–16h, CLT 9h–18h
+    contract_type = Column(String(20), nullable=False, server_default='clt', default='clt')
+    # exceção à janela de horário (frente 1b) — libera acesso fora da janela do vínculo
     horario_estendido = Column(Boolean, nullable=False, server_default='false', default=False)
     # exceção ao dispositivo confiável (frente 1c) — acessa de qualquer aparelho
     acesso_externo_liberado = Column(Boolean, nullable=False, server_default='false', default=False)

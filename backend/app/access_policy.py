@@ -1,8 +1,9 @@
 """Regras de acesso pros perfis internos (frente 1 do plano de endurecimento).
 
-1b — janela de horário: perfis internos só acessam em dias úteis, das 9h às 16h
-(horário de Brasília), exceto feriado nacional. Liga/desliga por um interruptor
-em AppSettings (`acesso_janela_ativa`), desligado por padrão.
+1b — janela de horário: perfis internos só acessam em dias úteis (horário de
+Brasília), exceto feriado nacional. O fim da janela depende do vínculo:
+estagiário até 16h, CLT até 18h. Liga/desliga por um interruptor em
+AppSettings (`acesso_janela_ativa`), desligado por padrão.
 """
 from datetime import datetime
 
@@ -14,11 +15,15 @@ from app.tz_utils import now_br
 # perfis presos às regras de horário e dispositivo. admin/diretor ficam livres.
 RESTRICTED_ROLES = {"usuario", "comercial", "supervisor"}
 
-JANELA_INICIO = 9   # hora (inclusive)
-JANELA_FIM = 16     # hora (exclusive — 16:00 em ponto já bloqueia)
+JANELA_INICIO = 9              # hora (inclusive)
+JANELA_FIM_ESTAGIARIO = 16    # hora (exclusive — 16:00 em ponto já bloqueia)
+JANELA_FIM_CLT = 18          # hora (exclusive)
 
-_MSG_JANELA = f"Acesso liberado apenas em dias úteis, das {JANELA_INICIO}h às {JANELA_FIM}h."
 _MSG_DEVICE = "Este dispositivo ainda não foi liberado. Um administrador precisa aprová-lo em Configurações → Controle de acesso."
+
+
+def janela_fim(user) -> int:
+    return JANELA_FIM_ESTAGIARIO if getattr(user, "contract_type", "clt") == "estagiario" else JANELA_FIM_CLT
 
 
 def _flag_ativa(db, key: str) -> bool:
@@ -27,12 +32,12 @@ def _flag_ativa(db, key: str) -> bool:
     return bool(row and row.value == "1")
 
 
-def dentro_da_janela(now: datetime | None = None) -> bool:
+def dentro_da_janela(fim: int = JANELA_FIM_CLT, now: datetime | None = None) -> bool:
     now = now or now_br()
     return (
         now.weekday() < 5
         and now.date() not in br_holidays(now.year)
-        and JANELA_INICIO <= now.hour < JANELA_FIM
+        and JANELA_INICIO <= now.hour < fim
     )
 
 
@@ -44,8 +49,10 @@ def check_time_window(user, db) -> None:
         return
     if not _flag_ativa(db, "acesso_janela_ativa"):
         return
-    if not dentro_da_janela():
-        raise HTTPException(status_code=403, detail={"code": "fora_janela", "message": _MSG_JANELA})
+    fim = janela_fim(user)
+    if not dentro_da_janela(fim):
+        msg = f"Acesso liberado apenas em dias úteis, das {JANELA_INICIO}h às {fim}h."
+        raise HTTPException(status_code=403, detail={"code": "fora_janela", "message": msg})
 
 
 def device_ativo(db) -> bool:

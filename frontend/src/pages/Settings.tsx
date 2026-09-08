@@ -494,15 +494,18 @@ function ConfiguracoesTab() {
 // ── Usuários tab ─────────────────────────────────────────────────────────────
 interface UserItem {
   id: string; email: string; username: string; first_name: string | null; role: string; team: string | null
+  contract_type: string
   is_active: boolean; must_change_password: boolean; created_at: string
   birth_date: string | null; phone: string | null; cpf: string | null
   hire_date: string | null; termination_date: string | null; idade: number | null
   horario_estendido: boolean; acesso_externo_liberado: boolean
 }
 const RESTRICTED_ROLES = ['usuario', 'comercial', 'supervisor']
+const CONTRACT_LABEL: Record<string, string> = { clt: 'CLT', estagiario: 'Estagiário' }
+const contractWindow = (ct: string) => ct === 'estagiario' ? '9h–16h' : '9h–18h'
 interface UserCreatedResponse extends UserItem { temp_password: string }
-const EMPTY_FORM = { email: '', username: '', first_name: '', role: 'usuario', team: '', birth_date: '', phone: '', cpf: '', hire_date: '' }
-const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '', team: '', birth_date: '', phone: '', cpf: '', hire_date: '', termination_date: '' }
+const EMPTY_FORM = { email: '', username: '', first_name: '', role: 'usuario', team: '', contract_type: 'clt', birth_date: '', phone: '', cpf: '', hire_date: '' }
+const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '', team: '', contract_type: 'clt', birth_date: '', phone: '', cpf: '', hire_date: '', termination_date: '' }
 const ROLE_OPTIONS = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervisor', 'comercial', 'usuario']
 const TEAM_OPTIONS = ['Equipe São Paulo', 'Equipe Pernambuco']
 const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
@@ -613,6 +616,7 @@ function UsuariosTab() {
     setEditUser(user)
     setEditForm({
       first_name: user.first_name ?? '', email: user.email, username: user.username, password: '', team: user.team ?? '',
+      contract_type: user.contract_type || 'clt',
       birth_date: user.birth_date ?? '', phone: user.phone ?? '', cpf: user.cpf ?? '',
       hire_date: user.hire_date ?? '', termination_date: user.termination_date ?? '',
     })
@@ -633,6 +637,7 @@ function UsuariosTab() {
       if (editForm.username !== editUser.username) payload.username = editForm.username
       if (editForm.password.trim()) payload.password = editForm.password
       if (editForm.team !== (editUser.team ?? '')) payload.team = editForm.team
+      if (editForm.contract_type !== (editUser.contract_type || 'clt')) payload.contract_type = editForm.contract_type
       if (editForm.birth_date !== (editUser.birth_date ?? '')) payload.birth_date = editForm.birth_date || null
       if (editForm.phone !== (editUser.phone ?? '')) payload.phone = editForm.phone
       if (editForm.cpf !== (editUser.cpf ?? '')) payload.cpf = editForm.cpf
@@ -769,11 +774,17 @@ function UsuariosTab() {
                   <div style={{ marginTop: 20 }}>
                     <h4 style={{ margin: '0 0 12px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-subtle)' }}>Vínculo e acesso</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px 20px' }}>
+                      <UField label="Vínculo" value={CONTRACT_LABEL[selected.contract_type] || 'CLT'} />
                       <UField label="Equipe" value={selected.team || '—'} />
                       <UField label="Data de início" value={selected.hire_date ? fmtDate(selected.hire_date) : '—'} />
                       <UField label="Criado em" value={fmtDate(selected.created_at)} />
                       {selected.termination_date && <UField label="Desligamento" value={fmtDate(selected.termination_date)} />}
                     </div>
+                    {RESTRICTED_ROLES.includes(selected.role) && (
+                      <p style={{ fontSize: 11.5, color: 'var(--text-subtle)', margin: '10px 0 0' }}>
+                        Janela de horário (quando ativa): dias úteis, {contractWindow(selected.contract_type)}.
+                      </p>
+                    )}
                     {RESTRICTED_ROLES.includes(selected.role) && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginTop: 12 }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: selected.horario_estendido ? 'var(--text-2)' : 'var(--text-subtle)' }}>
@@ -834,13 +845,21 @@ function UsuariosTab() {
                   {TEAM_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Vínculo</label>
+                <select value={editForm.contract_type} onChange={e => setEditForm(f => ({ ...f, contract_type: e.target.value }))}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
+                  <option value="clt">CLT — janela 9h–18h</option>
+                  <option value="estagiario">Estagiário — janela 9h–16h</option>
+                </select>
+              </div>
 
               {editUser && RESTRICTED_ROLES.includes(editUser.role) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
                     <input type="checkbox" checked={editHorarioEst} onChange={e => setEditHorarioEst(e.target.checked)} style={{ marginTop: 2 }} />
                     <span style={{ fontSize: 12.5, color: 'var(--text-3b)' }}>
-                      <b style={{ fontWeight: 600 }}>Horário estendido</b> — libera o acesso fora da janela de 9h–16h (para quem faz hora extra).
+                      <b style={{ fontWeight: 600 }}>Horário estendido</b> — libera o acesso fora da janela do vínculo (para quem faz hora extra).
                     </span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
@@ -954,6 +973,14 @@ function UsuariosTab() {
                     <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
                       style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
                       {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }}>Vínculo</label>
+                    <select value={form.contract_type} onChange={e => setForm(f => ({ ...f, contract_type: e.target.value }))}
+                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
+                      <option value="clt">CLT — janela 9h–18h</option>
+                      <option value="estagiario">Estagiário — janela 9h–16h</option>
                     </select>
                   </div>
                   {form.role === 'supervisor' && (
@@ -1277,7 +1304,7 @@ function ControleAcessoTab() {
     <div className="flex flex-col" style={{ gap: 18 }}>
       <AccessToggle title="Janela de horário" on={cfg?.janela_ativa ?? null} busy={saving}
         onClick={() => cfg && patch({ janela_ativa: !cfg.janela_ativa })}>
-        Quando ligada, os perfis <b>usuário, comercial e supervisor</b> só acessam em dias úteis, das <b>9h às 16h</b> (exceto feriados nacionais).
+        Quando ligada, os perfis <b>usuário, comercial e supervisor</b> só acessam em dias úteis (exceto feriados nacionais), das <b>9h</b> até o fim da janela do vínculo — <b>16h</b> para estagiário, <b>18h</b> para CLT.
         Admin e diretor não são afetados. Exceções pelo campo "Horário estendido" na edição do usuário.
       </AccessToggle>
 

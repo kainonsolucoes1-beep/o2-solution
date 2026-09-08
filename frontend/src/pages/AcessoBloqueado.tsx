@@ -33,7 +33,7 @@ export default function AcessoBloqueado() {
         </div>
         <h1 style={{ fontSize: 19, fontWeight: 700, color: '#101C2E', margin: '0 0 8px' }}>Acesso bloqueado</h1>
         <p style={{ fontSize: 14, color: '#46566B', lineHeight: 1.5, margin: '0 0 24px' }}>
-          {msg || 'Acesso liberado apenas em dias úteis, das 9h às 16h.'} Sua sessão continua ativa.
+          {msg || 'Acesso liberado apenas em dias úteis, dentro da janela de horário do seu vínculo.'} Sua sessão continua ativa.
         </p>
         <button
           onClick={tentarDeNovo}
