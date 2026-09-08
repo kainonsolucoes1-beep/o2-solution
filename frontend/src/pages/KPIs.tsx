@@ -837,6 +837,24 @@ export default function KPIs() {
     ...organicFontes.map(f => ({ ...f, tipo: 'canal' as const })),
     ...sdrDisplayFontes.map(f => ({ ...f, tipo: 'operador' as const })),
   ].sort((a, b) => b.captacoes - a.captacoes)
+
+  // Bases só conta lead com anotação de base nas notas. O que sobra dos leads
+  // de SDR (sem base identificável) vira "Sem base informada", pra Bases somar
+  // o total de SDR e Bases + Canais fechar com o total captado.
+  const basesDisplay: BaseStat[] = (() => {
+    const sdrCap = sdrFontes.reduce((s, f) => s + f.captacoes, 0)
+    const gap = sdrCap - basesData.reduce((s, b) => s + b.captacoes, 0)
+    if (gap <= 0) return basesData
+    const gapVen = Math.max(0, sdrFontes.reduce((s, f) => s + f.vendas, 0) - basesData.reduce((s, b) => s + b.vendas, 0))
+    const gapCan = Math.max(0, sdrFontes.reduce((s, f) => s + f.cancelados, 0) - basesData.reduce((s, b) => s + b.cancelados, 0))
+    return [...basesData, {
+      base: 'Sem base informada',
+      captacoes: gap, vendas: gapVen, cancelados: gapCan,
+      conversao: +(gapVen / gap * 100).toFixed(1),
+      pct_cancelamento: +(gapCan / gap * 100).toFixed(1),
+      tempo_medio_dias: null, receita_gerada: null,
+    }].sort((a, b) => b.captacoes - a.captacoes)
+  })()
   const rankTopCap = rankingPool[0]
   const receitaVisible = rankingPool.some(r => r.receita_gerada != null)
   const rankTopReceita = rankingPool
@@ -1163,16 +1181,16 @@ export default function KPIs() {
               <StateBox kind="loading" height={140} />
             ) : basesError ? (
               <StateBox kind="error" height={140} message="Não foi possível carregar as bases." onRetry={fetchBases} />
-            ) : basesData.length === 0 ? (
+            ) : basesDisplay.length === 0 ? (
               <StateBox kind="empty" height={140} message="Nenhuma base encontrada neste período." />
             ) : aquisicaoLayout === 'quadrante' ? (
               <AquisicaoQuadrant
-                rows={basesData.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, receitaGerada: b.receita_gerada }))}
+                rows={basesDisplay.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, receitaGerada: b.receita_gerada }))}
               />
             ) : (
               <AquisicaoTable
-                rows={basesData.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, tempoMedioDias: b.tempo_medio_dias, receitaGerada: b.receita_gerada }))}
-                onOpen={(label, trigger) => openDrawer('base', label, undefined, trigger)}
+                rows={basesDisplay.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, tempoMedioDias: b.tempo_medio_dias, receitaGerada: b.receita_gerada }))}
+                onOpen={(label, trigger) => { if (label !== 'Sem base informada') openDrawer('base', label, undefined, trigger) }}
               />
             )
           )}
