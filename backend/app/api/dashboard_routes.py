@@ -430,27 +430,54 @@ def dashboard_performance(
     daily_rate = captacao_mes / dias_uteis_decorridos if dias_uteis_decorridos > 0 else 0
     projecao_mes = round(daily_rate * dias_uteis_mes)
 
-    # Ranking de operadores — mês atual até a data de referência (todas as origens)
+    # Ranking de captação — mês atual até a data de referência.
+    # Dois blocos: OPERADORES (pessoas — bate com um usuário do sistema, ou é
+    # dono de renutrição) e CANAIS (Meta Ads, Orgânico, Site, Discadora...).
+    # Um lead de canal que foi atribuído pra renutrição conta nos dois: no canal
+    # pela origem original, e no operador que está retrabalhando ele.
     ranking_leads = (
         db.query(Lead.origin, Lead.renutricao_owner_id)
         .filter(EFFECTIVE_CAPTACAO >= month_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
     _owner_names_month = _owner_names(db, {r.renutricao_owner_id for r in ranking_leads if r.renutricao_owner_id})
-    ranking_counts: dict = defaultdict(int)
+    # pessoas = usuários do sistema + SDRs antigas que ainda aparecem como origem
+    # (o front funde essas em "o2 Solution" na hora de exibir)
+    _LEGACY_SDR = {"clara", "maria eduarda", "kauany", "gabrieli"}
+    _person_names = _LEGACY_SDR | {
+        n.strip().lower()
+        for (fn, un) in db.query(User.first_name, User.username).all()
+        for n in (fn, un) if n and n.strip()
+    }
+    def _is_person(name: str) -> bool:
+        return (name or "").strip().lower() in _person_names
+
+    op_counts: dict = defaultdict(int)
+    canal_counts: dict = defaultdict(int)
     for origin, owner_id in ranking_leads:
-        ranking_counts[_effective_fonte(origin, owner_id, _owner_names_month)] += 1
-    total_ranking = sum(ranking_counts.values())
-    max_count = max(ranking_counts.values()) if ranking_counts else 1
-    ranking = [
-        {
-            "name": name,
-            "count": count,
-            "pct": round(count / total_ranking * 100, 1) if total_ranking else 0.0,
-            "bar_pct": round(count / max_count * 100, 1) if max_count else 0.0,
-        }
-        for name, count in sorted(ranking_counts.items(), key=lambda kv: kv[1], reverse=True)
-    ]
+        origin_name = (origin or "").strip() or "Sem origem"
+        if owner_id and owner_id in _owner_names_month:
+            op_counts[_owner_names_month[owner_id]] += 1
+        elif _is_person(origin_name):
+            op_counts[origin_name] += 1
+        if not _is_person(origin_name):
+            canal_counts[origin_name] += 1
+
+    def _mk_ranking(counts: dict):
+        total = sum(counts.values())
+        mx = max(counts.values()) if counts else 1
+        return [
+            {
+                "name": name,
+                "count": count,
+                "pct": round(count / total * 100, 1) if total else 0.0,
+                "bar_pct": round(count / mx * 100, 1) if mx else 0.0,
+            }
+            for name, count in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+        ]
+
+    ranking_operadores = _mk_ranking(op_counts)
+    ranking_canais = _mk_ranking(canal_counts)
 
     # Evolução diária — leads por dia no mês até a data de referência
     daily_rows = (
@@ -525,7 +552,8 @@ def dashboard_performance(
         "meta_pct": meta_pct,
         "projecao_mes": projecao_mes,
         "dias_uteis_mes": dias_uteis_mes,
-        "ranking": ranking,
+        "ranking_operadores": ranking_operadores,
+        "ranking_canais": ranking_canais,
         "evolucao_diaria": evolucao_diaria,
         "captacao_hoje_por_fonte": captacao_hoje_por_fonte,
         "captacao_hoje_origem": captacao_hoje_origem,
