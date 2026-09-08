@@ -23,6 +23,19 @@ function formatAgo(iso: string | null): string {
   return `${Math.floor(diff / 86400)}d atrás`
 }
 
+function HealthCell({ dot, label, value, sub }: { dot: string; label: string; value: string; sub: string }) {
+  return (
+    <div style={{ background: 'var(--bg-card)', padding: '13px 15px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 999, background: dot, flexShrink: 0 }} />
+        <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', marginTop: 6 }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>
+    </div>
+  )
+}
+
 function ConfiguracoesTab() {
   const navigate = useNavigate()
   const [accessToken, setAccessToken]   = useState('')
@@ -171,43 +184,22 @@ function ConfiguracoesTab() {
     }
   }
 
+  const syncDot = healthLoading ? 'var(--text-subtle)' : !health ? 'var(--danger)' : !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444'
+  const syncVal = healthLoading ? 'Carregando…' : !health ? 'Indisponível' : !health.last_sync_at ? 'Sem registro' : health.last_sync_ok ? 'Rodando' : 'Falha'
+  const syncSub = health?.last_sync_at ? `último ${health.last_sync_ok ? 'OK' : 'erro'} ${formatAgo(health.last_sync_at)} · a cada 5 min` : 'a cada 5 minutos'
+  const eyebrowStyle = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: 'var(--text-muted)', margin: '0 0 4px 2px' }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 720 }}>
-      <Accordion
-        title="Status do sync automático"
-        defaultOpen
-        statusColor={healthLoading ? 'var(--text-subtle)' : !health ? 'var(--danger)' : !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444'}
-        summary={!health ? undefined : health.last_sync_ok ? `OK · ${formatAgo(health.last_sync_at)}` : 'Falha no último sync'}
-      >
-        <div className="flex flex-col gap-3">
-        {healthLoading ? (
-          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
-        ) : health ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444', flexShrink: 0 }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
-                {!health.last_sync_at ? 'Nenhum sync registrado ainda' : health.last_sync_ok ? `Último sync OK — ${formatAgo(health.last_sync_at)}` : `Falha no último sync — ${formatAgo(health.last_sync_at)}`}
-              </span>
-            </div>
-            {health.last_sync_ok && health.last_sync_counts && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>{health.last_sync_counts}</p>}
-            {!health.last_sync_ok && health.last_sync_error && (
-              <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
-                <p style={{ fontSize: 12, color: '#EF4444', margin: 0, wordBreak: 'break-word' }}>{health.last_sync_error}</p>
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: health.tokens_configured ? '#10B981' : '#EF4444', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{health.tokens_configured ? 'Tokens Followize configurados no banco' : 'Tokens não encontrados no banco'}</span>
-            </div>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>Sync automático a cada 5 minutos. Token renovado automaticamente em caso de expiração.</p>
-          </div>
-        ) : (
-          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar o status.</p>
-        )}
-        <button onClick={fetchHealth} style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', padding: '6px 12px', borderRadius: 8 }}>Atualizar agora</button>
-        </div>
-      </Accordion>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 720 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 1, border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--border)' }}>
+        <HealthCell dot={syncDot} label="Sync automático" value={syncVal} sub={syncSub} />
+        <HealthCell dot={healthLoading ? 'var(--text-subtle)' : health?.tokens_configured ? '#10B981' : '#EF4444'} label="Tokens Followize" value={health?.tokens_configured ? 'Configurados' : 'Não encontrados'} sub="renovação automática" />
+        <HealthCell dot="#9CA3AF" label="Chaves de leads" value={`1 conta · ${Object.keys(teamKeys).length} equipes`} sub="formulários externos" />
+        <HealthCell dot="#9CA3AF" label="Financeiro" value="Sincronização manual" sub="rodar quando a planilha mudar" />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p style={eyebrowStyle}>Integrações e credenciais</p>
 
       <Accordion
         title="Tokens Followize"
@@ -414,6 +406,46 @@ function ConfiguracoesTab() {
         </div>
         </div>
       </Accordion>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p style={eyebrowStyle}>Sincronização e manutenção</p>
+
+      <Accordion
+        title="Status do sync automático"
+        defaultOpen
+        statusColor={healthLoading ? 'var(--text-subtle)' : !health ? 'var(--danger)' : !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444'}
+        summary={!health ? undefined : health.last_sync_ok ? `OK · ${formatAgo(health.last_sync_at)}` : 'Falha no último sync'}
+      >
+        <div className="flex flex-col gap-3">
+        {healthLoading ? (
+          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
+        ) : health ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444', flexShrink: 0 }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
+                {!health.last_sync_at ? 'Nenhum sync registrado ainda' : health.last_sync_ok ? `Último sync OK — ${formatAgo(health.last_sync_at)}` : `Falha no último sync — ${formatAgo(health.last_sync_at)}`}
+              </span>
+            </div>
+            {health.last_sync_ok && health.last_sync_counts && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>{health.last_sync_counts}</p>}
+            {!health.last_sync_ok && health.last_sync_error && (
+              <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
+                <p style={{ fontSize: 12, color: '#EF4444', margin: 0, wordBreak: 'break-word' }}>{health.last_sync_error}</p>
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: health.tokens_configured ? '#10B981' : '#EF4444', flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{health.tokens_configured ? 'Tokens Followize configurados no banco' : 'Tokens não encontrados no banco'}</span>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>Sync automático a cada 5 minutos. Token renovado automaticamente em caso de expiração.</p>
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar o status.</p>
+        )}
+        <button onClick={fetchHealth} style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', padding: '6px 12px', borderRadius: 8 }}>Atualizar agora</button>
+        </div>
+      </Accordion>
 
       <Accordion title="Reprocessamento histórico" summary="re-puxar leads antigos do Followize">
         <div className="flex flex-col gap-5">
@@ -454,6 +486,7 @@ function ConfiguracoesTab() {
         </button>
         </div>
       </Accordion>
+      </div>
     </div>
   )
 }
