@@ -32,8 +32,7 @@ interface PerformanceData {
   meta_pct: number
   projecao_mes: number
   dias_uteis_mes: number
-  ranking_operadores: { name: string; count: number; pct: number; bar_pct: number }[]
-  ranking_canais: { name: string; count: number; pct: number; bar_pct: number }[]
+  ranking: { name: string; count: number; pct: number; bar_pct: number }[]
   evolucao_diaria: { day: number; date: string; count: number }[]
   captacao_hoje_por_fonte: { name: string; count: number; propostas_valor: number }[]
   captacao_hoje_origem: {
@@ -180,58 +179,6 @@ function mergeO2Ranking(ranking: RankItem[]): RankItem[] {
   return sorted.map(r => ({ ...r, bar_pct: Math.round(r.count / maxCount * 100) }))
 }
 
-function RankingBlock({ title, rows, unit }: { title: string; rows: RankItem[]; unit: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div>
-      <p style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-3b)', padding: '0 24px', marginBottom: 12 }}>{title}</p>
-      {rows.length === 0 ? (
-        <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', padding: '0 24px 16px' }}>Sem captações.</p>
-      ) : (
-        <>
-          <div className="flex flex-col" style={{ gap: 14, padding: '0 24px 14px' }}>
-            {rows.slice(0, 3).map((op, i) => (
-              <div key={op.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 18, width: 24, textAlign: 'center', flexShrink: 0 }}>{MEDALS[i]}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{op.count}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
-                    </div>
-                  </div>
-                  <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 7, overflow: 'hidden' }}>
-                    <div style={{ width: `${op.bar_pct}%`, height: '100%', borderRadius: 99, background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], transition: 'width 600ms ease' }} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          {rows.length > 3 && (
-            <div style={{ padding: '0 24px 4px' }}>
-              <button onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                {open ? 'ocultar' : `mais ${rows.length - 3} ${unit}`}
-              </button>
-              {open && rows.slice(3).map((op, idx) => (
-                <div key={op.name} style={{ display: 'grid', gridTemplateColumns: '1fr 48px 48px', gap: 8, alignItems: 'center', padding: '7px 0', borderTop: '1px solid var(--border-lt)' }}>
-                  <span style={{ display: 'flex', gap: 8, minWidth: 0 }}>
-                    <span style={{ fontSize: 11, width: 18, textAlign: 'center', color: 'var(--text-subtle)', fontWeight: 700, flexShrink: 0 }}>{idx + 4}°</span>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
-                  </span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right' }}>{op.count}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-subtle)', textAlign: 'right' }}>{op.pct}%</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const fmtBR = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 const fmtBRShort = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
@@ -284,6 +231,7 @@ export default function Dashboard() {
   const [filterErr, setFilterErr] = useState('')
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [feedOpen, setFeedOpen] = useState(false)
+  const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
 
   // Contadores de geração — ignora resposta se, quando ela chega, já não é
   // mais a última chamada em andamento (evita resposta antiga de um dia
@@ -370,8 +318,7 @@ export default function Dashboard() {
   const mesNome = refDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
   const diaLabel = !filter ? 'Hoje' : single ? fmtBR(filter.from) : `${fmtBRShort(filter.from)} – ${fmtBRShort(filter.to)}`
   const capLabel = !filter ? 'Captação Hoje' : single ? `Captação — ${fmtBR(filter.from)}` : 'Captação no período'
-  const rankingOp = mergeO2Ranking(data.ranking_operadores)
-  const rankingCanais = data.ranking_canais
+  const ranking = mergeO2Ranking(data.ranking)
 
   // Captação do dia — mini-série dos últimos 7 dias até o dia de referência.
   const refDay = refDate.getDate()
@@ -567,12 +514,94 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Ranking do mês — operadores (pessoas) e canais separados */}
-          <div className="bg-white rounded-xl flex flex-col" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden', paddingTop: 24, paddingBottom: 10, gap: 4 }}>
-            <h2 style={{ ...H2_STYLE, marginBottom: 16, padding: '0 24px' }}>Ranking de Captação</h2>
-            <RankingBlock title="Operadores" rows={rankingOp} unit="operadores" />
-            <div style={{ height: 1, background: 'var(--border-lt)', margin: '8px 24px 16px' }} />
-            <RankingBlock title="Canais" rows={rankingCanais} unit="canais" />
+          {/* Ranking do mês */}
+          <div className="bg-white rounded-xl flex flex-col" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            <div style={{ padding: '24px 24px 0' }}>
+              <h2 style={{ ...H2_STYLE, marginBottom: 20 }}>Ranking de Operadores</h2>
+              {ranking.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-subtle)', paddingBottom: 24 }}>Sem captações no período.</p>
+              ) : (
+                <div className="flex flex-col gap-4" style={{ paddingBottom: 20 }}>
+                  {ranking.slice(0, 3).map((op, i) => (
+                    <div
+                      key={op.name}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity 150ms' }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                    >
+                      <span style={{ fontSize: i < 3 ? 20 : 13, width: 28, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
+                        {i < 3 ? MEDALS[i] : `${i + 1}°`}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {op.name}
+                          </span>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{op.count}</span>
+                            <span style={{ fontSize: 11, color: 'var(--text-subtle)', minWidth: 36, textAlign: 'right' }}>{op.pct}%</span>
+                          </div>
+                        </div>
+                        <div style={{ background: 'var(--bg-subtle)', borderRadius: 99, height: 7, overflow: 'hidden' }}>
+                          <div style={{ width: `${op.bar_pct}%`, height: '100%', borderRadius: 99, background: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], transition: 'width 600ms ease' }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {ranking.length > 3 && (
+              <>
+                <button
+                  onClick={() => setRankMonthExpanded(o => !o)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '12px 24px', background: 'var(--bg-subtle)', border: 'none',
+                    borderTop: '1px solid var(--border-lt)', cursor: 'pointer',
+                    width: '100%', textAlign: 'left',
+                  }}
+                >
+                  {rankMonthExpanded ? <ChevronDown size={13} color="var(--text-muted)" /> : <ChevronRight size={13} color="var(--text-muted)" />}
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Demais operadores
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.1)', borderRadius: 99, padding: '1px 7px', marginLeft: 4 }}>
+                    {ranking.length - 3}
+                  </span>
+                </button>
+                {rankMonthExpanded && (
+                  <div style={{ padding: '8px 24px 16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, padding: '0 4px 10px', borderBottom: '1px solid var(--border)' }}>
+                      {['Operador', 'Captação', 'Part.'].map(h => (
+                        <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h === 'Operador' ? 'left' : 'right' }}>{h}</span>
+                      ))}
+                    </div>
+                    {ranking.slice(3).map((op, idx) => {
+                      const i = idx + 3
+                      return (
+                        <div
+                          key={op.name}
+                          style={{ display: 'grid', gridTemplateColumns: '1fr 72px 56px', gap: 8, alignItems: 'center', padding: '10px 4px', borderBottom: idx < ranking.length - 4 ? '1px solid var(--border-lt)' : 'none', borderRadius: 6, transition: 'background 150ms' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <span style={{ fontSize: 11, width: 20, flexShrink: 0, textAlign: 'center', color: 'var(--text-subtle)', fontWeight: 700 }}>
+                              {i + 1}°
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
+                          </div>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)], textAlign: 'right' }}>{op.count}</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-subtle)', textAlign: 'right' }}>{op.pct}%</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
         </div>
