@@ -514,6 +514,7 @@ function UsuariosTab() {
   const [editSaving, setEditSaving] = useState(false)
   const [createdCreds, setCreatedCreds] = useState<{ username: string; password: string } | null>(null)
   const [credsCopied, setCredsCopied] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'todos' | 'ativos' | 'inativos'>('todos')
 
   useEffect(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -616,6 +617,12 @@ function UsuariosTab() {
     } catch { setToast({ msg: 'Erro ao alterar perfil', ok: false }) }
   }
 
+  const ativosCount = users.filter(u => u.is_active).length
+  const inativosCount = users.length - ativosCount
+  const visibleUsers = statusFilter === 'ativos' ? users.filter(u => u.is_active)
+    : statusFilter === 'inativos' ? users.filter(u => !u.is_active)
+    : users
+
   return (
     <>
       {toast && (
@@ -624,7 +631,20 @@ function UsuariosTab() {
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'inline-flex', background: 'var(--bg-subtle)', borderRadius: 9, padding: 3, gap: 2 }}>
+          {([['todos', 'Todos', users.length], ['ativos', 'Ativos', ativosCount], ['inativos', 'Inativos', inativosCount]] as const).map(([val, label, count]) => {
+            const on = statusFilter === val
+            return (
+              <button key={val} onClick={() => setStatusFilter(val)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                  background: on ? 'var(--bg-card)' : 'transparent', color: on ? 'var(--text-1)' : 'var(--text-muted)', boxShadow: on ? '0 1px 2px rgba(0,0,0,0.08)' : 'none' }}>
+                {label}
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: on ? 'var(--accent-weak)' : 'var(--border-lt)', color: on ? 'var(--accent)' : 'var(--text-muted)' }}>{count}</span>
+              </button>
+            )
+          })}
+        </div>
         <button onClick={() => { setShowModal(true); setFormError(''); setCreatedCreds(null) }}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
           <UserPlus size={15} /> Novo usuário
@@ -633,9 +653,13 @@ function UsuariosTab() {
 
       {loading ? (
         <p style={{ padding: '24px', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
+      ) : visibleUsers.length === 0 ? (
+        <p style={{ padding: '24px', fontSize: 13, color: 'var(--text-subtle)' }}>
+          {statusFilter === 'inativos' ? 'Nenhum usuário inativo.' : statusFilter === 'ativos' ? 'Nenhum usuário ativo.' : 'Nenhum usuário cadastrado.'}
+        </p>
       ) : (
         <div className="flex flex-col" style={{ gap: 8 }}>
-          {users.map(user => {
+          {visibleUsers.map(user => {
             const rs = ROLE_STYLE[user.role] ?? ROLE_STYLE.usuario
             return (
               <Accordion
