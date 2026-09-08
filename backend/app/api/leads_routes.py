@@ -46,6 +46,22 @@ EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
 
 router = APIRouter(prefix="/api/v1", tags=["leads"])
 
+_MODALIDADE_SEM_VALOR = {"não informado", "nao informado", "sem modalidade"}
+
+
+def _modalidade_clause(modalidade: str):
+    """Filtro de modalidade que casa com o breakdown de Gestão Comercial:
+    "PME" também pega "Empresarial"; "Não informado" pega null/vazio."""
+    conds = []
+    for p in [s.strip() for s in modalidade.split(",") if s.strip()]:
+        if p.lower() in _MODALIDADE_SEM_VALOR:
+            conds.append(or_(Lead.modalidade.is_(None), func.trim(Lead.modalidade) == ""))
+        elif p == "PME":
+            conds.append(Lead.modalidade.in_(["PME", "Empresarial"]))
+        else:
+            conds.append(Lead.modalidade == p)
+    return or_(*conds) if conds else None
+
 
 def _is_admin(user: User) -> bool:
     return user.role == "admin"
@@ -179,11 +195,9 @@ def leads_by_period(
             percs = [p.strip() for p in perception.split(',')]
             q = q.filter(Lead.perception.in_(percs))
         if modalidade:
-            parts = [s.strip() for s in modalidade.split(',') if s.strip()]
-            if len(parts) == 1:
-                q = q.filter(Lead.modalidade == parts[0])
-            else:
-                q = q.filter(Lead.modalidade.in_(parts))
+            _mc = _modalidade_clause(modalidade)
+            if _mc is not None:
+                q = q.filter(_mc)
         if conversion_point:
             q = q.filter(Lead.conversion_point.ilike(conversion_point))
         if lost_reason:
@@ -334,11 +348,9 @@ def leads_report_stats(
             percs = [p.strip() for p in perception.split(',')]
             q = q.filter(Lead.perception.in_(percs))
         if modalidade:
-            parts = [s.strip() for s in modalidade.split(',') if s.strip()]
-            if len(parts) == 1:
-                q = q.filter(Lead.modalidade == parts[0])
-            else:
-                q = q.filter(Lead.modalidade.in_(parts))
+            _mc = _modalidade_clause(modalidade)
+            if _mc is not None:
+                q = q.filter(_mc)
         if conversion_point:
             q = q.filter(Lead.conversion_point.ilike(conversion_point))
         if lost_reason:

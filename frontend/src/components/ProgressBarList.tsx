@@ -9,6 +9,7 @@ export interface ProgressBarItem {
   extra?: ReactNode
   expanded?: boolean
   onToggle?: () => void
+  onClick?: () => void
   renderExpanded?: () => ReactNode
 }
 
@@ -57,6 +58,23 @@ export default function ProgressBarList({ title, subtitle, items, emptyMessage }
             </div>
           )
           if (!isExpandable) {
+            if (item.onClick) {
+              return (
+                <button
+                  key={item.key}
+                  onClick={item.onClick}
+                  onMouseEnter={e => { e.currentTarget.style.background = (item.color ?? DEFAULT_COLOR) + '10' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+                    background: 'transparent', border: 'none', padding: '4px 6px', margin: '0 -6px 6px',
+                    borderRadius: 8, transition: 'background 150ms',
+                  }}
+                >
+                  {Row}{Bar}
+                </button>
+              )
+            }
             return <div key={item.key} style={{ marginBottom: 10 }}>{Row}{Bar}</div>
           }
           return (

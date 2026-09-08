@@ -1686,6 +1686,12 @@ export default function GestaoComercial() {
     navigate(`/leads-report?${params}`)
   }
 
+  function goToLeadsReportModalidade(modalidade: string) {
+    const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, modalidade })
+    if (teamParam) params.set('team', teamParam)
+    navigate(`/leads-report?${params}`)
+  }
+
   const filtered      = filterDrill(drillRows, drillPath)
   const totalFiltered = filtered.reduce((s, r) => s + r.total_value, 0)
   const stages        = sumByKey(filtered, r => canonStage(r.status), r => r.total_value).sort((a, b) => stageOrder(a.key) - stageOrder(b.key))
@@ -1991,12 +1997,13 @@ export default function GestaoComercial() {
 
           <ProgressBarList
             title="Modalidade"
-            subtitle="Captações, vendas e conversão por tipo de plano"
+            subtitle="Clique numa linha pra ver os leads no relatório"
             emptyMessage="Nenhum dado de modalidade neste período"
             items={modalidades.map(m => ({
               key: m.modalidade,
               label: m.modalidade,
               count: m.captacoes,
+              onClick: () => goToLeadsReportModalidade(m.modalidade),
               extra: (
                 <>
                   <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{m.captacoes} captações</span>
