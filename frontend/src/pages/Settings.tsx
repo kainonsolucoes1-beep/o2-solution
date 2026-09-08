@@ -632,15 +632,15 @@ function UsuariosTab() {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-        <div style={{ display: 'inline-flex', background: 'var(--bg-subtle)', borderRadius: 9, padding: 3, gap: 2 }}>
+        <div style={{ display: 'inline-flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 9, padding: 3, gap: 2 }}>
           {([['todos', 'Todos', users.length], ['ativos', 'Ativos', ativosCount], ['inativos', 'Inativos', inativosCount]] as const).map(([val, label, count]) => {
             const on = statusFilter === val
             return (
               <button key={val} onClick={() => setStatusFilter(val)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                  background: on ? 'var(--bg-card)' : 'transparent', color: on ? 'var(--text-1)' : 'var(--text-muted)', boxShadow: on ? '0 1px 2px rgba(0,0,0,0.08)' : 'none' }}>
+                  background: on ? 'var(--accent-weak)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-muted)' }}>
                 {label}
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: on ? 'var(--accent-weak)' : 'var(--border-lt)', color: on ? 'var(--accent)' : 'var(--text-muted)' }}>{count}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: on ? 'var(--accent)' : 'var(--border-lt)', color: on ? '#fff' : 'var(--text-muted)' }}>{count}</span>
               </button>
             )
           })}
@@ -1308,7 +1308,9 @@ export default function Settings() {
 
       {isUsuarios ? (
         <div className="flex flex-col" style={{ gap: 10 }}>
-          <UsuariosTab />
+          <Accordion title="Controle de Funcionário" summary="perfis, dados e status de acesso de cada pessoa" defaultOpen>
+            <UsuariosTab />
+          </Accordion>
           <Accordion title="Controle de acesso" summary="janela de horário dos perfis internos">
             <ControleAcessoTab />
           </Accordion>
