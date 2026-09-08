@@ -81,6 +81,7 @@ const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,conver
 // sentinel dentro do select de Status -- nao e' um status de verdade, filtra
 // pela flag is_renutrucao (indepedente do status atual do lead)
 const STATUS_RENUTRICAO = '__renutricao__'
+const STATUS_FORA_RENUTRICAO = '__sem_renutricao__'
 const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
 const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
 const STATUS_PENDENTE = 'pending,novo,new'
@@ -379,6 +380,7 @@ export default function LeadsReport() {
     if (vencidosFilter) params.vencidos = true
     if (isAdmin && origem) params.origem = origem
     if (statusFilter === STATUS_RENUTRICAO) params.renutricao = true
+    else if (statusFilter === STATUS_FORA_RENUTRICAO) params.sem_renutricao = true
     else if (statusFilter) params.status = closedSubStatus || statusFilter
     if (perceptionFilter) params.perception = perceptionFilter
     if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
@@ -613,25 +615,32 @@ export default function LeadsReport() {
               <Filter size={15} />
               Filtros
             </button>
-            {(() => {
-              const on = statusFilter === STATUS_RENUTRICAO
-              return (
-                <button
-                  onClick={() => setStatusFilter(on ? '' : STATUS_RENUTRICAO)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                    background: on ? '#0D9488' : 'var(--bg-card)',
-                    color: on ? '#fff' : '#0D9488',
-                    border: `1px solid ${on ? '#0D9488' : '#99F6E4'}`,
-                    cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                  }}
-                >
-                  <RotateCcw size={15} />
-                  Renutrição
-                </button>
-              )
-            })()}
+            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #99F6E4', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px 9px 12px', fontSize: 12.5, fontWeight: 700, color: '#0D9488' }}>
+                <RotateCcw size={14} /> Renutrição
+              </span>
+              {([
+                ['', 'Todos'],
+                [STATUS_RENUTRICAO, 'Em'],
+                [STATUS_FORA_RENUTRICAO, 'Fora'],
+              ] as const).map(([val, lbl]) => {
+                const active = statusFilter === val
+                return (
+                  <button
+                    key={lbl}
+                    onClick={() => setStatusFilter(val)}
+                    style={{
+                      padding: '9px 14px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
+                      borderLeft: '1px solid #CCFBF1',
+                      background: active ? '#0D9488' : 'var(--bg-card)',
+                      color: active ? '#fff' : '#0D9488',
+                    }}
+                  >
+                    {lbl}
+                  </button>
+                )
+              })}
+            </div>
             {isAdmin && (
               <button
                 onClick={() => setImportOpen(true)}

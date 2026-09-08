@@ -142,6 +142,7 @@ def leads_by_period(
     search: Optional[str] = Query(None, description="Busca por nome, CPF/CNPJ, telefone ou email"),
     vencidos: bool = Query(False),
     renutricao: bool = Query(False),
+    sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=10000),
     ids_only: bool = Query(False, description="Retorna só {ids, total} de TODOS os leads do filtro (sem paginar) — pra 'selecionar tudo'"),
@@ -171,6 +172,8 @@ def leads_by_period(
             q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
+        elif sem_renutricao:
+            q = q.filter(or_(Lead.is_renutrucao.is_(False), Lead.is_renutrucao.is_(None)))
         if not searching:
             # data efetiva = reativação (retrabalhado_em) ou criação. Assim um
             # lead retrabalhado hoje aparece sob "hoje", igual ao Dashboard.
@@ -300,6 +303,7 @@ def leads_report_stats(
     search: Optional[str] = Query(None),
     vencidos: bool = Query(False),
     renutricao: bool = Query(False),
+    sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -328,6 +332,8 @@ def leads_report_stats(
             q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
+        elif sem_renutricao:
+            q = q.filter(or_(Lead.is_renutrucao.is_(False), Lead.is_renutrucao.is_(None)))
         if not searching:
             # data efetiva = reativação (retrabalhado_em) ou criação. Assim um
             # lead retrabalhado hoje aparece sob "hoje", igual ao Dashboard.
