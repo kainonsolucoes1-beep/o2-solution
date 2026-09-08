@@ -468,21 +468,21 @@ def dashboard_performance(
 
     # Captação do dia por fonte (operador efetivo: dono da renutrição, senão a origem)
     hoje_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status)
+        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential)
         .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
     _owner_names_hoje = _owner_names(db, {r.renutricao_owner_id for r in hoje_leads if r.renutricao_owner_id})
     _proposta_set = {s.lower() for s in _PROPOSTA}
     hoje_counts: dict = defaultdict(int)
-    hoje_proposta_counts: dict = defaultdict(int)
-    for origin, owner_id, status in hoje_leads:
+    hoje_proposta_valor: dict = defaultdict(float)
+    for origin, owner_id, status, value_potential in hoje_leads:
         fonte = _effective_fonte(origin, owner_id, _owner_names_hoje)
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
-            hoje_proposta_counts[fonte] += 1
+            hoje_proposta_valor[fonte] += float(value_potential or 0)
     captacao_hoje_por_fonte = [
-        {"name": name, "count": count, "propostas": hoje_proposta_counts.get(name, 0)}
+        {"name": name, "count": count, "propostas_valor": round(hoje_proposta_valor.get(name, 0.0), 2)}
         for name, count in sorted(hoje_counts.items(), key=lambda kv: kv[1], reverse=True)
     ]
 
