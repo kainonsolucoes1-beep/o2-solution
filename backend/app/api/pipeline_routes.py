@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
 
 PENDENTE_STATUSES    = ("pending", "novo", "new")
 AGENDADO_STATUSES    = ("scheduled", "qualificado", "qualified")
-PROPOSTA_STATUSES    = ("proposal_sent",)
+PROPOSTA_STATUSES    = ("proposal_sent", "proposta", "negociacao")
 FECHADO_STATUSES     = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 PERDIDO_STATUSES     = ("sale_not_performed",)
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
