@@ -684,6 +684,9 @@ def assign_renutricao(
         # não é reativar -- o lead só volta a contar como captação do período
         # quando a pessoa clica em "retrabalhar lead" (endpoint retrabalhar_lead).
         lead.renutricao_owner_id = owner.id
+        # quem recebe o lead passa a ser a atendente dele (ela é dona E atende os
+        # próprios leads -- diferente do modelo SDR, onde Julia atende tudo)
+        lead.attendant = _owner_label
         if body.is_renutrucao:
             lead.is_renutrucao = True
             note = f"Renutrição atribuída a {_owner_label} por {_admin_label}"

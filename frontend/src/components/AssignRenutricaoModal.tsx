@@ -72,7 +72,7 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
         {conflicts === null ? (
           <>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>
-              {leadIds.length} lead{leadIds.length !== 1 ? 's' : ''} selecionado{leadIds.length !== 1 ? 's' : ''}. Escolha o responsável.
+              {leadIds.length} lead{leadIds.length !== 1 ? 's' : ''} selecionado{leadIds.length !== 1 ? 's' : ''}. Quem receber vira dono e atendente {leadIds.length !== 1 ? 'desses leads' : 'desse lead'}.
             </p>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', marginBottom: 6 }}>Atribuir a</label>
             <select
