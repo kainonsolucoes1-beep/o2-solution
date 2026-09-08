@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  UserPlus, X, Pencil,
+  UserPlus, X, Pencil, Search,
   KeyRound, ToggleLeft, ToggleRight, Copy, Check, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import api from '../api'
@@ -482,6 +482,10 @@ const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
   usuario:     { bg: 'rgba(107,114,128,0.12)', color: '#6B7280' },
 }
 function fmtDate(iso: string) { return new Date(parseUTC(iso)).toLocaleDateString('pt-BR') }
+function initials(u: { first_name: string | null; username: string }) {
+  const parts = (u.first_name || u.username || '?').trim().split(/\s+/)
+  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase()
+}
 
 const uBtn: import('react').CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5, fontWeight: 600,
@@ -515,6 +519,8 @@ function UsuariosTab() {
   const [createdCreds, setCreatedCreds] = useState<{ username: string; password: string } | null>(null)
   const [credsCopied, setCredsCopied] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'todos' | 'ativos' | 'inativos'>('todos')
+  const [search, setSearch] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -619,32 +625,25 @@ function UsuariosTab() {
 
   const ativosCount = users.filter(u => u.is_active).length
   const inativosCount = users.length - ativosCount
-  const visibleUsers = statusFilter === 'ativos' ? users.filter(u => u.is_active)
-    : statusFilter === 'inativos' ? users.filter(u => !u.is_active)
-    : users
+  const filtered = users
+    .filter(u => statusFilter === 'ativos' ? u.is_active : statusFilter === 'inativos' ? !u.is_active : true)
+    .filter(u => {
+      const q = search.trim().toLowerCase()
+      if (!q) return true
+      return (u.first_name ?? '').toLowerCase().includes(q) || u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+    })
+  const selected = filtered.find(u => u.id === selectedId) ?? filtered[0] ?? null
 
   return (
     <>
+      <style>{`@media (max-width: 640px){ .uctrl-md{ grid-template-columns: 1fr !important } .uctrl-list{ border-right: none !important; border-bottom: 1px solid var(--border) } }`}</style>
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 100, background: toast.ok ? '#10B981' : '#EF4444', color: 'white', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}>
           {toast.msg}
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-        <div style={{ display: 'inline-flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 9, padding: 3, gap: 2 }}>
-          {([['todos', 'Todos', users.length], ['ativos', 'Ativos', ativosCount], ['inativos', 'Inativos', inativosCount]] as const).map(([val, label, count]) => {
-            const on = statusFilter === val
-            return (
-              <button key={val} onClick={() => setStatusFilter(val)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                  background: on ? 'var(--accent-weak)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-muted)' }}>
-                {label}
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: on ? 'var(--accent)' : 'var(--border-lt)', color: on ? '#fff' : 'var(--text-muted)' }}>{count}</span>
-              </button>
-            )
-          })}
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 14 }}>
         <button onClick={() => { setShowModal(true); setFormError(''); setCreatedCreds(null) }}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
           <UserPlus size={15} /> Novo usuário
@@ -653,54 +652,123 @@ function UsuariosTab() {
 
       {loading ? (
         <p style={{ padding: '24px', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
-      ) : visibleUsers.length === 0 ? (
-        <p style={{ padding: '24px', fontSize: 13, color: 'var(--text-subtle)' }}>
-          {statusFilter === 'inativos' ? 'Nenhum usuário inativo.' : statusFilter === 'ativos' ? 'Nenhum usuário ativo.' : 'Nenhum usuário cadastrado.'}
-        </p>
       ) : (
-        <div className="flex flex-col" style={{ gap: 8 }}>
-          {visibleUsers.map(user => {
-            const rs = ROLE_STYLE[user.role] ?? ROLE_STYLE.usuario
-            return (
-              <Accordion
-                key={user.id}
-                title={
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: user.is_active ? 'var(--text-1)' : 'var(--text-subtle)' }}>{user.first_name || user.username}</span>
-                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 99, background: rs.bg, color: rs.color }}>{user.role}</span>
-                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 99, background: user.is_active ? 'rgba(16,185,129,0.12)' : 'rgba(107,114,128,0.12)', color: user.is_active ? '#10B981' : '#6B7280' }}>{user.is_active ? 'Ativo' : 'Inativo'}</span>
-                    {user.must_change_password && <span style={{ fontSize: 11, color: '#D97706' }}>· troca de senha pendente</span>}
-                  </span>
-                }
-              >
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px 20px' }}>
-                  <UField label="E-mail" value={user.email} />
-                  <UField label="Username" value={user.username} mono />
-                  {user.team && <UField label="Equipe" value={user.team} />}
-                  <UField label="Criado em" value={fmtDate(user.created_at)} />
-                  {user.phone && <UField label="Telefone" value={user.phone} />}
-                  {user.cpf && <UField label="CPF" value={user.cpf} />}
-                  {user.birth_date && <UField label="Nascimento" value={`${fmtDate(user.birth_date)}${user.idade ? ` · ${user.idade}` : ''}`} />}
-                  {user.hire_date && <UField label="Início" value={fmtDate(user.hire_date)} />}
-                  {user.termination_date && <UField label="Desligamento" value={fmtDate(user.termination_date)} />}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-lt)' }}>
-                  <button onClick={() => openEdit(user)} style={{ ...uBtn, color: 'var(--accent)', borderColor: 'var(--accent-weak)', background: 'var(--accent-weak)' }}>
-                    <Pencil size={12} /> Editar dados
+        <div className="uctrl-md" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 280px) 1fr', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--bg-card)' }}>
+          <div className="uctrl-list" style={{ borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={{ padding: 12, borderBottom: '1px solid var(--border-lt)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 34, padding: '0 10px', background: 'var(--bg-input)', border: '1px solid var(--border-in)', borderRadius: 8 }}>
+                <Search size={14} style={{ color: 'var(--text-subtle)', flexShrink: 0 }} />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar pessoa"
+                  style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--text-2)', width: '100%' }} />
+              </div>
+              <div style={{ display: 'flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 9, padding: 3, gap: 2 }}>
+                {([['todos', 'Todos', users.length], ['ativos', 'Ativos', ativosCount], ['inativos', 'Inativos', inativosCount]] as const).map(([val, label, count]) => {
+                  const on = statusFilter === val
+                  return (
+                    <button key={val} onClick={() => setStatusFilter(val)}
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, padding: '5px 4px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                        background: on ? 'var(--accent-weak)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-muted)' }}>
+                      {label}
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: '0 5px', borderRadius: 99, background: on ? 'var(--accent)' : 'var(--border-lt)', color: on ? '#fff' : 'var(--text-muted)' }}>{count}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div style={{ overflowY: 'auto', maxHeight: 460 }}>
+              {filtered.length === 0 ? (
+                <p style={{ padding: 20, fontSize: 12.5, color: 'var(--text-subtle)' }}>Ninguém encontrado.</p>
+              ) : filtered.map(u => {
+                const rs = ROLE_STYLE[u.role] ?? ROLE_STYLE.usuario
+                const on = selected?.id === u.id
+                return (
+                  <button key={u.id} onClick={() => setSelectedId(u.id)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', textAlign: 'left', cursor: 'pointer',
+                      border: 'none', borderLeft: `3px solid ${on ? 'var(--accent)' : 'transparent'}`, borderBottom: '1px solid var(--border-lt)',
+                      background: on ? 'var(--accent-weak)' : 'transparent' }}>
+                    <span style={{ width: 30, height: 30, borderRadius: 99, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: rs.bg, color: rs.color }}>{initials(u)}</span>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.first_name || u.username}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: 'var(--text-subtle)' }}>{u.role}{u.must_change_password ? ' · senha pendente' : ''}</span>
+                    </span>
+                    <span style={{ width: 7, height: 7, borderRadius: 99, flexShrink: 0, background: u.is_active ? '#10B981' : 'var(--text-subtle)' }} />
                   </button>
-                  <select value={user.role} onChange={e => changeRole(user, e.target.value)} style={{ ...uBtn }}>
-                    {ROLE_OPTIONS.map(r => <option key={r} value={r}>Perfil: {r}</option>)}
-                  </select>
-                  <button
-                    onClick={() => toggleActive(user)}
-                    style={{ ...uBtn, borderColor: 'transparent', ...(user.is_active ? { color: '#EF4444', background: 'rgba(239,68,68,0.1)' } : { color: '#10B981', background: 'rgba(16,185,129,0.1)' }) }}
-                  >
-                    {user.is_active ? 'Desativar' : 'Ativar'}
-                  </button>
-                </div>
-              </Accordion>
-            )
-          })}
+                )
+              })}
+            </div>
+          </div>
+
+          <div style={{ padding: 22, minWidth: 0 }}>
+            {!selected ? (
+              <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>
+                {users.length === 0 ? 'Nenhum usuário cadastrado.' : 'Selecione uma pessoa na lista.'}
+              </p>
+            ) : (() => {
+              const rs = ROLE_STYLE[selected.role] ?? ROLE_STYLE.usuario
+              return (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <span style={{ width: 50, height: 50, borderRadius: 99, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 700, background: rs.bg, color: rs.color }}>{initials(selected)}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-1)' }}>{selected.first_name || selected.username}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 99, background: rs.bg, color: rs.color }}>{selected.role}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, color: selected.is_active ? 'var(--text-2)' : 'var(--text-muted)' }}>
+                          <span style={{ width: 7, height: 7, borderRadius: 99, background: selected.is_active ? '#10B981' : 'var(--text-subtle)' }} />
+                          {selected.is_active ? 'Ativo' : 'Inativo'}
+                        </span>
+                        {selected.must_change_password && <span style={{ fontSize: 10.5, fontWeight: 600, padding: '1px 8px', borderRadius: 99, background: 'rgba(217,119,6,0.12)', color: '#D97706' }}>senha pendente</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 22 }}>
+                    <h4 style={{ margin: '0 0 12px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-subtle)' }}>Dados pessoais</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px 20px' }}>
+                      <UField label="E-mail" value={selected.email} />
+                      <UField label="Username" value={selected.username} mono />
+                      <UField label="Telefone" value={selected.phone || '—'} />
+                      <UField label="CPF" value={selected.cpf || '—'} />
+                      <UField label="Nascimento" value={selected.birth_date ? `${fmtDate(selected.birth_date)}${selected.idade ? ` · ${selected.idade} anos` : ''}` : '—'} />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 20 }}>
+                    <h4 style={{ margin: '0 0 12px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-subtle)' }}>Vínculo e acesso</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px 20px' }}>
+                      <UField label="Equipe" value={selected.team || '—'} />
+                      <UField label="Data de início" value={selected.hire_date ? fmtDate(selected.hire_date) : '—'} />
+                      <UField label="Criado em" value={fmtDate(selected.created_at)} />
+                      {selected.termination_date && <UField label="Desligamento" value={fmtDate(selected.termination_date)} />}
+                    </div>
+                    {RESTRICTED_ROLES.includes(selected.role) && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginTop: 12 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: selected.horario_estendido ? 'var(--text-2)' : 'var(--text-subtle)' }}>
+                          {selected.horario_estendido ? <ToggleRight size={16} style={{ color: 'var(--accent)' }} /> : <ToggleLeft size={16} />} Horário estendido
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: selected.acesso_externo_liberado ? 'var(--text-2)' : 'var(--text-subtle)' }}>
+                          {selected.acesso_externo_liberado ? <ToggleRight size={16} style={{ color: 'var(--accent)' }} /> : <ToggleLeft size={16} />} Acesso externo liberado
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border-lt)' }}>
+                    <button onClick={() => openEdit(selected)} style={{ ...uBtn, color: 'var(--accent)', borderColor: 'var(--accent-weak)', background: 'var(--accent-weak)' }}>
+                      <Pencil size={12} /> Editar dados
+                    </button>
+                    <select value={selected.role} onChange={e => changeRole(selected, e.target.value)} style={{ ...uBtn }}>
+                      {ROLE_OPTIONS.map(r => <option key={r} value={r}>Perfil: {r}</option>)}
+                    </select>
+                    <button onClick={() => toggleActive(selected)}
+                      style={{ ...uBtn, borderColor: 'transparent', ...(selected.is_active ? { color: '#EF4444', background: 'rgba(239,68,68,0.1)' } : { color: '#10B981', background: 'rgba(16,185,129,0.1)' }) }}>
+                      {selected.is_active ? 'Desativar' : 'Ativar'}
+                    </button>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
         </div>
       )}
 
