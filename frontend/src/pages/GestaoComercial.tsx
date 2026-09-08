@@ -39,6 +39,7 @@ type DrillTipo = 'receita_potencial' | 'vendas' | 'perda'
 
 // ── Pipeline types ───────────────────────────────────────────────────────────
 interface PipelineOverview {
+  total: number
   novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number
   novo_value: number; qualificado_value: number; proposta_value: number
   negociacao_value: number; fechado_value: number; perdido_value: number
@@ -307,7 +308,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   if (loading) return <p style={{ padding: '40px 0', textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
   if (error || !overview || !alerts) return <p style={{ padding: '40px 0', textAlign: 'center', fontSize: 13, color: '#EF4444' }}>{error || 'Sem dados.'}</p>
 
-  const distTotal  = overview.novo + overview.qualificado + overview.proposta + overview.negociacao + overview.fechado + overview.perdido
+  const distTotal  = overview.total
   const qualOL     = overview.qualificado + overview.proposta + overview.negociacao + overview.fechado
   const propOL     = overview.proposta + overview.negociacao + overview.fechado
   const negOL      = overview.negociacao + overview.fechado

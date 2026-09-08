@@ -203,7 +203,13 @@ def pipeline_overview(
     )
     negociacao_value = float(_apply_filters(neg_val_q, date_from, date_to, source, team).scalar() or 0.0)
 
+    # total real de captações do período (sem filtro de status) -- os baldes
+    # abaixo podem não somar isto (lead com status estranho/vazio + percepção
+    # fria não cai em balde nenhum); a Visão Geral conta assim.
+    total = _apply_filters(db.query(func.count(Lead.id)), date_from, date_to, source, team).scalar() or 0
+
     return {
+        "total":       total,
         "novo":        _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm]),
         "qualificado": _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm]),
         "proposta":    _count_status(db, PROPOSTA_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm]),
