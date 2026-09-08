@@ -369,6 +369,7 @@ class RenutricaoAssignRequest(BaseModel):
     lead_ids: List[UUID]
     owner_id: UUID
     force_ids: List[UUID] = []  # leads em conflito que o admin decidiu atribuir mesmo assim
+    is_renutrucao: bool = True  # False = só define o dono, sem a tag de renutrição (e limpa a tag se tinha)
 
 
 class RenutricaoAssignConflict(BaseModel):

@@ -575,7 +575,7 @@ export default function LeadsReport() {
                   }}
                 >
                   <RotateCcw size={15} />
-                  Atribuir renutrição ({selected.size})
+                  Atribuir ({selected.size})
                 </button>
                 <button
                   onClick={() => setConfirmDeleteOpen(true)}

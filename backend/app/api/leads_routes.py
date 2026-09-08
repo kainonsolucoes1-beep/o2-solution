@@ -635,11 +635,12 @@ def assign_renutricao(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Atribui um lote de leads a um usuario pra trabalhar a renutricao.
-    So leads em "venda nao realizada" sao candidatos -- qualquer outro status
-    (`conflicts`) significa negociacao em andamento. Dentro de venda nao
-    realizada, aviso suave se teve interacao nos ultimos 30 dias. force_ids
-    passa por cima. So admin."""
+    """Atribui um lote de leads a um usuario (dono). Com is_renutrucao=True
+    marca a tag de renutricao e so leads em "venda nao realizada" sao
+    candidatos -- qualquer outro status (`conflicts`) significa negociacao em
+    andamento; aviso suave se teve interacao nos ultimos 30 dias; force_ids
+    passa por cima. Com is_renutrucao=False atribui direto (sem checagem) e
+    limpa a tag se o lead ja tinha. So admin."""
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Apenas administradores podem atribuir renutrição")
     owner = db.query(User).filter(User.id == body.owner_id).first()
@@ -671,20 +672,30 @@ def assign_renutricao(
     force = set(body.force_ids)
     assigned = 0
     conflicts: list = []
+    _owner_label = owner.first_name or owner.username
+    _admin_label = current_user.first_name or current_user.username
     for lead in db.query(Lead).filter(Lead.id.in_(body.lead_ids)).all():
-        reason = _conflict(lead)
-        if reason and lead.id not in force:
-            conflicts.append(RenutricaoAssignConflict(lead_id=lead.id, name=lead.name, reason=reason))
-            continue
+        if body.is_renutrucao:
+            reason = _conflict(lead)
+            if reason and lead.id not in force:
+                conflicts.append(RenutricaoAssignConflict(lead_id=lead.id, name=lead.name, reason=reason))
+                continue
         # Só marca a posse. NÃO mexe em retrabalhado_em nem updated_at: atribuir
         # não é reativar -- o lead só volta a contar como captação do período
         # quando a pessoa clica em "retrabalhar lead" (endpoint retrabalhar_lead).
         lead.renutricao_owner_id = owner.id
-        lead.is_renutrucao = True
-        db.add(LeadNote(
-            lead_id=lead.id, user_id=current_user.id,
-            content=f"Renutrição atribuída a {owner.first_name or owner.username} por {current_user.first_name or current_user.username}",
-        ))
+        if body.is_renutrucao:
+            lead.is_renutrucao = True
+            note = f"Renutrição atribuída a {_owner_label} por {_admin_label}"
+        else:
+            was_renu = bool(lead.is_renutrucao)
+            lead.is_renutrucao = False
+            note = (
+                f"Tag de renutrição removida; lead segue atribuído a {_owner_label} (por {_admin_label})"
+                if was_renu else
+                f"Lead atribuído a {_owner_label} por {_admin_label}"
+            )
+        db.add(LeadNote(lead_id=lead.id, user_id=current_user.id, content=note))
         assigned += 1
     db.commit()
     return RenutricaoAssignResponse(assigned=assigned, conflicts=conflicts)

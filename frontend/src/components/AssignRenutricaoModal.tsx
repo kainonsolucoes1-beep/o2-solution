@@ -20,6 +20,7 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
 }) {
   const [users, setUsers] = useState<UserOpt[]>([])
   const [ownerId, setOwnerId] = useState('')
+  const [isRenu, setIsRenu] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null)
@@ -40,6 +41,7 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
         lead_ids: leadIds,
         owner_id: ownerId,
         force_ids: [...forceIds],
+        is_renutrucao: isRenu,
       })
       if (data.conflicts.length > 0) {
         setConflicts(data.conflicts)
@@ -62,7 +64,7 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', padding: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
-            <RotateCw size={17} style={{ color: 'var(--accent)' }} /> Atribuir renutrição
+            <RotateCw size={17} style={{ color: 'var(--accent)' }} /> Atribuir {leadIds.length !== 1 ? 'leads' : 'lead'}
           </p>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
         </div>
@@ -70,7 +72,7 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
         {conflicts === null ? (
           <>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>
-              {leadIds.length} lead{leadIds.length !== 1 ? 's' : ''} selecionado{leadIds.length !== 1 ? 's' : ''}. Escolha quem vai trabalhar a reativação.
+              {leadIds.length} lead{leadIds.length !== 1 ? 's' : ''} selecionado{leadIds.length !== 1 ? 's' : ''}. Escolha o responsável.
             </p>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', marginBottom: 6 }}>Atribuir a</label>
             <select
@@ -83,6 +85,15 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
                 <option key={u.id} value={u.id}>{(u.first_name || u.username)} · {u.role}</option>
               ))}
             </select>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginTop: 14, cursor: 'pointer' }}>
+              <input type="checkbox" checked={isRenu} onChange={e => setIsRenu(e.target.checked)} style={{ marginTop: 2 }} />
+              <span>
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>É renutrição</span>
+                <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                  Marca a tag 🔄 e checa se o lead está em negociação. Desmarcado: só define o dono (e tira a tag se o lead já tinha).
+                </span>
+              </span>
+            </label>
             {error && <p style={{ fontSize: 12.5, color: 'var(--danger)', margin: '10px 0 0' }}>{error}</p>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               <button onClick={onClose} style={btnGhost}>Cancelar</button>
