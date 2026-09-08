@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
@@ -143,6 +144,7 @@ def leads_by_period(
     renutricao: bool = Query(False),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=10000),
+    ids_only: bool = Query(False, description="Retorna só {ids, total} de TODOS os leads do filtro (sem paginar) — pra 'selecionar tudo'"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -223,6 +225,10 @@ def leads_by_period(
         return q
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
+
+    if ids_only:
+        id_rows = _base_query(db.query(Lead.id)).all()
+        return JSONResponse({"ids": [str(i) for (i,) in id_rows], "total": total})
 
     rows = (
         _base_query(
@@ -687,7 +693,9 @@ def assign_renutricao(
     _owner_label = owner.first_name or owner.username
     _admin_label = current_user.first_name or current_user.username
     for lead in db.query(Lead).filter(Lead.id.in_(body.lead_ids)).all():
-        if body.is_renutrucao:
+        # checagem de conflito só na 1ª entrada em renutrição — trocar o dono de
+        # um lead que já está em renutrição é livre (não é "roubar" lead ativo).
+        if body.is_renutrucao and not lead.is_renutrucao:
             reason = _conflict(lead)
             if reason and lead.id not in force:
                 conflicts.append(RenutricaoAssignConflict(lead_id=lead.id, name=lead.name, reason=reason))

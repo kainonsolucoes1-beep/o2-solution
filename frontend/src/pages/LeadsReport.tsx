@@ -374,28 +374,41 @@ export default function LeadsReport() {
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
 
+  const reportFilterParams = useCallback((): Record<string, string | number | boolean> => {
+    const params: Record<string, string | number | boolean> = { date_from: dateFrom, date_to: dateTo }
+    if (vencidosFilter) params.vencidos = true
+    if (isAdmin && origem) params.origem = origem
+    if (statusFilter === STATUS_RENUTRICAO) params.renutricao = true
+    else if (statusFilter) params.status = closedSubStatus || statusFilter
+    if (perceptionFilter) params.perception = perceptionFilter
+    if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
+    if (conversionPointFilter) params.conversion_point = conversionPointFilter
+    if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
+    if (teamFilter) params.team = teamFilter
+    if (search.trim()) params.search = search.trim()
+    return params
+  }, [dateFrom, dateTo, vencidosFilter, isAdmin, origem, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, search])
+
+  const [selectingAll, setSelectingAll] = useState(false)
+  async function selectAllFiltered() {
+    setSelectingAll(true)
+    try {
+      const { data } = await api.get<{ ids: string[] }>('/api/v1/leads/by-period', { params: { ...reportFilterParams(), ids_only: true } })
+      setSelected(new Set(data.ids))
+    } catch {
+      setError('Não foi possível selecionar todos os leads do filtro.')
+    } finally {
+      setSelectingAll(false)
+    }
+  }
+
   const fetchReport = useCallback(
     (p: number) => {
       const gen = ++fetchReportGenRef.current
       setLoading(true)
       setError('')
 
-      const params: Record<string, string | number | boolean> = {
-        date_from: dateFrom,
-        date_to:   dateTo,
-        page:      p,
-        limit:     LIMIT,
-      }
-      if (vencidosFilter) params.vencidos = true
-      if (isAdmin && origem) params.origem = origem
-      if (statusFilter === STATUS_RENUTRICAO) params.renutricao = true
-      else if (statusFilter) params.status = closedSubStatus || statusFilter
-      if (perceptionFilter) params.perception = perceptionFilter
-      if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
-      if (conversionPointFilter) params.conversion_point = conversionPointFilter
-      if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
-      if (teamFilter) params.team = teamFilter
-      if (search.trim()) params.search = search.trim()
+      const params: Record<string, string | number | boolean> = { ...reportFilterParams(), page: p, limit: LIMIT }
 
       api
         .get<ReportResponse>('/api/v1/leads/by-period', { params })
@@ -418,7 +431,7 @@ export default function LeadsReport() {
         .then(r => { if (fetchReportGenRef.current === gen) setStats(r.data) })
         .catch(() => { if (fetchReportGenRef.current === gen) setStats(null) })
     },
-    [dateFrom, dateTo, origem, statusFilter, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, closedSubStatus, teamFilter, search, vencidosFilter, isAdmin, navigate],
+    [reportFilterParams, navigate],
   )
 
   useEffect(() => {
@@ -430,22 +443,7 @@ export default function LeadsReport() {
   async function exportExcel() {
     setExporting(true)
     try {
-      const params: Record<string, string | number | boolean> = {
-        date_from: dateFrom,
-        date_to:   dateTo,
-        page:      1,
-        limit:     9999,
-      }
-      if (vencidosFilter) params.vencidos = true
-      if (isAdmin && origem) params.origem = origem
-      if (statusFilter === STATUS_RENUTRICAO) params.renutricao = true
-      else if (statusFilter) params.status = closedSubStatus || statusFilter
-      if (perceptionFilter) params.perception = perceptionFilter
-      if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
-      if (conversionPointFilter) params.conversion_point = conversionPointFilter
-      if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
-      if (teamFilter) params.team = teamFilter
-      if (search.trim()) params.search = search.trim()
+      const params = { ...reportFilterParams(), page: 1, limit: 9999 }
 
       const { data } = await api.get<ReportResponse>('/api/v1/leads/by-period', { params })
       const rows = data.leads.map(l => ({
@@ -705,6 +703,27 @@ export default function LeadsReport() {
 
         {searched && report && !loading && (
           <>
+            {isAdmin && selected.size > 0 && report.total > report.leads.length && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap',
+                background: 'var(--accent-weak)', border: '1px solid var(--accent-weak)', borderRadius: 10,
+                padding: '10px 16px', marginBottom: 12, fontSize: 13, color: 'var(--text-2)',
+              }}>
+                {selected.size >= report.total ? (
+                  <>
+                    <span>Todos os <strong>{report.total}</strong> leads do filtro estão selecionados.</span>
+                    <button onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Limpar seleção</button>
+                  </>
+                ) : (
+                  <>
+                    <span><strong>{selected.size}</strong> selecionado{selected.size !== 1 ? 's' : ''} nesta página.</span>
+                    <button onClick={selectAllFiltered} disabled={selectingAll} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, cursor: selectingAll ? 'wait' : 'pointer', fontSize: 13 }}>
+                      {selectingAll ? 'Selecionando…' : `Selecionar todos os ${report.total} do filtro`}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
             <div className="rounded-xl" style={{ background: 'var(--bg-page)' }}>
               {report.leads.length === 0 ? (
                 <div className="py-16 text-center bg-white rounded-xl" style={{ color: 'var(--text-subtle)', fontSize: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
