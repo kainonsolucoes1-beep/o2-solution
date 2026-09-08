@@ -40,7 +40,7 @@ type DrillTipo = 'receita_potencial' | 'vendas' | 'perda'
 // ── Pipeline types ───────────────────────────────────────────────────────────
 interface PipelineOverview {
   total: number
-  novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number
+  novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number; outros: number
   novo_value: number; qualificado_value: number; proposta_value: number
   negociacao_value: number; fechado_value: number; perdido_value: number
 }
@@ -361,6 +361,11 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
       small: overview.fechado > 0 ? `${fmtBrl(overview.fechado_value)} realizados` : 'sem vendas no período',
       nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }),
     },
+    ...((overview.outros ?? 0) > 0 ? [{
+      key: 'outros', label: 'Sem etapa', count: overview.outros, done: false,
+      small: 'status fora do funil',
+      nav: cardNav({}),
+    }] : []),
   ].map(n => ({ ...n, warn: !n.done && n.label === bottleneck.to }))
 
   // Prioriza quem está parado há mais tempo (vencido inclusive) -- a mesma
@@ -481,7 +486,7 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
           <div className="bg-white rounded-xl" style={{ flex: '3 1 480px', minWidth: 0, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <SectionTitle>Fluxo do Pipeline</SectionTitle>
-              <span style={{ fontSize: 11.5, color: 'var(--text-meta)' }}>{journeyTotal} nas etapas · {overview.perdido} perdido{overview.perdido !== 1 ? 's' : ''} = {distTotal} captados · {fmtBrl(journeyValue)}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-meta)' }}>{journeyTotal} nas etapas · {overview.perdido} perdido{overview.perdido !== 1 ? 's' : ''}{(overview.outros ?? 0) > 0 ? ` · ${overview.outros} sem etapa` : ''} = {distTotal} captados · {fmtBrl(journeyValue)}</span>
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '26px 0 32px' }}>

@@ -18,7 +18,7 @@ PENDENTE_STATUSES    = ("pending", "novo", "new")
 AGENDADO_STATUSES    = ("scheduled", "qualificado", "qualified")
 PROPOSTA_STATUSES    = ("proposal_sent", "proposta", "negociacao")
 FECHADO_STATUSES     = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
-PERDIDO_STATUSES     = ("sale_not_performed",)
+PERDIDO_STATUSES     = ("sale_not_performed", "sale not performed")
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 
 BR_FIXED_HOLIDAYS = ((1, 1), (4, 21), (5, 1), (9, 7), (10, 12), (11, 2), (11, 15), (12, 25))
@@ -208,14 +208,24 @@ def pipeline_overview(
     # fria não cai em balde nenhum); a Visão Geral conta assim.
     total = _apply_filters(db.query(func.count(Lead.id)), date_from, date_to, source, team).scalar() or 0
 
+    novo        = _count_status(db, PENDENTE_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
+    qualificado = _count_status(db, AGENDADO_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
+    proposta    = _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
+    fechado     = _count_status(db, FECHADO_STATUSES,  date_from, date_to, source, team)
+    perdido     = _count_status(db, PERDIDO_STATUSES,  date_from, date_to, source, team)
+    # leads do período que não caíram em nenhum balde (status fora do funil +
+    # percepção fria/vazia) — expõe pra Visão Geral e Pipeline reconciliarem
+    outros = max(0, total - novo - qualificado - proposta - negociacao - fechado - perdido)
+
     return {
         "total":       total,
-        "novo":        _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm]),
-        "qualificado": _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm]),
-        "proposta":    _count_status(db, PROPOSTA_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm]),
+        "novo":        novo,
+        "qualificado": qualificado,
+        "proposta":    proposta,
         "negociacao":  negociacao,
-        "fechado":     _count_status(db, FECHADO_STATUSES,   date_from, date_to, source, team),
-        "perdido":     _count_status(db, PERDIDO_STATUSES,   date_from, date_to, source, team),
+        "fechado":     fechado,
+        "perdido":     perdido,
+        "outros":      outros,
         "novo_value":        _sum_value(db, [_status_in(PENDENTE_STATUSES), not_hot_warm],  date_from, date_to, source, team),
         "qualificado_value": _sum_value(db, [_status_in(AGENDADO_STATUSES), not_hot_warm],  date_from, date_to, source, team),
         "proposta_value":    _sum_value(db, [_status_in(PROPOSTA_STATUSES), not_hot_warm],  date_from, date_to, source, team),
