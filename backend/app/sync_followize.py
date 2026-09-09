@@ -8,11 +8,18 @@ import requests
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.models import Lead, LeadStatusHistory, User
+from app.models import Lead, LeadNote, LeadStatusHistory, User
 
 logger = logging.getLogger(__name__)
 
 FOLLOWIZE_API_URL = os.getenv("FOLLOWIZE_API_URL", "https://api.followize.com.br")
+
+# Status terminais (fechado/ganho ou cancelado/perdido). Um lead que sai de um
+# desses de volta pra um status ativo = reativação -> recontar a captação.
+_TERMINAL_STATUSES = {
+    "sale_not_performed", "sale not performed",
+    "waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido",
+}
 
 MODALIDADE_MAP = {
     54823: "Adesão",
@@ -442,6 +449,15 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
                 changed_at=now,
                 changed_by="Followize",
             ))
+            # Reativação feita no Followize: lead que estava fechado/cancelado
+            # voltou pra um status ativo -> recontar como captação nova, igual
+            # ao "retrabalhar lead" do o2 Sig.
+            if (prev_status or "").lower() in _TERMINAL_STATUSES and (new_status or "").lower() not in _TERMINAL_STATUSES and new_status:
+                existing.retrabalhado_em = now
+                db.add(LeadNote(
+                    lead_id=existing.id, user_id=user_id,
+                    content=f"Reativado no Followize ({(prev_status or '—')} → {new_status}); captação recontada nesta data.",
+                ))
 
         return "updated"
 
