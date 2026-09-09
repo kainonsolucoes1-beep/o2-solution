@@ -138,12 +138,8 @@ export default function LeadNextStepPanel({
   return (
     <section style={sectionStyle}>
       <div>
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end" style={{ gap: 7 }}>
-          {!locked && (
-          <button style={finalizeIsPrimary ? actionBtnStyle(true) : primaryActionBtnStyle} onClick={onOpenSchedule}>
-            Agendar
-          </button>
-          )}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
           <a href={telHref ?? undefined} style={actionBtnStyle(!!telHref)} onClick={e => { if (!telHref) e.preventDefault() }}>
             <Phone size={14} color={telHref ? 'var(--accent)' : 'currentColor'} /> Ligar
           </a>
@@ -153,6 +149,14 @@ export default function LeadNextStepPanel({
           <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
             <Mail size={14} /> Enviar e-mail
           </a>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, alignItems: 'center' }}>
+          {!locked && (
+          <button style={finalizeIsPrimary ? actionBtnStyle(true) : primaryActionBtnStyle} onClick={onOpenSchedule}>
+            Agendar
+          </button>
+          )}
           {locked ? null : status === 'sale_not_performed' ? (
             showRetrabalhar ? (
               <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -207,6 +211,7 @@ export default function LeadNextStepPanel({
               {editing ? 'Concluir edição' : 'Editar ação rápida'}
             </button>
           )}
+          </div>
         </div>
       </div>
 
