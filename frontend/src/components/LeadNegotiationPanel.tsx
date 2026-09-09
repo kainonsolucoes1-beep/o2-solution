@@ -12,13 +12,13 @@ function ValorHero({ label }: { label: string }) {
   const empty = label === '—' || label === 'Não informado'
   return (
     <div style={{
-      fontSize: 25, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em',
+      fontSize: 19, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em',
       fontVariantNumeric: 'tabular-nums', color: empty ? 'var(--text-subtle)' : 'var(--text-1)',
     }}>
       {empty ? '—' : (
         <>
           {intPart}
-          {decPart != null && <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-muted)' }}>,{decPart}</span>}
+          {decPart != null && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>,{decPart}</span>}
         </>
       )}
     </div>

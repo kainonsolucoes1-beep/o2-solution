@@ -140,7 +140,7 @@ export default function LeadAttachmentsPanel({ leadId, canDelete }: { leadId: st
             <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
               {attachments.length === 1 ? 'Arquivo' : 'Arquivos'}
             </span>
-            <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, color: 'var(--text-1)' }}>{attachments.length}</span>
+            <span style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1, color: 'var(--text-1)' }}>{attachments.length}</span>
           </div>
 
           <div style={{ height: 1, background: 'var(--border)', margin: '14px 0 2px' }} />

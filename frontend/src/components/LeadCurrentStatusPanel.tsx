@@ -30,7 +30,7 @@ export default function LeadCurrentStatusPanel({
         <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
           Última interação
         </span>
-        <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.01em', color }}>
+        <span style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color }}>
           {lastInteractionLabel}
         </span>
         {verdict && (

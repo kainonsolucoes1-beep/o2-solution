@@ -67,7 +67,7 @@ export default function LeadRegistrationPanel({
         <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
           Lead desde
         </span>
-        <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.01em', color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
+        <span style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
           {leadSinceLabel}
         </span>
         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>

@@ -232,8 +232,8 @@ export default function LeadFinanceiroPanel({
             <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
               Total do negócio
             </span>
-            <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em', color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginTop: 4 }}>
-              {(() => { const [i, d] = fmtBRL(total).split(','); return <>{i}{d != null && <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-muted)' }}>,{d}</span>}</> })()}
+            <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginTop: 4 }}>
+              {(() => { const [i, d] = fmtBRL(total).split(','); return <>{i}{d != null && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>,{d}</span>}</> })()}
             </div>
             <div style={{ height: 7, borderRadius: 99, background: 'var(--warning-weak)', overflow: 'hidden', marginTop: 12 }}>
               <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: 'var(--success)' }} />
