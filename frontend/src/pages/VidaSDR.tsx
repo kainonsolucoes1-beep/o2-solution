@@ -11,7 +11,7 @@ import { useTheme } from '../ThemeContext'
 import { type FiltroPeriodo, mesAtualRange } from '../utils/periodoFiltro'
 import SmartPreviewDrawer from '../components/SmartPreviewDrawer'
 import {
-  buildSmartPreview, fetchSmartPreviewRows, needsRowFetch, MOCK_CUSTO_TOTAL,
+  buildSmartPreview, fetchSmartPreviewRows, fetchReceitaComposicao, needsRowFetch, MOCK_CUSTO_TOTAL,
   type SmartPreviewId, type SmartPreview,
 } from '../utils/vidaSdrPreview'
 
@@ -327,11 +327,25 @@ export default function VidaSDR() {
     return () => { cancelled = true }
   }, [origens, filtro, dataInicio, dataFim])
 
+  function periodParams(): { date_from?: string; date_to?: string } {
+    if (filtro === 'mes_atual') return mesAtualRange()
+    if (filtro === 'entre_datas' && dataInicio && dataFim) return { date_from: dataInicio, date_to: dataFim }
+    return {}
+  }
+
   function openPreview(id: SmartPreviewId, context: number, trigger: HTMLElement) {
     if (!data || !origens) return
     setDrawerTrigger(trigger)
     const base = buildSmartPreview(id, context, data, origens)
     setPreview(base)
+    if (id === 'receita_recebida' || id === 'receita_a_receber') {
+      setPreviewLoading(true)
+      fetchReceitaComposicao(id, origens, periodParams())
+        .then(({ rows, count }) => setPreview(prev => (prev ? { ...prev, rows, count } : prev)))
+        .catch(() => setPreview(prev => (prev ? { ...prev, rows: [] } : prev)))
+        .finally(() => setPreviewLoading(false))
+      return
+    }
     if (needsRowFetch(id)) {
       setPreviewLoading(true)
       fetchSmartPreviewRows(id, origens, data.primeiro_lead_em)
@@ -469,8 +483,9 @@ export default function VidaSDR() {
               />
               {canSeeFinance ? (
                 <HeroCard
-                  tone="good" icon={TrendingUp} label="Receita recebida" value={fmtBrl(data.receita_recebida || 0)}
-                  sub={`${fmtBrl(data.receita_a_receber || 0)} a receber`}
+                  tone="good" icon={TrendingUp} label="Receita gerada"
+                  value={fmtBrl((data.receita_recebida || 0) + (data.receita_a_receber || 0))}
+                  sub={`${fmtBrl(data.receita_recebida || 0)} recebida · ${fmtBrl(data.receita_a_receber || 0)} a receber`}
                   context={deltas.receita_recebida ? { text: `${deltas.receita_recebida.text} vs. mês passado`, tone: deltas.receita_recebida.tone } : null}
                   onOpen={trigger => openPreview('receita_recebida', 0, trigger)}
                 />

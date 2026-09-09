@@ -2,7 +2,7 @@ from calendar import monthrange
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -957,4 +957,71 @@ def vida_sdr(
         "ranking": ranking,
         "ranking_geral": ranking_geral,
         "atividades": atividades[:100],
+    }
+
+
+@router.get("/vida-sdr/receita-composicao")
+def vida_sdr_receita_composicao(
+    origens: str = Query(...),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Contratos que compõem a receita do agente — cada linha com o que já foi
+    recebido e o que ainda está a receber (Financeiro + planilha de vendas,
+    ambos já refletidos em Lead.receita_real_*). Mesmo recorte de origem/período
+    do card "Receita gerada" na Vida do Agente."""
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Sem permissão para ver valores financeiros.")
+    if needs_own_origin_filter(current_user):
+        origens = current_user.first_name or current_user.username
+    parts = [s.strip() for s in origens.split(",") if s.strip()]
+    if not parts:
+        return {"recebida": 0.0, "a_receber": 0.0, "total_contratos": 0, "rows": []}
+
+    date_filters = []
+    if date_from:
+        _f, _ = br_date_to_utc_range(date_from)
+        date_filters.append(EFFECTIVE_CAPTACAO >= _f)
+    if date_to:
+        _, _t = br_date_to_utc_range(date_to)
+        date_filters.append(EFFECTIVE_CAPTACAO <= _t - timedelta(microseconds=1))
+
+    matched_users = db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).all()
+    owner_ids = [u.id for u in matched_users]
+    origin_or_owner = Lead.origin.in_(parts)
+    if owner_ids:
+        origin_or_owner = or_(origin_or_owner, Lead.renutricao_owner_id.in_(owner_ids))
+    tem_receita = or_(Lead.receita_real_recebida > 0, Lead.receita_real_a_receber > 0)
+    total_expr = func.coalesce(Lead.receita_real_recebida, 0) + func.coalesce(Lead.receita_real_a_receber, 0)
+
+    rows = (
+        db.query(
+            Lead.id, Lead.name, Lead.modalidade, Lead.current_plan, Lead.status,
+            Lead.receita_real_recebida, Lead.receita_real_a_receber,
+            Lead.receita_data_venda, EFFECTIVE_CAPTACAO.label("cap"),
+        )
+        .filter(origin_or_owner, tem_receita, *date_filters)
+        .order_by(total_expr.desc())
+        .all()
+    )
+    recebida = round(sum(float(r.receita_real_recebida or 0) for r in rows), 2)
+    a_receber = round(sum(float(r.receita_real_a_receber or 0) for r in rows), 2)
+    return {
+        "recebida": recebida,
+        "a_receber": a_receber,
+        "total_contratos": len(rows),
+        "rows": [
+            {
+                "id": str(r.id),
+                "name": r.name,
+                "subtitle": " · ".join(x for x in (r.modalidade, r.current_plan) if x) or "Sem modalidade definida",
+                "recebida": float(r.receita_real_recebida or 0),
+                "a_receber": float(r.receita_real_a_receber or 0),
+                "status": r.status,
+                "data": (r.receita_data_venda.isoformat() if r.receita_data_venda else (r.cap.isoformat() if r.cap else None)),
+            }
+            for r in rows[:12]
+        ],
     }

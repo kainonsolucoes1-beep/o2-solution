@@ -81,6 +81,40 @@ export async function fetchSmartPreviewRows(id: SmartPreviewId, origens: string,
   }))
 }
 
+interface ReceitaComposicaoResponse {
+  recebida: number
+  a_receber: number
+  total_contratos: number
+  rows: Array<{ id: string; name: string; subtitle: string; recebida: number; a_receber: number; status: string | null; data: string | null }>
+}
+
+// Composição da receita gerada (card "Receita gerada" na Vida do Agente) e dos
+// "Valores a receber" (linha do painel Financeiro). Vem do endpoint dedicado
+// que lê Lead.receita_real_* (Financeiro + planilha), não do /leads/by-period —
+// este não devolvia os valores reais por lead (todas as linhas caíam em R$ 0,00).
+export async function fetchReceitaComposicao(
+  id: 'receita_recebida' | 'receita_a_receber',
+  origens: string,
+  period: { date_from?: string; date_to?: string },
+): Promise<{ rows: SmartPreviewRow[]; count: string }> {
+  const params: Record<string, string> = { origens }
+  if (period.date_from) params.date_from = period.date_from
+  if (period.date_to) params.date_to = period.date_to
+  const { data } = await api.get<ReceitaComposicaoResponse>('/api/v1/gestao-comercial/vida-sdr/receita-composicao', { params })
+  const soReceber = id === 'receita_a_receber'
+  const rows: SmartPreviewRow[] = data.rows
+    .filter(r => soReceber ? r.a_receber > 0 : true)
+    .map(r => ({
+      title: r.name,
+      subtitle: r.subtitle,
+      value: fmtBrl(soReceber ? r.a_receber : r.recebida + r.a_receber),
+      meta: r.data ? new Date(r.data).toLocaleDateString('pt-BR') : undefined,
+      status: r.recebida > 0 && r.a_receber > 0 ? 'Recebido + a receber' : r.a_receber > 0 ? 'A receber' : 'Recebido',
+    }))
+  const totalN = soReceber ? rows.length : data.total_contratos
+  return { rows, count: `Exibindo ${Math.min(rows.length, 5)} de ${totalN} ${totalN === 1 ? 'contrato' : 'contratos'}` }
+}
+
 // Composição simulada — não há endpoint de custos por SDR hoje. Ponto de
 // integração: trocar por dados reais quando existir.
 // Valores centralizados aqui e reutilizados no card (VidaSDR.tsx) e no drawer.
@@ -108,8 +142,8 @@ export function buildSmartPreview(id: SmartPreviewId, context: number, data: Vid
   if (id === 'cancelados') return { title: 'Cancelamentos do período', description: 'Amostra dos registros encerrados sem venda.', summary: [['Cancelados', String(data.cancelados)]], count: `Exibindo 5 de ${data.cancelados} cancelamentos`, actionLabel: 'Abrir CRM', target: leadsTarget(origens, data.primeiro_lead_em, CANCELADO_STATUS_CSV), rows: [] }
   if (id === 'conversao') return { title: 'Detalhamento da conversão', description: 'Passagem compacta dos leads até a venda.', summary: [['Leads', String(data.captacoes)], ['Vendas', String(data.vendas)], ['Conversão', `${data.conversao}%`]], count: '5 exemplos de vendas', actionLabel: 'Abrir CRM', target: leadsTarget(origens, data.primeiro_lead_em, VENDA_STATUSES_CSV), rows: [] }
   if (id === 'cancellationRate') return { title: 'Taxa de cancelamento', description: 'Amostra dos registros encerrados sem venda.', summary: [['Cancelados', String(data.cancelados)], ['Taxa', `${cancellationRate}%`]], count: `Exibindo 5 de ${data.cancelados} cancelamentos`, actionLabel: 'Abrir CRM', target: leadsTarget(origens, data.primeiro_lead_em, CANCELADO_STATUS_CSV), rows: [] }
-  if (id === 'receita_recebida') return { title: 'Composição da receita recebida', description: 'Valores efetivamente recebidos pela empresa.', summary: [['Receita recebida', fmtBrl(data.receita_recebida || 0)]], count: `Exibindo 5 de ${data.vendas} vendas`, actionLabel: 'Abrir Financeiro', target: '/financeiro', rows: [] }
-  if (id === 'receita_a_receber') return { title: 'Valores a receber', description: 'Contratos fechados que ainda possuem pagamentos futuros.', summary: [['A receber', fmtBrl(data.receita_a_receber || 0)]], count: `Exibindo 5 de ${data.vendas} vendas`, actionLabel: 'Abrir Financeiro', target: '/financeiro', rows: [] }
+  if (id === 'receita_recebida') return { title: 'Composição da receita gerada', description: 'Contratos que somam a receita deste agente — o que já entrou e o que ainda está previsto.', summary: [['Recebida', fmtBrl(data.receita_recebida || 0)], ['A receber', fmtBrl(data.receita_a_receber || 0)]], actionLabel: 'Abrir Financeiro', target: '/financeiro', rows: [] }
+  if (id === 'receita_a_receber') return { title: 'Valores a receber', description: 'Contratos com pagamentos ainda previstos (Financeiro + planilha de vendas).', summary: [['A receber', fmtBrl(data.receita_a_receber || 0)]], actionLabel: 'Abrir Financeiro', target: '/financeiro', rows: [] }
   if (id === 'receita_potencial') return { title: 'Composição da receita potencial', description: 'Soma do valor de cotação/proposta de cada lead ainda em aberto no funil — a mesma receita potencial é uma estimativa por natureza (depende de fechar a venda), mas o valor vem direto dos leads reais.', summary: [['Valor em aberto', fmtBrl(data.receita_potencial || 0)], ['Leads em aberto', String(data.em_andamento)]], count: `Exibindo 5 de ${data.em_andamento} leads`, actionLabel: 'Abrir CRM', target: leadsTarget(origens, data.primeiro_lead_em, EM_ANDAMENTO_STATUSES), rows: [] }
   if (id === 'custo_total') return { title: 'Composição do custo total (estimativa)', description: 'Visão resumida dos principais custos do período. Ainda sem integração real de custos por agente.', summary: [['Custo estimado', fmtBrl(MOCK_CUSTO_TOTAL)]], actionLabel: 'Ver composição completa', target: null, rows: MOCK_CUSTO_ROWS, simulated: true }
 
