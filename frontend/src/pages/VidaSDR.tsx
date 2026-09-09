@@ -33,7 +33,10 @@ interface VidaSdrData {
   receita_potencial: number | null
   primeiro_lead_em: string | null
   ativo_desde: string | null
-  meta: { tipo: 'clt' | 'estagiario'; meta_valor: number; progresso: number; mes_label: string } | null
+  meta: {
+    tipo: 'clt' | 'estagiario'; meta_valor: number; progresso: number; mes_label: string
+    faltam: number; dias_uteis_restantes: number; ritmo_necessario: number; ritmo_atual: number; projecao: number
+  } | null
   trend: TrendItem[]
   ranking: Ranking | null
   ranking_geral: RankingGeral | null
@@ -572,25 +575,64 @@ export default function VidaSDR() {
                   </p>
                 </div>
                 {(() => {
-                  const pct = data.meta!.meta_valor > 0 ? Math.round((data.meta!.progresso / data.meta!.meta_valor) * 100) : 0
-                  const batida = data.meta!.progresso >= data.meta!.meta_valor
+                  const m = data.meta!
+                  const pct = m.meta_valor > 0 ? Math.round((m.progresso / m.meta_valor) * 100) : 0
+                  const batida = m.progresso >= m.meta_valor
+                  const noRitmo = m.projecao >= m.meta_valor
+                  const donutColor = batida || noRitmo ? '#059669' : 'var(--warning)'
+                  const fmtN = (n: number) => m.tipo === 'clt' ? fmtBrl(n) : n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+                  const unit = m.tipo === 'clt' ? '' : ' leads'
                   return (
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                        <MetaDonut pct={pct} color={batida ? '#059669' : ACCENT} />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <p style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                            <span style={{ display: 'block', fontSize: 18, fontWeight: 800, color: 'var(--text-1)' }}>
-                              {data.meta!.tipo === 'clt' ? fmtBrl(data.meta!.progresso) : Math.round(data.meta!.progresso)}
-                            </span>
-                            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-muted)' }}>
-                              de {data.meta!.tipo === 'clt' ? fmtBrl(data.meta!.meta_valor) : `${Math.round(data.meta!.meta_valor)} leads`}
-                            </span>
-                          </p>
-                          {batida && <span style={{ fontSize: 11.5, fontWeight: 700, color: '#059669' }}>Meta batida</span>}
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <MetaDonut pct={pct} color={donutColor} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
+                            {m.tipo === 'clt' ? fmtBrl(m.progresso) : Math.round(m.progresso)}
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}> / {m.tipo === 'clt' ? fmtBrl(m.meta_valor) : Math.round(m.meta_valor)}</span>
+                          </span>
+                          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-muted)' }}>
+                            {m.tipo === 'clt' ? 'em vendas' : 'leads captados'}
+                          </span>
                         </div>
                       </div>
-                    </div>
+
+                      <span style={{
+                        alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6,
+                        fontSize: 11.5, fontWeight: 700, padding: '3px 10px', borderRadius: 999,
+                        background: batida || noRitmo ? 'var(--success-weak)' : 'var(--warning-weak)',
+                        color: batida || noRitmo ? 'var(--success)' : 'var(--warning)',
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: 999, background: 'currentColor' }} />
+                        {batida ? 'Meta batida' : noRitmo ? 'No ritmo pra bater' : 'Abaixo do ritmo'}
+                      </span>
+
+                      {!batida && (
+                        <>
+                          <div style={{ height: 1, background: 'var(--border)' }} />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 11, fontVariantNumeric: 'tabular-nums' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                              <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>Faltam</span>
+                              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)' }}>{fmtN(m.faltam)}{unit}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                              <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>Ritmo necessário</span>
+                              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)' }}>
+                                {m.dias_uteis_restantes > 0 ? `${fmtN(m.ritmo_necessario)} / dia útil` : '—'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                              <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>Seu ritmo atual</span>
+                              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-muted)' }}>{fmtN(m.ritmo_atual)} / dia útil</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                              <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>Projeção do mês</span>
+                              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-muted)' }}>~{fmtN(m.projecao)}{unit}</span>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </>
                   )
                 })()}
               </section>

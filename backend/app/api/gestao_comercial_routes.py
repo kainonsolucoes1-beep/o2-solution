@@ -7,6 +7,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
+from app.br_calendar import business_days_in_month
 from app.database import get_db
 from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
 from app.models.user import User
@@ -704,11 +705,25 @@ def _compute_meta_mes(db: Session, parts: list[str]):
     else:
         progresso = float(len(mes_leads))
 
+    meta_valor = float(meta_row.meta_valor)
+    dias_uteis_mes = business_days_in_month(nb.year, nb.month)
+    dias_uteis_ate_hoje = business_days_in_month(nb.year, nb.month, nb.day)
+    dias_uteis_restantes = max(0, dias_uteis_mes - dias_uteis_ate_hoje)
+    faltam = max(0.0, meta_valor - progresso)
+    ritmo_necessario = faltam / dias_uteis_restantes if dias_uteis_restantes > 0 else 0.0
+    ritmo_atual = progresso / dias_uteis_ate_hoje if dias_uteis_ate_hoje > 0 else 0.0
+    projecao = ritmo_atual * dias_uteis_mes
+
     return {
         "tipo": meta_row.tipo,
-        "meta_valor": float(meta_row.meta_valor),
+        "meta_valor": meta_valor,
         "progresso": progresso,
         "mes_label": f"{MESES_ABREV[nb.month]}/{str(nb.year)[2:]}",
+        "faltam": faltam,
+        "dias_uteis_restantes": dias_uteis_restantes,
+        "ritmo_necessario": round(ritmo_necessario, 1),
+        "ritmo_atual": round(ritmo_atual, 1),
+        "projecao": round(projecao),
     }
 
 
