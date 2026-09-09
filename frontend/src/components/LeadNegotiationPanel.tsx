@@ -8,19 +8,13 @@ import OperadorasField from './OperadorasField'
 import PlanField from './PlanField'
 
 function ValorHero({ label }: { label: string }) {
-  const [intPart, decPart] = label.includes(',') ? label.split(',') : [label, null]
   const empty = label === '—' || label === 'Não informado'
   return (
     <div style={{
       fontSize: 19, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em',
       fontVariantNumeric: 'tabular-nums', color: empty ? 'var(--text-subtle)' : 'var(--text-1)',
     }}>
-      {empty ? '—' : (
-        <>
-          {intPart}
-          {decPart != null && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>,{decPart}</span>}
-        </>
-      )}
+      {empty ? '—' : label}
     </div>
   )
 }
@@ -76,12 +70,7 @@ export default function LeadNegotiationPanel({
       {editingDetalhes ? (
         <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => onDraftChange('value_potential', v)} />
       ) : (
-        <div className="flex flex-col" style={{ gap: 5 }}>
-          <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
-            Valor da cotação
-          </span>
-          <ValorHero label={valorCotacaoLabel} />
-        </div>
+        <ValorHero label={valorCotacaoLabel} />
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 10, fontSize: 13, fontWeight: 600, color: perceptionStyle ? perceptionStyle.color : 'var(--text-subtle)' }}>
