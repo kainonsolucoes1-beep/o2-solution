@@ -664,10 +664,6 @@ export default function LeadDetailPage() {
 
         <div className="flex flex-col" style={{ gap: 12 }}>
 
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3b)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '2px 2px 0' }}>
-            Contexto da venda
-          </p>
-
           <LeadNegotiationPanel
             locked={renutricaoLock}
             perceptionLabel={perception?.label ?? null}
