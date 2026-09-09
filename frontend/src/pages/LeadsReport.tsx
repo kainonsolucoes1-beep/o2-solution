@@ -287,6 +287,7 @@ export default function LeadsReport() {
   const [conversionPointFilter, setConversionPointFilter] = useState(() => searchParams.get('conversion_point') ?? '')
   const [search, setSearch]       = useState(() => searchParams.get('search') ?? (cameFromUrlFilters ? '' : storedFilters.search ?? ''))
   const [page, setPage]           = useState(1)
+  const [jumpPage, setJumpPage]   = useState('')
   const [report, setReport]       = useState<ReportResponse | null>(null)
   const [stats, setStats]         = useState<ReportStats | null>(null)
   const [loading, setLoading]     = useState(false)
@@ -572,6 +573,12 @@ export default function LeadsReport() {
   }
 
   function handleSearch() { fetchReport(1) }
+
+  function goToPage() {
+    const n = parseInt(jumpPage, 10)
+    if (!Number.isNaN(n) && n >= 1 && n <= totalPages && n !== page) fetchReport(n)
+    setJumpPage('')
+  }
 
   // Visões salvas: presets dos filtros que já existem, expostos como abas.
   type ViewKey = 'todos' | 'quentes' | 'atencao' | 'proposta' | 'renutricao' | 'fechados_mes'
@@ -1110,6 +1117,27 @@ export default function LeadsReport() {
                 >
                   ›
                 </button>
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 10, fontSize: 12.5, color: 'var(--text-subtle)' }}>
+                  Ir para
+                  <input
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={jumpPage}
+                    onChange={e => setJumpPage(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') goToPage() }}
+                    placeholder={String(page)}
+                    style={{ width: 58, padding: '5px 6px', borderRadius: 8, fontSize: 13, textAlign: 'center', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)' }}
+                  />
+                  <button
+                    onClick={goToPage}
+                    disabled={loading || !jumpPage}
+                    style={{ padding: '5px 11px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', cursor: !jumpPage || loading ? 'not-allowed' : 'pointer', opacity: !jumpPage ? 0.4 : 1 }}
+                  >
+                    Ir
+                  </button>
+                </span>
               </div>
             )}
 
