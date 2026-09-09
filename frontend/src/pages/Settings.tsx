@@ -44,6 +44,7 @@ function ConfiguracoesTab() {
   const [errorMsg, setErrorMsg]         = useState('')
   const [syncStatus, setSyncStatus]     = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [syncMsg, setSyncMsg]           = useState('')
+  const [syncDays, setSyncDays]         = useState(90)
   const [receitaSyncStatus, setReceitaSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [receitaSyncMsg, setReceitaSyncMsg] = useState('')
   const [receitaSyncResult, setReceitaSyncResult] = useState<{ matched: number; unmatched: string[]; ambiguous: string[] } | null>(null)
@@ -161,7 +162,7 @@ function ConfiguracoesTab() {
   async function handleSync() {
     setSyncStatus('loading'); setSyncMsg('')
     try {
-      const res = await api.post('/api/v1/admin/sync-historico?days=90')
+      const res = await api.post(`/api/v1/admin/sync-historico?days=${syncDays}`)
       const d = res.data as { inserted: number; updated: number; date_from: string }
       setSyncMsg(`Concluído: ${d.inserted} inseridos, ${d.updated} atualizados (desde ${d.date_from})`)
       setSyncStatus('success')
@@ -449,12 +450,20 @@ function ConfiguracoesTab() {
 
       <Accordion title="Reprocessamento histórico" summary="re-puxar leads antigos do Followize">
         <div className="flex flex-col gap-5">
-        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Rebusca os últimos 90 dias de leads alterados no Followize e atualiza motivo de cancelamento e status no banco.</p>
+        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Rebusca do Followize os leads <b>criados ou alterados</b> no período escolhido e atualiza status / motivo de cancelamento no banco. Use um período maior pra recuperar leads antigos que o sync automático não pegou.</p>
         {syncStatus === 'success' && <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}><p style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>{syncMsg}</p></div>}
         {syncStatus === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{syncMsg}</p></div>}
-        <button onClick={handleSync} disabled={syncStatus === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: syncStatus === 'loading' ? '#FCA5A5' : '#EF4444', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: syncStatus === 'loading' ? 'not-allowed' : 'pointer' }}>
-          {syncStatus === 'loading' ? 'Processando... (pode demorar)' : 'Reprocessar 90 dias'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <select value={syncDays} onChange={e => setSyncDays(Number(e.target.value))} disabled={syncStatus === 'loading'}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
+            <option value={90}>Últimos 90 dias</option>
+            <option value={180}>Últimos 6 meses</option>
+            <option value={365}>Últimos 12 meses</option>
+          </select>
+          <button onClick={handleSync} disabled={syncStatus === 'loading'} style={{ padding: '9px 20px', borderRadius: 8, background: syncStatus === 'loading' ? '#FCA5A5' : '#EF4444', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: syncStatus === 'loading' ? 'not-allowed' : 'pointer' }}>
+            {syncStatus === 'loading' ? 'Processando... (pode demorar)' : 'Reprocessar'}
+          </button>
+        </div>
         </div>
       </Accordion>
 

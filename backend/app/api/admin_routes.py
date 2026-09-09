@@ -270,16 +270,27 @@ async def sync_historico(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Reprocessa leads alterados nos últimos N dias para popular percepção/status."""
+    """Reprocessa leads criados OU alterados nos últimos N dias — puxa também
+    os leads antigos que o sync automático (janela de 1-2 dias) nunca pega."""
     _require_admin(current_user)
     _load_tokens_from_db()
     date_from = _date_from_lookback(days=days)
 
     try:
-        raw_leads = await asyncio.to_thread(_fetch_all_leads, date_from, "change")
+        created, changed = await asyncio.gather(
+            asyncio.to_thread(_fetch_all_leads, date_from, "creation"),
+            asyncio.to_thread(_fetch_all_leads, date_from, "change"),
+        )
     except Exception as exc:
         _save_sync_status(False, error=f"Reprocessamento falhou: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
+
+    seen: dict = {}
+    for raw in created:
+        seen[str(raw.get("id"))] = raw
+    for raw in changed:
+        seen[str(raw.get("id"))] = raw
+    raw_leads = list(seen.values())
 
     if not raw_leads:
         _save_sync_status(True, counts="0 inseridos, 0 atualizados")
@@ -290,24 +301,26 @@ async def sync_historico(
     if not default_user:
         raise HTTPException(status_code=500, detail="Nenhum usuário no banco")
 
+    BATCH = 200
     inserted = updated = failed = 0
     failed_ids: list[str] = []
-    for raw in raw_leads:
-        try:
-            with db.begin_nested():
-                result = _upsert_lead(db, raw, default_user.id)
-        except Exception as exc:
-            failed += 1
-            failed_ids.append(str(raw.get("id")))
-            logger.error("Falha ao reprocessar lead followize_id=%s: %s", raw.get("id"), exc)
-            continue
-        if result == "inserted":
-            inserted += 1
-        elif result == "skipped":
-            pass
-        else:
-            updated += 1
-    db.commit()
+    for start in range(0, len(raw_leads), BATCH):
+        for raw in raw_leads[start:start + BATCH]:
+            try:
+                with db.begin_nested():
+                    result = _upsert_lead(db, raw, default_user.id)
+            except Exception as exc:
+                failed += 1
+                failed_ids.append(str(raw.get("id")))
+                logger.error("Falha ao reprocessar lead followize_id=%s: %s", raw.get("id"), exc)
+                continue
+            if result == "inserted":
+                inserted += 1
+            elif result == "skipped":
+                pass
+            else:
+                updated += 1
+        db.commit()
 
     counts = f"{inserted} inseridos, {updated} atualizados" + (f", {failed} falharam" if failed else "")
     _save_sync_status(True, counts=counts)
