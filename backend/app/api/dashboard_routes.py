@@ -65,17 +65,16 @@ def _person_name_set(db):
     }
 
 
-def _operador_do_lead(origin, owner_id, attendant, owner_names, person_names):
-    """Quem está com a posse do lead pro ranking do Dashboard.
-    dono de renutrição > SDR que prospectou (origem = pessoa) > atendente."""
+def _operador_do_lead(origin, owner_id, owner_names, person_names):
+    """Quem está com a posse do lead pro ranking do Dashboard: dono de
+    renutrição > SDR que prospectou (origem = pessoa). O atendente NÃO conta —
+    quem só atende lead de outro não leva o crédito da captação (decisão da
+    usuária: Julia atende leads do time, mas o lead conta pra origem)."""
     if owner_id and owner_id in owner_names:
         return owner_names[owner_id]
     o = (origin or "").strip()
     if o and o.lower() in person_names:
         return o
-    a = (attendant or "").strip()
-    if a and a.lower() != "sem atendente":
-        return a
     return "Sem operador"
 
 
@@ -456,15 +455,15 @@ def dashboard_performance(
     # Canal (Meta Ads, Orgânico...) não é operador — estudo de canal fica
     # no Performance, não no Dashboard.
     ranking_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.attendant)
+        db.query(Lead.origin, Lead.renutricao_owner_id)
         .filter(EFFECTIVE_CAPTACAO >= month_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
     _owner_names_month = _owner_names(db, {r.renutricao_owner_id for r in ranking_leads if r.renutricao_owner_id})
     _persons = _person_name_set(db)
     ranking_counts: dict = defaultdict(int)
-    for origin, owner_id, attendant in ranking_leads:
-        ranking_counts[_operador_do_lead(origin, owner_id, attendant, _owner_names_month, _persons)] += 1
+    for origin, owner_id in ranking_leads:
+        ranking_counts[_operador_do_lead(origin, owner_id, _owner_names_month, _persons)] += 1
     total_ranking = sum(ranking_counts.values())
     max_count = max(ranking_counts.values()) if ranking_counts else 1
     ranking = [
@@ -493,7 +492,7 @@ def dashboard_performance(
 
     # Captação do dia por operador (mesma regra de posse do ranking do mês)
     hoje_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential, Lead.attendant)
+        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential)
         .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
@@ -501,8 +500,8 @@ def dashboard_performance(
     _proposta_set = {s.lower() for s in _PROPOSTA}
     hoje_counts: dict = defaultdict(int)
     hoje_proposta_valor: dict = defaultdict(float)
-    for origin, owner_id, status, value_potential, attendant in hoje_leads:
-        fonte = _operador_do_lead(origin, owner_id, attendant, _owner_names_hoje, _persons)
+    for origin, owner_id, status, value_potential in hoje_leads:
+        fonte = _operador_do_lead(origin, owner_id, _owner_names_hoje, _persons)
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
             hoje_proposta_valor[fonte] += float(value_potential or 0)
