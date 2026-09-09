@@ -402,13 +402,45 @@ def leads_report_stats(
         return q
 
     fechados_set = [s.lower() for s in ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")]
+    _fechado_cond = func.lower(Lead.status).in_(fechados_set)
+    _perdido_cond = func.lower(Lead.status) == "sale_not_performed"
+    _quente_cond = Lead.perception == "Quente"
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
-    fechados = _base_query(db.query(func.count(Lead.id))).filter(func.lower(Lead.status).in_(fechados_set)).scalar() or 0
-    perdidos = _base_query(db.query(func.count(Lead.id))).filter(func.lower(Lead.status) == "sale_not_performed").scalar() or 0
-    quentes = _base_query(db.query(func.count(Lead.id))).filter(Lead.perception == "Quente").scalar() or 0
+    fechados = _base_query(db.query(func.count(Lead.id))).filter(_fechado_cond).scalar() or 0
+    perdidos = _base_query(db.query(func.count(Lead.id))).filter(_perdido_cond).scalar() or 0
+    quentes = _base_query(db.query(func.count(Lead.id))).filter(_quente_cond).scalar() or 0
 
-    return {"total": total, "fechados": fechados, "perdidos": perdidos, "quentes": quentes}
+    # Mini-série pros cards do topo: 7 baldes ao longo do período, contando os
+    # leads de cada balde pela data efetiva de captação. Delta = 2ª metade do
+    # período vs 1ª metade.
+    _BUCKETS = 7
+    _span = (end - start).total_seconds()
+
+    def _serie(cond):
+        q = _base_query(db.query(EFFECTIVE_CAPTACAO)).filter(EFFECTIVE_CAPTACAO >= start, EFFECTIVE_CAPTACAO < end)
+        if cond is not None:
+            q = q.filter(cond)
+        baldes = [0] * _BUCKETS
+        if _span > 0:
+            for (dt,) in q.all():
+                idx = int((dt - start).total_seconds() / _span * _BUCKETS)
+                baldes[min(max(idx, 0), _BUCKETS - 1)] += 1
+        meio = _BUCKETS // 2
+        p1, p2 = sum(baldes[:meio]), sum(baldes[meio:])
+        delta = round((p2 - p1) / p1 * 100) if p1 else (100 if p2 else 0)
+        return baldes, delta
+
+    s_total, d_total = _serie(None)
+    s_fech, d_fech = _serie(_fechado_cond)
+    s_perd, d_perd = _serie(_perdido_cond)
+    s_quen, d_quen = _serie(_quente_cond)
+
+    return {
+        "total": total, "fechados": fechados, "perdidos": perdidos, "quentes": quentes,
+        "series": {"total": s_total, "fechados": s_fech, "perdidos": s_perd, "quentes": s_quen},
+        "deltas": {"total": d_total, "fechados": d_fech, "perdidos": d_perd, "quentes": d_quen},
+    }
 
 
 @router.get("/users", response_model=List[OperatorInfo])

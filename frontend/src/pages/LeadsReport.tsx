@@ -54,6 +54,8 @@ interface ReportStats {
   fechados: number
   perdidos: number
   quentes: number
+  series?: { total: number[]; fechados: number[]; perdidos: number[]; quentes: number[] }
+  deltas?: { total: number; fechados: number; perdidos: number; quentes: number }
 }
 
 // avatar neutro (cinza-azulado) pra todo mundo, em vez de girar por uma paleta saturada
@@ -178,16 +180,29 @@ function perceptionColor(perception: string | null): string | null {
   return (PERCEPTION_STYLE[perception.toLowerCase()] ?? { color: '#6B7280' }).color
 }
 
-// Cápsula preenchida (intensidade "vibrante"): fundo sólido, texto branco.
-function VibrantPill({ color, children }: { color: string; children: React.ReactNode }) {
+// Cápsula tonal (intensidade "equilibrada"): fundo levemente tingido + texto
+// e pontinho na cor. Vivo, mas calmo.
+function TonalPill({ color, children }: { color: string; children: React.ReactNode }) {
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap',
-      fontSize: 11.5, fontWeight: 700, padding: '3px 10px', borderRadius: 7,
-      background: color, color: '#fff',
+      display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+      fontSize: 11.5, fontWeight: 700, padding: '3px 9px', borderRadius: 7,
+      background: color + '1f', color,
     }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }} />
       {children}
     </span>
+  )
+}
+
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  const w = 120, h = 26
+  const max = Math.max(...data, 1)
+  const pts = data.map((v, i) => `${(i / Math.max(data.length - 1, 1)) * w},${(h - 2) - (v / max) * (h - 5)}`).join(' ')
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: 'block' }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </svg>
   )
 }
 
@@ -196,7 +211,7 @@ function PerceptionBadge({ perception }: { perception: string | null }) {
   if (!c) return (
     <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 7, background: 'var(--bg-subtle)', color: 'var(--text-subtle)' }}>—</span>
   )
-  return <VibrantPill color={c}>{perception}</VibrantPill>
+  return <TonalPill color={c}>{perception}</TonalPill>
 }
 
 function fmtDate(iso: string) {
@@ -228,7 +243,7 @@ function fmtBRLShort(n: number | null): string {
 function StatusBadge({ status }: { status: string | null }) {
   const key = (status ?? 'novo').toLowerCase()
   const s = STATUS_STYLE[key] ?? { color: '#6B7280' }
-  return <VibrantPill color={s.color}>{statusLabel(status)}</VibrantPill>
+  return <TonalPill color={s.color}>{statusLabel(status)}</TonalPill>
 }
 
 function getPagesRange(current: number, total: number): (number | '...')[] {
@@ -710,30 +725,48 @@ export default function LeadsReport() {
         {stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {([
-              { key: 'total',    label: 'Total',    value: stats.total,    accent: '#7C93C4', active: !statusFilter && !perceptionFilter },
-              { key: 'fechados', label: 'Fechados', value: stats.fechados, accent: '#0F9D58', active: statusFilter === STATUS_FECHADO },
-              { key: 'perdidos', label: 'Perdidos', value: stats.perdidos, accent: '#E1394A', active: statusFilter === STATUS_PERDIDO },
-              { key: 'quentes',  label: 'Quentes',  value: stats.quentes,  accent: '#D97706', active: perceptionFilter === 'Quente' },
-            ] as const).map(s => (
+              { key: 'total',    label: 'Total',    value: stats.total,    accent: '#7C93C4', active: !statusFilter && !perceptionFilter, series: stats.series?.total,    delta: stats.deltas?.total,    goodUp: true },
+              { key: 'fechados', label: 'Fechados', value: stats.fechados, accent: '#0F9D58', active: statusFilter === STATUS_FECHADO,        series: stats.series?.fechados, delta: stats.deltas?.fechados, goodUp: true },
+              { key: 'perdidos', label: 'Perdidos', value: stats.perdidos, accent: '#E1394A', active: statusFilter === STATUS_PERDIDO,        series: stats.series?.perdidos, delta: stats.deltas?.perdidos, goodUp: false },
+              { key: 'quentes',  label: 'Quentes',  value: stats.quentes,  accent: '#D97706', active: perceptionFilter === 'Quente',           series: stats.series?.quentes,  delta: stats.deltas?.quentes,  goodUp: true },
+            ] as const).map(s => {
+              const showDelta = typeof s.delta === 'number' && s.delta !== 0
+              const good = showDelta && ((s.delta as number) > 0) === s.goodUp
+              return (
               <button
                 key={s.key}
                 onClick={() => toggleStatFilter(s.key)}
                 style={{
                   position: 'relative', overflow: 'hidden', textAlign: 'left', font: 'inherit', cursor: 'pointer',
-                  background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px',
+                  background: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px 12px',
                   border: `1px solid ${s.active ? s.accent : 'var(--border)'}`,
                   boxShadow: s.active ? `0 0 0 3px ${s.accent}22` : 'none',
                   transition: 'border-color 120ms, box-shadow 120ms',
                 }}
               >
                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: s.accent }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.accent, flexShrink: 0 }} />
-                  {s.label}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.accent, flexShrink: 0 }} />
+                    {s.label}
+                  </span>
+                  {showDelta && (
+                    <span style={{
+                      fontSize: 10.5, fontWeight: 700, padding: '2px 6px', borderRadius: 6,
+                      color: good ? '#0F9D58' : '#E1394A',
+                      background: good ? 'rgba(15,157,88,0.1)' : 'rgba(225,57,74,0.1)',
+                    }}>
+                      {(s.delta as number) > 0 ? '↑' : '↓'} {Math.abs(s.delta as number)}%
+                    </span>
+                  )}
                 </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{s.value}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginBottom: 6 }}>{s.value}</div>
+                {s.series && s.series.some(v => v > 0)
+                  ? <Sparkline data={s.series} color={s.accent} />
+                  : <div style={{ height: 26 }} />}
               </button>
-            ))}
+              )
+            })}
           </div>
         )}
 
