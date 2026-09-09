@@ -170,22 +170,49 @@ const STATUS_STYLE: Record<string, { color: string }> = {
 const PERCEPTION_STYLE: Record<string, { color: string }> = {
   quente: { color: '#DC2626' },
   morno: { color: '#D97706' },
-  frio: { color: '#60A5FA' },
+  frio: { color: '#3B82F6' },
 }
 
-function PerceptionBadge({ perception }: { perception: string | null }) {
-  if (!perception) return <span style={{ color: 'var(--text-subtle)', fontSize: 13 }}>—</span>
-  const s = PERCEPTION_STYLE[perception.toLowerCase()] ?? { color: '#6B7280' }
+function perceptionColor(perception: string | null): string | null {
+  if (!perception) return null
+  return (PERCEPTION_STYLE[perception.toLowerCase()] ?? { color: '#6B7280' }).color
+}
+
+// Cápsula preenchida (intensidade "vibrante"): fundo sólido, texto branco.
+function VibrantPill({ color, children }: { color: string; children: React.ReactNode }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-      {perception}
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap',
+      fontSize: 11.5, fontWeight: 700, padding: '3px 10px', borderRadius: 7,
+      background: color, color: '#fff',
+    }}>
+      {children}
     </span>
   )
 }
 
+function PerceptionBadge({ perception }: { perception: string | null }) {
+  const c = perceptionColor(perception)
+  if (!c) return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 7, background: 'var(--bg-subtle)', color: 'var(--text-subtle)' }}>—</span>
+  )
+  return <VibrantPill color={c}>{perception}</VibrantPill>
+}
+
 function fmtDate(iso: string) {
   return new Date(parseUTC(iso)).toLocaleDateString('pt-BR')
+}
+
+function fmtAgo(iso: string | null): string {
+  if (!iso) return '—'
+  const days = Math.floor((Date.now() - parseUTC(iso)) / 86400000)
+  if (days <= 0) return 'hoje'
+  if (days === 1) return 'ontem'
+  if (days < 30) return `há ${days} dias`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `há ${months} ${months === 1 ? 'mês' : 'meses'}`
+  const years = Math.floor(months / 12)
+  return `há ${years} ${years === 1 ? 'ano' : 'anos'}`
 }
 
 function fmtBRL(n: number | null) {
@@ -193,15 +220,15 @@ function fmtBRL(n: number | null) {
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function fmtBRLShort(n: number | null): string {
+  if (n == null || n === 0) return '—'
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+
 function StatusBadge({ status }: { status: string | null }) {
   const key = (status ?? 'novo').toLowerCase()
   const s = STATUS_STYLE[key] ?? { color: '#6B7280' }
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-      {statusLabel(status)}
-    </span>
-  )
+  return <VibrantPill color={s.color}>{statusLabel(status)}</VibrantPill>
 }
 
 function getPagesRange(current: number, total: number): (number | '...')[] {
@@ -212,13 +239,13 @@ function getPagesRange(current: number, total: number): (number | '...')[] {
 }
 
 const COLUMNS: { key: SortKey; label: string }[] = [
-  { key: 'created_at',     label: 'Criado em' },
-  { key: 'updated_at',     label: 'Atualizado em' },
-  { key: 'name',           label: 'Cliente' },
-  { key: 'origem',         label: 'Origem' },
-  { key: 'modalidade',     label: 'Modalidade' },
-  { key: 'perception',     label: 'Temperatura' },
-  { key: 'status',         label: 'Status' },
+  { key: 'name',            label: 'Cliente' },
+  { key: 'origem',          label: 'Origem' },
+  { key: 'modalidade',      label: 'Modalidade' },
+  { key: 'value_potential', label: 'Valor' },
+  { key: 'perception',      label: 'Temperatura' },
+  { key: 'status',          label: 'Status' },
+  { key: 'updated_at',      label: 'Movido' },
 ]
 
 export default function LeadsReport() {
@@ -379,6 +406,15 @@ export default function LeadsReport() {
     if (searched) fetchReport(1)
   }, [renutFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Busca da barra rápida: filtra sozinha com um respiro de digitação.
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>()
+  useEffect(() => {
+    if (!searched) return
+    clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => fetchReport(1), 400)
+    return () => clearTimeout(searchDebounceRef.current)
+  }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
 
   const reportFilterParams = useCallback((): Record<string, string | number | boolean> => {
@@ -512,6 +548,19 @@ export default function LeadsReport() {
   }
 
   function handleSearch() { fetchReport(1) }
+
+  // Cards de resumo agem como filtro rápido — clicar de novo no card ativo limpa.
+  function toggleStatFilter(key: 'total' | 'fechados' | 'perdidos' | 'quentes') {
+    if (key === 'total') { setStatusFilter(''); setPerceptionFilter(''); return }
+    if (key === 'quentes') {
+      setStatusFilter('')
+      setPerceptionFilter(p => (p === 'Quente' ? '' : 'Quente'))
+      return
+    }
+    setPerceptionFilter('')
+    const target = key === 'fechados' ? STATUS_FECHADO : STATUS_PERDIDO
+    setStatusFilter(s => (s === target ? '' : target))
+  }
 
   function handleSort(col: SortKey) {
     if (sortCol === col) {
@@ -661,22 +710,76 @@ export default function LeadsReport() {
         {stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {([
-              { label: 'Total',     value: stats.total,     accent: '#7C93C4' },
-              { label: 'Fechados',  value: stats.fechados,  accent: '#6FA88C' },
-              { label: 'Perdidos',  value: stats.perdidos,  accent: '#C48787' },
-              { label: 'Quentes',   value: stats.quentes,   accent: '#C4A06F' },
+              { key: 'total',    label: 'Total',    value: stats.total,    accent: '#7C93C4', active: !statusFilter && !perceptionFilter },
+              { key: 'fechados', label: 'Fechados', value: stats.fechados, accent: '#0F9D58', active: statusFilter === STATUS_FECHADO },
+              { key: 'perdidos', label: 'Perdidos', value: stats.perdidos, accent: '#E1394A', active: statusFilter === STATUS_PERDIDO },
+              { key: 'quentes',  label: 'Quentes',  value: stats.quentes,  accent: '#D97706', active: perceptionFilter === 'Quente' },
             ] as const).map(s => (
-              <div key={s.label} style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
+              <button
+                key={s.key}
+                onClick={() => toggleStatFilter(s.key)}
+                style={{
+                  position: 'relative', overflow: 'hidden', textAlign: 'left', font: 'inherit', cursor: 'pointer',
+                  background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px',
+                  border: `1px solid ${s.active ? s.accent : 'var(--border)'}`,
+                  boxShadow: s.active ? `0 0 0 3px ${s.accent}22` : 'none',
+                  transition: 'border-color 120ms, box-shadow 120ms',
+                }}
+              >
                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: s.accent }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.accent, flexShrink: 0 }} />
                   {s.label}
                 </div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{s.value}</div>
-              </div>
+              </button>
             ))}
           </div>
         )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 10px' }}>
+          <div style={{ flex: 1, minWidth: 180, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--bg-subtle)', borderRadius: 9 }}>
+            <Search size={14} style={{ color: 'var(--text-subtle)', flexShrink: 0 }} />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar por nome, CPF/CNPJ, telefone ou email"
+              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 12.5, color: 'var(--text-2)' }}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex', padding: 0 }}>
+                <X size={13} />
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', background: 'var(--bg-subtle)', borderRadius: 9, padding: 3 }}>
+            {([
+              { label: 'Todas',  value: '',       color: '' },
+              { label: 'Quente', value: 'Quente', color: '#DC2626' },
+              { label: 'Morno',  value: 'Morno',  color: '#D97706' },
+              { label: 'Frio',   value: 'Frio',   color: '#3B82F6' },
+            ] as const).map(opt => {
+              const active = perceptionFilter === opt.value
+              return (
+                <button
+                  key={opt.label}
+                  onClick={() => setPerceptionFilter(opt.value)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    fontSize: 11.5, fontWeight: 600, padding: '5px 10px', borderRadius: 7, cursor: 'pointer', border: 'none',
+                    background: active ? 'var(--bg-card)' : 'transparent',
+                    color: active ? 'var(--text-1)' : 'var(--text-muted)',
+                    boxShadow: active ? '0 1px 3px rgba(15,23,42,0.12)' : 'none',
+                  }}
+                >
+                  {opt.color && <span style={{ width: 6, height: 6, borderRadius: '50%', background: opt.color }} />}
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
         {error && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}
 
@@ -767,7 +870,9 @@ export default function LeadsReport() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedLeads.map(lead => (
+                      {sortedLeads.map(lead => {
+                        const rail = perceptionColor(lead.perception) ?? 'transparent'
+                        return (
                         <tr
                           key={lead.id}
                           onClick={() => navigate(`/leads/${lead.id}`)}
@@ -783,7 +888,7 @@ export default function LeadsReport() {
                           {isAdmin && (
                             <td
                               onClick={e => e.stopPropagation()}
-                              style={{ padding: '12px 12px', borderTopLeftRadius: 10, borderBottomLeftRadius: 10 }}
+                              style={{ padding: '12px 12px', borderTopLeftRadius: 10, borderBottomLeftRadius: 10, borderLeft: `3px solid ${rail}` }}
                             >
                               <input
                                 type="checkbox"
@@ -793,35 +898,37 @@ export default function LeadsReport() {
                               />
                             </td>
                           )}
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap', borderTopLeftRadius: isAdmin ? 0 : 10, borderBottomLeftRadius: isAdmin ? 0 : 10 }}>
-                            {fmtDate(lead.created_at)}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-                            {lead.updated_at ? fmtDate(lead.updated_at) : '—'}
-                          </td>
-                          <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)' }}>
+                          <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', borderTopLeftRadius: isAdmin ? 0 : 10, borderBottomLeftRadius: isAdmin ? 0 : 10, borderLeft: isAdmin ? 'none' : `3px solid ${rail}` }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <span style={{
-                                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                                width: 30, height: 30, borderRadius: 9, flexShrink: 0,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 12, fontWeight: 700, color: '#fff',
+                                fontSize: 11, fontWeight: 700, color: '#fff',
                                 background: avatarColor(lead.name),
                               }}>
                                 {initials(lead.name)}
                               </span>
-                              {lead.name}
-                              {lead.is_renutrucao && (
-                                <span
-                                  title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
-                                  style={{
-                                    fontSize: 10, fontWeight: 700, color: '#7C3AED',
-                                    background: '#F5F3FF', border: '1px solid #DDD6FE',
-                                    borderRadius: 20, padding: '2px 8px',
-                                    letterSpacing: '0.04em', whiteSpace: 'nowrap',
-                                  }}>
-                                  RENUTRIÇÃO
-                                </span>
-                              )}
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{lead.name}</span>
+                                  {lead.is_renutrucao && (
+                                    <span
+                                      title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
+                                      style={{
+                                        fontSize: 9, fontWeight: 800, color: '#7C3AED',
+                                        background: '#F3F0FF', borderRadius: 5, padding: '2px 5px',
+                                        letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                                      }}>
+                                      RENUTRIÇÃO
+                                    </span>
+                                  )}
+                                </div>
+                                {(lead.phone || lead.email) && (
+                                  <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>
+                                    {lead.phone || lead.email}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
@@ -830,14 +937,21 @@ export default function LeadsReport() {
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
                             {lead.modalidade ?? '—'}
                           </td>
+                          <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 700, color: lead.value_potential ? 'var(--text-1)' : 'var(--text-subtle)', whiteSpace: 'nowrap' }}>
+                            {fmtBRLShort(lead.value_potential)}
+                          </td>
                           <td style={{ padding: '12px 16px' }}>
                             <PerceptionBadge perception={lead.perception} />
                           </td>
-                          <td style={{ padding: '12px 16px', borderTopRightRadius: 10, borderBottomRightRadius: 10 }}>
+                          <td style={{ padding: '12px 16px' }}>
                             <StatusBadge status={lead.status} />
                           </td>
+                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: 'var(--text-subtle)', whiteSpace: 'nowrap', borderTopRightRadius: 10, borderBottomRightRadius: 10 }}>
+                            {fmtAgo(lead.updated_at)}
+                          </td>
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
