@@ -17,20 +17,23 @@ export default function OperadorasField({ value, saving, onChange }: { value: st
     onChange([...next].join(','))
   }
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1">
       <button
         onClick={() => setExpanded(v => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
       >
-        {expanded ? <ChevronDown size={12} color="var(--text-muted)" /> : <ChevronRight size={12} color="var(--text-muted)" />}
         <FieldLabel>Operadoras enviadas{selected.size > 0 ? ` (${selected.size})` : ''}</FieldLabel>
+        {expanded ? <ChevronDown size={12} color="var(--text-muted)" /> : <ChevronRight size={12} color="var(--text-muted)" />}
       </button>
       {!expanded && selected.size > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginLeft: 17 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {[...selected].map(op => (
             <Pill key={op} tone="info">{op}</Pill>
           ))}
         </div>
+      )}
+      {!expanded && selected.size === 0 && (
+        <span style={{ fontSize: 14, lineHeight: '20px', color: 'var(--text-subtle)', fontWeight: 400 }}>Nenhuma enviada</span>
       )}
       {expanded && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, opacity: saving ? 0.6 : 1, pointerEvents: saving ? 'none' : 'auto' }}>
