@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { useTheme } from '../ThemeContext'
 
-export default function SectionCard({ title, icon: Icon, action, compact, children }: { title?: string; icon?: LucideIcon; action?: ReactNode; compact?: boolean; children: ReactNode }) {
+export default function SectionCard({ title, icon: Icon, iconColor, action, compact, children }: { title?: string; icon?: LucideIcon; iconColor?: string; action?: ReactNode; compact?: boolean; children: ReactNode }) {
   const { dark } = useTheme()
   return (
     <div style={{
@@ -12,8 +12,14 @@ export default function SectionCard({ title, icon: Icon, action, compact, childr
     }}>
       {title && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 7, margin: '0 0 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            {Icon && <Icon size={13} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.7 }} />}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {Icon && (iconColor ? (
+              <span style={{ width: 24, height: 24, borderRadius: 7, background: iconColor + '1f', color: iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon size={13} strokeWidth={2} />
+              </span>
+            ) : (
+              <Icon size={13} color="var(--text-3b)" strokeWidth={2} style={{ opacity: 0.7 }} />
+            ))}
             <p style={{ fontSize: 13, lineHeight: '16px', fontWeight: 600, color: 'var(--text-3b)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {title}
             </p>

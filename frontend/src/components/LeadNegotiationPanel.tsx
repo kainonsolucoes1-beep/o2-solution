@@ -52,7 +52,7 @@ export default function LeadNegotiationPanel({
   locked?: boolean
 }) {
   return (
-    <SectionCard title="Negociação" icon={Tag} action={
+    <SectionCard title="Negociação" icon={Tag} iconColor="#2563EB" action={
       locked ? null : editingDetalhes ? (
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onCancelEdit} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>

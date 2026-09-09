@@ -87,6 +87,7 @@ export default function LeadAttachmentsPanel({ leadId, canDelete }: { leadId: st
     <SectionCard
       title="Anexos"
       icon={Paperclip}
+      iconColor="#D97706"
       action={hasFiles && !loading && !error ? (
         <button
           onClick={pick}
@@ -137,7 +138,7 @@ export default function LeadAttachmentsPanel({ leadId, canDelete }: { leadId: st
       ) : (
         <>
           <div className="flex flex-col" style={{ gap: 4 }}>
-            <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
+            <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-3b)' }}>
               {attachments.length === 1 ? 'Arquivo' : 'Arquivos'}
             </span>
             <span style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1, color: 'var(--text-1)' }}>{attachments.length}</span>

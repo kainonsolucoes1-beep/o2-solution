@@ -198,6 +198,7 @@ export default function LeadFinanceiroPanel({
     <SectionCard
       title="Receita"
       icon={Wallet}
+      iconColor="#059669"
       action={
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {origem && <Pill colors={origem}>{origem.label}</Pill>}
@@ -229,7 +230,7 @@ export default function LeadFinanceiroPanel({
         <>
         {total > 0 && (
           <div>
-            <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
+            <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-3b)' }}>
               Total do negócio
             </span>
             <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginTop: 4 }}>

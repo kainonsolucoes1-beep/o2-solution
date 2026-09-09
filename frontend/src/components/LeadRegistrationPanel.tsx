@@ -48,7 +48,7 @@ export default function LeadRegistrationPanel({
 }) {
   const bothEmpty = isEmpty(empresaLabel) && isEmpty(documentoLabel)
   return (
-    <SectionCard title="Cadastro" icon={User} action={
+    <SectionCard title="Cadastro" icon={User} iconColor="#7C3AED" action={
       locked ? null : editingInfo ? (
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onCancelEdit} style={{ fontSize: 12, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -64,7 +64,7 @@ export default function LeadRegistrationPanel({
     }>
       {/* Âncora: quando o lead entrou */}
       <div className="flex flex-col" style={{ gap: 4 }}>
-        <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
+        <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-3b)' }}>
           Lead desde
         </span>
         <span style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>

@@ -25,9 +25,9 @@ export default function LeadCurrentStatusPanel({
   }
 
   return (
-    <SectionCard title="Situação atual" icon={Clock3}>
+    <SectionCard title="Situação atual" icon={Clock3} iconColor="#0891B2">
       <div className="flex flex-col" style={{ gap: 4 }}>
-        <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
+        <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-3b)' }}>
           Última interação
         </span>
         <span style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color }}>
