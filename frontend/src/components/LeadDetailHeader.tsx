@@ -1,4 +1,4 @@
-import { ArrowLeft, MoreVertical, Trash2 } from 'lucide-react'
+import { ArrowLeft, MoreVertical, Trash2, User, Globe, Mail } from 'lucide-react'
 import Pill from './Pill'
 
 function initials(name: string) {
@@ -8,19 +8,12 @@ function initials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-function ContactRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '78px minmax(0, 1fr)', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-      <dt style={{ margin: 0, color: 'var(--text-muted)', fontSize: 12, fontWeight: 500 }}>{label}</dt>
-      <dd style={{ margin: 0, overflowWrap: 'anywhere', color: 'var(--text-1)', fontSize: 13, fontWeight: 600, lineHeight: 1.3 }}>{value}</dd>
-    </div>
-  )
-}
+const isEmpty = (v: string) => !v || v === 'Não informado' || v === '—'
 
 export default function LeadDetailHeader({
   name, statusLabel, sStyle, perceptionLabel, perceptionStyle,
   phoneLabel, emailLabel, attendantLabel, origemLabel,
-  isAdmin, menuOpen, onToggleMenu, onCloseMenu, onRequestDelete, onBack,
+  isAdmin, menuOpen, onToggleMenu, onCloseMenu, onRequestDelete, onBack, bare,
 }: {
   name: string
   statusLabel: string
@@ -37,48 +30,51 @@ export default function LeadDetailHeader({
   onCloseMenu: () => void
   onRequestDelete: () => void
   onBack: () => void
+  bare?: boolean
 }) {
+  const outer: React.CSSProperties = bare
+    ? { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 14 }
+    : { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 14, marginBottom: 20, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px' }
+
   return (
-    <div className="flex flex-wrap" style={{
-      alignItems: 'flex-start', gap: 18, marginBottom: 20,
-      background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px',
-    }}>
-      <div className="w-full sm:w-auto">
-        <button
-          onClick={onBack}
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, flexShrink: 0, marginTop: 2 }}
-        >
-          <ArrowLeft size={16} />
-        </button>
+    <div style={outer}>
+      <button
+        onClick={onBack}
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, flexShrink: 0, marginTop: 2 }}
+      >
+        <ArrowLeft size={16} />
+      </button>
+
+      <div style={{
+        flexShrink: 0, width: 44, height: 44, borderRadius: '50%',
+        background: 'var(--bg-subtle)', color: 'var(--accent)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 14, fontWeight: 700, letterSpacing: '0.01em', marginTop: 1,
+      }}>
+        {initials(name)}
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex" style={{ alignItems: 'center', gap: 13 }}>
-          <div style={{
-            flexShrink: 0, width: 44, height: 44, borderRadius: '50%',
-            background: 'var(--bg-subtle)', color: 'var(--accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 700, letterSpacing: '0.01em',
-          }}>
-            {initials(name)}
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div className="flex items-center flex-wrap" style={{ gap: 10 }}>
-              <p className="text-[18px] sm:text-[24px]" style={{ fontWeight: 700, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>{name}</p>
-              <div className="flex flex-wrap" style={{ gap: 5, marginTop: 3 }}>
-                <Pill colors={sStyle}>{statusLabel}</Pill>
-                {perceptionLabel && perceptionStyle && <Pill colors={perceptionStyle}>{perceptionLabel}</Pill>}
-              </div>
-            </div>
-          </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em', lineHeight: 1.25, overflowWrap: 'break-word' }}>
+          {name}
+        </p>
+        <div className="flex flex-wrap" style={{ gap: 5, marginTop: 7 }}>
+          <Pill colors={sStyle}>{statusLabel}</Pill>
+          {perceptionLabel && perceptionStyle && <Pill colors={perceptionStyle}>{perceptionLabel}</Pill>}
         </div>
-        <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-          <dl style={{ display: 'flex', flexDirection: 'column', gap: 5, maxWidth: 520, margin: 0 }}>
-            <ContactRow label="Telefone" value={phoneLabel} />
-            <ContactRow label="E-mail" value={emailLabel} />
-            <ContactRow label="Atendente" value={attendantLabel} />
-            <ContactRow label="Origem" value={origemLabel} />
-          </dl>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', marginTop: 12, fontSize: 12.5 }}>
+          {!isEmpty(phoneLabel) && (
+            <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{phoneLabel}</span>
+          )}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text-2)', fontWeight: 600 }}>
+            <User size={12} style={{ color: 'var(--text-subtle)' }} /> {isEmpty(attendantLabel) ? 'Sem atendente' : attendantLabel}
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text-2)', fontWeight: 600 }}>
+            <Globe size={12} style={{ color: 'var(--text-subtle)' }} /> {isEmpty(origemLabel) ? 'Sem origem' : origemLabel}
+          </span>
+          {isEmpty(emailLabel)
+            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text-subtle)' }}><Mail size={12} /> sem e-mail</span>
+            : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text-2)', fontWeight: 600 }}><Mail size={12} style={{ color: 'var(--text-subtle)' }} /> {emailLabel}</span>}
         </div>
       </div>
 

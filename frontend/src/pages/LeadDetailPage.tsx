@@ -503,7 +503,9 @@ export default function LeadDetailPage() {
         </div>
       )}
 
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', marginBottom: 20 }}>
       <LeadDetailHeader
+        bare
         name={lead.name}
         statusLabel={statusLabel(status)}
         sStyle={sStyle}
@@ -521,34 +523,10 @@ export default function LeadDetailPage() {
         onBack={() => navigate(-1)}
       />
 
-      {confirmDelete && (
-        <div onClick={() => !deleting && setConfirmDelete(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', padding: 24 }}>
-            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 8px' }}>Excluir este lead?</p>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px' }}>
-              Esta ação não pode ser desfeita. O lead e todo o histórico associado (notas, agendamentos, status) serão excluídos permanentemente.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                disabled={deleting}
-                style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border-in)', cursor: deleting ? 'not-allowed' : 'pointer' }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#DC2626', color: 'white', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
-              >
-                {deleting ? 'Excluindo…' : 'Sim, excluir'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <div style={{ height: 1, background: 'var(--border)', margin: '16px 0' }} />
 
       <LeadNextStepPanel
+        bare
         editing={acaoRapidaEditing}
         telHref={telHref}
         mailHref={mailHref}
@@ -643,6 +621,34 @@ export default function LeadDetailPage() {
         onCancelRetrabalhar={handleCancelRetrabalhar}
         retrabalhando={retrabalhando}
       />
+      </div>
+
+      {confirmDelete && (
+        <div onClick={() => !deleting && setConfirmDelete(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', padding: 24 }}>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 8px' }}>Excluir este lead?</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px' }}>
+              Esta ação não pode ser desfeita. O lead e todo o histórico associado (notas, agendamentos, status) serão excluídos permanentemente.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border-in)', cursor: deleting ? 'not-allowed' : 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#DC2626', color: 'white', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
+              >
+                {deleting ? 'Excluindo…' : 'Sim, excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] items-start" style={{ marginTop: 20, gap: 20 }}>
         <div>

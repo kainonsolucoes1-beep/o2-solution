@@ -128,25 +128,18 @@ export default function LeadNextStepPanel({
   onConfirmRetrabalhar: () => void
   onCancelRetrabalhar: () => void
   retrabalhando: boolean
+  bare?: boolean
 }) {
+  const finalizeIsPrimary = ['proposta', 'proposal_sent', 'negociacao'].includes((status || '').toLowerCase())
+  const sectionStyle: React.CSSProperties = bare
+    ? {}
+    : { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 22px' }
   return (
-    <section style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '20px 22px',
-    }}>
-      <div className="grid grid-cols-1 sm:grid-cols-[minmax(230px,.7fr)_minmax(0,1.3fr)]" style={{ gap: 20, alignItems: 'center' }}>
-        <div>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.005em' }}>
-            Avançar atendimento
-          </h3>
-          <p style={{ maxWidth: 420, marginTop: 6, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>
-            Continue o atendimento a partir das ações abaixo.
-          </p>
-        </div>
-
+    <section style={sectionStyle}>
+      <div>
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end" style={{ gap: 7 }}>
           {!locked && (
-          <button style={primaryActionBtnStyle} onClick={onOpenSchedule}>
+          <button style={finalizeIsPrimary ? actionBtnStyle(true) : primaryActionBtnStyle} onClick={onOpenSchedule}>
             Agendar
           </button>
           )}
@@ -202,7 +195,7 @@ export default function LeadNextStepPanel({
                   {faturando ? 'Faturando…' : 'Faturar'}
                 </button>
               ) : (
-                <button style={actionBtnStyle(true)} onClick={onOpenFinalizar}>
+                <button style={finalizeIsPrimary ? primaryActionBtnStyle : actionBtnStyle(true)} onClick={onOpenFinalizar}>
                   Finalizar atendimento
                 </button>
               )}
