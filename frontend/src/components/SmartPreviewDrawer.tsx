@@ -10,6 +10,10 @@ interface Props {
   trigger: HTMLElement | null
   onClose: () => void
   onAction: () => void
+  /** quando definido, os quadros do resumo viram botões que filtram a lista */
+  onSummaryClick?: (index: number) => void
+  /** índice do quadro do resumo ativo (-1 = nenhum) */
+  activeSummary?: number
 }
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -17,7 +21,7 @@ const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabi
 // Drawer lateral reutilizável para o padrão Smart Preview (Vida do Agente).
 // Estilo segue os mesmos tokens de SourceDetailModal.tsx (CSS vars de tema);
 // conteúdo/dados ficam fora deste componente.
-export default function SmartPreviewDrawer({ preview, loading, trigger, onClose, onAction }: Props) {
+export default function SmartPreviewDrawer({ preview, loading, trigger, onClose, onAction, onSummaryClick, activeSummary }: Props) {
   const { dark } = useTheme()
   const closeRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -78,14 +82,37 @@ export default function SmartPreviewDrawer({ preview, loading, trigger, onClose,
             <p style={{ textAlign: 'center', color: 'var(--text-subtle)', fontSize: 12.5, padding: '40px 0' }}>Carregando…</p>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 18 }}>
-                {preview.summary.map(([label, value]) => (
-                  <div key={label} style={{ padding: '11px 12px', border: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'var(--border-lt)'}`, borderRadius: 10, background: 'var(--bg-subtle)' }}>
-                    <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: 0 }}>{label}</p>
-                    <p style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 0', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
-                  </div>
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: onSummaryClick ? 10 : 18 }}>
+                {preview.summary.map(([label, value], i) => {
+                  const clickable = !!onSummaryClick
+                  const active = clickable && activeSummary === i
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={clickable ? () => onSummaryClick(i) : undefined}
+                      style={{
+                        textAlign: 'left', font: 'inherit', width: '100%',
+                        padding: '11px 12px', borderRadius: 10,
+                        background: active ? 'var(--accent-weak)' : 'var(--bg-subtle)',
+                        border: `${active ? 2 : 1}px solid ${active ? 'var(--accent)' : dark ? 'rgba(255,255,255,0.06)' : 'var(--border-lt)'}`,
+                        boxShadow: active ? '0 0 0 3px var(--accent-weak)' : 'none',
+                        opacity: clickable && !active && activeSummary !== undefined && activeSummary >= 0 ? 0.65 : 1,
+                        cursor: clickable ? 'pointer' : 'default',
+                        transition: 'border-color 120ms, box-shadow 120ms, opacity 120ms',
+                      }}
+                    >
+                      <p style={{ fontSize: 10.5, color: active ? 'var(--accent)' : 'var(--text-subtle)', margin: 0 }}>{label}</p>
+                      <p style={{ fontSize: 14.5, fontWeight: 700, color: active ? 'var(--accent)' : 'var(--text-1)', margin: '4px 0 0', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+                    </button>
+                  )
+                })}
               </div>
+              {onSummaryClick && (
+                <p style={{ fontSize: 10.5, color: 'var(--text-subtle)', margin: '0 0 14px' }}>
+                  {activeSummary === 0 ? 'Só o que já entrou.' : activeSummary === 1 ? 'Só o que ainda está previsto.' : 'Toque num quadro pra filtrar a lista.'}
+                </p>
+              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {preview.rows.slice(0, 5).map((row, index) => (

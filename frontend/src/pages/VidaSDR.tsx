@@ -11,8 +11,8 @@ import { useTheme } from '../ThemeContext'
 import { type FiltroPeriodo, mesAtualRange } from '../utils/periodoFiltro'
 import SmartPreviewDrawer from '../components/SmartPreviewDrawer'
 import {
-  buildSmartPreview, fetchSmartPreviewRows, fetchReceitaComposicao, needsRowFetch, MOCK_CUSTO_TOTAL,
-  type SmartPreviewId, type SmartPreview,
+  buildSmartPreview, fetchSmartPreviewRows, fetchReceitaComposicao, receitaRows, needsRowFetch, MOCK_CUSTO_TOTAL,
+  type SmartPreviewId, type SmartPreview, type ReceitaComposicaoResponse, type ReceitaKind,
 } from '../utils/vidaSdrPreview'
 
 interface TrendItem { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number | null }
@@ -302,7 +302,10 @@ export default function VidaSDR() {
 
   const [drawerTrigger, setDrawerTrigger] = useState<HTMLElement | null>(null)
   const [preview, setPreview] = useState<SmartPreview | null>(null)
+  const [previewId, setPreviewId] = useState<SmartPreviewId | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [receitaRaw, setReceitaRaw] = useState<ReceitaComposicaoResponse | null>(null)
+  const [receitaKind, setReceitaKind] = useState<ReceitaKind>('all')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('vendas')
   const [rankingMetric, setRankingMetric] = useState<'captacoes' | 'vendas'>('captacoes')
 
@@ -336,12 +339,15 @@ export default function VidaSDR() {
   function openPreview(id: SmartPreviewId, context: number, trigger: HTMLElement) {
     if (!data || !origens) return
     setDrawerTrigger(trigger)
+    setPreviewId(id)
     const base = buildSmartPreview(id, context, data, origens)
     setPreview(base)
     if (id === 'receita_recebida' || id === 'receita_a_receber') {
+      setReceitaRaw(null)
+      setReceitaKind(id === 'receita_a_receber' ? 'a_receber' : 'all')
       setPreviewLoading(true)
       fetchReceitaComposicao(id, origens, periodParams())
-        .then(({ rows, count }) => setPreview(prev => (prev ? { ...prev, rows, count } : prev)))
+        .then(({ raw, rows, count }) => { setReceitaRaw(raw); setPreview(prev => (prev ? { ...prev, rows, count } : prev)) })
         .catch(() => setPreview(prev => (prev ? { ...prev, rows: [] } : prev)))
         .finally(() => setPreviewLoading(false))
       return
@@ -358,6 +364,7 @@ export default function VidaSDR() {
   function closePreview() {
     setDrawerTrigger(null)
     setPreview(null)
+    setPreviewId(null)
     setPreviewLoading(false)
   }
 
@@ -788,6 +795,15 @@ export default function VidaSDR() {
           trigger={drawerTrigger}
           onClose={closePreview}
           onAction={handlePreviewAction}
+          {...(previewId === 'receita_recebida' && receitaRaw ? {
+            activeSummary: receitaKind === 'recebida' ? 0 : receitaKind === 'a_receber' ? 1 : -1,
+            onSummaryClick: (i: number) => {
+              const target: ReceitaKind = i === 0 ? 'recebida' : 'a_receber'
+              const next: ReceitaKind = receitaKind === target ? 'all' : target
+              setReceitaKind(next)
+              setPreview(prev => (prev ? { ...prev, ...receitaRows(receitaRaw, next) } : prev))
+            },
+          } : {})}
         />
       )}
     </div>

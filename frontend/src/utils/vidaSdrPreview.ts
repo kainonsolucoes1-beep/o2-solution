@@ -81,11 +81,30 @@ export async function fetchSmartPreviewRows(id: SmartPreviewId, origens: string,
   }))
 }
 
-interface ReceitaComposicaoResponse {
+export interface ReceitaComposicaoResponse {
   recebida: number
   a_receber: number
   total_contratos: number
   rows: Array<{ id: string; name: string; subtitle: string; recebida: number; a_receber: number; status: string | null; data: string | null }>
+}
+
+export type ReceitaKind = 'all' | 'recebida' | 'a_receber'
+
+// Monta as linhas do drawer pra um recorte: 'all' (recebida + a receber),
+// só 'recebida' ou só 'a_receber'. Função pura — o toggle dos quadros do
+// resumo troca o `kind` sem refazer a chamada.
+export function receitaRows(data: ReceitaComposicaoResponse, kind: ReceitaKind): { rows: SmartPreviewRow[]; count: string } {
+  const rows: SmartPreviewRow[] = data.rows
+    .filter(r => kind === 'recebida' ? r.recebida > 0 : kind === 'a_receber' ? r.a_receber > 0 : true)
+    .map(r => ({
+      title: r.name,
+      subtitle: r.subtitle,
+      value: fmtBrl(kind === 'recebida' ? r.recebida : kind === 'a_receber' ? r.a_receber : r.recebida + r.a_receber),
+      meta: r.data ? new Date(r.data).toLocaleDateString('pt-BR') : undefined,
+      status: r.recebida > 0 && r.a_receber > 0 ? 'Recebido + a receber' : r.a_receber > 0 ? 'A receber' : 'Recebido',
+    }))
+  const totalN = kind === 'all' ? data.total_contratos : rows.length
+  return { rows, count: `Exibindo ${Math.min(rows.length, 5)} de ${totalN} ${totalN === 1 ? 'contrato' : 'contratos'}` }
 }
 
 // Composição da receita gerada (card "Receita gerada" na Vida do Agente) e dos
@@ -96,23 +115,13 @@ export async function fetchReceitaComposicao(
   id: 'receita_recebida' | 'receita_a_receber',
   origens: string,
   period: { date_from?: string; date_to?: string },
-): Promise<{ rows: SmartPreviewRow[]; count: string }> {
+): Promise<{ raw: ReceitaComposicaoResponse; rows: SmartPreviewRow[]; count: string }> {
   const params: Record<string, string> = { origens }
   if (period.date_from) params.date_from = period.date_from
   if (period.date_to) params.date_to = period.date_to
   const { data } = await api.get<ReceitaComposicaoResponse>('/api/v1/gestao-comercial/vida-sdr/receita-composicao', { params })
-  const soReceber = id === 'receita_a_receber'
-  const rows: SmartPreviewRow[] = data.rows
-    .filter(r => soReceber ? r.a_receber > 0 : true)
-    .map(r => ({
-      title: r.name,
-      subtitle: r.subtitle,
-      value: fmtBrl(soReceber ? r.a_receber : r.recebida + r.a_receber),
-      meta: r.data ? new Date(r.data).toLocaleDateString('pt-BR') : undefined,
-      status: r.recebida > 0 && r.a_receber > 0 ? 'Recebido + a receber' : r.a_receber > 0 ? 'A receber' : 'Recebido',
-    }))
-  const totalN = soReceber ? rows.length : data.total_contratos
-  return { rows, count: `Exibindo ${Math.min(rows.length, 5)} de ${totalN} ${totalN === 1 ? 'contrato' : 'contratos'}` }
+  const kind: ReceitaKind = id === 'receita_a_receber' ? 'a_receber' : 'all'
+  return { raw: data, ...receitaRows(data, kind) }
 }
 
 // Composição simulada — não há endpoint de custos por SDR hoje. Ponto de
