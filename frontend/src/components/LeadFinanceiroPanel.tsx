@@ -41,6 +41,8 @@ function toDateInput(iso: string | null): string {
   return iso ? iso.slice(0, 10) : ''
 }
 
+const brl0 = (n: number) => (n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
 interface GeralDraft {
   titular: string
   promotora: string
@@ -226,28 +228,22 @@ export default function LeadFinanceiroPanel({
         ) : (
         <>
         {total > 0 && (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div style={{ background: STATUS_STYLE.recebido.bg, borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: STATUS_STYLE.recebido.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Recebida</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: STATUS_STYLE.recebido.color, marginTop: 4 }}>{fmtBRL(recebida)}</div>
-              </div>
-              <div style={{ background: STATUS_STYLE.a_receber.bg, borderRadius: 10, padding: '12px 14px' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: STATUS_STYLE.a_receber.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>A Receber</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: STATUS_STYLE.a_receber.color, marginTop: 4 }}>{fmtBRL(aReceber)}</div>
-              </div>
+          <div>
+            <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
+              Total do negócio
+            </span>
+            <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em', color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginTop: 4 }}>
+              {(() => { const [i, d] = fmtBRL(total).split(','); return <>{i}{d != null && <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-muted)' }}>,{d}</span>}</> })()}
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <FieldLabel>Total do negócio</FieldLabel>
-                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>{fmtBRL(total)}</span>
-              </div>
-              <div style={{ height: 6, borderRadius: 99, background: 'var(--warning-weak)', overflow: 'hidden' }}>
-                <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: 'var(--success)' }} />
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 6 }}>{pct}% já recebido</div>
+            <div style={{ height: 7, borderRadius: 99, background: 'var(--warning-weak)', overflow: 'hidden', marginTop: 12 }}>
+              <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: 'var(--success)' }} />
             </div>
-          </>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 600, marginTop: 7 }}>
+              <span style={{ color: 'var(--success)' }}>{brl0(recebida)} recebido</span>
+              <span style={{ color: 'var(--warning)' }}>{brl0(aReceber)} a receber</span>
+            </div>
+            <div style={{ height: 1, background: 'var(--border)', marginTop: 14 }} />
+          </div>
         )}
 
         {editingGeral ? (
@@ -270,16 +266,26 @@ export default function LeadFinanceiroPanel({
               />
             </div>
           </>
-        ) : (
-          <>
-            <Field label="Titular do Contrato" value={titularLabel} />
-            <Field label="Promotora" value={promotoraLabel} />
-            <Field label="Modalidade" value={modalidadeLabel} />
-            <Field label="Operadora" value={operadoraLabel} />
-            <Field label="Categoria" value={categoriaLabel} />
-            <Field label="Data da Venda" value={dataVendaLabel} />
-          </>
-        )}
+        ) : (() => {
+          const semDado = (v: string) => v === 'Não informado' || v === '—' || !v
+          const trioVazio = semDado(promotoraLabel) && semDado(operadoraLabel) && semDado(categoriaLabel)
+          return (
+            <>
+              <Field label="Titular do Contrato" value={titularLabel} />
+              <Field label="Modalidade" value={modalidadeLabel} />
+              {trioVazio ? (
+                <Field label="Promotora · Operadora · Categoria" value="Não informado" />
+              ) : (
+                <>
+                  {!semDado(promotoraLabel) && <Field label="Promotora" value={promotoraLabel} />}
+                  {!semDado(operadoraLabel) && <Field label="Operadora" value={operadoraLabel} />}
+                  {!semDado(categoriaLabel) && <Field label="Categoria" value={categoriaLabel} />}
+                </>
+              )}
+              <Field label="Data da Venda" value={dataVendaLabel} />
+            </>
+          )
+        })()}
 
         <div style={{ marginTop: 4, paddingTop: 14, borderTop: '1px solid var(--border-in)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
