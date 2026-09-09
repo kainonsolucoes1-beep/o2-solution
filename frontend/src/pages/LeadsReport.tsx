@@ -9,6 +9,7 @@ import SectionTitle from '../components/SectionTitle'
 import Combobox from '../components/Combobox'
 import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
 import AssignRenutricaoModal from '../components/AssignRenutricaoModal'
+import LeadPeekDrawer from '../components/LeadPeekDrawer'
 import { useTheme } from '../ThemeContext'
 
 interface Me {
@@ -300,6 +301,8 @@ export default function LeadsReport() {
     return (q || (cameFromUrlFilters ? '' : storedFilters.renutFilter ?? '')) as '' | 'em' | 'fora'
   })
   const vencidosFilter = searchParams.get('vencidos') === '1'
+  const [staleDays, setStaleDays] = useState(0)
+  const [peekLead, setPeekLead]   = useState<LeadItem | null>(null)
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
   const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc')
@@ -377,6 +380,7 @@ export default function LeadsReport() {
     setClosedSubStatus('')
     setTeamFilter('')
     setRenutFilter('')
+    setStaleDays(0)
     setFilterOpen(false)
     setClearTrigger(c => c + 1)
   }
@@ -421,6 +425,10 @@ export default function LeadsReport() {
     if (searched) fetchReport(1)
   }, [renutFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (searched) fetchReport(1)
+  }, [staleDays]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Busca da barra rápida: filtra sozinha com um respiro de digitação.
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>()
   useEffect(() => {
@@ -444,9 +452,10 @@ export default function LeadsReport() {
     if (conversionPointFilter) params.conversion_point = conversionPointFilter
     if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
     if (teamFilter) params.team = teamFilter
+    if (staleDays > 0) params.stale_days = staleDays
     if (search.trim()) params.search = search.trim()
     return params
-  }, [dateFrom, dateTo, vencidosFilter, isAdmin, origem, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, search])
+  }, [dateFrom, dateTo, vencidosFilter, isAdmin, origem, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, staleDays, search])
 
   const [selectingAll, setSelectingAll] = useState(false)
   async function selectAllFiltered() {
@@ -563,6 +572,30 @@ export default function LeadsReport() {
   }
 
   function handleSearch() { fetchReport(1) }
+
+  // Visões salvas: presets dos filtros que já existem, expostos como abas.
+  type ViewKey = 'todos' | 'quentes' | 'atencao' | 'proposta' | 'renutricao' | 'fechados_mes'
+  function applyView(key: ViewKey) {
+    setStatusFilter('')
+    setPerceptionFilter('')
+    setRenutFilter('')
+    setStaleDays(0)
+    if (key === 'quentes') setPerceptionFilter('Quente')
+    else if (key === 'atencao') setStaleDays(7)
+    else if (key === 'proposta') setStatusFilter(STATUS_PROPOSTA)
+    else if (key === 'renutricao') setRenutFilter('em')
+    else if (key === 'fechados_mes') { setStatusFilter(STATUS_FECHADO); setDateFrom(monthStart); setDateTo(today) }
+  }
+  const activeView: ViewKey | null = (() => {
+    const noStatus = !statusFilter, noPerc = !perceptionFilter, noRenut = renutFilter === '', noStale = !staleDays
+    if (statusFilter === STATUS_PROPOSTA && noPerc && noRenut && noStale) return 'proposta'
+    if (statusFilter === STATUS_FECHADO && noPerc && noRenut && noStale) return 'fechados_mes'
+    if (perceptionFilter === 'Quente' && noStatus && noRenut && noStale) return 'quentes'
+    if (renutFilter === 'em' && noStatus && noPerc && noStale) return 'renutricao'
+    if (staleDays === 7 && noStatus && noPerc && noRenut) return 'atencao'
+    if (noStatus && noPerc && noRenut && noStale) return 'todos'
+    return null
+  })()
 
   // Cards de resumo agem como filtro rápido — clicar de novo no card ativo limpa.
   function toggleStatFilter(key: 'total' | 'fechados' | 'perdidos' | 'quentes') {
@@ -722,6 +755,14 @@ export default function LeadsReport() {
           />
         )}
 
+        {peekLead && (
+          <LeadPeekDrawer
+            lead={peekLead}
+            onClose={() => setPeekLead(null)}
+            onOpenFull={() => navigate(`/leads/${peekLead.id}`)}
+          />
+        )}
+
         {stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {([
@@ -769,6 +810,34 @@ export default function LeadsReport() {
             })}
           </div>
         )}
+
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 2 }}>
+          {([
+            { key: 'todos',        label: 'Todos' },
+            { key: 'quentes',      label: 'Quentes' },
+            { key: 'atencao',      label: 'Precisam de atenção' },
+            { key: 'proposta',     label: 'Em proposta' },
+            { key: 'renutricao',   label: 'Renutrição' },
+            { key: 'fechados_mes', label: 'Fechados do mês' },
+          ] as const).map(v => {
+            const on = activeView === v.key
+            return (
+              <button
+                key={v.key}
+                onClick={() => applyView(v.key)}
+                style={{
+                  font: 'inherit', fontSize: 12.5, fontWeight: on ? 700 : 500, cursor: 'pointer',
+                  padding: '8px 12px', border: 'none', background: 'none',
+                  color: on ? 'var(--accent)' : 'var(--text-muted)',
+                  borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`,
+                  marginBottom: -3,
+                }}
+              >
+                {v.label}
+              </button>
+            )
+          })}
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 10px' }}>
           <div style={{ flex: 1, minWidth: 180, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--bg-subtle)', borderRadius: 9 }}>
@@ -908,7 +977,7 @@ export default function LeadsReport() {
                         return (
                         <tr
                           key={lead.id}
-                          onClick={() => navigate(`/leads/${lead.id}`)}
+                          onClick={() => setPeekLead(lead)}
                           style={{
                             background: 'var(--bg-card)',
                             boxShadow: '0 1px 3px rgba(0,0,0,0.08)',

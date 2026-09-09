@@ -161,6 +161,7 @@ def leads_by_period(
     vencidos: bool = Query(False),
     renutricao: bool = Query(False),
     sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
+    stale_days: int = Query(0, ge=0, le=365, description="só leads ainda ativos e sem movimento há N+ dias"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=10000),
     ids_only: bool = Query(False, description="Retorna só {ids, total} de TODOS os leads do filtro (sem paginar) — pra 'selecionar tudo'"),
@@ -188,6 +189,9 @@ def leads_by_period(
     def _base_query(q):
         if vencidos:
             q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
+        if stale_days > 0:
+            stale_cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=stale_days)
+            q = q.filter(Lead.updated_at <= stale_cutoff, _active_filter)
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
         elif sem_renutricao:
@@ -320,6 +324,7 @@ def leads_report_stats(
     vencidos: bool = Query(False),
     renutricao: bool = Query(False),
     sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
+    stale_days: int = Query(0, ge=0, le=365, description="só leads ainda ativos e sem movimento há N+ dias"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -346,6 +351,9 @@ def leads_report_stats(
     def _base_query(q):
         if vencidos:
             q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
+        if stale_days > 0:
+            stale_cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=stale_days)
+            q = q.filter(Lead.updated_at <= stale_cutoff, _active_filter)
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
         elif sem_renutricao:
@@ -1172,6 +1180,97 @@ def get_schedule_history(
         .all()
     )
     return ScheduleHistoryResponse(schedules=rows)
+
+
+@router.get("/leads/{lead_id}/peek")
+def lead_peek(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Resumo compacto pro painel lateral do Relatório de Leads — o que a linha
+    NÃO mostra: próximo agendamento, mini-timeline (status + notas + retornos),
+    última nota, tempo sem interação / no status atual, posse e negociação."""
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    prox = (
+        db.query(LeadSchedule)
+        .filter(LeadSchedule.lead_id == lead_id, LeadSchedule.is_active.is_(True))
+        .order_by(LeadSchedule.scheduled_at.asc())
+        .first()
+    )
+
+    hist = (
+        db.query(LeadStatusHistory)
+        .filter(LeadStatusHistory.lead_id == lead_id)
+        .order_by(LeadStatusHistory.changed_at.desc())
+        .limit(6)
+        .all()
+    )
+    notes = (
+        db.query(LeadNote, User)
+        .outerjoin(User, LeadNote.user_id == User.id)
+        .filter(LeadNote.lead_id == lead_id)
+        .order_by(LeadNote.created_at.desc())
+        .limit(4)
+        .all()
+    )
+    scheds = (
+        db.query(LeadSchedule)
+        .filter(LeadSchedule.lead_id == lead_id)
+        .order_by(LeadSchedule.created_at.desc())
+        .limit(3)
+        .all()
+    )
+
+    timeline = []
+    for h in hist:
+        if h.changed_at:
+            timeline.append({"kind": "status", "at": h.changed_at.isoformat(), "status": h.to_status})
+    for n, u in notes:
+        if n.created_at:
+            txt = (n.content or "").strip()
+            timeline.append({
+                "kind": "nota", "at": n.created_at.isoformat(),
+                "text": txt[:120] + ("…" if len(txt) > 120 else ""),
+                "by": (u.first_name or u.username) if u else None,
+            })
+    for s in scheds:
+        if s.created_at:
+            timeline.append({"kind": "agendamento", "at": s.created_at.isoformat(), "scheduled_at": s.scheduled_at.isoformat() if s.scheduled_at else None})
+    timeline.sort(key=lambda e: e["at"], reverse=True)
+
+    last_touch = lead.last_interaction_at or lead.updated_at or lead.created_at
+    dias_sem_interacao = (now - last_touch).days if last_touch else None
+    dias_no_status = (now - hist[0].changed_at).days if hist and hist[0].changed_at else None
+
+    owner = db.query(User).filter(User.id == lead.renutricao_owner_id).first() if lead.renutricao_owner_id else None
+    ultima_nota = None
+    if notes:
+        n, u = notes[0]
+        ultima_nota = {
+            "text": n.content,
+            "by": (u.first_name or u.username) if u else None,
+            "at": n.created_at.isoformat() if n.created_at else None,
+        }
+
+    return {
+        "agendamento": prox.scheduled_at.isoformat() if prox and prox.scheduled_at else None,
+        "ultima_nota": ultima_nota,
+        "timeline": timeline[:6],
+        "dias_sem_interacao": dias_sem_interacao,
+        "dias_no_status": dias_no_status,
+        "dono_renutricao": (owner.first_name or owner.username) if owner else None,
+        "atendente": lead.attendant,
+        "ponto_conversao": lead.conversion_point,
+        "plano_atual": lead.current_plan,
+        "operadoras": [x.strip() for x in (lead.operadoras_enviadas or "").split(",") if x.strip()],
+        "retrabalhado_em": lead.retrabalhado_em.isoformat() if lead.retrabalhado_em else None,
+        "lost_reason": lead.lost_reason,
+    }
 
 
 @router.get("/agenda", response_model=AgendaResponse)
