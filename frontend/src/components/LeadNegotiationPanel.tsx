@@ -1,14 +1,29 @@
 import { Tag } from 'lucide-react'
 import SectionCard from './SectionCard'
 import EditPencil from './EditPencil'
-import Field from './Field'
 import EditInput from './EditInput'
 import SelectField from './SelectField'
 import DateField from './DateField'
 import OperadorasField from './OperadorasField'
 import PlanField from './PlanField'
-import FieldLabel from './FieldLabel'
-import Pill from './Pill'
+
+function ValorHero({ label }: { label: string }) {
+  const [intPart, decPart] = label.includes(',') ? label.split(',') : [label, null]
+  const empty = label === '—' || label === 'Não informado'
+  return (
+    <div style={{
+      fontSize: 25, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em',
+      fontVariantNumeric: 'tabular-nums', color: empty ? 'var(--text-subtle)' : 'var(--text-1)',
+    }}>
+      {empty ? '—' : (
+        <>
+          {intPart}
+          {decPart != null && <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-muted)' }}>,{decPart}</span>}
+        </>
+      )}
+    </div>
+  )
+}
 
 export default function LeadNegotiationPanel({
   perceptionLabel, perceptionStyle,
@@ -57,28 +72,33 @@ export default function LeadNegotiationPanel({
         <EditPencil onClick={onStartEdit} title="Editar negociação" />
       )
     }>
-      <div className="flex flex-col gap-4">
-        {perceptionLabel && perceptionStyle ? (
-          <div className="flex flex-col gap-1">
-            <FieldLabel>Temperatura</FieldLabel>
-            <Pill colors={perceptionStyle}>{perceptionLabel}</Pill>
-          </div>
-        ) : (
-          <Field label="Temperatura" value="Sem temperatura" />
-        )}
+      {/* Âncora: valor da cotação + temperatura */}
+      {editingDetalhes ? (
+        <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => onDraftChange('value_potential', v)} />
+      ) : (
+        <div className="flex flex-col" style={{ gap: 5 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }}>
+            Valor da cotação
+          </span>
+          <ValorHero label={valorCotacaoLabel} />
+        </div>
+      )}
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 10, fontSize: 13, fontWeight: 600, color: perceptionStyle ? perceptionStyle.color : 'var(--text-subtle)' }}>
+        {perceptionLabel && perceptionStyle
+          ? <><span style={{ width: 8, height: 8, borderRadius: 999, background: perceptionStyle.color, flexShrink: 0 }} />{perceptionLabel}</>
+          : <span style={{ fontWeight: 400 }}>Sem temperatura</span>}
+      </div>
+
+      <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
+
+      <div className="flex flex-col gap-4">
         <SelectField label="Modalidade" value={modalidade} options={modalidadeOptions} saving={savingModalidade || locked} onChange={onModalidadeChange} />
 
         {editingDetalhes ? (
           <EditInput label="Plano Atual" value={detalhesDraft.current_plan} onChange={v => onDraftChange('current_plan', v)} />
         ) : (
           <PlanField value={planoAtual} />
-        )}
-
-        {editingDetalhes ? (
-          <EditInput label="Valor da Cotação" value={detalhesDraft.value_potential} onChange={v => onDraftChange('value_potential', v)} />
-        ) : (
-          <Field label="Valor da Cotação" value={valorCotacaoLabel} />
         )}
 
         <OperadorasField value={operadoras} saving={savingOperadoras || locked} onChange={onOperadorasChange} />
