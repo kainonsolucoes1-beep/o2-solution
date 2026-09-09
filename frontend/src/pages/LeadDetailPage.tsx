@@ -721,6 +721,7 @@ export default function LeadDetailPage() {
 
           <LeadCurrentStatusPanel
             lastInteractionLabel={fmtRelative(lastActivityAt)}
+            daysSinceInteraction={Math.floor((Date.now() - parseUTC(lastActivityAt)) / 86400000)}
             scheduleLabel={scheduleLabel}
             statusDurationLabel={statusDurationLabel}
             lostReasonLabel={status === 'sale_not_performed' ? lead.lost_reason : null}
