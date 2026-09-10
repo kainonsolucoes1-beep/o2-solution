@@ -526,7 +526,7 @@ def dashboard_performance(
             cp = (conversion_point or "").strip() or "Não informado"
             conv_points_count[cp] += 1
         else:
-            base = extract_base(notes) or "Sem base informada"
+            base = extract_base(notes) or "Base não identificada"
             bases_count[base] += 1
     captacao_hoje_origem = {
         "bases": [

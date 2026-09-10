@@ -114,6 +114,7 @@ function Sparkline({ values }: { values: number[] }) {
 function OrigemGroup({ dot, label, items }: { dot: string; label: string; items: { label: string; count: number }[] }) {
   const long = items.length > 6
   const total = items.reduce((s, it) => s + it.count, 0)
+  const max = Math.max(...items.map(it => it.count), 1)
   const [open, setOpen] = useState(!long)
   return (
     <div>
@@ -125,7 +126,7 @@ function OrigemGroup({ dot, label, items }: { dot: string; label: string; items:
           background: 'none', border: 'none', padding: 0, textAlign: 'left',
           cursor: long ? 'pointer' : 'default',
           fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)',
-          textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: open ? 8 : 0,
+          textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: open ? 6 : 0,
         }}
       >
         <span style={{ width: 5, height: 5, borderRadius: '50%', background: dot, flexShrink: 0 }} />
@@ -138,9 +139,12 @@ function OrigemGroup({ dot, label, items }: { dot: string; label: string; items:
         )}
       </button>
       {open && items.map(it => (
-        <div key={it.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-2)', padding: '5px 0' }}>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
-          <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0 }}>{it.count}</span>
+        <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-2)', padding: '4px 0' }}>
+          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
+          <span style={{ width: 72, height: 6, borderRadius: 999, background: 'var(--bg-subtle)', overflow: 'hidden', flexShrink: 0 }}>
+            <span style={{ display: 'block', height: '100%', width: `${(it.count / max) * 100}%`, background: dot, borderRadius: 999 }} />
+          </span>
+          <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0, width: 18, textAlign: 'right' }}>{it.count}</span>
         </div>
       ))}
     </div>
@@ -427,18 +431,48 @@ export default function Dashboard() {
               <span style={{ width: 3, height: 12, borderRadius: 2, background: '#6366F1', flexShrink: 0 }} />
               De onde vieram
             </p>
-            {data.captacao_hoje_origem.bases.length === 0 && data.captacao_hoje_origem.conversion_points.length === 0 ? (
-              <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Sem captações {filter && !single ? 'no período' : 'no dia'}.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                {data.captacao_hoje_origem.conversion_points.length > 0 && (
-                  <OrigemGroup key={`${diaLabel}-conv`} dot="#3B82F6" label="Pontos de conversão" items={data.captacao_hoje_origem.conversion_points} />
-                )}
-                {data.captacao_hoje_origem.bases.length > 0 && (
-                  <OrigemGroup key={`${diaLabel}-base`} dot="#F59E0B" label="SDR" items={data.captacao_hoje_origem.bases} />
-                )}
-              </div>
-            )}
+            {(() => {
+              const conv = data.captacao_hoje_origem.conversion_points
+              const bases = data.captacao_hoje_origem.bases
+              if (conv.length === 0 && bases.length === 0) {
+                return <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Sem captações {filter && !single ? 'no período' : 'no dia'}.</p>
+              }
+              const convTotal = conv.reduce((s, it) => s + it.count, 0)
+              const sdrTotal = bases.reduce((s, it) => s + it.count, 0)
+              const total = convTotal + sdrTotal
+              const convPct = total > 0 ? (convTotal / total) * 100 : 0
+              return (
+                <>
+                  <div>
+                    <p style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                      <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.02em' }}>{total}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-subtle)', marginLeft: 6 }}>lead{total !== 1 ? 's' : ''} {filter && !single ? 'no período' : 'hoje'}</span>
+                    </p>
+                    {convTotal > 0 && sdrTotal > 0 && (
+                      <>
+                        <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--bg-subtle)', marginTop: 9 }}>
+                          <span style={{ width: `${convPct}%`, background: '#3B82F6' }} />
+                          <span style={{ width: `${100 - convPct}%`, background: '#F59E0B' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 3, background: '#3B82F6' }} />Orgânico {convTotal}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 3, background: '#F59E0B' }} />SDR {sdrTotal}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div style={{ height: 1, background: 'var(--border-lt)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {conv.length > 0 && (
+                      <OrigemGroup key={`${diaLabel}-conv`} dot="#3B82F6" label="Pontos de conversão" items={conv} />
+                    )}
+                    {bases.length > 0 && (
+                      <OrigemGroup key={`${diaLabel}-base`} dot="#F59E0B" label="SDR" items={bases} />
+                    )}
+                  </div>
+                </>
+              )
+            })()}
           </div>
         </div>
 
