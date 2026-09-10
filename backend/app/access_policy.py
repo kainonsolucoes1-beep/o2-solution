@@ -5,12 +5,17 @@ Brasília), exceto feriado nacional. O fim da janela depende do vínculo:
 estagiário até 16h, CLT até 18h. Liga/desliga por um interruptor em
 AppSettings (`acesso_janela_ativa`), desligado por padrão.
 """
+import os
 from datetime import datetime
 
 from fastapi import HTTPException
 
 from app.br_calendar import br_holidays
 from app.tz_utils import now_br
+
+# No staging co-hospedado a janela de horário e a aprovação de dispositivo só
+# atrapalham o teste dos perfis internos — ficam desligadas por lá.
+_STAGING = os.getenv("APP_ENV") == "staging"
 
 # perfis presos às regras de horário e dispositivo. admin/diretor ficam livres.
 RESTRICTED_ROLES = {"usuario", "comercial", "supervisor"}
@@ -43,6 +48,8 @@ def dentro_da_janela(fim: int = JANELA_FIM_CLT, now: datetime | None = None) -> 
 
 def check_time_window(user, db) -> None:
     """Levanta 403 se o usuário está fora da janela de horário permitida."""
+    if _STAGING:
+        return
     if user.role not in RESTRICTED_ROLES:
         return
     if getattr(user, "horario_estendido", False):
@@ -61,6 +68,8 @@ def device_ativo(db) -> bool:
 
 def check_device(user, db, device_id: str | None) -> None:
     """Levanta 403 se o perfil interno acessa de um dispositivo não aprovado."""
+    if _STAGING:
+        return
     if user.role not in RESTRICTED_ROLES:
         return
     if not device_ativo(db):
