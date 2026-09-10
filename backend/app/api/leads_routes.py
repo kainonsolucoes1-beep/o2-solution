@@ -792,6 +792,31 @@ def assign_renutricao(
     return RenutricaoAssignResponse(assigned=assigned, conflicts=conflicts)
 
 
+@router.post("/leads/{lead_id}/remover-atribuicao")
+def remover_atribuicao(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Limpa a atribuição de renutrição: zera `renutricao_owner_id` e a tag
+    `is_renutrucao`. O lead volta a ser "solto" — o sync do Followize deixa de
+    pular ele e ele deixa de contar pra posse de ninguém. Só admin."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Apenas administradores podem remover atribuição")
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if lead.renutricao_owner_id or lead.is_renutrucao:
+        lead.renutricao_owner_id = None
+        lead.is_renutrucao = False
+        db.add(LeadNote(
+            lead_id=lead.id, user_id=current_user.id,
+            content=f"Atribuição de renutrição removida por {current_user.first_name or current_user.username}.",
+        ))
+        db.commit()
+    return {"success": True, "lead_id": lead_id}
+
+
 @router.post("/leads/{lead_id}/info", response_model=LeadInfoUpdateResponse)
 def update_lead_info(
     lead_id: str,

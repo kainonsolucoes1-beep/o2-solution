@@ -1,4 +1,4 @@
-import { ArrowLeft, MoreVertical, Trash2 } from 'lucide-react'
+import { ArrowLeft, MoreVertical, Trash2, UserMinus } from 'lucide-react'
 import Pill from './Pill'
 
 function initials(name: string) {
@@ -21,6 +21,7 @@ export default function LeadDetailHeader({
   name, statusLabel, sStyle, perceptionLabel, perceptionStyle,
   phoneLabel, emailLabel, attendantLabel, origemLabel,
   isAdmin, menuOpen, onToggleMenu, onCloseMenu, onRequestDelete, onBack,
+  hasRenutricao, onRemoveRenutricao,
 }: {
   name: string
   statusLabel: string
@@ -37,6 +38,8 @@ export default function LeadDetailHeader({
   onCloseMenu: () => void
   onRequestDelete: () => void
   onBack: () => void
+  hasRenutricao?: boolean
+  onRemoveRenutricao?: () => void
 }) {
   return (
     <div className="flex flex-wrap" style={{
@@ -94,7 +97,17 @@ export default function LeadDetailHeader({
           {menuOpen && (
             <>
               <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={onCloseMenu} />
-              <div style={{ position: 'absolute', right: 0, top: 44, zIndex: 100, background: 'var(--bg-card)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 10, boxShadow: '0 8px 24px rgba(15,23,42,0.14)', minWidth: 160, overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', right: 0, top: 44, zIndex: 100, background: 'var(--bg-card)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: 10, boxShadow: '0 8px 24px rgba(15,23,42,0.14)', minWidth: 180, overflow: 'hidden' }}>
+                {hasRenutricao && onRemoveRenutricao && (
+                  <button
+                    onClick={onRemoveRenutricao}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-lt)', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--text-2)', textAlign: 'left' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    <UserMinus size={14} /> Remover atribuição
+                  </button>
+                )}
                 <button
                   onClick={onRequestDelete}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--danger)', textAlign: 'left' }}

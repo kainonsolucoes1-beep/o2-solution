@@ -46,6 +46,7 @@ interface LeadItem {
   retrabalhado_em: string | null
   renutricao_owner_id: string | null
   renutricao_owner_nome: string | null
+  is_renutrucao: boolean
   lost_reason: string | null
 }
 
@@ -308,6 +309,15 @@ export default function LeadDetailPage() {
       .finally(() => setSavingCreatedAt(false))
   }
 
+  function handleRemoveRenutricao() {
+    if (!id) return
+    setMenuOpen(false)
+    api.post(`/api/v1/leads/${id}/remover-atribuicao`)
+      .then(() => api.get<LeadItem>(`/api/v1/leads/${id}`))
+      .then(r => { setLead(r.data); setToast({ msg: 'Atribuição removida', ok: true }) })
+      .catch(err => setToast({ msg: err.response?.data?.detail || 'Erro ao remover atribuição', ok: false }))
+  }
+
   function handleRealignHistory() {
     if (!id) return
     setSavingRealign(true)
@@ -518,6 +528,8 @@ export default function LeadDetailPage() {
         onToggleMenu={() => setMenuOpen(v => !v)}
         onCloseMenu={() => setMenuOpen(false)}
         onRequestDelete={() => { setMenuOpen(false); setConfirmDelete(true) }}
+        hasRenutricao={!!lead.renutricao_owner_id || lead.is_renutrucao}
+        onRemoveRenutricao={handleRemoveRenutricao}
         onBack={() => navigate(-1)}
       />
 
