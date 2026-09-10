@@ -101,7 +101,9 @@ export function receitaRows(data: ReceitaComposicaoResponse, kind: ReceitaKind):
       subtitle: r.subtitle,
       value: fmtBrl(kind === 'recebida' ? r.recebida : kind === 'a_receber' ? r.a_receber : r.recebida + r.a_receber),
       meta: r.data ? new Date(r.data).toLocaleDateString('pt-BR') : undefined,
-      status: r.recebida > 0 && r.a_receber > 0 ? 'Recebido + a receber' : r.a_receber > 0 ? 'A receber' : 'Recebido',
+      status: kind === 'recebida' ? 'Recebido'
+        : kind === 'a_receber' ? 'A receber'
+        : r.recebida > 0 && r.a_receber > 0 ? 'Recebido + a receber' : r.a_receber > 0 ? 'A receber' : 'Recebido',
     }))
   const totalN = kind === 'all' ? data.total_contratos : rows.length
   return { rows, count: `Exibindo ${Math.min(rows.length, 5)} de ${totalN} ${totalN === 1 ? 'contrato' : 'contratos'}` }
