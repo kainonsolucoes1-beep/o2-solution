@@ -296,6 +296,7 @@ export default function VidaSDR() {
 
   const [data, setData] = useState<VidaSdrData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [agentes, setAgentes] = useState<string[]>([])
   const [filtro, setFiltro] = useState<FiltroPeriodo>('geral')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
@@ -308,6 +309,14 @@ export default function VidaSDR() {
   const [receitaKind, setReceitaKind] = useState<ReceitaKind>('all')
   const [chartMetric, setChartMetric] = useState<ChartMetric>('vendas')
   const [rankingMetric, setRankingMetric] = useState<'captacoes' | 'vendas'>('captacoes')
+
+  // Seletor de agente no topo — só admin/supervisor recebem a lista (o
+  // endpoint responde 403 pros demais, e aí o seletor nem aparece).
+  useEffect(() => {
+    api.get<{ nome: string }[]>('/api/v1/gestao-comercial/vida-sdr/agentes')
+      .then(r => setAgentes(r.data.map(a => a.nome)))
+      .catch(() => setAgentes([]))
+  }, [])
 
   useEffect(() => {
     if (!origens) return
@@ -427,6 +436,19 @@ export default function VidaSDR() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+          {agentes.length > 0 && (
+            <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700 }}>
+              Agente
+              <select
+                value={agentes.includes(nome) ? nome : ''}
+                onChange={e => { const a = e.target.value; if (a) navigate(`/vida-sdr/${encodeURIComponent(a)}?nome=${encodeURIComponent(a)}`) }}
+                style={{ minWidth: 168, height: 40, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }}
+              >
+                {!agentes.includes(nome) && <option value="">{nome}</option>}
+                {agentes.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </label>
+          )}
           <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700 }}>
             Filtros
             <select

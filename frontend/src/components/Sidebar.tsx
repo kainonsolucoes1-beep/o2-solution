@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays,
+  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
@@ -148,8 +148,19 @@ export default function Sidebar() {
 
   const isAdmin = user?.role === 'admin' || user?.username === 'lucas@o2solution.com.br'
 
-  const navLinks = NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => {
-    const isActive = location.pathname === to
+  // "Meu desempenho": leva o usuario/supervisor direto pra Vida do Agente dele
+  // (supervisor troca de agente pelo seletor do topo da tela).
+  const meuNome = user ? (user.first_name || user.username) : ''
+  const showMeuDesempenho = !!user && (user.role === 'usuario' || user.role === 'supervisor')
+  const navItems: { to: string; label: string; Icon: LucideIcon }[] = [
+    ...NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => ({ to, label, Icon })),
+    ...(showMeuDesempenho
+      ? [{ to: `/vida-sdr/${encodeURIComponent(meuNome)}?nome=${encodeURIComponent(meuNome)}`, label: 'Meu desempenho', Icon: UserRound }]
+      : []),
+  ]
+
+  const navLinks = navItems.map(({ to, label, Icon }) => {
+    const isActive = to.startsWith('/vida-sdr') ? location.pathname.startsWith('/vida-sdr') : location.pathname === to
     const alertCount = to === '/agenda' && agendaAlerts ? agendaAlerts.overdue + agendaAlerts.today : 0
     const alertColor = agendaAlerts && agendaAlerts.overdue > 0 ? '#EF4444' : '#F59E0B'
     return (

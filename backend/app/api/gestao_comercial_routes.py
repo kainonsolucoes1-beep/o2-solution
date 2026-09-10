@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
 from app.models.user import User
 from app.models.sdr_meta import SdrMeta
-from app.security import can_see_financials, needs_own_origin_filter
+from app.security import can_see_financials, needs_own_origin_filter, team_scope
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, br_month_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
@@ -727,6 +727,36 @@ def _compute_meta_mes(db: Session, parts: list[str]):
     }
 
 
+def _agentes_do_supervisor(db, user) -> list[str]:
+    """Nomes das contas role='usuario' que um supervisor pode estudar — a
+    propria equipe quando ele tem `team`, senao toda a base de usuarios."""
+    q = db.query(User).filter(User.is_active.is_(True), User.role == "usuario")
+    ts = team_scope(user)
+    if ts:
+        q = q.filter(User.team == ts)
+    return sorted({(u.first_name or u.username) for u in q.all() if (u.first_name or u.username)})
+
+
+@router.get("/vida-sdr/agentes")
+def vida_sdr_agentes(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Lista de agentes pro seletor do topo da Vida do Agente — so' admin e
+    supervisor (o supervisor ve a propria equipe)."""
+    if current_user.role not in ("admin", "supervisor"):
+        raise HTTPException(status_code=403, detail="Sem permissão.")
+    if current_user.role == "supervisor":
+        nomes = _agentes_do_supervisor(db, current_user)
+    else:
+        nomes = sorted({
+            (u.first_name or u.username)
+            for u in db.query(User).filter(User.is_active.is_(True), User.role == "usuario").all()
+            if (u.first_name or u.username)
+        })
+    return [{"nome": n} for n in nomes]
+
+
 @router.get("/vida-sdr")
 def vida_sdr(
     origens: str = Query(...),
@@ -738,9 +768,16 @@ def vida_sdr(
     """Historico de um SDR/origem: funil, conversao e receita real, vitalicio por padrao
     ou recortado por date_from/date_to (filtro Geral / Mes atual / Entre datas no frontend)."""
     if needs_own_origin_filter(current_user):
-        # usuario nao-admin so' pode ver o proprio historico, independente do
-        # que vier em `origens` (ex: alguem digitando outro nome na URL)
-        origens = current_user.first_name or current_user.username
+        # usuario comum so' ve o proprio historico. Supervisor pode estudar
+        # qualquer agente da propria equipe (ou toda a base, se nao tem team).
+        if current_user.role == "supervisor":
+            permitido = set(_agentes_do_supervisor(db, current_user))
+            permitido.add(current_user.first_name or current_user.username)
+            alvo = origens.split(",")[0].strip()
+            if alvo not in permitido:
+                origens = current_user.first_name or current_user.username
+        else:
+            origens = current_user.first_name or current_user.username
     parts = [s.strip() for s in origens.split(",") if s.strip()]
 
     date_filters = []
