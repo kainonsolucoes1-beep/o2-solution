@@ -504,12 +504,12 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-              <div style={{ background: '#FFFBEB', border: '1px solid #FDE9C8', borderRadius: 10, padding: 14 }}>
+              <div style={{ background: 'var(--warning-weak)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 4px' }}>Principal gargalo · {bottleneck.rate}%</p>
                 <p style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.45, margin: 0 }}>
                   {bottleneck.from} → {bottleneck.to} interrompe o avanço de {bottleneck.fromCount} oportunidade{bottleneck.fromCount !== 1 ? 's' : ''}.
                 </p>
-                <button onClick={() => navigate(`/leads-report${bottleneck.nav}`)} style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, color: '#D97706', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>
+                <button onClick={() => navigate(`/leads-report${bottleneck.nav}`)} style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, color: 'var(--warning)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>
                   Investigar oportunidades →
                 </button>
               </div>
