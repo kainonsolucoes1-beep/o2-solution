@@ -134,14 +134,16 @@ export default function SmartPreviewDrawer({ preview, loading, trigger, onClose,
           )}
         </div>
 
-        <div style={{ padding: '16px 22px', borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'var(--border-lt)'}` }}>
-          <button
-            onClick={onAction}
-            style={{ width: '100%', padding: '12px 0', background: '#2563EB', color: '#fff', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13.5, fontWeight: 600 }}
-          >
-            {preview.actionLabel}
-          </button>
-        </div>
+        {preview.actionLabel && (
+          <div style={{ padding: '16px 22px', borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'var(--border-lt)'}` }}>
+            <button
+              onClick={onAction}
+              style={{ width: '100%', padding: '12px 0', background: '#2563EB', color: '#fff', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13.5, fontWeight: 600 }}
+            >
+              {preview.actionLabel}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
