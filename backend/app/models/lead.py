@@ -64,6 +64,11 @@ class Lead(Base):
     visibility_tag = Column(String(50), nullable=True)
     operadoras_enviadas = Column(Text, nullable=True)  # lista separada por virgula
     receita_data_venda = Column(TIMESTAMP, nullable=True)
+    # Campanha de disparo (WhatsApp/e-mail/SMS) -- canal/status ATIVOS enquanto
+    # o lead está na fila do Isaac. Zerados quando sai da campanha (respondeu
+    # ou não retrabalhar); o histórico completo fica em CampanhaEvento.
+    campanha_canal = Column(String(20), nullable=True)   # whatsapp | email | sms
+    campanha_status = Column(String(30), nullable=True)  # fila | disparado_sem_resposta | respondeu | nao_retrabalhar
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())
 
@@ -111,6 +116,21 @@ class LeadAttachment(Base):
     content_type = Column(String(100), nullable=True)
     storage_key = Column(String(500), nullable=False)  # chave do objeto no bucket R2
     created_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class CampanhaEvento(Base):
+    """Rastreio de todas as tentativas de disparo de um lead (Campanhas):
+    envio pra fila, desfecho de cada canal tentado, e pra quem foi distribuído
+    no rodízio quando respondeu. Nada se perde entre trocas de canal."""
+    __tablename__ = "campanha_eventos"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False)
+    canal = Column(String(20), nullable=False)   # whatsapp | email | sms
+    acao = Column(String(30), nullable=False)    # enviado_para_campanha | disparado_sem_resposta | respondeu | nao_retrabalhar
+    por_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    distribuido_para_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    criado_em = Column(TIMESTAMP, server_default=func.now())
 
 
 class LeadParcela(Base):

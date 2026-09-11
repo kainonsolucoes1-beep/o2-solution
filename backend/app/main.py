@@ -32,6 +32,7 @@ from app.api import kpis_routes
 from app.api import gestao_comercial_routes
 from app.api import public_routes
 from app.api import financeiro_routes
+from app.api import campanhas_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler, sync_leads_backfill
@@ -67,6 +68,8 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS contract_type VARCHAR(20) NOT NULL DEFAULT 'clt'"))
     _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS horario_estendido BOOLEAN NOT NULL DEFAULT false"))
     _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS acesso_externo_liberado BOOLEAN NOT NULL DEFAULT false"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS campanha_canal VARCHAR(20)"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS campanha_status VARCHAR(30)"))
     _conn.execute(text("CREATE INDEX IF NOT EXISTS idx_login_events_user_created ON login_events(user_id, created_at DESC)"))
     _conn.commit()
 
@@ -149,6 +152,7 @@ app.include_router(kpis_routes.router)
 app.include_router(gestao_comercial_routes.router)
 app.include_router(public_routes.router)
 app.include_router(financeiro_routes.router)
+app.include_router(campanhas_routes.router)
 
 _FORM_USERS_SEED = [
     ("isaac",        "Isaac",        "",           "isaac@equipe.com",         "$2b$12$nNCX6xqvp1CPBWT2VmQQxeRymHfesflUbRrRt5CTo5Je0TKnKnOTS"),

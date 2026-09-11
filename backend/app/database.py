@@ -80,6 +80,10 @@ def _apply_lead_visibility_filter(orm_execute_state):
                 func.lower(cls.origin).in_(organico_values),
                 func.lower(cls.conversion_point) == "chatgpt.com",
                 cls.origin == own_name,
+                # lead distribuído por renutrição (ex: rodízio de Campanhas) pra
+                # uma conta 'usuario' -- o comercial precisa enxergar pra tratativa,
+                # mesmo quando a origem original não bate com nenhuma regra acima.
+                cls.renutricao_owner_id.in_(select(User.id).where(User.role == "usuario")),
             )
 
         orm_execute_state.statement = orm_execute_state.statement.options(

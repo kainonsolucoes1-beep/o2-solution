@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
-import { X, RotateCw, AlertTriangle, Check } from 'lucide-react'
+import { X, RotateCw, AlertTriangle, Check, Megaphone } from 'lucide-react'
 import api from '../api'
 
 interface UserOpt { id: string; first_name: string | null; username: string; role: string; is_active: boolean }
 interface Conflict { lead_id: string; name: string; reason: string }
+type Canal = 'whatsapp' | 'email' | 'sms'
+const CANAL_OPTS: { value: Canal; label: string }[] = [
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'email', label: 'E-mail' },
+  { value: 'sms', label: 'SMS' },
+]
 
 const btnGhost: React.CSSProperties = {
   fontSize: 13, fontWeight: 600, borderRadius: 9, padding: '9px 16px', cursor: 'pointer',
@@ -18,9 +24,11 @@ const btnPrimary = (disabled: boolean): React.CSSProperties => ({
 export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: {
   leadIds: string[]; onClose: () => void; onAssigned: () => void
 }) {
+  const [mode, setMode] = useState<'atribuir' | 'campanha'>('atribuir')
   const [users, setUsers] = useState<UserOpt[]>([])
   const [ownerId, setOwnerId] = useState('')
   const [isRenu, setIsRenu] = useState(false)
+  const [canal, setCanal] = useState<Canal | ''>('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null)
@@ -37,6 +45,11 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
     setSaving(true)
     setError('')
     try {
+      if (mode === 'campanha') {
+        await api.post('/api/v1/campanhas/enviar', { lead_ids: leadIds, canal })
+        onAssigned()
+        return
+      }
       const { data } = await api.post<{ assigned: number; conflicts: Conflict[] }>('/api/v1/leads/renutricao/assign', {
         lead_ids: leadIds,
         owner_id: ownerId,
@@ -50,7 +63,7 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
         onAssigned()
       }
     } catch {
-      setError('Erro ao atribuir. Tente novamente.')
+      setError(mode === 'campanha' ? 'Erro ao enviar pra campanha. Tente novamente.' : 'Erro ao atribuir. Tente novamente.')
     } finally {
       setSaving(false)
     }
@@ -72,34 +85,94 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
         {conflicts === null ? (
           <>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>
-              {leadIds.length} lead{leadIds.length !== 1 ? 's' : ''} selecionado{leadIds.length !== 1 ? 's' : ''}. Quem receber vira dono e atendente {leadIds.length !== 1 ? 'desses leads' : 'desse lead'}.
+              {leadIds.length} lead{leadIds.length !== 1 ? 's' : ''} selecionado{leadIds.length !== 1 ? 's' : ''}.{' '}
+              {mode === 'atribuir'
+                ? `Quem receber vira dono e atendente ${leadIds.length !== 1 ? 'desses leads' : 'desse lead'}.`
+                : 'Vão pra fila de disparo do Isaac no canal escolhido.'}
             </p>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', marginBottom: 6 }}>Atribuir a</label>
-            <select
-              value={ownerId}
-              onChange={e => setOwnerId(e.target.value)}
-              style={{ width: '100%', height: 40, padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', fontSize: 14 }}
-            >
-              <option value="">— selecione —</option>
-              {users.map(u => (
-                <option key={u.id} value={u.id}>{(u.first_name || u.username)} · {u.role}</option>
+
+            <div style={{ display: 'flex', gap: 4, background: 'var(--bg-subtle)', borderRadius: 10, padding: 3, marginBottom: 16 }}>
+              {([['atribuir', 'Atribuir'], ['campanha', 'Campanha']] as const).map(([m, label]) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    fontSize: 12.5, fontWeight: 600, padding: '7px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+                    background: mode === m ? 'var(--bg-card)' : 'transparent',
+                    color: mode === m ? 'var(--text-1)' : 'var(--text-muted)',
+                    boxShadow: mode === m ? '0 1px 3px rgba(15,23,42,0.12)' : 'none',
+                  }}
+                >
+                  {m === 'campanha' && <Megaphone size={13} />}
+                  {label}
+                </button>
               ))}
-            </select>
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginTop: 14, cursor: 'pointer' }}>
-              <input type="checkbox" checked={isRenu} onChange={e => setIsRenu(e.target.checked)} style={{ marginTop: 2 }} />
-              <span>
-                <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>É renutrição</span>
-                <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>
-                  Marca a tag 🔄 e checa se o lead está em negociação. Desmarcado: só define o dono (e tira a tag se o lead já tinha).
-                </span>
-              </span>
-            </label>
+            </div>
+
+            {mode === 'atribuir' ? (
+              <>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', marginBottom: 6 }}>Atribuir a</label>
+                <select
+                  value={ownerId}
+                  onChange={e => setOwnerId(e.target.value)}
+                  style={{ width: '100%', height: 40, padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', fontSize: 14 }}
+                >
+                  <option value="">— selecione —</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{(u.first_name || u.username)} · {u.role}</option>
+                  ))}
+                </select>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginTop: 14, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={isRenu} onChange={e => setIsRenu(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span>
+                    <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>É renutrição</span>
+                    <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>
+                      Marca a tag 🔄 e checa se o lead está em negociação. Desmarcado: só define o dono (e tira a tag se o lead já tinha).
+                    </span>
+                  </span>
+                </label>
+              </>
+            ) : (
+              <>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-3b)', marginBottom: 6 }}>Canal do disparo</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {CANAL_OPTS.map(opt => {
+                    const active = canal === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setCanal(opt.value)}
+                        style={{
+                          flex: 1, fontSize: 13, fontWeight: 600, padding: '10px 0', borderRadius: 9, cursor: 'pointer',
+                          border: `1px solid ${active ? 'var(--accent)' : 'var(--border-in)'}`,
+                          background: active ? 'var(--accent-weak)' : 'var(--bg-input)',
+                          color: active ? 'var(--accent)' : 'var(--text-2)',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 10, lineHeight: 1.45 }}>
+                  O lead fica com o Isaac e some da sua lista até ele marcar um desfecho. Se responder, entra no rodízio (Pamela / Isaac / Julia).
+                </p>
+              </>
+            )}
+
             {error && <p style={{ fontSize: 12.5, color: 'var(--danger)', margin: '10px 0 0' }}>{error}</p>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               <button onClick={onClose} style={btnGhost}>Cancelar</button>
-              <button onClick={submit} disabled={!ownerId || saving} style={btnPrimary(!ownerId || saving)}>
-                {saving ? 'Atribuindo…' : 'Atribuir'}
-              </button>
+              {mode === 'atribuir' ? (
+                <button onClick={submit} disabled={!ownerId || saving} style={btnPrimary(!ownerId || saving)}>
+                  {saving ? 'Atribuindo…' : 'Atribuir'}
+                </button>
+              ) : (
+                <button onClick={submit} disabled={!canal || saving} style={btnPrimary(!canal || saving)}>
+                  {saving ? 'Enviando…' : 'Enviar pra campanha'}
+                </button>
+              )}
             </div>
           </>
         ) : (

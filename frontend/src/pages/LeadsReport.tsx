@@ -41,6 +41,7 @@ interface LeadItem {
   created_at: string
   updated_at: string | null
   modalidade: string | null
+  campanha_canal: 'whatsapp' | 'email' | 'sms' | null
 }
 
 interface ReportResponse {
@@ -168,6 +169,12 @@ const STATUS_STYLE: Record<string, { color: string }> = {
   convertido: { color: '#059669' },
   converted: { color: '#059669' },
   sale_not_performed: { color: '#DC2626' },
+}
+
+const CANAL_TAG_STYLE: Record<'whatsapp' | 'email' | 'sms', { label: string; color: string; bg: string }> = {
+  whatsapp: { label: 'WHATSAPP', color: '#16A34A', bg: '#EAF7EE' },
+  email:    { label: 'E-MAIL',   color: '#3B82F6', bg: '#EAF1FE' },
+  sms:      { label: 'SMS',      color: '#8B5CF6', bg: '#F2EEFE' },
 }
 
 const PERCEPTION_STYLE: Record<string, { color: string }> = {
@@ -1020,7 +1027,17 @@ export default function LeadsReport() {
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{lead.name}</span>
-                                  {lead.is_renutrucao && (
+                                  {lead.campanha_canal ? (
+                                    <span
+                                      title="Em campanha de disparo — não reatribuir pra evitar conflito"
+                                      style={{
+                                        fontSize: 9, fontWeight: 800, color: CANAL_TAG_STYLE[lead.campanha_canal].color,
+                                        background: CANAL_TAG_STYLE[lead.campanha_canal].bg, borderRadius: 5, padding: '2px 5px',
+                                        letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                                      }}>
+                                      {CANAL_TAG_STYLE[lead.campanha_canal].label}
+                                    </span>
+                                  ) : lead.is_renutrucao && (
                                     <span
                                       title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
                                       style={{

@@ -266,6 +266,7 @@ def leads_by_period(
                 Lead.tracking_campaign, Lead.tracking_medium, Lead.tracking_term, Lead.tracking_format,
                 Lead.fbclid, Lead.gclid, Lead.lgpd_processing_opt_in, Lead.lgpd_communication_opt_in,
                 Lead.first_interaction_at, Lead.last_interaction_at, Lead.team,
+                Lead.campanha_canal, Lead.campanha_status,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -301,6 +302,8 @@ def leads_by_period(
             lgpd_communication_opt_in=r.lgpd_communication_opt_in,
             first_interaction_at=r.first_interaction_at,
             last_interaction_at=r.last_interaction_at,
+            campanha_canal=r.campanha_canal,
+            campanha_status=r.campanha_status,
             team=r.team,
         )
         for r in rows
@@ -570,6 +573,8 @@ def get_lead(
         is_renutrucao=bool(lead.is_renutrucao),
         renutricao_owner_id=lead.renutricao_owner_id,
         renutricao_owner_nome=ren_nome,
+        campanha_canal=lead.campanha_canal,
+        campanha_status=lead.campanha_status,
         retrabalhado_em=lead.retrabalhado_em,
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
         modalidade=lead.modalidade, current_plan=lead.current_plan,
