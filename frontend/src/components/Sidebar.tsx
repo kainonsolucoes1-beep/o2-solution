@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound,
+  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound, Megaphone,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
@@ -152,8 +152,12 @@ export default function Sidebar() {
   // (supervisor troca de agente pelo seletor do topo da tela).
   const meuNome = user ? (user.first_name || user.username) : ''
   const showMeuDesempenho = !!user && (user.role === 'usuario' || user.role === 'supervisor')
+  // "Campanhas": só quem faz o disparo (Isaac, por nome mesmo) e o admin
+  // (supervisão). Igual à checagem do backend em campanhas_routes.py.
+  const showCampanhas = !!user && (isAdmin || meuNome.trim().toLowerCase() === 'isaac')
   const navItems: { to: string; label: string; Icon: LucideIcon }[] = [
     ...NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => ({ to, label, Icon })),
+    ...(showCampanhas ? [{ to: '/campanhas', label: 'Campanhas', Icon: Megaphone }] : []),
     ...(showMeuDesempenho
       ? [{ to: `/vida-sdr/${encodeURIComponent(meuNome)}?nome=${encodeURIComponent(meuNome)}`, label: 'Meu desempenho', Icon: UserRound }]
       : []),
