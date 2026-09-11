@@ -512,9 +512,9 @@ export default function VidaSDR() {
               />
               {canSeeFinance ? (
                 <HeroCard
-                  tone="good" icon={TrendingUp} label="Receita gerada"
-                  value={fmtBrl((data.receita_recebida || 0) + (data.receita_a_receber || 0))}
-                  sub={`${fmtBrl(data.receita_recebida || 0)} recebida · ${fmtBrl(data.receita_a_receber || 0)} a receber`}
+                  tone="good" icon={TrendingUp} label="Receita recebida"
+                  value={fmtBrl(data.receita_recebida || 0)}
+                  sub="no período"
                   context={deltas.receita_recebida ? { text: `${deltas.receita_recebida.text} vs. mês passado`, tone: deltas.receita_recebida.tone } : null}
                   onOpen={trigger => openPreview('receita_recebida', 0, trigger)}
                 />
