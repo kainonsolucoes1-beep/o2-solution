@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageCircle, Mail, MessageSquare, X, Check, Send } from 'lucide-react'
+import { MessageCircle, Mail, MessageSquare, X, Check, Send, Copy } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 
@@ -46,6 +46,19 @@ function initials(name: string) {
   return ((p[0]?.[0] ?? '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase()
 }
 
+// Formato exigido pela plataforma de disparo: +55DDNNNNNNNNN, um por vírgula.
+function normalizarTelefone(phone: string | null): string | null {
+  if (!phone) return null
+  let digits = phone.replace(/\D/g, '')
+  if (!digits) return null
+  if (!digits.startsWith('55') && (digits.length === 10 || digits.length === 11)) {
+    digits = '55' + digits
+  }
+  return '+' + digits
+}
+
+type StatusFiltro = 'todos' | 'fila' | 'disparado_sem_resposta'
+
 export default function CampanhasFila() {
   const { dark } = useTheme()
   const navigate = useNavigate()
@@ -56,6 +69,10 @@ export default function CampanhasFila() {
   const [error, setError] = useState('')
   const [actingId, setActingId] = useState<string | null>(null)
   const [confirmRespondeu, setConfirmRespondeu] = useState<string | null>(null)
+  const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todos')
+  const [copyOpen, setCopyOpen] = useState(false)
+  const [copyText, setCopyText] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const fetchCounts = useCallback(() => {
     api.get<Record<Canal, number>>('/api/v1/campanhas/fila/contagem')
@@ -73,7 +90,7 @@ export default function CampanhasFila() {
   }, [])
 
   useEffect(() => { fetchCounts() }, [fetchCounts])
-  useEffect(() => { fetchFila(canal); setConfirmRespondeu(null) }, [canal, fetchFila])
+  useEffect(() => { fetchFila(canal); setConfirmRespondeu(null); setStatusFiltro('todos') }, [canal, fetchFila])
 
   function marcarDesfecho(leadId: string, desfecho: 'disparado_sem_resposta' | 'respondeu' | 'nao_retrabalhar') {
     setActingId(leadId)
@@ -95,6 +112,20 @@ export default function CampanhasFila() {
   }
 
   const cfg = CANAL_CFG.find(c => c.key === canal)!
+  const totalAguardando = leads.filter(l => l.campanha_status === 'fila').length
+  const totalDisparado = leads.filter(l => l.campanha_status === 'disparado_sem_resposta').length
+  const leadsFiltrados = leads.filter(l => statusFiltro === 'todos' || l.campanha_status === statusFiltro)
+
+  function abrirCopiarNumeros() {
+    const numeros = leadsFiltrados.map(l => normalizarTelefone(l.phone)).filter((n): n is string => !!n)
+    setCopyText(numeros.join(', '))
+    setCopied(false)
+    setCopyOpen(true)
+  }
+
+  function copiarNumeros() {
+    navigator.clipboard.writeText(copyText).then(() => setCopied(true)).catch(() => {})
+  }
 
   return (
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-5" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
@@ -134,19 +165,60 @@ export default function CampanhasFila() {
         })}
       </div>
 
+      {!loading && leads.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              ['todos', `Todos · ${leads.length}`],
+              ['fila', `Aguardando disparo · ${totalAguardando}`],
+              ['disparado_sem_resposta', `Disparo efetuado · ${totalDisparado}`],
+            ] as const).map(([key, label]) => {
+              const active = statusFiltro === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => setStatusFiltro(key)}
+                  style={{
+                    fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
+                    border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                    background: active ? 'var(--accent-weak)' : 'var(--bg-card)',
+                    color: active ? 'var(--accent)' : 'var(--text-muted)',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          {canal === 'whatsapp' && (
+            <button
+              onClick={abrirCopiarNumeros}
+              disabled={leadsFiltrados.length === 0}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 9, cursor: leadsFiltrados.length === 0 ? 'not-allowed' : 'pointer',
+                border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12.5, fontWeight: 600,
+                opacity: leadsFiltrados.length === 0 ? 0.5 : 1,
+              }}
+            >
+              <Copy size={13} /> Copiar números ({leadsFiltrados.filter(l => l.phone).length})
+            </button>
+          )}
+        </div>
+      )}
+
       {error && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}
 
       {loading ? (
         <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)', padding: '40px 0' }}>Carregando…</p>
-      ) : leads.length === 0 ? (
+      ) : leadsFiltrados.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 0', background: 'var(--bg-card)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
           <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: 0 }}>
-            Nenhum lead esperando ação no {cfg.label}.
+            {leads.length === 0 ? `Nenhum lead esperando ação no ${cfg.label}.` : 'Nenhum lead nesse filtro.'}
           </p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {leads.map(lead => {
+          {leadsFiltrados.map(lead => {
             const percColor = lead.perception ? PERCEPTION_STYLE[lead.perception] : null
             const acting = actingId === lead.id
             const jaDisparado = lead.campanha_status === 'disparado_sem_resposta'
@@ -237,6 +309,38 @@ export default function CampanhasFila() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {copyOpen && (
+        <div onClick={() => setCopyOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 560, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', padding: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
+                <Copy size={16} style={{ color: 'var(--accent)' }} /> Números pra disparo
+              </p>
+              <button onClick={() => setCopyOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 0 14px' }}>
+              {copyText ? copyText.split(',').filter(Boolean).length : 0} número(s) no formato +55DDDNNNNNNNNN, prontos pra colar na plataforma de disparo.
+            </p>
+            <textarea
+              readOnly
+              value={copyText}
+              onFocus={e => e.target.select()}
+              style={{ width: '100%', minHeight: 120, padding: 12, borderRadius: 10, border: '1px solid var(--border-in)', fontSize: 12.5, color: 'var(--text-2)', background: 'var(--bg-input)', resize: 'vertical', fontFamily: 'ui-monospace, monospace', lineHeight: 1.5 }}
+            />
+            <button
+              onClick={copiarNumeros}
+              style={{
+                marginTop: 14, width: '100%', padding: '11px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
+                background: copied ? 'var(--success)' : '#2563EB', color: '#fff', fontSize: 13, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              {copied ? <><Check size={15} /> Copiado!</> : <><Copy size={15} /> Copiar</>}
+            </button>
+          </div>
         </div>
       )}
     </main>
