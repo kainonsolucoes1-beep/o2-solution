@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound, Megaphone,
+  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound, Megaphone, LineChart,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
@@ -158,6 +158,7 @@ export default function Sidebar() {
   const navItems: { to: string; label: string; Icon: LucideIcon }[] = [
     ...NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => ({ to, label, Icon })),
     ...(showCampanhas ? [{ to: '/campanhas', label: 'Campanhas', Icon: Megaphone }] : []),
+    ...(isAdmin ? [{ to: '/campanhas/dashboard', label: 'Campanhas · Métricas', Icon: LineChart }] : []),
     ...(showMeuDesempenho
       ? [{ to: `/vida-sdr/${encodeURIComponent(meuNome)}?nome=${encodeURIComponent(meuNome)}`, label: 'Meu desempenho', Icon: UserRound }]
       : []),
