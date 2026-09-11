@@ -18,6 +18,7 @@ import VidaSDR from './pages/VidaSDR'
 import RelatorioProducao from './pages/RelatorioProducao'
 import Agenda from './pages/Agenda'
 import CampanhasFila from './pages/CampanhasFila'
+import CampanhasTemplates from './pages/CampanhasTemplates'
 import CampanhasDashboard from './pages/CampanhasDashboard'
 import Layout from './components/Layout'
 import { ThemeProvider } from './ThemeContext'
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/gestao-comercial" element={<GestaoComercial />} />
           <Route path="/vida-sdr/:origens" element={<VidaSDR />} />
           <Route path="/campanhas" element={<CampanhasFila />} />
+          <Route path="/campanhas/modelos" element={<CampanhasTemplates />} />
           <Route path="/campanhas/dashboard" element={<CampanhasDashboard />} />
           <Route path="/relatorio-producao" element={<RelatorioProducao />} />
           <Route path="/agenda" element={<Agenda />} />

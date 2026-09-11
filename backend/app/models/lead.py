@@ -133,6 +133,20 @@ class CampanhaEvento(Base):
     criado_em = Column(TIMESTAMP, server_default=func.now())
 
 
+class CampanhaTemplate(Base):
+    """Modelo de mensagem reutilizável pra disparo (Campanhas), por canal.
+    Suporta a variável {nome}, substituída pelo nome do lead na hora de copiar."""
+    __tablename__ = "campanha_templates"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    canal = Column(String(20), nullable=False)   # whatsapp | email | sms
+    titulo = Column(String(120), nullable=False)
+    corpo = Column(Text, nullable=False)
+    criado_por_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    criado_em = Column(TIMESTAMP, server_default=func.now())
+    atualizado_em = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+
 class LeadParcela(Base):
     """Detalhamento por parcela da receita real (planilha de vendas), por lead."""
     __tablename__ = "lead_parcelas"

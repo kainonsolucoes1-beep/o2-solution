@@ -20,6 +20,12 @@ interface FilaLead {
   updated_at: string | null
 }
 
+interface Template {
+  id: string
+  titulo: string
+  corpo: string
+}
+
 const CANAL_CFG: { key: Canal; label: string; Icon: typeof MessageCircle; color: string; bg: string }[] = [
   { key: 'whatsapp', label: 'WhatsApp', Icon: MessageCircle, color: '#16A34A', bg: '#EAF7EE' },
   { key: 'email', label: 'E-mail', Icon: Mail, color: '#3B82F6', bg: '#EAF1FE' },
@@ -46,15 +52,8 @@ function initials(name: string) {
   return ((p[0]?.[0] ?? '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase()
 }
 
-// Formato exigido pela plataforma de disparo: +55DDNNNNNNNNN, um por vírgula.
-function normalizarTelefone(phone: string | null): string | null {
-  if (!phone) return null
-  let digits = phone.replace(/\D/g, '')
-  if (!digits) return null
-  if (!digits.startsWith('55') && (digits.length === 10 || digits.length === 11)) {
-    digits = '55' + digits
-  }
-  return '+' + digits
+function primeiroNome(name: string) {
+  return name.trim().split(/\s+/)[0] ?? name
 }
 
 type StatusFiltro = 'todos' | 'fila' | 'disparado_sem_resposta'
@@ -70,17 +69,33 @@ export default function CampanhasFila() {
   const [actingId, setActingId] = useState<string | null>(null)
   const [confirmRespondeu, setConfirmRespondeu] = useState<string | null>(null)
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todos')
-  const [copyOpen, setCopyOpen] = useState(false)
-  const [copyText, setCopyText] = useState('')
-  const [copied, setCopied] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkActing, setBulkActing] = useState(false)
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [menuAbertoPara, setMenuAbertoPara] = useState<string | null>(null)
+  const [textoCopiadoPara, setTextoCopiadoPara] = useState<string | null>(null)
 
   const fetchCounts = useCallback(() => {
     api.get<Record<Canal, number>>('/api/v1/campanhas/fila/contagem')
       .then(r => setCounts(r.data))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    api.get<Template[]>('/api/v1/campanhas/templates', { params: { canal } })
+      .then(r => setTemplates(r.data))
+      .catch(() => setTemplates([]))
+    setMenuAbertoPara(null)
+  }, [canal])
+
+  function copiarModeloPara(lead: FilaLead, template: Template) {
+    const texto = template.corpo.replace(/\{nome\}/g, primeiroNome(lead.name))
+    navigator.clipboard.writeText(texto).then(() => {
+      setTextoCopiadoPara(lead.id)
+      setTimeout(() => setTextoCopiadoPara(prev => prev === lead.id ? null : prev), 1500)
+    }).catch(() => {})
+    setMenuAbertoPara(null)
+  }
 
   const fetchFila = useCallback((c: Canal) => {
     setLoading(true)
@@ -149,17 +164,6 @@ export default function CampanhasFila() {
     setSelected(todosSelecionados ? new Set() : new Set(leadsFiltrados.map(l => l.id)))
   }
 
-  function abrirCopiarNumeros() {
-    const numeros = leadsFiltrados.map(l => normalizarTelefone(l.phone)).filter((n): n is string => !!n)
-    setCopyText(numeros.join(', '))
-    setCopied(false)
-    setCopyOpen(true)
-  }
-
-  function copiarNumeros() {
-    navigator.clipboard.writeText(copyText).then(() => setCopied(true)).catch(() => {})
-  }
-
   return (
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-5" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
       <div>
@@ -199,13 +203,12 @@ export default function CampanhasFila() {
       </div>
 
       {!loading && leads.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer' }}>
-              <input type="checkbox" checked={todosSelecionados} onChange={toggleSelectAll} style={{ cursor: 'pointer' }} />
-              Selecionar todos
-            </label>
-            <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={todosSelecionados} onChange={toggleSelectAll} style={{ cursor: 'pointer' }} />
+            Selecionar todos
+          </label>
+          <div style={{ display: 'flex', gap: 6 }}>
             {([
               ['todos', `Todos · ${leads.length}`],
               ['fila', `Aguardando disparo · ${totalAguardando}`],
@@ -227,21 +230,7 @@ export default function CampanhasFila() {
                 </button>
               )
             })}
-            </div>
           </div>
-          {canal === 'whatsapp' && (
-            <button
-              onClick={abrirCopiarNumeros}
-              disabled={leadsFiltrados.length === 0}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 9, cursor: leadsFiltrados.length === 0 ? 'not-allowed' : 'pointer',
-                border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12.5, fontWeight: 600,
-                opacity: leadsFiltrados.length === 0 ? 0.5 : 1,
-              }}
-            >
-              <Copy size={13} /> Copiar números ({leadsFiltrados.filter(l => l.phone).length})
-            </button>
-          )}
         </div>
       )}
 
@@ -371,42 +360,45 @@ export default function CampanhasFila() {
                   >
                     <X size={14} />
                   </button>
+
+                  {templates.length > 0 && (
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        title="Copiar mensagem de um modelo"
+                        onClick={() => setMenuAbertoPara(prev => prev === lead.id ? null : lead.id)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: '100%', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: textoCopiadoPara === lead.id ? 'var(--success)' : 'var(--text-muted)', cursor: 'pointer' }}
+                      >
+                        {textoCopiadoPara === lead.id ? <Check size={14} /> : <Copy size={14} />}
+                      </button>
+                      {menuAbertoPara === lead.id && (
+                        <div
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            position: 'absolute', top: '110%', right: 0, zIndex: 20, minWidth: 180, maxWidth: 260,
+                            background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 10px 28px rgba(15,23,42,0.18)', overflow: 'hidden',
+                          }}
+                        >
+                          {templates.map(t => (
+                            <button
+                              key={t.id}
+                              onClick={() => copiarModeloPara(lead, t)}
+                              style={{
+                                width: '100%', display: 'block', padding: '9px 12px', textAlign: 'left', cursor: 'pointer',
+                                border: 'none', borderBottom: '1px solid var(--border-lt)', background: 'transparent', fontSize: 12, fontWeight: 600, color: 'var(--text-2)',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {t.titulo}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )
           })}
-        </div>
-      )}
-
-      {copyOpen && (
-        <div onClick={() => setCopyOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 560, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', padding: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <p style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
-                <Copy size={16} style={{ color: 'var(--accent)' }} /> Números pra disparo
-              </p>
-              <button onClick={() => setCopyOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
-            </div>
-            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 0 14px' }}>
-              {copyText ? copyText.split(',').filter(Boolean).length : 0} número(s) no formato +55DDDNNNNNNNNN, prontos pra colar na plataforma de disparo.
-            </p>
-            <textarea
-              readOnly
-              value={copyText}
-              onFocus={e => e.target.select()}
-              style={{ width: '100%', minHeight: 120, padding: 12, borderRadius: 10, border: '1px solid var(--border-in)', fontSize: 12.5, color: 'var(--text-2)', background: 'var(--bg-input)', resize: 'vertical', fontFamily: 'ui-monospace, monospace', lineHeight: 1.5 }}
-            />
-            <button
-              onClick={copiarNumeros}
-              style={{
-                marginTop: 14, width: '100%', padding: '11px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
-                background: copied ? 'var(--success)' : '#2563EB', color: '#fff', fontSize: 13, fontWeight: 700,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              }}
-            >
-              {copied ? <><Check size={15} /> Copiado!</> : <><Copy size={15} /> Copiar</>}
-            </button>
-          </div>
         </div>
       )}
     </main>

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.database import get_db
-from app.models import Lead, LeadNote, CampanhaEvento, User
+from app.models import Lead, LeadNote, CampanhaEvento, CampanhaTemplate, User
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range
 
 router = APIRouter(prefix="/api/v1/campanhas", tags=["campanhas"])
@@ -365,3 +365,96 @@ def campanhas_dashboard(
         "rodizio": rodizio,
         "atividade_recente": atividade_recente,
     }
+
+
+def _template_dict(t: CampanhaTemplate) -> dict:
+    return {
+        "id": str(t.id),
+        "canal": t.canal,
+        "titulo": t.titulo,
+        "corpo": t.corpo,
+        "atualizado_em": t.atualizado_em.isoformat() if t.atualizado_em else None,
+    }
+
+
+class TemplateRequest(BaseModel):
+    canal: Canal
+    titulo: str
+    corpo: str
+
+
+@router.get("/templates")
+def listar_templates(
+    canal: Canal,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Modelos de mensagem cadastrados pra um canal — biblioteca de textos
+    pra WhatsApp/e-mail/SMS, usada pelo Isaac (ou admin) na hora de disparar."""
+    operador = _operador_campanha(db)
+    if not _pode_trabalhar_fila(current_user, operador):
+        raise HTTPException(status_code=403, detail="Apenas Isaac ou administradores podem ver os modelos de campanha")
+    templates = (
+        db.query(CampanhaTemplate)
+        .filter(CampanhaTemplate.canal == canal)
+        .order_by(CampanhaTemplate.titulo)
+        .all()
+    )
+    return [_template_dict(t) for t in templates]
+
+
+@router.post("/templates")
+def criar_template(
+    body: TemplateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    operador = _operador_campanha(db)
+    if not _pode_trabalhar_fila(current_user, operador):
+        raise HTTPException(status_code=403, detail="Apenas Isaac ou administradores podem criar modelos de campanha")
+    template = CampanhaTemplate(
+        canal=body.canal, titulo=body.titulo.strip(), corpo=body.corpo,
+        criado_por_user_id=current_user.id,
+    )
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    return _template_dict(template)
+
+
+@router.put("/templates/{template_id}")
+def editar_template(
+    template_id: str,
+    body: TemplateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    operador = _operador_campanha(db)
+    if not _pode_trabalhar_fila(current_user, operador):
+        raise HTTPException(status_code=403, detail="Apenas Isaac ou administradores podem editar modelos de campanha")
+    template = db.query(CampanhaTemplate).filter(CampanhaTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Modelo não encontrado")
+    template.canal = body.canal
+    template.titulo = body.titulo.strip()
+    template.corpo = body.corpo
+    db.commit()
+    db.refresh(template)
+    return _template_dict(template)
+
+
+@router.delete("/templates/{template_id}")
+def excluir_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    operador = _operador_campanha(db)
+    if not _pode_trabalhar_fila(current_user, operador):
+        raise HTTPException(status_code=403, detail="Apenas Isaac ou administradores podem excluir modelos de campanha")
+    template = db.query(CampanhaTemplate).filter(CampanhaTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Modelo não encontrado")
+    db.delete(template)
+    db.commit()
+    return {"success": True}
