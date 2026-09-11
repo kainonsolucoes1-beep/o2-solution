@@ -73,6 +73,8 @@ export default function CampanhasFila() {
   const [copyOpen, setCopyOpen] = useState(false)
   const [copyText, setCopyText] = useState('')
   const [copied, setCopied] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkActing, setBulkActing] = useState(false)
 
   const fetchCounts = useCallback(() => {
     api.get<Record<Canal, number>>('/api/v1/campanhas/fila/contagem')
@@ -90,7 +92,8 @@ export default function CampanhasFila() {
   }, [])
 
   useEffect(() => { fetchCounts() }, [fetchCounts])
-  useEffect(() => { fetchFila(canal); setConfirmRespondeu(null); setStatusFiltro('todos') }, [canal, fetchFila])
+  useEffect(() => { fetchFila(canal); setConfirmRespondeu(null); setStatusFiltro('todos'); setSelected(new Set()) }, [canal, fetchFila])
+  useEffect(() => { setSelected(new Set()) }, [statusFiltro])
 
   function marcarDesfecho(leadId: string, desfecho: 'disparado_sem_resposta' | 'respondeu' | 'nao_retrabalhar') {
     setActingId(leadId)
@@ -111,10 +114,40 @@ export default function CampanhasFila() {
       .finally(() => setActingId(null))
   }
 
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function marcarDisparoEmMassa() {
+    const ids = [...selected]
+    if (ids.length === 0) return
+    setBulkActing(true)
+    setError('')
+    const results = await Promise.allSettled(
+      ids.map(id => api.post(`/api/v1/campanhas/${id}/desfecho`, { desfecho: 'disparado_sem_resposta' })),
+    )
+    const okIds = new Set(ids.filter((_, i) => results[i].status === 'fulfilled'))
+    setLeads(prev => prev.map(l => okIds.has(l.id) ? { ...l, campanha_status: 'disparado_sem_resposta' } : l))
+    const falharam = ids.filter(id => !okIds.has(id))
+    setSelected(new Set(falharam))
+    fetchCounts()
+    if (falharam.length > 0) setError(`${falharam.length} lead(s) não puderam ser marcados. Tente novamente.`)
+    setBulkActing(false)
+  }
+
   const cfg = CANAL_CFG.find(c => c.key === canal)!
   const totalAguardando = leads.filter(l => l.campanha_status === 'fila').length
   const totalDisparado = leads.filter(l => l.campanha_status === 'disparado_sem_resposta').length
   const leadsFiltrados = leads.filter(l => statusFiltro === 'todos' || l.campanha_status === statusFiltro)
+  const todosSelecionados = leadsFiltrados.length > 0 && leadsFiltrados.every(l => selected.has(l.id))
+
+  function toggleSelectAll() {
+    setSelected(todosSelecionados ? new Set() : new Set(leadsFiltrados.map(l => l.id)))
+  }
 
   function abrirCopiarNumeros() {
     const numeros = leadsFiltrados.map(l => normalizarTelefone(l.phone)).filter((n): n is string => !!n)
@@ -167,7 +200,12 @@ export default function CampanhasFila() {
 
       {!loading && leads.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={todosSelecionados} onChange={toggleSelectAll} style={{ cursor: 'pointer' }} />
+              Selecionar todos
+            </label>
+            <div style={{ display: 'flex', gap: 6 }}>
             {([
               ['todos', `Todos · ${leads.length}`],
               ['fila', `Aguardando disparo · ${totalAguardando}`],
@@ -189,6 +227,7 @@ export default function CampanhasFila() {
                 </button>
               )
             })}
+            </div>
           </div>
           {canal === 'whatsapp' && (
             <button
@@ -203,6 +242,26 @@ export default function CampanhasFila() {
               <Copy size={13} /> Copiar números ({leadsFiltrados.filter(l => l.phone).length})
             </button>
           )}
+        </div>
+      )}
+
+      {selected.size > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--accent-weak)', borderRadius: 10, padding: '10px 14px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>{selected.size} selecionado{selected.size !== 1 ? 's' : ''}</span>
+          <button
+            onClick={marcarDisparoEmMassa}
+            disabled={bulkActing}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: '1px solid var(--accent)', background: 'var(--accent)', color: '#fff', cursor: bulkActing ? 'not-allowed' : 'pointer' }}
+          >
+            <Send size={12} /> {bulkActing ? 'Marcando…' : 'Marcar disparo efetuado'}
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            disabled={bulkActing}
+            style={{ padding: '7px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, border: 'none', background: 'none', color: 'var(--text-muted)', cursor: bulkActing ? 'not-allowed' : 'pointer' }}
+          >
+            Limpar seleção
+          </button>
         </div>
       )}
 
@@ -227,11 +286,18 @@ export default function CampanhasFila() {
                 key={lead.id}
                 onClick={() => navigate(`/leads/${lead.id}`)}
                 style={{
-                  display: 'grid', gridTemplateColumns: 'minmax(200px,1.6fr) 110px 90px 1fr auto', alignItems: 'center', gap: 14,
+                  display: 'grid', gridTemplateColumns: 'auto minmax(200px,1.6fr) 110px 90px 1fr auto', alignItems: 'center', gap: 14,
                   background: 'var(--bg-card)', borderRadius: 12, padding: '13px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                   cursor: 'pointer', opacity: acting ? 0.6 : 1,
                 }}
               >
+                <input
+                  type="checkbox"
+                  checked={selected.has(lead.id)}
+                  onChange={() => toggleSelect(lead.id)}
+                  onClick={e => e.stopPropagation()}
+                  style={{ width: 16, height: 16, cursor: 'pointer' }}
+                />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                   <span style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', background: '#94A3B8' }}>
                     {initials(lead.name)}
