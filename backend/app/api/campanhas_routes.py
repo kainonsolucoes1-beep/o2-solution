@@ -318,15 +318,28 @@ def campanhas_dashboard(
             key=lambda r: r["count"], reverse=True,
         )
 
-    # Atividade recente (log direto da campanha_eventos).
-    recentes = (
+    # Atividade recente (log direto da campanha_eventos) — só o desfecho mais
+    # recente por lead. Um mesmo lead pode gerar "disparado_sem_resposta" e,
+    # minutos depois, "respondeu" (o Isaac marca os dois); mostrar as duas
+    # linhas polui a lista sem agregar nada — o histórico completo continua
+    # em campanha_eventos e na ficha do lead, só a lista fica enxuta.
+    recentes_raw = (
         db.query(CampanhaEvento, Lead.name)
         .join(Lead, Lead.id == CampanhaEvento.lead_id)
         .filter(CampanhaEvento.criado_em >= start, CampanhaEvento.criado_em < end)
         .order_by(CampanhaEvento.criado_em.desc())
-        .limit(30)
+        .limit(200)
         .all()
     )
+    vistos: set = set()
+    recentes = []
+    for ev, lead_nome in recentes_raw:
+        if ev.lead_id in vistos:
+            continue
+        vistos.add(ev.lead_id)
+        recentes.append((ev, lead_nome))
+        if len(recentes) >= 30:
+            break
     envolvidos = {ev.por_user_id for ev, _ in recentes if ev.por_user_id} | {ev.distribuido_para_user_id for ev, _ in recentes if ev.distribuido_para_user_id}
     nomes = {u.id: (u.first_name or u.username) for u in db.query(User).filter(User.id.in_(envolvidos)).all()} if envolvidos else {}
     atividade_recente = [
