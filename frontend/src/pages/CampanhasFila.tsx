@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageCircle, Mail, MessageSquare, X, Check, RotateCcw } from 'lucide-react'
+import { MessageCircle, Mail, MessageSquare, X, Check, Send } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 
@@ -79,7 +79,14 @@ export default function CampanhasFila() {
     setActingId(leadId)
     api.post(`/api/v1/campanhas/${leadId}/desfecho`, { desfecho })
       .then(() => {
-        setLeads(prev => prev.filter(l => l.id !== leadId))
+        // "Disparo efetuado" só atualiza o status na tela — o lead continua na
+        // fila esperando resposta. "Respondeu" e "Não retrabalhar" resolvem
+        // de vez e saem da lista.
+        if (desfecho === 'disparado_sem_resposta') {
+          setLeads(prev => prev.map(l => l.id === leadId ? { ...l, campanha_status: 'disparado_sem_resposta' } : l))
+        } else {
+          setLeads(prev => prev.filter(l => l.id !== leadId))
+        }
         fetchCounts()
         setConfirmRespondeu(null)
       })
@@ -94,7 +101,7 @@ export default function CampanhasFila() {
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Campanhas</h1>
         <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginTop: 3 }}>
-          Disparo em massa — marque o desfecho de cada lead depois de tentar o contato.
+          Disparo em massa — marque "Disparo efetuado" assim que enviar a mensagem, e volte depois pra registrar se respondeu.
         </p>
       </div>
 
@@ -142,6 +149,7 @@ export default function CampanhasFila() {
           {leads.map(lead => {
             const percColor = lead.perception ? PERCEPTION_STYLE[lead.perception] : null
             const acting = actingId === lead.id
+            const jaDisparado = lead.campanha_status === 'disparado_sem_resposta'
             return (
               <div
                 key={lead.id}
@@ -169,18 +177,34 @@ export default function CampanhasFila() {
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: percColor }} />{lead.perception}
                     </span>
                   )}
-                  <span>{lead.campanha_status === 'disparado_sem_resposta' ? 'Já disparado' : 'Aguardando disparo'} · {fmtAgo(lead.updated_at)}</span>
+                  {jaDisparado ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, color: 'var(--success)', background: 'var(--success-weak)', borderRadius: 999, padding: '2px 9px' }}>
+                      <Check size={11} /> Disparo efetuado
+                    </span>
+                  ) : (
+                    <span style={{ fontWeight: 600, color: 'var(--warning)' }}>Aguardando disparo</span>
+                  )}
+                  <span>{fmtAgo(lead.updated_at)}</span>
                 </div>
 
                 <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6 }}>
-                  <button
-                    title="Disparado, sem resposta"
-                    disabled={acting}
-                    onClick={() => marcarDesfecho(lead.id, 'disparado_sem_resposta')}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', borderRadius: 8, fontSize: 11.5, fontWeight: 600, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: acting ? 'not-allowed' : 'pointer' }}
-                  >
-                    <RotateCcw size={13} /> Sem resposta
-                  </button>
+                  {jaDisparado ? (
+                    <span
+                      title="Disparo já marcado como efetuado"
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', borderRadius: 8, fontSize: 11.5, fontWeight: 600, border: '1px solid var(--border-lt)', background: 'var(--bg-subtle)', color: 'var(--text-subtle)' }}
+                    >
+                      <Check size={13} /> Disparado
+                    </span>
+                  ) : (
+                    <button
+                      title="Marcar disparo como efetuado"
+                      disabled={acting}
+                      onClick={() => marcarDesfecho(lead.id, 'disparado_sem_resposta')}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', borderRadius: 8, fontSize: 11.5, fontWeight: 700, border: '1px solid var(--accent)', background: 'var(--accent-weak)', color: 'var(--accent)', cursor: acting ? 'not-allowed' : 'pointer' }}
+                    >
+                      <Send size={12} /> Disparo efetuado
+                    </button>
+                  )}
 
                   {confirmRespondeu === lead.id ? (
                     <button
