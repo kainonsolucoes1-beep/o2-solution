@@ -33,15 +33,22 @@ def _find_user_by_name(db: Session, nome: str) -> User | None:
     )
 
 
-def _isaac(db: Session) -> User:
-    user = _find_user_by_name(db, "Isaac")
+def _operador_campanha(db: Session) -> User:
+    """Quem faz o disparo — marcado com a flag is_campanha_operador em
+    Configurações → Usuários, em vez de um nome fixo ("Isaac"). Assim
+    funciona em qualquer ambiente (staging pode ter uma conta de teste
+    diferente da de produção) e sobrevive a troca de pessoa sem deploy."""
+    user = db.query(User).filter(User.is_campanha_operador.is_(True)).first()
     if not user:
-        raise HTTPException(status_code=500, detail="Usuário 'Isaac' não encontrado — cadastre a conta antes de usar Campanhas.")
+        raise HTTPException(
+            status_code=500,
+            detail="Nenhum usuário marcado como operador de Campanhas — marque um em Configurações → Usuários.",
+        )
     return user
 
 
-def _pode_trabalhar_fila(current_user: User, isaac: User) -> bool:
-    return current_user.id == isaac.id or _is_admin(current_user)
+def _pode_trabalhar_fila(current_user: User, operador: User) -> bool:
+    return current_user.id == operador.id or _is_admin(current_user)
 
 
 def _proximo_rodizio(db: Session) -> User:
@@ -77,14 +84,14 @@ def enviar_para_campanha(
     campanha (respondeu ou não retrabalhar)."""
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Apenas administradores podem enviar leads pra campanha")
-    isaac = _isaac(db)
+    operador = _operador_campanha(db)
     admin_label = current_user.first_name or current_user.username
 
     leads = db.query(Lead).filter(Lead.id.in_(body.lead_ids)).all()
     for lead in leads:
-        lead.renutricao_owner_id = isaac.id
+        lead.renutricao_owner_id = operador.id
         lead.is_renutrucao = True
-        lead.attendant = isaac.first_name or isaac.username
+        lead.attendant = operador.first_name or operador.username
         lead.campanha_canal = body.canal
         lead.campanha_status = "fila"
         db.add(CampanhaEvento(lead_id=lead.id, canal=body.canal, acao="enviado_para_campanha", por_user_id=current_user.id))
@@ -103,12 +110,12 @@ def contagem_fila(
 ):
     """Quantos leads aguardam ação em cada canal — pros contadores das
     sub-abas. Só quem pode trabalhar a fila (Isaac ou admin)."""
-    isaac = _isaac(db)
-    if not _pode_trabalhar_fila(current_user, isaac):
+    operador = _operador_campanha(db)
+    if not _pode_trabalhar_fila(current_user, operador):
         raise HTTPException(status_code=403, detail="Apenas Isaac ou administradores podem ver a fila de campanhas")
     rows = (
         db.query(Lead.campanha_canal, func.count(Lead.id))
-        .filter(Lead.renutricao_owner_id == isaac.id, Lead.campanha_status.in_(FILA_ATIVA))
+        .filter(Lead.renutricao_owner_id == operador.id, Lead.campanha_status.in_(FILA_ATIVA))
         .group_by(Lead.campanha_canal)
         .all()
     )
@@ -126,12 +133,12 @@ def listar_fila(
     db: Session = Depends(get_db),
 ):
     """Leads aguardando ação do Isaac num canal — a tela de trabalho."""
-    isaac = _isaac(db)
-    if not _pode_trabalhar_fila(current_user, isaac):
+    operador = _operador_campanha(db)
+    if not _pode_trabalhar_fila(current_user, operador):
         raise HTTPException(status_code=403, detail="Apenas Isaac ou administradores podem ver a fila de campanhas")
     leads = (
         db.query(Lead)
-        .filter(Lead.renutricao_owner_id == isaac.id, Lead.campanha_canal == canal, Lead.campanha_status.in_(FILA_ATIVA))
+        .filter(Lead.renutricao_owner_id == operador.id, Lead.campanha_canal == canal, Lead.campanha_status.in_(FILA_ATIVA))
         .order_by(Lead.updated_at.desc())
         .all()
     )
@@ -169,8 +176,8 @@ def marcar_desfecho(
     ele, recontando a captação (retrabalhado_em). 'Não retrabalhar' solta o
     lead de volta (sem dono de renutrição). Ambos saem da fila e limpam o
     canal ativo -- o histórico completo já está gravado em campanha_eventos."""
-    isaac = _isaac(db)
-    if not _pode_trabalhar_fila(current_user, isaac):
+    operador = _operador_campanha(db)
+    if not _pode_trabalhar_fila(current_user, operador):
         raise HTTPException(status_code=403, detail="Apenas Isaac ou administradores podem marcar desfechos de campanha")
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead or not lead.campanha_canal or lead.campanha_status not in FILA_ATIVA:

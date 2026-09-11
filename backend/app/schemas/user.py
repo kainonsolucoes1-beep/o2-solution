@@ -29,6 +29,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     hire_date: Optional[date] = None
     must_change_password: bool = False
+    is_campanha_operador: bool = False
 
     class Config:
         from_attributes = True
@@ -73,6 +74,7 @@ class UserAdminUpdate(BaseModel):
     termination_date: Optional[date] = None
     horario_estendido: Optional[bool] = None
     acesso_externo_liberado: Optional[bool] = None
+    is_campanha_operador: Optional[bool] = None
 
 
 class UserAdminResponse(BaseModel):
@@ -93,6 +95,7 @@ class UserAdminResponse(BaseModel):
     termination_date: Optional[date]
     horario_estendido: bool = False
     acesso_externo_liberado: bool = False
+    is_campanha_operador: bool = False
 
     class Config:
         from_attributes = True

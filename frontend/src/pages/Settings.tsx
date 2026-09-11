@@ -508,6 +508,7 @@ interface UserItem {
   birth_date: string | null; phone: string | null; cpf: string | null
   hire_date: string | null; termination_date: string | null; idade: number | null
   horario_estendido: boolean; acesso_externo_liberado: boolean
+  is_campanha_operador: boolean
 }
 const RESTRICTED_ROLES = ['usuario', 'comercial', 'supervisor']
 const CONTRACT_LABEL: Record<string, string> = { clt: 'CLT', estagiario: 'Estagiário' }
@@ -559,6 +560,7 @@ function UsuariosTab() {
   const [editForm, setEditForm]     = useState(EMPTY_EDIT)
   const [editHorarioEst, setEditHorarioEst] = useState(false)
   const [editAcessoExt, setEditAcessoExt] = useState(false)
+  const [editCampanhaOperador, setEditCampanhaOperador] = useState(false)
   const [editError, setEditError]   = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [createdCreds, setCreatedCreds] = useState<{ username: string; password: string } | null>(null)
@@ -631,6 +633,7 @@ function UsuariosTab() {
     })
     setEditHorarioEst(!!user.horario_estendido)
     setEditAcessoExt(!!user.acesso_externo_liberado)
+    setEditCampanhaOperador(!!user.is_campanha_operador)
     setEditError('')
   }
 
@@ -641,6 +644,7 @@ function UsuariosTab() {
       const payload: Record<string, string | boolean | null> = {}
       if (editHorarioEst !== !!editUser.horario_estendido) payload.horario_estendido = editHorarioEst
       if (editAcessoExt !== !!editUser.acesso_externo_liberado) payload.acesso_externo_liberado = editAcessoExt
+      if (editCampanhaOperador !== !!editUser.is_campanha_operador) payload.is_campanha_operador = editCampanhaOperador
       if (editForm.first_name !== (editUser.first_name ?? '')) payload.first_name = editForm.first_name
       if (editForm.email !== editUser.email) payload.email = editForm.email
       if (editForm.username !== editUser.username) payload.username = editForm.username
@@ -879,6 +883,13 @@ function UsuariosTab() {
                   </label>
                 </div>
               )}
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
+                <input type="checkbox" checked={editCampanhaOperador} onChange={e => setEditCampanhaOperador(e.target.checked)} style={{ marginTop: 2 }} />
+                <span style={{ fontSize: 12.5, color: 'var(--text-3b)' }}>
+                  <b style={{ fontWeight: 600 }}>Operador de Campanhas</b> — é quem faz o disparo em massa e vê a fila de WhatsApp/E-mail/SMS. Só uma conta por vez; marcar aqui desmarca de quem tinha antes.
+                </span>
+              </label>
 
               <div style={{ borderTop: '1px solid var(--border-lt)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Dados pessoais</span>

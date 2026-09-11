@@ -8,7 +8,7 @@ import {
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 
-interface UserInfo { username: string; first_name: string | null; role: string }
+interface UserInfo { username: string; first_name: string | null; role: string; is_campanha_operador?: boolean }
 interface AgendaAlerts { overdue: number; today: number }
 
 const NAV = [
@@ -152,9 +152,9 @@ export default function Sidebar() {
   // (supervisor troca de agente pelo seletor do topo da tela).
   const meuNome = user ? (user.first_name || user.username) : ''
   const showMeuDesempenho = !!user && (user.role === 'usuario' || user.role === 'supervisor')
-  // "Campanhas": só quem faz o disparo (Isaac, por nome mesmo) e o admin
-  // (supervisão). Igual à checagem do backend em campanhas_routes.py.
-  const showCampanhas = !!user && (isAdmin || meuNome.trim().toLowerCase() === 'isaac')
+  // "Campanhas": só quem está marcado como operador (Configurações → Usuários)
+  // e o admin (supervisão). Igual à checagem do backend em campanhas_routes.py.
+  const showCampanhas = !!user && (isAdmin || !!user.is_campanha_operador)
   const navItems: { to: string; label: string; Icon: LucideIcon }[] = [
     ...NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => ({ to, label, Icon })),
     ...(showCampanhas ? [{ to: '/campanhas', label: 'Campanhas', Icon: Megaphone }] : []),

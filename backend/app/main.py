@@ -70,6 +70,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS acesso_externo_liberado BOOLEAN NOT NULL DEFAULT false"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS campanha_canal VARCHAR(20)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS campanha_status VARCHAR(30)"))
+    _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_campanha_operador BOOLEAN NOT NULL DEFAULT false"))
     _conn.execute(text("CREATE INDEX IF NOT EXISTS idx_login_events_user_created ON login_events(user_id, created_at DESC)"))
     _conn.commit()
 

@@ -512,6 +512,11 @@ def update_user(
         user.horario_estendido = body.horario_estendido
     if body.acesso_externo_liberado is not None:
         user.acesso_externo_liberado = body.acesso_externo_liberado
+    if body.is_campanha_operador is not None:
+        if body.is_campanha_operador:
+            # só um operador de Campanhas por vez -- tira a flag de quem tinha
+            db.query(User).filter(User.id != user.id, User.is_campanha_operador.is_(True)).update({"is_campanha_operador": False})
+        user.is_campanha_operador = body.is_campanha_operador
     db.commit()
     db.refresh(user)
     return user
