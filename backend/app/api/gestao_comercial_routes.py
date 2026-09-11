@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -21,6 +21,11 @@ router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
 MESES_ABREV = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
 VENDA_STATUSES      = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
+
+# Lead na fila de disparo (Campanhas) nao conta pro Isaac na Vida do Agente
+# dele -- ele e' o operador do disparo, nao o dono; a posse so' passa a valer
+# quando o rodizio distribui (ou o lead e' solto de volta).
+CAMPANHA_ATIVA_STATUSES = ("fila", "disparado_sem_resposta")
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 CANCELADO_STATUS    = "sale_not_performed"
 AGENDAMENTO_STATUSES = ("qualificado", "scheduled")
@@ -798,7 +803,9 @@ def vida_sdr(
     owner_ids = [u.id for u in matched_users]
     origin_or_owner = Lead.origin.in_(parts) if parts else None
     if owner_ids:
-        origin_or_owner = or_(origin_or_owner, Lead.renutricao_owner_id.in_(owner_ids))
+        _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
+        owner_match = and_(Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo)
+        origin_or_owner = or_(origin_or_owner, owner_match)
     filters = [origin_or_owner, *date_filters] if parts else []
 
     # tenure do agente ("Desde X - N meses ativo") independe do filtro de
@@ -1029,7 +1036,9 @@ def vida_sdr_receita_composicao(
     owner_ids = [u.id for u in matched_users]
     origin_or_owner = Lead.origin.in_(parts)
     if owner_ids:
-        origin_or_owner = or_(origin_or_owner, Lead.renutricao_owner_id.in_(owner_ids))
+        _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
+        owner_match = and_(Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo)
+        origin_or_owner = or_(origin_or_owner, owner_match)
     tem_receita = or_(Lead.receita_real_recebida > 0, Lead.receita_real_a_receber > 0)
     total_expr = func.coalesce(Lead.receita_real_recebida, 0) + func.coalesce(Lead.receita_real_a_receber, 0)
 

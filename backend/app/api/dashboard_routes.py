@@ -65,14 +65,20 @@ def _person_name_set(db):
     }
 
 
-def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_point=None):
+_CAMPANHA_ATIVA_STATUSES = {"fila", "disparado_sem_resposta"}
+
+
+def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_point=None, campanha_status=None):
     """Quem está com a posse do lead pro ranking do Dashboard: dono de
     renutrição > SDR que prospectou (origem = pessoa). O atendente NÃO conta —
     quem só atende lead de outro não leva o crédito da captação (decisão da
     usuária: Julia atende leads do time, mas o lead conta pra origem).
     Sem posse de pessoa: "Orgânico" (site, chatgpt, google...) ou "Outros
-    canais" (Meta Ads e demais pagos)."""
-    if owner_id and owner_id in owner_names:
+    canais" (Meta Ads e demais pagos). Lead na fila de disparo (Campanhas)
+    não conta pro Isaac — ele é o operador do disparo, não o dono do lead;
+    a posse só passa a valer quando o rodízio distribui (ou volta ao normal
+    se ele soltar o lead)."""
+    if owner_id and owner_id in owner_names and campanha_status not in _CAMPANHA_ATIVA_STATUSES:
         return owner_names[owner_id]
     o = (origin or "").strip()
     if o and o.lower() in person_names:
@@ -458,15 +464,15 @@ def dashboard_performance(
     # quem prospectou (SDR na origem) > "Orgânico" / "Outros canais".
     # Detalhamento de canal fica no Performance, não no Dashboard.
     ranking_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.conversion_point)
+        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.conversion_point, Lead.campanha_status)
         .filter(EFFECTIVE_CAPTACAO >= month_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
     _owner_names_month = _owner_names(db, {r.renutricao_owner_id for r in ranking_leads if r.renutricao_owner_id})
     _persons = _person_name_set(db)
     ranking_counts: dict = defaultdict(int)
-    for origin, owner_id, conversion_point in ranking_leads:
-        ranking_counts[_operador_do_lead(origin, owner_id, _owner_names_month, _persons, conversion_point)] += 1
+    for origin, owner_id, conversion_point, campanha_status in ranking_leads:
+        ranking_counts[_operador_do_lead(origin, owner_id, _owner_names_month, _persons, conversion_point, campanha_status)] += 1
     total_ranking = sum(ranking_counts.values())
     max_count = max(ranking_counts.values()) if ranking_counts else 1
     ranking = [
@@ -495,7 +501,7 @@ def dashboard_performance(
 
     # Captação do dia por operador (mesma regra de posse do ranking do mês)
     hoje_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential, Lead.conversion_point)
+        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential, Lead.conversion_point, Lead.campanha_status)
         .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
@@ -503,8 +509,8 @@ def dashboard_performance(
     _proposta_set = {s.lower() for s in _PROPOSTA}
     hoje_counts: dict = defaultdict(int)
     hoje_proposta_valor: dict = defaultdict(float)
-    for origin, owner_id, status, value_potential, conversion_point in hoje_leads:
-        fonte = _operador_do_lead(origin, owner_id, _owner_names_hoje, _persons, conversion_point)
+    for origin, owner_id, status, value_potential, conversion_point, campanha_status in hoje_leads:
+        fonte = _operador_do_lead(origin, owner_id, _owner_names_hoje, _persons, conversion_point, campanha_status)
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
             hoje_proposta_valor[fonte] += float(value_potential or 0)
