@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, TrendingUp, TrendingDown,
   ArrowLeftRight, ArrowUp, ArrowDown, SlidersHorizontal, Cake, HeartPulse, Minus,
-  DollarSign, Target, ExternalLink, LayoutGrid, Share2, Tag, RefreshCw,
+  DollarSign, Target, ExternalLink, LayoutGrid, Share2, Tag, RefreshCw, LayoutDashboard,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -413,7 +413,7 @@ export default function KPIs() {
   const filtersRef = useRef<HTMLDivElement>(null)
 
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('visao-geral')
-  const [aquisicaoView, setAquisicaoView] = useState<'bases' | 'canais' | 'conversao' | 'modalidade' | 'renutricao'>('bases')
+  const [aquisicaoView, setAquisicaoView] = useState<'resumo' | 'bases' | 'canais' | 'conversao' | 'modalidade' | 'renutricao'>('resumo')
   const [aquisicaoLayout, setAquisicaoLayout] = useState<'lista' | 'quadrante'>('lista')
   const [rankSortBy, setRankSortBy] = useState<'captacoes' | 'receita'>('captacoes')
 
@@ -1136,6 +1136,7 @@ export default function KPIs() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
             <div style={{ display: 'flex', gap: 6, border: '1px solid var(--border)', borderRadius: 12, padding: 5, background: 'var(--bg-subtle)', width: 'fit-content' }}>
               {([
+                { key: 'resumo', label: 'Resumo', icon: LayoutDashboard },
                 { key: 'bases', label: 'Bases', icon: LayoutGrid },
                 { key: 'canais', label: 'Canais', icon: Share2 },
                 { key: 'conversao', label: 'Pontos de conversão', icon: Target },
@@ -1158,23 +1159,37 @@ export default function KPIs() {
                 )
               })}
             </div>
-            <div style={{ display: 'flex', gap: 6, border: '1px solid var(--border)', borderRadius: 12, padding: 5, background: 'var(--bg-subtle)', width: 'fit-content' }}>
-              {([
-                { key: 'lista', label: 'Lista' },
-                { key: 'quadrante', label: 'Quadrante' },
-              ] as const).map(v => (
-                <button key={v.key} onClick={() => setAquisicaoLayout(v.key)}
-                  style={{
-                    padding: '9px 18px', borderRadius: 9, border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                    background: aquisicaoLayout === v.key ? 'var(--bg-card)' : 'transparent',
-                    color: aquisicaoLayout === v.key ? '#2563EB' : 'var(--text-muted)',
-                    boxShadow: aquisicaoLayout === v.key ? '0 2px 6px -1px rgba(15,23,42,.12), 0 0 0 1px var(--border-lt)' : 'none',
-                  }}>
-                  {v.label}
-                </button>
-              ))}
-            </div>
+            {aquisicaoView !== 'resumo' && (
+              <div style={{ display: 'flex', gap: 6, border: '1px solid var(--border)', borderRadius: 12, padding: 5, background: 'var(--bg-subtle)', width: 'fit-content' }}>
+                {([
+                  { key: 'lista', label: 'Lista' },
+                  { key: 'quadrante', label: 'Quadrante' },
+                ] as const).map(v => (
+                  <button key={v.key} onClick={() => setAquisicaoLayout(v.key)}
+                    style={{
+                      padding: '9px 18px', borderRadius: 9, border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                      background: aquisicaoLayout === v.key ? 'var(--bg-card)' : 'transparent',
+                      color: aquisicaoLayout === v.key ? '#2563EB' : 'var(--text-muted)',
+                      boxShadow: aquisicaoLayout === v.key ? '0 2px 6px -1px rgba(15,23,42,.12), 0 0 0 1px var(--border-lt)' : 'none',
+                    }}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {aquisicaoView === 'resumo' && (
+            <ResumoAquisicao
+              bases={basesDisplay.map(b => ({ label: b.base, captacoes: b.captacoes, conversao: b.conversao }))}
+              canais={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, conversao: f.conversao }))}
+              pontos={allConvPoints.map(c => ({ label: c.label, captacoes: c.captacoes, conversao: c.conversao }))}
+              modalidades={modalidadeData.map(m => ({ label: m.modalidade, captacoes: m.captacoes, conversao: m.conversao }))}
+              renutricao={renutricaoData}
+              loading={basesLoading || loading || modalidadeLoading || renutricaoLoading}
+              onVerTudo={setAquisicaoView}
+            />
+          )}
 
           {aquisicaoView === 'bases' && (
             basesLoading ? (
@@ -1935,6 +1950,161 @@ function avatarColor(label: string): string {
   let hash = 0
   for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0
   return AVATAR_COLORS[hash % AVATAR_COLORS.length]
+}
+
+// ─── Resumo consolidado da aba Aquisição: os 3 maiores de cada dimensão numa
+// tela só, pra não precisar entrar em Bases → Canais → Pontos → Modalidade
+// um de cada vez só pra ter uma leitura geral do mês. ────────────────────
+type ResumoRow = { label: string; captacoes: number; conversao: number }
+
+const RESUMO_MIN_AMOSTRA = 3 // ignora captações muito baixas nos destaques (conversão de 1 lead não é sinal)
+
+function ResumoDimCard({ title, icon: Icon, color, bg, rows, onVerTudo }: {
+  title: string; icon: React.ComponentType<{ size?: number }>; color: string; bg: string
+  rows: ResumoRow[]; onVerTudo: () => void
+}) {
+  const total = Math.max(1, rows.reduce((s, r) => s + r.captacoes, 0))
+  const top = rows.slice(0, 3)
+  const resto = rows.length - top.length
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)' }}>
+          <span style={{ width: 26, height: 26, borderRadius: 8, display: 'grid', placeItems: 'center', background: bg, color, flexShrink: 0 }}>
+            <Icon size={14} />
+          </span>
+          {title}
+        </div>
+        <button onClick={onVerTudo} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 650, color: '#2563EB', display: 'flex', alignItems: 'center', gap: 3 }}>
+          Ver tudo <ChevronRight size={13} />
+        </button>
+      </div>
+      {top.length === 0 ? (
+        <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', padding: '4px 16px 16px', margin: 0 }}>Nenhum dado neste período.</p>
+      ) : (
+        <div style={{ padding: '2px 8px 4px' }}>
+          {top.map(r => {
+            const share = Math.round((r.captacoes / total) * 100)
+            const initial = r.label.trim() ? r.label.trim()[0].toUpperCase() : '?'
+            const convColor = r.captacoes < RESUMO_MIN_AMOSTRA ? 'var(--text-subtle)' : r.conversao >= 15 ? 'var(--success)' : r.conversao >= 8 ? 'var(--warning)' : 'var(--text-subtle)'
+            return (
+              <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 8px' }}>
+                <span style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 10.5, fontWeight: 700, color: '#fff', background: avatarColor(r.label) }}>
+                  {initial}
+                </span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {r.label}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 650, flexShrink: 0, width: 62, textAlign: 'right', whiteSpace: 'nowrap', color: convColor }}>
+                  {r.conversao}% conv.
+                </span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-1)', background: 'var(--bg-subtle)', border: '1px solid var(--border-lt)', borderRadius: 7, padding: '2px 8px', flexShrink: 0, width: 38, textAlign: 'center' }}>
+                  {share}%
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {resto > 0 && (
+        <p style={{ fontSize: 11, color: 'var(--text-subtle)', padding: '0 16px 12px', margin: 0 }}>
+          + {resto} outra{resto > 1 ? 's' : ''}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ResumoAquisicao({ bases, canais, pontos, modalidades, renutricao, loading, onVerTudo }: {
+  bases: ResumoRow[]; canais: ResumoRow[]; pontos: ResumoRow[]; modalidades: ResumoRow[]
+  renutricao: RenutricaoOverview | null
+  loading: boolean
+  onVerTudo: (view: 'bases' | 'canais' | 'conversao' | 'modalidade' | 'renutricao') => void
+}) {
+  if (loading) {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        {[0, 1, 2, 3].map(i => <StateBox key={i} kind="loading" height={180} />)}
+      </div>
+    )
+  }
+
+  const todas = [
+    ...bases.map(r => ({ ...r, dim: 'Bases' })),
+    ...canais.map(r => ({ ...r, dim: 'Canais' })),
+    ...pontos.map(r => ({ ...r, dim: 'Pontos de conversão' })),
+    ...modalidades.map(r => ({ ...r, dim: 'Modalidade' })),
+  ]
+  const comAmostra = todas.filter(r => r.captacoes >= RESUMO_MIN_AMOSTRA)
+  const melhorConv = comAmostra.length ? comAmostra.reduce((a, b) => b.conversao > a.conversao ? b : a) : null
+  const piorConv = comAmostra.length ? comAmostra.reduce((a, b) => b.conversao < a.conversao ? b : a) : null
+  const maiorVolume = todas.length ? todas.reduce((a, b) => b.captacoes > a.captacoes ? b : a) : null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {(melhorConv || maiorVolume || piorConv) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: 'var(--border-lt)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+          {melhorConv && (
+            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11 }}>
+              <span style={{ width: 32, height: 32, borderRadius: 9, display: 'grid', placeItems: 'center', background: 'var(--success-weak)', color: 'var(--success)', flexShrink: 0 }}><TrendingUp size={16} /></span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Melhor conversão</div>
+                <div style={{ fontSize: 13.5, color: 'var(--text-1)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{melhorConv.label} <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>· {melhorConv.conversao}%</span></div>
+              </div>
+            </div>
+          )}
+          {maiorVolume && (
+            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11 }}>
+              <span style={{ width: 32, height: 32, borderRadius: 9, display: 'grid', placeItems: 'center', background: 'var(--accent-weak)', color: '#2563EB', flexShrink: 0 }}><Target size={16} /></span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Maior volume</div>
+                <div style={{ fontSize: 13.5, color: 'var(--text-1)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{maiorVolume.label} <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>· {maiorVolume.captacoes} leads</span></div>
+              </div>
+            </div>
+          )}
+          {piorConv && (
+            <div style={{ background: 'var(--bg-card)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 11 }}>
+              <span style={{ width: 32, height: 32, borderRadius: 9, display: 'grid', placeItems: 'center', background: 'var(--warning-weak)', color: 'var(--warning)', flexShrink: 0 }}><AlertTriangle size={16} /></span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Atenção</div>
+                <div style={{ fontSize: 13.5, color: 'var(--text-1)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{piorConv.label} <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>· {piorConv.conversao}% conv.</span></div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <ResumoDimCard title="Bases" icon={LayoutGrid} color="#2563EB" bg="#EFF6FF" rows={bases} onVerTudo={() => onVerTudo('bases')} />
+        <ResumoDimCard title="Canais" icon={Share2} color="#7C3AED" bg="#F5F3FF" rows={canais} onVerTudo={() => onVerTudo('canais')} />
+        <ResumoDimCard title="Pontos de conversão" icon={Target} color="#DC2626" bg="#FEF2F2" rows={pontos} onVerTudo={() => onVerTudo('conversao')} />
+        <ResumoDimCard title="Modalidade" icon={Tag} color="#059669" bg="#ECFDF5" rows={modalidades} onVerTudo={() => onVerTudo('modalidade')} />
+      </div>
+
+      {renutricao && renutricao.captacoes > 0 && (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)' }}>
+              <span style={{ width: 26, height: 26, borderRadius: 8, display: 'grid', placeItems: 'center', background: '#F0F9FF', color: '#0891B2', flexShrink: 0 }}>
+                <RefreshCw size={14} />
+              </span>
+              Renutrição
+            </div>
+            <button onClick={() => onVerTudo('renutricao')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 650, color: '#2563EB', display: 'flex', alignItems: 'center', gap: 3 }}>
+              Ver tudo <ChevronRight size={13} />
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 26, padding: '6px 16px 16px', flexWrap: 'wrap' }}>
+            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Captações</div><div style={{ fontSize: 19, fontWeight: 750, color: 'var(--text-1)', marginTop: 2 }}>{renutricao.captacoes}</div></div>
+            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Vendas</div><div style={{ fontSize: 19, fontWeight: 750, color: 'var(--text-1)', marginTop: 2 }}>{renutricao.vendas}</div></div>
+            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Conversão</div><div style={{ fontSize: 19, fontWeight: 750, color: 'var(--success)', marginTop: 2 }}>{renutricao.conversao}%</div></div>
+            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Cancelados</div><div style={{ fontSize: 19, fontWeight: 750, color: 'var(--danger)', marginTop: 2 }}>{renutricao.cancelados}</div></div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function AquisicaoTable({ rows, onOpen }: {
