@@ -21,7 +21,7 @@ body {
   --text-3:     #374151;
   --text-3b:    #4B5563;
   --text-muted: #6B7280;
-  --text-subtle:#9CA3AF;
+  --text-subtle:#6B7280;
   --text-meta:  #7C8799;
   --border:     #E5E7EB;
   --border-lt:  #F3F4F6;
@@ -53,7 +53,7 @@ html.dark {
   --text-3:     #CBD5E1;
   --text-3b:    #A8BFCC;
   --text-muted: #8B9AB0;
-  --text-subtle:#5C7080;
+  --text-subtle:#8B9AB0;
   --text-meta:  #78899D;
   --border:     #334155;
   --border-lt:  #243044;
