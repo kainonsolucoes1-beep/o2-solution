@@ -804,7 +804,10 @@ def vida_sdr(
     origin_or_owner = Lead.origin.in_(parts) if parts else None
     if owner_ids:
         _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
-        owner_match = and_(Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo)
+        # Atribuir não é retrabalhar: só conta pro dono quando ele de fato
+        # reativou o lead (retrabalhado_em preenchido) -- senão um lote
+        # atribuído e nunca tocado (ainda "não realizada") infla a captação dele.
+        owner_match = and_(Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo, Lead.retrabalhado_em.isnot(None))
         origin_or_owner = or_(origin_or_owner, owner_match)
     filters = [origin_or_owner, *date_filters] if parts else []
 
@@ -1037,7 +1040,10 @@ def vida_sdr_receita_composicao(
     origin_or_owner = Lead.origin.in_(parts)
     if owner_ids:
         _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
-        owner_match = and_(Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo)
+        # Atribuir não é retrabalhar: só conta pro dono quando ele de fato
+        # reativou o lead (retrabalhado_em preenchido) -- senão um lote
+        # atribuído e nunca tocado (ainda "não realizada") infla a captação dele.
+        owner_match = and_(Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo, Lead.retrabalhado_em.isnot(None))
         origin_or_owner = or_(origin_or_owner, owner_match)
     tem_receita = or_(Lead.receita_real_recebida > 0, Lead.receita_real_a_receber > 0)
     total_expr = func.coalesce(Lead.receita_real_recebida, 0) + func.coalesce(Lead.receita_real_a_receber, 0)

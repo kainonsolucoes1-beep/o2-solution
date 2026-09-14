@@ -236,7 +236,7 @@ def agentes_performance(
     leads = (
         db.query(
             Lead.origin, Lead.renutricao_owner_id, Lead.campanha_status, Lead.conversion_point,
-            Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida,
+            Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida, Lead.retrabalhado_em,
         )
         .filter(*base_filter)
         .all()
@@ -249,8 +249,8 @@ def agentes_performance(
     show_fin = can_see_financials(current_user)
 
     data: dict = defaultdict(_new_acc)
-    for origin, owner_id, campanha_status, conv_point, status, created_at, receita_data_venda, receita_real_recebida in leads:
-        operador = _operador_do_lead(origin, owner_id, owner_names, person_names, conv_point, campanha_status)
+    for origin, owner_id, campanha_status, conv_point, status, created_at, receita_data_venda, receita_real_recebida, retrabalhado_em in leads:
+        operador = _operador_do_lead(origin, owner_id, owner_names, person_names, conv_point, campanha_status, retrabalhado_em)
         if operador in ("Orgânico", "Outros canais"):
             continue
         _accumulate(data[operador], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
