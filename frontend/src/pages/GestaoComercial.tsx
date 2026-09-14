@@ -81,7 +81,7 @@ function computeBottleneckFromStage(ov: PipelineOverview): string {
 
 // ── Grouping constants ───────────────────────────────────────────────────────
 const O2_NAMES       = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
-const ORGANICO_EXTRA = new Set(['site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp'])
+const ORGANICO_EXTRA = new Set(['site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp', 'meta ads'])
 const isOrganico     = (o: string) => o.toLowerCase().includes('org') || ORGANICO_EXTRA.has(o.toLowerCase())
 const TEAM_OPTIONS   = [
   { label: 'São Paulo', value: 'Equipe São Paulo' },

@@ -38,7 +38,7 @@ EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
 
 # mesma classificação SDR x Orgânico usada no front (GestaoComercial.tsx: groupOrigens)
 O2_NAMES        = {"clara", "maria eduarda", "kauany", "gabrieli", "o2 solution", "o2solution"}
-ORGANICO_EXTRA  = {"site", "chatgpt.com", "chatgpt", "google", "instagram", "facebook", "whatsapp"}
+ORGANICO_EXTRA  = {"site", "chatgpt.com", "chatgpt", "google", "instagram", "facebook", "whatsapp", "meta ads"}
 
 
 def _is_organico(origin: str) -> bool:

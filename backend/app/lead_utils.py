@@ -101,7 +101,7 @@ def modalidade_raw_variants(canonical: str) -> set[str]:
     return variants
 
 
-ORGANICO_EXTRA = {'site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp'}
+ORGANICO_EXTRA = {'site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp', 'meta ads'}
 
 
 def is_organico(origin: str | None, conversion_point: str | None = None) -> bool:
