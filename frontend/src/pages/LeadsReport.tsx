@@ -773,7 +773,7 @@ export default function LeadsReport() {
           <LeadPeekDrawer
             lead={peekLead}
             onClose={() => setPeekLead(null)}
-            onOpenFull={() => navigate(`/leads/${peekLead.id}`)}
+            onOpenFull={() => window.open(`/leads/${peekLead.id}`, '_blank')}
           />
         )}
 
