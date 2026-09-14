@@ -109,48 +109,6 @@ function Sparkline({ values }: { values: number[] }) {
   )
 }
 
-// Subseção de "De onde vieram". Vira accordion (fechado por padrão) quando a
-// lista é longa — o que acontece ao filtrar intervalos grandes.
-function OrigemGroup({ dot, label, items }: { dot: string; label: string; items: { label: string; count: number }[] }) {
-  const long = items.length > 6
-  const total = items.reduce((s, it) => s + it.count, 0)
-  const max = Math.max(...items.map(it => it.count), 1)
-  const [open, setOpen] = useState(!long)
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => long && setOpen(o => !o)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-          background: 'none', border: 'none', padding: 0, textAlign: 'left',
-          cursor: long ? 'pointer' : 'default',
-          fontSize: 10.5, fontWeight: 700, color: 'var(--text-2)',
-          textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: open ? 6 : 0,
-        }}
-      >
-        <span style={{ width: 5, height: 5, borderRadius: '50%', background: dot, flexShrink: 0 }} />
-        {label}
-        <span style={{ color: 'var(--text-subtle)' }}>· {total}</span>
-        {long && (
-          <span style={{ marginLeft: 'auto', display: 'flex' }}>
-            {open ? <ChevronDown size={12} color="var(--text-subtle)" /> : <ChevronRight size={12} color="var(--text-subtle)" />}
-          </span>
-        )}
-      </button>
-      {open && items.map(it => (
-        <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-2)', padding: '4px 0' }}>
-          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
-          <span style={{ width: 72, height: 6, borderRadius: 999, background: 'var(--bg-subtle)', overflow: 'hidden', flexShrink: 0 }}>
-            <span style={{ display: 'block', height: '100%', width: `${(it.count / max) * 100}%`, background: dot, borderRadius: 999 }} />
-          </span>
-          <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0, width: 18, textAlign: 'right' }}>{it.count}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function ZoneHeader({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-subtle)', marginTop: 4 }}>
@@ -229,6 +187,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<{ from: string; to: string } | null>(null)
+  const [origemOpen, setOrigemOpen] = useState<'conv' | 'base' | null>(null)
   const [filterOpen, setFilterOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState('')
   const [draftTo, setDraftTo] = useState('')
@@ -251,7 +210,7 @@ export default function Dashboard() {
     const params: Record<string, string> = {}
     if (f) { params.date = f.from; if (f.to !== f.from) params.date_to = f.to }
     api.get<PerformanceData>('/api/v1/dashboard/performance', { params })
-      .then(r => { if (fetchAllGenRef.current === gen) setData(r.data) })
+      .then(r => { if (fetchAllGenRef.current === gen) { setData(r.data); if (!silent) setOrigemOpen(null) } })
       .catch(err => {
         if (fetchAllGenRef.current !== gen) return
         if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login') }
@@ -426,7 +385,7 @@ export default function Dashboard() {
             chart={<Sparkline values={spark7} />}
           />
 
-          <div className="bg-white rounded-xl flex flex-col gap-3" style={{ padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <div className="bg-white rounded-xl flex flex-col gap-3" style={{ padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', position: 'relative' }}>
             <p style={{ display: 'flex', alignItems: 'center', gap: 8, ...H2_STYLE, fontSize: 12 }}>
               <span style={{ width: 3, height: 12, borderRadius: 2, background: '#6366F1', flexShrink: 0 }} />
               De onde vieram
@@ -441,6 +400,10 @@ export default function Dashboard() {
               const sdrTotal = bases.reduce((s, it) => s + it.count, 0)
               const total = convTotal + sdrTotal
               const convPct = total > 0 ? (convTotal / total) * 100 : 0
+              const openItems = origemOpen === 'conv' ? conv : origemOpen === 'base' ? bases : []
+              const openDot = origemOpen === 'conv' ? '#3B82F6' : '#F59E0B'
+              const openLabel = origemOpen === 'conv' ? 'Pontos de conversão' : 'SDR'
+              const openMax = Math.max(...openItems.map(it => it.count), 1)
               return (
                 <>
                   <div>
@@ -449,27 +412,75 @@ export default function Dashboard() {
                       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-subtle)', marginLeft: 6 }}>lead{total !== 1 ? 's' : ''} {filter && !single ? 'no período' : 'hoje'}</span>
                     </p>
                     {convTotal > 0 && sdrTotal > 0 && (
-                      <>
-                        <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--bg-subtle)', marginTop: 9 }}>
-                          <span style={{ width: `${convPct}%`, background: '#3B82F6' }} />
-                          <span style={{ width: `${100 - convPct}%`, background: '#F59E0B' }} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 3, background: '#3B82F6' }} />Orgânico {convTotal}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 3, background: '#F59E0B' }} />SDR {sdrTotal}</span>
-                        </div>
-                      </>
+                      <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--bg-subtle)', marginTop: 9 }}>
+                        <span style={{ width: `${convPct}%`, background: '#3B82F6' }} />
+                        <span style={{ width: `${100 - convPct}%`, background: '#F59E0B' }} />
+                      </div>
                     )}
                   </div>
-                  <div style={{ height: 1, background: 'var(--border-lt)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    {conv.length > 0 && (
-                      <OrigemGroup key={`${diaLabel}-conv`} dot="#3B82F6" label="Pontos de conversão" items={conv} />
+                  <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
+                    {convTotal > 0 && (
+                      <button
+                        onClick={() => setOrigemOpen(o => o === 'conv' ? null : 'conv')}
+                        style={{
+                          flex: 1, textAlign: 'left', cursor: 'pointer', padding: '12px 14px', borderRadius: 10,
+                          border: `1px solid ${origemOpen === 'conv' ? '#3B82F6' : 'var(--border-lt)'}`,
+                          background: origemOpen === 'conv' ? 'rgba(59,130,246,0.08)' : 'var(--bg-subtle)',
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                          <span style={{ width: 7, height: 7, borderRadius: 2, background: '#3B82F6', flexShrink: 0 }} />Orgânico
+                        </span>
+                        <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: 'var(--text-1)', marginTop: 4 }}>{convTotal}</span>
+                        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 1 }}>{conv.length} font{conv.length !== 1 ? 'es' : 'e'}</span>
+                      </button>
                     )}
-                    {bases.length > 0 && (
-                      <OrigemGroup key={`${diaLabel}-base`} dot="#F59E0B" label="SDR" items={bases} />
+                    {sdrTotal > 0 && (
+                      <button
+                        onClick={() => setOrigemOpen(o => o === 'base' ? null : 'base')}
+                        style={{
+                          flex: 1, textAlign: 'left', cursor: 'pointer', padding: '12px 14px', borderRadius: 10,
+                          border: `1px solid ${origemOpen === 'base' ? '#F59E0B' : 'var(--border-lt)'}`,
+                          background: origemOpen === 'base' ? 'rgba(245,158,11,0.08)' : 'var(--bg-subtle)',
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                          <span style={{ width: 7, height: 7, borderRadius: 2, background: '#F59E0B', flexShrink: 0 }} />SDR
+                        </span>
+                        <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: 'var(--text-1)', marginTop: 4 }}>{sdrTotal}</span>
+                        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 1 }}>{bases.length} font{bases.length !== 1 ? 'es' : 'e'}</span>
+                      </button>
                     )}
                   </div>
+                  {origemOpen && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 20, right: 20, zIndex: 20, marginTop: 8,
+                      background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12,
+                      boxShadow: '0 16px 40px rgba(15,23,42,0.18)', padding: 16,
+                    }}>
+                      <button
+                        onClick={() => setOrigemOpen(null)}
+                        aria-label="Fechar"
+                        style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', color: 'var(--text-subtle)', cursor: 'pointer' }}
+                      >
+                        <X size={16} />
+                      </button>
+                      <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-2)', margin: '0 0 8px' }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: openDot, flexShrink: 0 }} />
+                        {openLabel}
+                        <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>· {openItems.reduce((s, it) => s + it.count, 0)}</span>
+                      </p>
+                      {openItems.map(it => (
+                        <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-2)', padding: '4px 0' }}>
+                          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
+                          <span style={{ width: 64, height: 6, borderRadius: 999, background: 'var(--bg-subtle)', overflow: 'hidden', flexShrink: 0 }}>
+                            <span style={{ display: 'block', height: '100%', width: `${(it.count / openMax) * 100}%`, background: openDot, borderRadius: 999 }} />
+                          </span>
+                          <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0, width: 18, textAlign: 'right' }}>{it.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
               )
             })()}
