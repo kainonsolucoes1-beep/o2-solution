@@ -527,6 +527,7 @@ async def sync_leads_from_followize() -> None:
 
     if not raw_leads:
         logger.info("Followize não retornou nenhum lead")
+        _save_sync_status(True, counts="0 inseridos, 0 atualizados")
         return
 
     db: Session = SessionLocal()
