@@ -528,7 +528,7 @@ def list_lost_reasons(
     return [r.lost_reason for r in rows]
 
 
-MODALIDADES_FIXAS = ("PME", "PF", "PJ", "Adesão", "Odonto", "Odonto PF", "Odonto PME")
+MODALIDADES_FIXAS = ("PME", "PF", "PJ", "Adesão", "Odonto", "Odonto PF", "Odonto PME", "Premiação")
 
 
 @router.get("/leads/modalidades", response_model=List[str])
