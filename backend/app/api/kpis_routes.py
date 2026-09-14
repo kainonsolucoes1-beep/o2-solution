@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
+from app.api.dashboard_routes import _operador_do_lead, _owner_names, _person_name_set
 from app.lead_utils import extract_base as _extract_base
 from app.lead_utils import normalize_modalidade, modalidade_raw_variants, is_organico
 from app.models.lead import Lead
@@ -205,6 +206,59 @@ def conversao_por_fonte(
         result.append({"fonte": fonte, **_finalize_acc(entry["acc"], show_fin), "breakdown": breakdown})
 
     return result
+
+
+@router.get("/agentes")
+def agentes_performance(
+    month: str = Query(None),
+    period: str = Query(None),
+    date_from: str = Query(None),
+    date_to: str = Query(None),
+    team: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Desempenho por agente no período — quem está com a posse de cada lead
+    (dono de renutrição > SDR que prospectou), mesma regra do Ranking do
+    Dashboard (_operador_do_lead). Ao contrário de /conversao-fonte (que agrupa
+    por origem crua, pra canal/ponto de conversão), aqui um lead reatribuído
+    via renutrição conta pra quem está trabalhando ele agora, não pra quem
+    captou originalmente — senão quem só faz renutrição (ex: Pamela) nunca
+    aparece, e gente desligada reaparece por causa de um retrabalho alheio."""
+    date_from, date_to = _resolve_period(month, period, date_from, date_to)
+
+    base_filter = [
+        EFFECTIVE_CAPTACAO >= date_from,
+        EFFECTIVE_CAPTACAO <= date_to,
+        *_scope_filter(team, current_user),
+    ]
+
+    leads = (
+        db.query(
+            Lead.origin, Lead.renutricao_owner_id, Lead.campanha_status, Lead.conversion_point,
+            Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida,
+        )
+        .filter(*base_filter)
+        .all()
+    )
+
+    owner_names = _owner_names(db, {r.renutricao_owner_id for r in leads if r.renutricao_owner_id})
+    person_names = _person_name_set(db)
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
+    show_fin = can_see_financials(current_user)
+
+    data: dict = defaultdict(_new_acc)
+    for origin, owner_id, campanha_status, conv_point, status, created_at, receita_data_venda, receita_real_recebida in leads:
+        operador = _operador_do_lead(origin, owner_id, owner_names, person_names, conv_point, campanha_status)
+        if operador in ("Orgânico", "Outros canais"):
+            continue
+        _accumulate(data[operador], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
+
+    return [
+        {"fonte": nome, **_finalize_acc(acc, show_fin)}
+        for nome, acc in sorted(data.items(), key=lambda x: x[1]["captacoes"], reverse=True)
+    ]
 
 
 @router.get("/leads-vendas")

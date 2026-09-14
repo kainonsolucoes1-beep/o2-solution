@@ -72,6 +72,16 @@ interface RenutricaoOverview {
   receita_gerada: number | null
 }
 
+interface AgenteRow {
+  fonte: string
+  captacoes: number
+  vendas: number
+  cancelados: number
+  conversao: number
+  tempo_medio_dias: number | null
+  receita_gerada: number | null
+}
+
 interface Modalidade { nome: string; count: number; pct: number }
 interface PlanoResumo { possui: number; nao_possui: number; sem_informacao: number; pct_possui: number; pct_nao_possui: number }
 
@@ -429,6 +439,9 @@ export default function KPIs() {
   const [renutricaoData, setRenutricaoData] = useState<RenutricaoOverview | null>(null)
   const [renutricaoLoading, setRenutricaoLoading] = useState(true)
   const [renutricaoError, setRenutricaoError] = useState(false)
+  const [agentesData, setAgentesData] = useState<AgenteRow[]>([])
+  const [agentesLoading, setAgentesLoading] = useState(true)
+  const [agentesError, setAgentesError] = useState(false)
   const [ageBands, setAgeBands] = useState<AgeBand[]>([])
   const [ageBandsLoading, setAgeBandsLoading] = useState(true)
   const [ageError, setAgeError] = useState(false)
@@ -646,6 +659,7 @@ export default function KPIs() {
   const basesGenRef      = useRef(0)
   const modalidadeGenRef = useRef(0)
   const renutricaoGenRef = useRef(0)
+  const agentesGenRef    = useRef(0)
   const agesGenRef       = useRef(0)
   const planoGenRef      = useRef(0)
   const trendGenRef      = useRef(0)
@@ -705,6 +719,17 @@ export default function KPIs() {
       .finally(() => { if (renutricaoGenRef.current === gen) setRenutricaoLoading(false) })
   }
 
+  function fetchAgentes() {
+    const gen = ++agentesGenRef.current
+    const qs = new URLSearchParams(periodParams()).toString()
+    setAgentesLoading(true)
+    setAgentesError(false)
+    api.get<AgenteRow[]>(`/api/v1/kpis/agentes?${qs}`)
+      .then(r => { if (agentesGenRef.current === gen) setAgentesData(r.data) })
+      .catch(() => { if (agentesGenRef.current === gen) { setAgentesData([]); setAgentesError(true) } })
+      .finally(() => { if (agentesGenRef.current === gen) setAgentesLoading(false) })
+  }
+
   function fetchAges() {
     const gen = ++agesGenRef.current
     const qs = new URLSearchParams(periodParams()).toString()
@@ -732,6 +757,7 @@ export default function KPIs() {
     fetchBases()
     fetchModalidade()
     fetchRenutricao()
+    fetchAgentes()
     fetchAges()
     fetchPlano()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -813,11 +839,18 @@ export default function KPIs() {
     })
     .sort((a, b) => b.captacoes - a.captacoes)
 
+  // Usado só pro cálculo de "Sem base informada" (Bases) mais abaixo — ali o
+  // que importa é o total de captação por origem crua de SDR, então continua
+  // batendo em `data` (por origem), não na posse por renutrição.
   const sdrFontes = data.filter(d => isSdr(d.fonte)).sort((a, b) => b.captacoes - a.captacoes)
+  // Aba Agentes / Ranking: quem está com a posse do lead agora (dono de
+  // renutrição > origem), não quem só captou um dia — senão quem só faz
+  // renutrição (ex: Pamela) nunca aparece, e gente desligada reaparece por
+  // causa de um retrabalho alheio (ver /api/v1/kpis/agentes).
   const sdrDisplayFontes = (() => {
-    const o2Members = sdrFontes.filter(f => isO2Member(f.fonte) || isO2Self(f.fonte))
-    const others    = sdrFontes.filter(f => !isO2Member(f.fonte) && !isO2Self(f.fonte))
-    const rows = [...others]
+    const o2Members = agentesData.filter(f => isO2Member(f.fonte) || isO2Self(f.fonte))
+    const others    = agentesData.filter(f => !isO2Member(f.fonte) && !isO2Self(f.fonte))
+    const rows: (AgenteRow & { _o2Origens?: string[] })[] = [...others]
     if (o2Members.length > 0) {
       const cap = o2Members.reduce((s, f) => s + f.captacoes, 0)
       const ven = o2Members.reduce((s, f) => s + f.vendas, 0)
@@ -826,9 +859,9 @@ export default function KPIs() {
         fonte: 'o2 Solution',
         captacoes: cap, vendas: ven, cancelados: can,
         conversao: cap > 0 ? +(ven / cap * 100).toFixed(1) : 0,
-        breakdown: [],
+        tempo_medio_dias: null, receita_gerada: null,
         _o2Origens: o2Members.map(f => f.fonte),
-      } as FonteData & { _o2Origens?: string[] })
+      })
     }
     return rows.sort((a, b) => b.captacoes - a.captacoes)
   })()
@@ -871,7 +904,7 @@ export default function KPIs() {
     if (row.tipo === 'canal') {
       openDrawer('canal', row.fonte, [row.fonte], e.currentTarget)
     } else {
-      const origens = (row as FonteData & { _o2Origens?: string[] })._o2Origens?.join(',') ?? row.fonte
+      const origens = (row as AgenteRow & { _o2Origens?: string[] })._o2Origens?.join(',') ?? row.fonte
       navigate(`/vida-sdr/${encodeURIComponent(origens)}?nome=${encodeURIComponent(row.fonte)}`)
     }
   }
@@ -1304,10 +1337,10 @@ export default function KPIs() {
 
       {/* ── Aba: Ranking ── */}
       {activeMainTab === 'ranking' && (
-        loading ? (
+        (loading || agentesLoading) ? (
           <StateBox kind="loading" height={140} />
-        ) : dataError ? (
-          <StateBox kind="error" height={140} message="Não foi possível carregar o ranking." onRetry={fetchMain} />
+        ) : (dataError || agentesError) ? (
+          <StateBox kind="error" height={140} message="Não foi possível carregar o ranking." onRetry={() => { fetchMain(); fetchAgentes() }} />
         ) : rankingPool.length === 0 ? (
           <StateBox kind="empty" height={140} message="Nenhum operador ou canal com captações neste período." />
         ) : (
@@ -1421,16 +1454,16 @@ export default function KPIs() {
 
       {/* ── Aba: Agentes ── */}
       {activeMainTab === 'equipe-sdr' && (
-        loading ? (
+        agentesLoading ? (
           <StateBox kind="loading" height={140} />
-        ) : dataError ? (
-          <StateBox kind="error" height={140} message="Não foi possível carregar a equipe." onRetry={fetchMain} />
+        ) : agentesError ? (
+          <StateBox kind="error" height={140} message="Não foi possível carregar a equipe." onRetry={fetchAgentes} />
         ) : sdrDisplayFontes.length === 0 ? (
           <StateBox kind="empty" height={140} message="Nenhum operador com captações neste período." />
         ) : (
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
             {sdrDisplayFontes.map((f, idx) => {
-              const fd = f as FonteData & { _o2Origens?: string[] }
+              const fd = f as AgenteRow & { _o2Origens?: string[] }
               const origens = fd._o2Origens ? fd._o2Origens.join(',') : f.fonte
               const initial = f.fonte.trim() ? f.fonte.trim()[0].toUpperCase() : '?'
               return (
