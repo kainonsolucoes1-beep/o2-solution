@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type MouseEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound, Megaphone, LineChart, NotebookPen,
+  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound, Megaphone,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
@@ -30,8 +30,8 @@ const FINANCEIRO_CHILDREN = [
   { to: '/financeiro/metas',       label: 'Metas Mensais' },
 ]
 
-function ExpandableNavGroup({ label, Icon, basePath, children, slim, pathname }: {
-  label: string; Icon: LucideIcon; basePath: string; children: { to: string; label: string }[]; slim: boolean; pathname: string
+function ExpandableNavGroup({ label, Icon, basePath, headerTo, children, slim, pathname }: {
+  label: string; Icon: LucideIcon; basePath: string; headerTo?: string; children: { to: string; label: string }[]; slim: boolean; pathname: string
 }) {
   const [open, setOpen] = useState(pathname.startsWith(basePath))
   useEffect(() => { if (pathname.startsWith(basePath)) setOpen(true) }, [pathname, basePath])
@@ -40,7 +40,7 @@ function ExpandableNavGroup({ label, Icon, basePath, children, slim, pathname }:
   if (slim) {
     return (
       <Link
-        to={children[0]?.to ?? basePath}
+        to={headerTo ?? children[0]?.to ?? basePath}
         title={label}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -58,27 +58,40 @@ function ExpandableNavGroup({ label, Icon, basePath, children, slim, pathname }:
     )
   }
 
+  // Header vira link (headerTo): destaca o fundo só quando a rota é exatamente
+  // a do header (ex: Fila), não sempre que qualquer filho estiver ativo --
+  // os filhos já têm seu próprio destaque. Sem headerTo (Configurações/
+  // Financeiro): mesma regra de sempre, destaca colapsado com algo ativo dentro.
+  const headerExactActive = headerTo ? pathname === headerTo : (groupActive && !open)
+  const headerStyle = {
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+    padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+    background: headerExactActive ? 'rgba(0,109,183,0.16)' : 'transparent',
+    color: groupActive ? '#4FB0E8' : '#9CA3AF',
+    borderLeft: headerExactActive ? '3px solid #006db7' : '3px solid transparent',
+    fontSize: 13, fontWeight: groupActive ? 600 : 400,
+    transition: 'background 150ms',
+  } as const
+  const headerHover = {
+    onMouseEnter: (e: MouseEvent<HTMLElement>) => { if (!headerExactActive) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' },
+    onMouseLeave: (e: MouseEvent<HTMLElement>) => { if (!headerExactActive) e.currentTarget.style.background = 'transparent' },
+  }
+
   return (
     <div>
-      <button
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-          padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-          background: groupActive && !open ? 'rgba(0,109,183,0.16)' : 'transparent',
-          color: groupActive ? '#4FB0E8' : '#9CA3AF',
-          borderLeft: groupActive && !open ? '3px solid #006db7' : '3px solid transparent',
-          fontSize: 13, fontWeight: groupActive ? 600 : 400,
-          transition: 'background 150ms',
-        }}
-        onMouseEnter={e => { if (!(groupActive && !open)) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' }}
-        onMouseLeave={e => { if (!(groupActive && !open)) e.currentTarget.style.background = 'transparent' }}
-      >
-        <Icon size={17} />
-        <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
-        <ChevronDown size={14} style={{ color: '#6B7280', transition: 'transform 180ms ease', transform: open ? 'rotate(180deg)' : 'none' }} />
-      </button>
+      {headerTo ? (
+        <Link to={headerTo} style={{ ...headerStyle, textDecoration: 'none' }} {...headerHover}>
+          <Icon size={17} />
+          <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
+          <ChevronDown size={14} style={{ color: '#6B7280', transition: 'transform 180ms ease', transform: open ? 'rotate(180deg)' : 'none' }} />
+        </Link>
+      ) : (
+        <button onClick={() => setOpen(o => !o)} aria-expanded={open} style={headerStyle} {...headerHover}>
+          <Icon size={17} />
+          <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
+          <ChevronDown size={14} style={{ color: '#6B7280', transition: 'transform 180ms ease', transform: open ? 'rotate(180deg)' : 'none' }} />
+        </button>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden', maxHeight: open ? 120 : 0, transition: 'max-height 220ms ease' }}>
         {children.map(child => {
           const isActive = pathname === child.to
@@ -155,11 +168,12 @@ export default function Sidebar() {
   // "Campanhas": só quem está marcado como operador (Configurações → Usuários)
   // e o admin (supervisão). Igual à checagem do backend em campanhas_routes.py.
   const showCampanhas = !!user && (isAdmin || !!user.is_campanha_operador)
+  const campanhasChildren = [
+    { to: '/campanhas/modelos', label: 'Modelos' },
+    ...(isAdmin ? [{ to: '/campanhas/dashboard', label: 'Métricas' }] : []),
+  ]
   const navItems: { to: string; label: string; Icon: LucideIcon }[] = [
     ...NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => ({ to, label, Icon })),
-    ...(showCampanhas ? [{ to: '/campanhas', label: 'Campanhas', Icon: Megaphone }] : []),
-    ...(showCampanhas ? [{ to: '/campanhas/modelos', label: 'Campanhas · Modelos', Icon: NotebookPen }] : []),
-    ...(isAdmin ? [{ to: '/campanhas/dashboard', label: 'Campanhas · Métricas', Icon: LineChart }] : []),
     ...(showMeuDesempenho
       ? [{ to: `/vida-sdr/${encodeURIComponent(meuNome)}?nome=${encodeURIComponent(meuNome)}`, label: 'Meu desempenho', Icon: UserRound }]
       : []),
@@ -214,6 +228,9 @@ export default function Sidebar() {
     )
   })
 
+  const campanhasGroup = showCampanhas && (
+    <ExpandableNavGroup label="Campanhas" Icon={Megaphone} basePath="/campanhas" headerTo="/campanhas" children={campanhasChildren} slim={slim} pathname={location.pathname} />
+  )
   const settingsGroup = isAdmin && (
     <ExpandableNavGroup label="Configurações" Icon={Settings} basePath="/settings" children={SETTINGS_CHILDREN} slim={slim} pathname={location.pathname} />
   )
@@ -311,6 +328,7 @@ export default function Sidebar() {
           </div>
           <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
             {navLinks}
+            {campanhasGroup}
             {financeiroGroup}
             {settingsGroup}
           </nav>
@@ -350,6 +368,7 @@ export default function Sidebar() {
       </div>
       <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
         {navLinks}
+        {campanhasGroup}
         {financeiroGroup}
         {settingsGroup}
       </nav>
