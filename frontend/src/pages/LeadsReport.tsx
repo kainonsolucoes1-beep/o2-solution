@@ -5,6 +5,7 @@ import { Filter, X, Trash2, RotateCcw, Plus, Upload, Calendar, Users, Search } f
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
+import { parseBRNumber } from '../utils/leadFormat'
 import SectionTitle from '../components/SectionTitle'
 import Combobox from '../components/Combobox'
 import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
@@ -347,7 +348,7 @@ export default function LeadsReport() {
       modalidade: newLead.modalidade || null,
       categoria: newLead.categoria || null,
       conversion_point: newLead.conversion_point || null,
-      value_potential: newLead.value_potential ? Number(newLead.value_potential) : null,
+      value_potential: newLead.value_potential.trim() ? parseBRNumber(newLead.value_potential) : null,
       attendant: newLead.attendant.trim() || null,
       notes: newLead.notes.trim() || null,
       visibility_tag: newLead.visibility_tag.trim() || null,
@@ -1612,7 +1613,7 @@ export default function LeadsReport() {
                     </div>
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Valor da Cotação</label>
-                      <input type="number" step="0.01" value={newLead.value_potential} onChange={e => setNewLead(d => ({ ...d, value_potential: e.target.value }))}
+                      <input type="text" inputMode="decimal" placeholder="0,00" value={newLead.value_potential} onChange={e => setNewLead(d => ({ ...d, value_potential: e.target.value }))}
                         className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
                     </div>
                     <div className="flex flex-col gap-1">
