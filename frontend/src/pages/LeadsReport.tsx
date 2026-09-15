@@ -448,11 +448,15 @@ export default function LeadsReport() {
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
+  // comercial (ex: Julia) enxerga a carteira de toda a equipe 'usuario'
+  // (visibilidade ampla, ver database.py) -- por isso também pode filtrar
+  // por Operador, diferente de 'usuario' que só vê a própria carteira mesmo.
+  const canFilterOperador = isAdmin || (me !== null && me.role === 'comercial')
 
   const reportFilterParams = useCallback((): Record<string, string | number | boolean> => {
     const params: Record<string, string | number | boolean> = { date_from: dateFrom, date_to: dateTo }
     if (vencidosFilter) params.vencidos = true
-    if (isAdmin && origem) params.origem = origem
+    if (canFilterOperador && origem) params.origem = origem
     if (renutFilter === 'em') params.renutricao = true
     else if (renutFilter === 'fora') params.sem_renutricao = true
     if (statusFilter) params.status = closedSubStatus || statusFilter
@@ -464,7 +468,7 @@ export default function LeadsReport() {
     if (staleDays > 0) params.stale_days = staleDays
     if (search.trim()) params.search = search.trim()
     return params
-  }, [dateFrom, dateTo, vencidosFilter, isAdmin, origem, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, staleDays, search])
+  }, [dateFrom, dateTo, vencidosFilter, canFilterOperador, origem, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, staleDays, search])
 
   const [selectingAll, setSelectingAll] = useState(false)
   async function selectAllFiltered() {
@@ -1269,7 +1273,7 @@ export default function LeadsReport() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Operador</label>
-                      {isAdmin ? (
+                      {canFilterOperador ? (
                         <select
                           value={origem}
                           onChange={e => setOrigem(e.target.value)}

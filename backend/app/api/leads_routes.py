@@ -195,10 +195,12 @@ def leads_by_period(
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
             # comercial (ex: Julia) enxerga a renutrição de toda a equipe
-            # 'usuario' (visibilidade ampla, ver database.py) -- mas a tag no
-            # filtro precisa significar "minha renutrição", senão mistura com
-            # a carteira de outra pessoa (ex: Pamela) e confunde quem filtra.
-            if not admin:
+            # 'usuario' (visibilidade ampla, ver database.py) -- mas sem um
+            # Operador explícito a tag no filtro precisa significar "minha
+            # renutrição", senão mistura com a carteira de outra pessoa (ex:
+            # Pamela) e confunde quem filtra. Com Operador escolhido, quem
+            # filtra já sabe que está olhando a carteira de outra pessoa.
+            if not admin and not origem:
                 q = q.filter(Lead.renutricao_owner_id == current_user.id)
         elif sem_renutricao:
             q = q.filter(or_(Lead.is_renutrucao.is_(False), Lead.is_renutrucao.is_(None)))
@@ -366,10 +368,12 @@ def leads_report_stats(
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
             # comercial (ex: Julia) enxerga a renutrição de toda a equipe
-            # 'usuario' (visibilidade ampla, ver database.py) -- mas a tag no
-            # filtro precisa significar "minha renutrição", senão mistura com
-            # a carteira de outra pessoa (ex: Pamela) e confunde quem filtra.
-            if not admin:
+            # 'usuario' (visibilidade ampla, ver database.py) -- mas sem um
+            # Operador explícito a tag no filtro precisa significar "minha
+            # renutrição", senão mistura com a carteira de outra pessoa (ex:
+            # Pamela) e confunde quem filtra. Com Operador escolhido, quem
+            # filtra já sabe que está olhando a carteira de outra pessoa.
+            if not admin and not origem:
                 q = q.filter(Lead.renutricao_owner_id == current_user.id)
         elif sem_renutricao:
             q = q.filter(or_(Lead.is_renutrucao.is_(False), Lead.is_renutrucao.is_(None)))
