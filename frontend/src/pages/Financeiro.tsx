@@ -105,31 +105,27 @@ function aggregate(list: Contract[], key: "promotora" | "modalidade", metric: "v
     .sort((a, b) => b.value - a.value);
 }
 
+type ContractStatus = "quitado" | "atrasado" | "pendente" | "parcial";
+
+function contractStatus({ recebido, valorContrato, atrasado }: { recebido: number; valorContrato: number; atrasado?: boolean }): ContractStatus {
+  if (valorContrato > 0 && recebido >= valorContrato) return "quitado";
+  if (atrasado) return "atrasado";
+  if (recebido === 0) return "pendente";
+  return "parcial";
+}
+
+const CONTRACT_STATUS_STYLE: Record<ContractStatus, { label: string; dot: string; bg: string; text: string; ring: string }> = {
+  quitado:  { label: "Quitado",   dot: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-200" },
+  atrasado: { label: "Em atraso", dot: "bg-red-500",     bg: "bg-red-50",     text: "text-red-700",     ring: "ring-red-200" },
+  pendente: { label: "Pendente",  dot: "bg-amber-500",   bg: "bg-amber-50",   text: "text-amber-700",   ring: "ring-amber-200" },
+  parcial:  { label: "Parcial",   dot: "bg-slate-400",   bg: "bg-slate-100",  text: "text-slate-600",   ring: "ring-slate-200" },
+};
+
 function StatusPill({ recebido, valorContrato, atrasado }: { recebido: number; valorContrato: number; atrasado?: boolean }) {
-  if (valorContrato > 0 && recebido >= valorContrato) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Quitado
-      </span>
-    );
-  }
-  if (atrasado) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-200">
-        <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> Em atraso
-      </span>
-    );
-  }
-  if (recebido === 0) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200">
-        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Pendente
-      </span>
-    );
-  }
+  const s = CONTRACT_STATUS_STYLE[contractStatus({ recebido, valorContrato, atrasado })];
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
-      <span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Parcial
+    <span className={`inline-flex items-center gap-1.5 rounded-full ${s.bg} px-2.5 py-1 text-xs font-medium ${s.text} ring-1 ring-inset ${s.ring}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} /> {s.label}
     </span>
   );
 }
@@ -243,6 +239,7 @@ export default function FinanceiroDashboard() {
   const [searchInput, setSearchInput] = useState(searchParams.get("search") ?? "");
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
   const [canal, setCanal] = useState<"" | "adm" | "equipe">((searchParams.get("canal") as "adm" | "equipe") || "");
+  const [statusFilter, setStatusFilter] = useState<"" | ContractStatus>((searchParams.get("status") as ContractStatus) || "");
   const [periodOpen, setPeriodOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [contractsExpanded, setContractsExpanded] = useState(false);
@@ -266,9 +263,10 @@ export default function FinanceiroDashboard() {
     }
     if (search) params.set("search", search);
     if (canal) params.set("canal", canal);
+    if (statusFilter) params.set("status", statusFilter);
     setSearchParams(params, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodMode, dateFrom, dateTo, search, canal]);
+  }, [periodMode, dateFrom, dateTo, search, canal, statusFilter]);
 
   // Com um intervalo de datas definido (De + Ate), a tela mostra a previsao de
   // recebimento nesse intervalo em vez dos contratos por data de venda. Vale
@@ -315,15 +313,25 @@ export default function FinanceiroDashboard() {
     return () => { cancelled = true; };
   }, [dateFrom, dateTo, forecastActive, search, canal]);
 
-  const totals = useMemo(() => {
-    const valorContrato = contracts.reduce((s, c) => s + c.valorContrato, 0);
-    const recebido = contracts.reduce((s, c) => s + c.recebido, 0);
-    const aReceber = contracts.reduce((s, c) => s + c.aReceber, 0);
-    return { valorContrato, recebido, aReceber, pct: valorContrato > 0 ? (recebido / valorContrato) * 100 : 0 };
-  }, [contracts]);
+  // filtro de status (quitado/parcial/pendente/em atraso) é derivado no
+  // cliente -- não vai pro backend, só refina o que já veio pro período.
+  const filteredContracts = useMemo(
+    () =>
+      statusFilter
+        ? contracts.filter((c) => contractStatus({ recebido: c.recebido, valorContrato: c.valorContrato, atrasado: c.temAtraso }) === statusFilter)
+        : contracts,
+    [contracts, statusFilter]
+  );
 
-  const byPromotora = useMemo(() => aggregate(contracts, "promotora"), [contracts]);
-  const byModalidade = useMemo(() => aggregate(contracts, "modalidade", "count"), [contracts]);
+  const totals = useMemo(() => {
+    const valorContrato = filteredContracts.reduce((s, c) => s + c.valorContrato, 0);
+    const recebido = filteredContracts.reduce((s, c) => s + c.recebido, 0);
+    const aReceber = filteredContracts.reduce((s, c) => s + c.aReceber, 0);
+    return { valorContrato, recebido, aReceber, pct: valorContrato > 0 ? (recebido / valorContrato) * 100 : 0 };
+  }, [filteredContracts]);
+
+  const byPromotora = useMemo(() => aggregate(filteredContracts, "promotora"), [filteredContracts]);
+  const byModalidade = useMemo(() => aggregate(filteredContracts, "modalidade", "count"), [filteredContracts]);
 
   const previsaoByPromotora = useMemo(() => {
     const map: Record<string, number> = {};
@@ -456,6 +464,36 @@ export default function FinanceiroDashboard() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Status do contrato -- só faz sentido na visão por data de
+                      venda; a previsão de período mostra parcelas, não contratos. */}
+                  {!forecastActive && (
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1.5">
+                        Status do contrato
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {(Object.keys(CONTRACT_STATUS_STYLE) as ContractStatus[]).map((key) => {
+                          const s = CONTRACT_STATUS_STYLE[key];
+                          const active = statusFilter === key;
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => setStatusFilter((v) => (v === key ? "" : key))}
+                              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition ${
+                                active
+                                  ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                                  : "border-[#E4E7EE] text-[#626A85] hover:bg-[#FAFBFC]"
+                              }`}
+                            >
+                              <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+                              {s.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -606,7 +644,7 @@ export default function FinanceiroDashboard() {
                 icon={Layers3}
                 eyebrow="Valor do contrato"
                 value={totals.valorContrato}
-                sub={`${contracts.length} contratos ativos`}
+                sub={`${filteredContracts.length} contrato${filteredContracts.length !== 1 ? "s" : ""} ativo${filteredContracts.length !== 1 ? "s" : ""}`}
                 accent="#64748B"
               />
               <KpiCard
@@ -690,7 +728,7 @@ export default function FinanceiroDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(contractsExpanded ? contracts : contracts.slice(0, CONTRACTS_VISIBLE)).map((c) => {
+                  {(contractsExpanded ? filteredContracts : filteredContracts.slice(0, CONTRACTS_VISIBLE)).map((c) => {
                     const expanded = expandedRows.has(c.id);
                     const hasParcelas = c.parcelas && c.parcelas.length > 0;
                     return (
@@ -770,7 +808,14 @@ export default function FinanceiroDashboard() {
                     </Fragment>
                     );
                   })}
-                  {contracts.length > CONTRACTS_VISIBLE && (
+                  {filteredContracts.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-5 py-8 text-center text-[13px] text-[#8891AC]">
+                        Nenhum contrato com esse status no período.
+                      </td>
+                    </tr>
+                  )}
+                  {filteredContracts.length > CONTRACTS_VISIBLE && (
                     <tr className="border-b border-[#F0F1F5]">
                       <td colSpan={8} className="px-5 py-3 text-center">
                         <button
@@ -778,7 +823,7 @@ export default function FinanceiroDashboard() {
                           className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#626A85] hover:text-[#39415C]"
                         >
                           {contractsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                          {contractsExpanded ? "Ver menos" : `Ver mais (${contracts.length - CONTRACTS_VISIBLE})`}
+                          {contractsExpanded ? "Ver menos" : `Ver mais (${filteredContracts.length - CONTRACTS_VISIBLE})`}
                         </button>
                       </td>
                     </tr>
