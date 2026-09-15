@@ -194,6 +194,12 @@ def leads_by_period(
             q = q.filter(Lead.updated_at <= stale_cutoff, _active_filter)
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
+            # comercial (ex: Julia) enxerga a renutrição de toda a equipe
+            # 'usuario' (visibilidade ampla, ver database.py) -- mas a tag no
+            # filtro precisa significar "minha renutrição", senão mistura com
+            # a carteira de outra pessoa (ex: Pamela) e confunde quem filtra.
+            if not admin:
+                q = q.filter(Lead.renutricao_owner_id == current_user.id)
         elif sem_renutricao:
             q = q.filter(or_(Lead.is_renutrucao.is_(False), Lead.is_renutrucao.is_(None)))
         if not searching:
@@ -359,6 +365,12 @@ def leads_report_stats(
             q = q.filter(Lead.updated_at <= stale_cutoff, _active_filter)
         if renutricao:
             q = q.filter(Lead.is_renutrucao.is_(True))
+            # comercial (ex: Julia) enxerga a renutrição de toda a equipe
+            # 'usuario' (visibilidade ampla, ver database.py) -- mas a tag no
+            # filtro precisa significar "minha renutrição", senão mistura com
+            # a carteira de outra pessoa (ex: Pamela) e confunde quem filtra.
+            if not admin:
+                q = q.filter(Lead.renutricao_owner_id == current_user.id)
         elif sem_renutricao:
             q = q.filter(or_(Lead.is_renutrucao.is_(False), Lead.is_renutrucao.is_(None)))
         if not searching:
