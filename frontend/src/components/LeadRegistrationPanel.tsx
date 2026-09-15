@@ -4,6 +4,7 @@ import EditPencil from './EditPencil'
 import Field from './Field'
 import EditInput from './EditInput'
 import SelectField from './SelectField'
+import { titleCase } from '../utils/leadFormat'
 
 interface InfoDraft {
   name: string
@@ -71,7 +72,7 @@ export default function LeadRegistrationPanel({
           {leadSinceLabel}
         </span>
         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          {[leadSinceRelative?.toLowerCase(), origem && !isEmpty(origem) ? origem : null].filter(Boolean).join(' · ')}
+          {[leadSinceRelative?.toLowerCase(), origem && !isEmpty(origem) ? titleCase(origem) : null].filter(Boolean).join(' · ')}
         </span>
       </div>
       {retrabalhadoEmLabel && (
@@ -83,8 +84,8 @@ export default function LeadRegistrationPanel({
       <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
 
       <div className="flex flex-col gap-4">
-        <SelectField label="Origem" value={origem} options={origemOptions} saving={savingOrigem || locked} onChange={onOrigemChange} />
-        <SelectField label="Ponto de Conversão" value={conversionPoint} options={conversionPointOptions} saving={savingConversionPoint || locked} onChange={onConversionPointChange} />
+        <SelectField label="Origem" value={origem} options={origemOptions} saving={savingOrigem || locked} onChange={onOrigemChange} formatOption={titleCase} />
+        <SelectField label="Ponto de Conversão" value={conversionPoint} options={conversionPointOptions} saving={savingConversionPoint || locked} onChange={onConversionPointChange} formatOption={titleCase} />
 
         {editingInfo ? (
           <>
@@ -104,7 +105,7 @@ export default function LeadRegistrationPanel({
             <Field label="Documento" value={documentoLabel} />
           </>
         )}
-        {!editingInfo && visibilityTag && <Field label="Perfil" value={visibilityTag} />}
+        {!editingInfo && visibilityTag && <Field label="Perfil" value={titleCase(visibilityTag)} />}
       </div>
     </SectionCard>
   )

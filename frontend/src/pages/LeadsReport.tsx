@@ -5,7 +5,7 @@ import { Filter, X, Trash2, RotateCcw, Plus, Upload, Calendar, Users, Search } f
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
-import { parseBRNumber } from '../utils/leadFormat'
+import { parseBRNumber, titleCase } from '../utils/leadFormat'
 import SectionTitle from '../components/SectionTitle'
 import Combobox from '../components/Combobox'
 import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
@@ -344,14 +344,14 @@ export default function LeadsReport() {
       email: newLead.email.trim() || null,
       phone: newLead.phone.trim() || null,
       document: newLead.document.trim() || null,
-      origin: newLead.origin || null,
+      origin: newLead.origin ? titleCase(newLead.origin) : null,
       modalidade: newLead.modalidade || null,
       categoria: newLead.categoria || null,
-      conversion_point: newLead.conversion_point || null,
+      conversion_point: newLead.conversion_point ? titleCase(newLead.conversion_point) : null,
       value_potential: newLead.value_potential.trim() ? parseBRNumber(newLead.value_potential) : null,
       attendant: newLead.attendant.trim() || null,
       notes: newLead.notes.trim() || null,
-      visibility_tag: newLead.visibility_tag.trim() || null,
+      visibility_tag: newLead.visibility_tag.trim() ? titleCase(newLead.visibility_tag.trim()) : null,
     })
       .then(r => {
         setNewLeadOpen(false)
@@ -1597,7 +1597,7 @@ export default function LeadsReport() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Origem</label>
-                      <Combobox value={newLead.origin} onChange={v => setNewLead(d => ({ ...d, origin: v }))} options={operators} />
+                      <Combobox value={newLead.origin} onChange={v => setNewLead(d => ({ ...d, origin: v }))} options={operators} formatOption={titleCase} />
                     </div>
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Modalidade</label>
@@ -1609,7 +1609,7 @@ export default function LeadsReport() {
                     </div>
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Ponto de Conversão</label>
-                      <Combobox value={newLead.conversion_point} onChange={v => setNewLead(d => ({ ...d, conversion_point: v }))} options={conversionPoints} />
+                      <Combobox value={newLead.conversion_point} onChange={v => setNewLead(d => ({ ...d, conversion_point: v }))} options={conversionPoints} formatOption={titleCase} />
                     </div>
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Valor da Cotação</label>

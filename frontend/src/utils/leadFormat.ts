@@ -58,6 +58,12 @@ export function fmtBRL(n: number | null) {
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+/** Exibição de campos livres tipo Origem/Ponto de conversão/Perfil ("ADM" ->
+ * "Adm") -- só formatação visual, o valor gravado/enviado continua o digitado. */
+export function titleCase(s: string): string {
+  return s.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())
+}
+
 /** Converte texto digitado/colado em formato BR ("R$ 38.073,62") pra numero JS.
  * Descarta "R$", espaços etc antes de interpretar. Se nao houver virgula,
  * assume que o ponto (se existir) ja e' separador decimal -- Number() puro

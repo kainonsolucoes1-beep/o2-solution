@@ -5,12 +5,15 @@ interface ComboboxProps {
   onChange: (value: string) => void
   options: string[]
   placeholder?: string
+  /** Formata só a exibição de cada sugestão (ex: titleCase) -- o valor
+   * gravado ao selecionar continua o original (não quebra siglas fixas). */
+  formatOption?: (v: string) => string
 }
 
 // Input com sugestoes estilizadas -- substitui <input list="..."> (datalist
 // nativo), que nao e' estilizavel via CSS e por isso herda o visual cru do
 // navegador/SO (sem hover, sem espacamento, cortado no dark mode).
-export default function Combobox({ value, onChange, options, placeholder }: ComboboxProps) {
+export default function Combobox({ value, onChange, options, placeholder, formatOption }: ComboboxProps) {
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -70,7 +73,7 @@ export default function Combobox({ value, onChange, options, placeholder }: Comb
                 color: 'var(--text-1)', background: i === highlight ? 'var(--bg-hover)' : 'transparent',
               }}
             >
-              {opt}
+              {formatOption ? formatOption(opt) : opt}
             </div>
           ))}
         </div>
