@@ -30,11 +30,10 @@ const FINANCEIRO_CHILDREN = [
   { to: '/financeiro/metas',       label: 'Metas Mensais' },
 ]
 
-function ExpandableNavGroup({ label, Icon, basePath, headerTo, children, slim, pathname }: {
+function ExpandableNavGroup({ label, Icon, basePath, headerTo, children, slim, pathname, open, onToggle }: {
   label: string; Icon: LucideIcon; basePath: string; headerTo?: string; children: { to: string; label: string }[]; slim: boolean; pathname: string
+  open: boolean; onToggle: () => void
 }) {
-  const [open, setOpen] = useState(pathname.startsWith(basePath))
-  useEffect(() => { if (pathname.startsWith(basePath)) setOpen(true) }, [pathname, basePath])
   const groupActive = pathname.startsWith(basePath)
 
   if (slim) {
@@ -86,7 +85,7 @@ function ExpandableNavGroup({ label, Icon, basePath, headerTo, children, slim, p
           <ChevronDown size={14} style={{ color: '#6B7280', transition: 'transform 180ms ease', transform: open ? 'rotate(180deg)' : 'none' }} />
         </Link>
       ) : (
-        <button onClick={() => setOpen(o => !o)} aria-expanded={open} style={headerStyle} {...headerHover}>
+        <button onClick={onToggle} aria-expanded={open} style={headerStyle} {...headerHover}>
           <Icon size={17} />
           <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
           <ChevronDown size={14} style={{ color: '#6B7280', transition: 'transform 180ms ease', transform: open ? 'rotate(180deg)' : 'none' }} />
@@ -129,6 +128,14 @@ export default function Sidebar() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [user, setUser] = useState<UserInfo | null>(null)
   const [agendaAlerts, setAgendaAlerts] = useState<AgendaAlerts | null>(null)
+  // Expanders da sidebar (Campanhas/Financeiro/Configurações) em modo "sanfona"
+  // -- só um aberto por vez. Abre sozinho ao entrar numa rota do grupo; fora
+  // isso, só um clique manual no cabeçalho abre/fecha.
+  const [openGroup, setOpenGroup] = useState<'campanhas' | 'financeiro' | 'settings' | null>(null)
+  useEffect(() => {
+    const match = (['campanhas', 'financeiro', 'settings'] as const).find(k => location.pathname.startsWith(`/${k}`))
+    if (match) setOpenGroup(match)
+  }, [location.pathname])
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768)
@@ -229,13 +236,22 @@ export default function Sidebar() {
   })
 
   const campanhasGroup = showCampanhas && (
-    <ExpandableNavGroup label="Campanhas" Icon={Megaphone} basePath="/campanhas" headerTo="/campanhas" children={campanhasChildren} slim={slim} pathname={location.pathname} />
+    <ExpandableNavGroup
+      label="Campanhas" Icon={Megaphone} basePath="/campanhas" headerTo="/campanhas" children={campanhasChildren} slim={slim} pathname={location.pathname}
+      open={openGroup === 'campanhas'} onToggle={() => setOpenGroup(g => g === 'campanhas' ? null : 'campanhas')}
+    />
   )
   const settingsGroup = isAdmin && (
-    <ExpandableNavGroup label="Configurações" Icon={Settings} basePath="/settings" children={SETTINGS_CHILDREN} slim={slim} pathname={location.pathname} />
+    <ExpandableNavGroup
+      label="Configurações" Icon={Settings} basePath="/settings" children={SETTINGS_CHILDREN} slim={slim} pathname={location.pathname}
+      open={openGroup === 'settings'} onToggle={() => setOpenGroup(g => g === 'settings' ? null : 'settings')}
+    />
   )
   const financeiroGroup = isAdmin && (
-    <ExpandableNavGroup label="Financeiro" Icon={DollarSign} basePath="/financeiro" children={FINANCEIRO_CHILDREN} slim={slim} pathname={location.pathname} />
+    <ExpandableNavGroup
+      label="Financeiro" Icon={DollarSign} basePath="/financeiro" children={FINANCEIRO_CHILDREN} slim={slim} pathname={location.pathname}
+      open={openGroup === 'financeiro'} onToggle={() => setOpenGroup(g => g === 'financeiro' ? null : 'financeiro')}
+    />
   )
 
   const themeBtn = (
