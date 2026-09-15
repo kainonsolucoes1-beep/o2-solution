@@ -4,6 +4,8 @@ export const STATUS_LABEL: Record<string, string> = {
   scheduled: 'Agendado',
   proposta: 'Proposta enviada', proposal_sent: 'Proposta enviada', 'proposal sent': 'Proposta enviada',
   negociacao: 'Negociação', negociação: 'Negociação',
+  pendencia: 'Pendência', pendência: 'Pendência',
+  emissao: 'Emissão', emissão: 'Emissão',
   fechado: 'Fechado', closed: 'Fechado',
   convertido: 'Convertido', converted: 'Convertido',
   waiting_billing: 'Aguardando Faturamento', 'waiting billing': 'Aguardando Faturamento',

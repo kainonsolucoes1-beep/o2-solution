@@ -88,12 +88,16 @@ const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
 const STATUS_PENDENTE = 'pending,novo,new'
 const STATUS_AGENDADO = 'scheduled,qualificado,qualified'
 const STATUS_PROPOSTA = 'proposal_sent,proposta,proposal sent'
+const STATUS_PENDENCIA = 'pendencia'
+const STATUS_EMISSAO = 'emissao'
 
 const STATUS_PILLS: { value: string; label: string; color: string; bg: string; border: string }[] = [
   { value: '',                label: 'Todos',        color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
   { value: STATUS_PENDENTE,   label: 'Pendente',      color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
   { value: STATUS_AGENDADO,   label: 'Agendado',      color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
   { value: STATUS_PROPOSTA,   label: 'Proposta',      color: '#9333EA', bg: '#FAF5FF', border: '#E9D5FF' },
+  { value: STATUS_PENDENCIA,  label: 'Pendência',     color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
+  { value: STATUS_EMISSAO,    label: 'Emissão',       color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
   { value: STATUS_FECHADO,    label: 'Fechado',       color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
   { value: STATUS_PERDIDO,    label: 'Perdido',       color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
 ]
@@ -162,6 +166,8 @@ const STATUS_STYLE: Record<string, { color: string }> = {
   scheduled: { color: '#7C3AED' },
   proposta: { color: '#D97706' },
   proposal_sent: { color: '#D97706' },
+  pendencia: { color: '#B45309' },
+  emissao: { color: '#0891B2' },
   waiting_billing: { color: '#0D9488' },
   sale_performed: { color: '#059669' },
   fechado: { color: '#059669' },

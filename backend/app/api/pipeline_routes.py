@@ -17,6 +17,8 @@ router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
 PENDENTE_STATUSES    = ("pending", "novo", "new")
 AGENDADO_STATUSES    = ("scheduled", "qualificado", "qualified")
 PROPOSTA_STATUSES    = ("proposal_sent", "proposta", "negociacao")
+PENDENCIA_STATUSES   = ("pendencia",)
+EMISSAO_STATUSES     = ("emissao",)
 FECHADO_STATUSES     = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 PERDIDO_STATUSES     = ("sale_not_performed", "sale not performed")
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
@@ -205,16 +207,20 @@ def pipeline_overview(
 
     qualificado = _count_status(db, AGENDADO_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
     proposta    = _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
+    pendencia   = _count_status(db, PENDENCIA_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
+    emissao     = _count_status(db, EMISSAO_STATUSES,  date_from, date_to, source, team, extra_filters=[not_hot_warm])
     fechado     = _count_status(db, FECHADO_STATUSES,  date_from, date_to, source, team)
     perdido     = _count_status(db, PERDIDO_STATUSES,  date_from, date_to, source, team)
 
     # "Novo" = tudo que ainda não avançou: percepção fria/vazia e status que não
-    # é fechado, perdido, agendado nem proposta (inclui status cru do Followize
-    # que não mapeia pra etapa). Assim os baldes SEMPRE somam o total.
+    # é fechado, perdido, agendado, proposta, pendência nem emissão (inclui
+    # status cru do Followize que não mapeia pra etapa). Assim os baldes
+    # SEMPRE somam o total.
     nao_avancou = and_(
         not_hot_warm,
         ~_status_in(FECHADO_STATUSES), ~_status_in(PERDIDO_STATUSES),
         ~_status_in(AGENDADO_STATUSES), ~_status_in(PROPOSTA_STATUSES),
+        ~_status_in(PENDENCIA_STATUSES), ~_status_in(EMISSAO_STATUSES),
     )
     novo = _apply_filters(db.query(func.count(Lead.id)).filter(nao_avancou), date_from, date_to, source, team).scalar() or 0
     novo_value = float(_apply_filters(
@@ -226,12 +232,16 @@ def pipeline_overview(
         "novo":        novo,
         "qualificado": qualificado,
         "proposta":    proposta,
+        "pendencia":   pendencia,
+        "emissao":     emissao,
         "negociacao":  negociacao,
         "fechado":     fechado,
         "perdido":     perdido,
         "novo_value":        novo_value,
         "qualificado_value": _sum_value(db, [_status_in(AGENDADO_STATUSES), not_hot_warm],  date_from, date_to, source, team),
         "proposta_value":    _sum_value(db, [_status_in(PROPOSTA_STATUSES), not_hot_warm],  date_from, date_to, source, team),
+        "pendencia_value":   _sum_value(db, [_status_in(PENDENCIA_STATUSES), not_hot_warm], date_from, date_to, source, team),
+        "emissao_value":     _sum_value(db, [_status_in(EMISSAO_STATUSES), not_hot_warm],   date_from, date_to, source, team),
         "negociacao_value":  negociacao_value,
         "fechado_value":     _sum_value(db, [_status_in(FECHADO_STATUSES)],   date_from, date_to, source, team),
         "perdido_value":     _sum_value(db, [_status_in(PERDIDO_STATUSES)],   date_from, date_to, source, team),
@@ -511,10 +521,12 @@ def pipeline_source_details(
         "active_leads": active_leads,
         "average_time_in_pipeline": avg_time,
         "distribution_by_status": {
-            "Pendente": _count_status(db, PENDENTE_STATUSES, date_from, date_to, source_name),
-            "Agendado": _count_status(db, AGENDADO_STATUSES, date_from, date_to, source_name),
-            "Proposta": _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source_name),
-            "Venda":    _count_status(db, FECHADO_STATUSES,  date_from, date_to, source_name),
-            "Perdido":  _count_status(db, PERDIDO_STATUSES,  date_from, date_to, source_name),
+            "Pendente":  _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source_name),
+            "Agendado":  _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source_name),
+            "Proposta":  _count_status(db, PROPOSTA_STATUSES,  date_from, date_to, source_name),
+            "Pendência": _count_status(db, PENDENCIA_STATUSES, date_from, date_to, source_name),
+            "Emissão":   _count_status(db, EMISSAO_STATUSES,   date_from, date_to, source_name),
+            "Venda":     _count_status(db, FECHADO_STATUSES,   date_from, date_to, source_name),
+            "Perdido":   _count_status(db, PERDIDO_STATUSES,   date_from, date_to, source_name),
         },
     }

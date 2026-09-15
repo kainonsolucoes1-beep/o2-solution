@@ -36,6 +36,7 @@ const STATUS_DOT: Record<string, string> = {
   qualificado: '#10B981', qualified: '#10B981', scheduled: '#10B981',
   proposta: '#F59E0B', proposal_sent: '#F59E0B', 'proposal sent': '#F59E0B',
   negociacao: '#8B5CF6', negociação: '#8B5CF6',
+  pendencia: '#D97706', emissao: '#0891B2',
   waiting_billing: '#059669', fechado: '#059669', closed: '#059669',
   won: '#059669', convertido: '#059669', sale_performed: '#059669', 'sale performed': '#059669',
   sale_not_performed: '#EF4444', 'sale not performed': '#EF4444',

@@ -5,8 +5,8 @@ import api from '../api'
 import { useTheme } from '../ThemeContext'
 
 interface PipelineOverview {
-  novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number
-  novo_value: number; qualificado_value: number; proposta_value: number; negociacao_value: number; fechado_value: number; perdido_value: number
+  novo: number; qualificado: number; proposta: number; pendencia: number; emissao: number; negociacao: number; fechado: number; perdido: number
+  novo_value: number; qualificado_value: number; proposta_value: number; pendencia_value: number; emissao_value: number; negociacao_value: number; fechado_value: number; perdido_value: number
 }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
 interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number; avg_time_in_funnel?: number; avg_first_contact_minutes?: number; contacted_count?: number }
@@ -101,16 +101,22 @@ export default function Pipeline() {
     { label: 'Pendente',    value: overview.novo,        color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: cardNav({ status: 'pending,novo,new' }) },
     { label: 'Agendado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
     { label: 'Enviada',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
+    // Pendência/Emissão só aparecem quando tem lead nesse status -- etapas
+    // novas e raras, não vale poluir o funil com card zerado sempre.
+    ...(overview.pendencia > 0 ? [{ label: 'Pendência', value: overview.pendencia, color: '#D97706', bg: '#FEF3C7', icon: '⏳', nav: cardNav({ status: 'pendencia' }) }] : []),
+    ...(overview.emissao   > 0 ? [{ label: 'Emissão',   value: overview.emissao,   color: '#0891B2', bg: '#ECFEFF', icon: '📝', nav: cardNav({ status: 'emissao' }) }] : []),
     { label: 'Qualificado',  value: overview.negociacao,  color: '#8B5CF6', bg: '#F5F3FF', icon: '🔥', nav: cardNav({ perception: 'Quente,Morno' }) },
     { label: 'Fechado',     value: overview.fechado,     color: '#059669', bg: '#ECFDF5', icon: '🏆', nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
     { label: 'Perdido',     value: overview.perdido,     color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: cardNav({ status: 'sale_not_performed' }), onOpen: openLostModal },
   ]
 
-  const distTotal = overview.novo + overview.qualificado + overview.proposta + overview.negociacao + overview.fechado + overview.perdido
+  const distTotal = overview.novo + overview.qualificado + overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado + overview.perdido
   const distStages = [
     { stage: 'Pendente',    value: overview.novo_value,        color: '#3B82F6' },
     { stage: 'Agendado', value: overview.qualificado_value, color: '#10B981' },
     { stage: 'Enviada',     value: overview.proposta_value,    color: '#F59E0B' },
+    ...(overview.pendencia > 0 ? [{ stage: 'Pendência', value: overview.pendencia_value, color: '#D97706' }] : []),
+    ...(overview.emissao   > 0 ? [{ stage: 'Emissão',   value: overview.emissao_value,   color: '#0891B2' }] : []),
     { stage: 'Qualificado',  value: overview.negociacao_value,  color: '#8B5CF6' },
     { stage: 'Fechado',     value: overview.fechado_value,     color: '#059669' },
     { stage: 'Perdido',     value: overview.perdido_value,     color: '#EF4444' },
@@ -120,8 +126,8 @@ export default function Pipeline() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
   }
 
-  const qualOL = overview.qualificado + overview.proposta + overview.negociacao + overview.fechado
-  const propOL = overview.proposta + overview.negociacao + overview.fechado
+  const qualOL = overview.qualificado + overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado
+  const propOL = overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado
   const negOL  = overview.negociacao + overview.fechado
   const convs = [
     {
@@ -252,6 +258,8 @@ export default function Pipeline() {
                 { label: 'Valor Total',    value: totalValue,                   color: 'var(--text-3)',  bg: 'var(--bg-subtle)', border: 'var(--border)', nav: null },
                 { label: 'Agendado',       value: overview.qualificado_value,   color: '#10B981',        bg: '#ECFDF5',           border: '#A7F3D0',       nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
                 { label: 'Enviada',        value: overview.proposta_value,      color: '#F59E0B',        bg: '#FFFBEB',           border: '#FDE68A',       nav: cardNav({ status: 'proposal_sent' }) },
+                ...(overview.pendencia > 0 ? [{ label: 'Pendência', value: overview.pendencia_value, color: '#D97706', bg: '#FEF3C7', border: '#FDE68A', nav: cardNav({ status: 'pendencia' }) }] : []),
+                ...(overview.emissao   > 0 ? [{ label: 'Emissão',   value: overview.emissao_value,   color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC', nav: cardNav({ status: 'emissao' }) }] : []),
                 { label: 'Qualificado',  value: overview.negociacao_value,    color: '#8B5CF6',        bg: '#F5F3FF',           border: '#DDD6FE',       nav: cardNav({ perception: 'Quente,Morno' }) },
                 { label: 'Fechado',        value: overview.fechado_value,       color: '#059669',        bg: '#ECFDF5',           border: '#A7F3D0',       nav: cardNav({ status: 'waiting_billing,sale_performed,fechado,closed,won,convertido' }) },
                 { label: 'Perdido',        value: overview.perdido_value,       color: '#EF4444',        bg: '#FEF2F2',           border: '#FECACA',       nav: cardNav({ status: 'sale_not_performed' }) },

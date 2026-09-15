@@ -29,7 +29,9 @@ CAMPANHA_ATIVA_STATUSES = ("fila", "disparado_sem_resposta")
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 CANCELADO_STATUS    = "sale_not_performed"
 AGENDAMENTO_STATUSES = ("qualificado", "scheduled")
-PROPOSTA_STATUSES   = ("proposta", "proposal_sent", "negociacao")
+# pendência/emissão contam junto de proposta nos breakdowns por operador --
+# ainda não são venda nem perda, só continuação do fechamento da proposta.
+PROPOSTA_STATUSES   = ("proposta", "proposal_sent", "negociacao", "pendencia", "emissao")
 
 # "Captacao efetiva": quando um lead cancelado/parado e' retrabalhado
 # (Lead.retrabalhado_em preenchido), ele passa a contar na data do retrabalho

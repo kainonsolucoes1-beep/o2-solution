@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1/activities", tags=["activities"])
 
 _PENDENTE    = ("pending", "novo", "new")
 _QUALIFICADO = ("scheduled", "qualificado", "qualified")
-_PROPOSTA    = ("proposal_sent",)
+_PROPOSTA    = ("proposal_sent", "pendencia", "emissao")
 
 
 def _s_in(statuses):

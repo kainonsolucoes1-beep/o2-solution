@@ -20,11 +20,13 @@ interface Props {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  Pendente: '#3B82F6',
-  Agendado: '#10B981',
-  Proposta: '#F59E0B',
-  Venda:    '#6B7280',
-  Perdido:  '#EF4444',
+  Pendente:  '#3B82F6',
+  Agendado:  '#10B981',
+  Proposta:  '#F59E0B',
+  'Pendência': '#D97706',
+  'Emissão':   '#0891B2',
+  Venda:     '#6B7280',
+  Perdido:   '#EF4444',
 }
 
 function fmt(n: number) {

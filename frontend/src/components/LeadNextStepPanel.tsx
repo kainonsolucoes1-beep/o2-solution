@@ -8,6 +8,8 @@ const STATUS_OPTIONS = [
   { value: 'novo',        label: 'Novo' },
   { value: 'qualificado', label: 'Agendado' },
   { value: 'proposta',    label: 'Proposta' },
+  { value: 'pendencia',   label: 'Pendência' },
+  { value: 'emissao',     label: 'Emissão' },
   { value: 'fechado',     label: 'Fechado' },
   { value: 'convertido',  label: 'Convertido' },
   { value: 'sale_not_performed', label: 'Perdido' },

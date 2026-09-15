@@ -760,6 +760,7 @@ def assign_renutricao(
         "novo": "novo", "new": "novo", "pending": "pendente",
         "qualificado": "agendado", "qualified": "agendado", "scheduled": "agendado",
         "proposal_sent": "proposta enviada", "proposta": "proposta enviada",
+        "pendencia": "pendência", "emissao": "emissão",
         "waiting_billing": "aguardando faturamento", "sale_performed": "venda realizada",
         "fechado": "fechado", "closed": "fechado", "won": "ganho", "convertido": "convertido",
     }

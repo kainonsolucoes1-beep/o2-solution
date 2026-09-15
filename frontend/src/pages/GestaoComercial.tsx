@@ -40,8 +40,8 @@ type DrillTipo = 'receita_potencial' | 'vendas' | 'perda'
 // ── Pipeline types ───────────────────────────────────────────────────────────
 interface PipelineOverview {
   total: number
-  novo: number; qualificado: number; proposta: number; negociacao: number; fechado: number; perdido: number
-  novo_value: number; qualificado_value: number; proposta_value: number
+  novo: number; qualificado: number; proposta: number; pendencia: number; emissao: number; negociacao: number; fechado: number; perdido: number
+  novo_value: number; qualificado_value: number; proposta_value: number; pendencia_value: number; emissao_value: number
   negociacao_value: number; fechado_value: number; perdido_value: number
 }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
@@ -67,9 +67,9 @@ const BOTTLENECK_STAGE_STATUS: Record<string, string> = {
   Enviada:  'proposal_sent',
 }
 function computeBottleneckFromStage(ov: PipelineOverview): string {
-  const total   = ov.novo + ov.qualificado + ov.proposta + ov.negociacao + ov.fechado + ov.perdido
-  const qualOL  = ov.qualificado + ov.proposta + ov.negociacao + ov.fechado
-  const propOL  = ov.proposta + ov.negociacao + ov.fechado
+  const total   = ov.novo + ov.qualificado + ov.proposta + ov.pendencia + ov.emissao + ov.negociacao + ov.fechado + ov.perdido
+  const qualOL  = ov.qualificado + ov.proposta + ov.pendencia + ov.emissao + ov.negociacao + ov.fechado
+  const propOL  = ov.proposta + ov.pendencia + ov.emissao + ov.negociacao + ov.fechado
   const negOL   = ov.negociacao + ov.fechado
   const legs = [
     { from: 'Pendente', rate: total > 0 ? qualOL / total : 0 },
@@ -121,11 +121,12 @@ const STAGE_LABELS: Record<string, string> = {
   scheduled: 'Agendado', reuniao: 'Reunião', meeting: 'Reunião',
   proposta: 'Enviada', proposal: 'Enviada', proposal_sent: 'Enviada',
   negociacao: 'Negociação', negotiation: 'Negociação',
+  pendencia: 'Pendência', emissao: 'Emissão',
   waiting_billing: 'Aguard. Faturamento', sale_performed: 'Venda Realizada',
   fechado: 'Fechado', closed: 'Fechado', won: 'Ganho', convertido: 'Convertido',
 }
 const STAGE_ORDER: Record<string, number> = {
-  scheduled: 1, proposal_sent: 2, proposta: 2, waiting_billing: 3, sale_performed: 4,
+  scheduled: 1, proposal_sent: 2, proposta: 2, pendencia: 2.1, emissao: 2.2, waiting_billing: 3, sale_performed: 4,
   fechado: 5, closed: 5, won: 5, convertido: 5,
 }
 const stageLabel = (s: string) => STAGE_LABELS[s?.toLowerCase()] ?? s
@@ -138,6 +139,8 @@ const STAGE_CANON: Record<string, string> = {
   qualificado: 'scheduled', qualified: 'scheduled', scheduled: 'scheduled', agendado: 'scheduled',
   proposta: 'proposal_sent', proposal: 'proposal_sent', proposal_sent: 'proposal_sent', 'proposal sent': 'proposal_sent',
   negociacao: 'negociacao', 'negociação': 'negociacao', negotiation: 'negociacao',
+  pendencia: 'pendencia', 'pendência': 'pendencia',
+  emissao: 'emissao', 'emissão': 'emissao',
   waiting_billing: 'waiting_billing', 'waiting billing': 'waiting_billing',
   sale_performed: 'sale_performed', 'sale performed': 'sale_performed',
   fechado: 'fechado', closed: 'fechado', won: 'fechado', convertido: 'fechado', converted: 'fechado',
@@ -309,8 +312,8 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   if (error || !overview || !alerts) return <p style={{ padding: '40px 0', textAlign: 'center', fontSize: 13, color: '#EF4444' }}>{error || 'Sem dados.'}</p>
 
   const distTotal  = overview.total
-  const qualOL     = overview.qualificado + overview.proposta + overview.negociacao + overview.fechado
-  const propOL     = overview.proposta + overview.negociacao + overview.fechado
+  const qualOL     = overview.qualificado + overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado
+  const propOL     = overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado
   const negOL      = overview.negociacao + overview.fechado
 
   const convs = [
@@ -328,12 +331,12 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   // estado "concluído" da jornada, nunca o alvo de um alerta de gargalo.
   const bottleneck = [mainConvs[0], mainConvs[1], mainConvs[2]].reduce((a, b) => a.rate <= b.rate ? a : b)
 
-  const openValue    = overview.qualificado_value + overview.proposta_value + overview.negociacao_value
+  const openValue    = overview.qualificado_value + overview.proposta_value + overview.pendencia_value + overview.emissao_value + overview.negociacao_value
   // Soma as etapas mostradas na jornada (Perdido fica de fora dela — aparece no
   // "Resultado do período"), pra esse número reconciliar com o total do topo:
   // etapas + perdidos = total captado.
-  const journeyTotal = overview.novo + overview.qualificado + overview.proposta + overview.negociacao + overview.fechado
-  const journeyValue = overview.novo_value + overview.qualificado_value + overview.proposta_value + overview.negociacao_value + overview.fechado_value
+  const journeyTotal = overview.novo + overview.qualificado + overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado
+  const journeyValue = overview.novo_value + overview.qualificado_value + overview.proposta_value + overview.pendencia_value + overview.emissao_value + overview.negociacao_value + overview.fechado_value
 
   const journeyNodes = [
     {
@@ -351,6 +354,18 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
       small: overview.proposta > 0 ? `${fmtBrl(overview.proposta_value)} em aberto` : 'sem propostas enviadas',
       nav: cardNav({ status: 'proposal_sent' }),
     },
+    // Pendência/Emissão só aparecem quando tem lead nesse status -- etapas
+    // novas e raras, não vale poluir a jornada com nó zerado sempre.
+    ...(overview.pendencia > 0 ? [{
+      key: 'pendencia', label: 'Pendência', count: overview.pendencia, done: false,
+      small: `${fmtBrl(overview.pendencia_value)} em aberto`,
+      nav: cardNav({ status: 'pendencia' }),
+    }] : []),
+    ...(overview.emissao > 0 ? [{
+      key: 'emissao', label: 'Emissão', count: overview.emissao, done: false,
+      small: `${fmtBrl(overview.emissao_value)} em aberto`,
+      nav: cardNav({ status: 'emissao' }),
+    }] : []),
     {
       key: 'qualificado', label: 'Qualificado', count: overview.negociacao, done: false,
       small: overview.negociacao > 0 ? `${fmtBrl(overview.negociacao_value)} em aberto` : 'nenhuma oportunidade nesta etapa',
