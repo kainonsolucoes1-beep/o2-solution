@@ -159,8 +159,15 @@ function KpiCard({ icon: Icon, eyebrow, value, sub, accent, format = fmt }: { ic
   );
 }
 
+const DONUT_VISIBLE = 5;
+
 function Donut({ data, colors, centerLabel, centerSub }: { data: { name: string; value: number }[]; colors: Record<string, string>; centerLabel: string; centerSub: string }) {
   const total = data.reduce((s, d) => s + d.value, 0);
+  const [expanded, setExpanded] = useState(false);
+  // legendas com muitas fatias (ex: modalidade) esticavam o card e puxavam o
+  // vizinho (promotora) pra baixo -- colapsa igual a tabela de contratos.
+  const hasMore = data.length > DONUT_VISIBLE;
+  const visible = expanded ? data : data.slice(0, DONUT_VISIBLE);
   return (
     <div className="flex items-center gap-6">
       <div className="relative h-[132px] w-[132px] shrink-0">
@@ -188,22 +195,33 @@ function Donut({ data, colors, centerLabel, centerSub }: { data: { name: string;
           <span className="text-[10px] uppercase tracking-wide text-[#8891AC]">{centerSub}</span>
         </div>
       </div>
-      <ul className="flex-1 space-y-2.5">
-        {data.map((d) => (
-          <li key={d.name} className="flex items-center justify-between gap-3 text-[13px]">
-            <span className="flex items-center gap-2 text-[#39415C]">
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: colors[d.name] || "#C9CDD9" }}
-              />
-              {d.name}
-            </span>
-            <span className="font-medium text-[#10142B]">
-              {total > 0 ? ((d.value / total) * 100).toFixed(1) : "0.0"}%
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className="flex-1">
+        <ul className="space-y-2.5">
+          {visible.map((d) => (
+            <li key={d.name} className="flex items-center justify-between gap-3 text-[13px]">
+              <span className="flex items-center gap-2 text-[#39415C]">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: colors[d.name] || "#C9CDD9" }}
+                />
+                {d.name}
+              </span>
+              <span className="font-medium text-[#10142B]">
+                {total > 0 ? ((d.value / total) * 100).toFixed(1) : "0.0"}%
+              </span>
+            </li>
+          ))}
+        </ul>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="mt-2.5 text-[12px] font-medium text-[#4C5EF0] hover:underline"
+          >
+            {expanded ? "Ver menos" : `+${data.length - DONUT_VISIBLE} mais`}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
