@@ -70,6 +70,7 @@ def _apply_lead_visibility_filter(orm_execute_state):
         # transformacao dentro da funcao (senao da InvalidRequestError:
         # "does not refer to a cacheable SQL element").
         own_name = orm_execute_state.session.info.get("own_origin_name") or ""
+        own_id = orm_execute_state.session.info.get("own_user_id")
         organico_values = list(ORGANICO_EXTRA)
 
         def _comercial_visible(cls):
@@ -84,6 +85,10 @@ def _apply_lead_visibility_filter(orm_execute_state):
                 # uma conta 'usuario' -- o comercial precisa enxergar pra tratativa,
                 # mesmo quando a origem original não bate com nenhuma regra acima.
                 cls.renutricao_owner_id.in_(select(User.id).where(User.role == "usuario")),
+                # leads de renutrição atribuídos diretamente à própria conta
+                # 'comercial' (ex: Julia) -- sem isso, ela não via os próprios
+                # leads atribuídos por não ter role 'usuario'.
+                cls.renutricao_owner_id == own_id,
             )
 
         orm_execute_state.statement = orm_execute_state.statement.options(

@@ -14,7 +14,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.lead_utils import extract_base
 from app.models import Lead, LeadAttachment, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
-from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter
+from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads
 from app.tz_utils import br_date_to_utc_range, now_br
 from app import storage_r2
 from app import renutricao_import
@@ -203,7 +203,7 @@ def leads_by_period(
             # lead de renutrição ainda não retrabalhado (só atribuído) tem data
             # efetiva antiga -- pra quem trabalha a carteira (fila) ou no modo
             # renutrição, mostra mesmo assim.
-            if renutricao or needs_own_origin_filter(current_user):
+            if renutricao or needs_own_origin_filter(current_user) or restrict_to_usuario_leads(current_user):
                 q = q.filter(or_(date_clause, Lead.is_renutrucao.is_(True)))
             else:
                 q = q.filter(date_clause)
@@ -368,7 +368,7 @@ def leads_report_stats(
             # lead de renutrição ainda não retrabalhado (só atribuído) tem data
             # efetiva antiga -- pra quem trabalha a carteira (fila) ou no modo
             # renutrição, mostra mesmo assim.
-            if renutricao or needs_own_origin_filter(current_user):
+            if renutricao or needs_own_origin_filter(current_user) or restrict_to_usuario_leads(current_user):
                 q = q.filter(or_(date_clause, Lead.is_renutrucao.is_(True)))
             else:
                 q = q.filter(date_clause)
