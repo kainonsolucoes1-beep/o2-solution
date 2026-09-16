@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Lead, User
 from app.models.app_settings import AppSettings
-from app.teams import TEAMS, team_key_setting, team_attendants_setting, team_rr_index_setting
+from app.teams import TEAMS, team_key_setting, team_rr_index_setting, team_attendant_names
 
 router = APIRouter(prefix="/api/v1/public", tags=["public"])
 logger = logging.getLogger(__name__)
@@ -108,17 +108,12 @@ def _build_notes(body: "PublicLeadCreate") -> Optional[str]:
     return "\n\n".join(parts) if parts else None
 
 
-def _next_attendant(db: Session, team_slug: str) -> Optional[str]:
-    """Roda a fila de atendentes (round-robin) da equipe, guardada em AppSettings.
-    Bloqueia as duas linhas (FOR UPDATE) para evitar corrida entre leads
-    simultaneos pegando o mesmo indice."""
-    attendants_row = (
-        db.query(AppSettings)
-        .filter(AppSettings.key == team_attendants_setting(team_slug))
-        .with_for_update()
-        .first()
-    )
-    names = [n.strip() for n in (attendants_row.value or "").split(",") if n.strip()] if attendants_row else []
+def _next_attendant(db: Session, team_slug: str, team_name: str) -> Optional[str]:
+    """Roda a fila de atendentes (round-robin) da equipe. A lista de nomes vem
+    de quem esta cadastrado com esse time (se ninguem, cai pra lista manual em
+    AppSettings). O indice do rodizio em si fica bloqueado (FOR UPDATE) pra
+    evitar corrida entre leads simultaneos pegando a mesma posicao."""
+    names = team_attendant_names(db, team_slug, team_name)
     if not names:
         return None
 
@@ -187,7 +182,7 @@ def create_public_lead(
         raise HTTPException(status_code=409, detail="Lead já cadastrado")
 
     default_user = db.query(User).first()
-    attendant = _next_attendant(db, team["slug"])
+    attendant = _next_attendant(db, team["slug"], team["name"])
     lead = Lead(
         name=name,
         email=body.email,

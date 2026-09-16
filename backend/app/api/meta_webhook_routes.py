@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Lead, User
 from app.models.app_settings import AppSettings
-from app.teams import TEAM_BY_SLUG, team_attendants_setting, team_rr_index_setting
+from app.teams import TEAM_BY_SLUG, team_rr_index_setting, team_attendant_names
 
 router = APIRouter(prefix="/api/v1/webhooks", tags=["meta-webhook"])
 logger = logging.getLogger(__name__)
@@ -29,15 +29,9 @@ def _setting(db: Session, key: str) -> Optional[str]:
     return row.value if row and row.value else None
 
 
-def _next_attendant(db: Session, team_slug: str) -> Optional[str]:
+def _next_attendant(db: Session, team_slug: str, team_name: str) -> Optional[str]:
     """Mesma logica de round-robin usada em public_routes.py."""
-    attendants_row = (
-        db.query(AppSettings)
-        .filter(AppSettings.key == team_attendants_setting(team_slug))
-        .with_for_update()
-        .first()
-    )
-    names = [n.strip() for n in (attendants_row.value or "").split(",") if n.strip()] if attendants_row else []
+    names = team_attendant_names(db, team_slug, team_name)
     if not names:
         return None
 
@@ -119,7 +113,7 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
 
     team = TEAM_BY_SLUG[META_LEADS_TEAM_SLUG]
     default_user = db.query(User).first()
-    attendant = _next_attendant(db, team["slug"])
+    attendant = _next_attendant(db, team["slug"], team["name"])
 
     lead = Lead(
         name=name,
