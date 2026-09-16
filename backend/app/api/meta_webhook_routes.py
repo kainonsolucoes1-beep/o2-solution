@@ -98,6 +98,10 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         logger.exception("Falha ao buscar dados do lead na Graph API — leadgen_id=%s", leadgen_id)
         return
 
+    # DEBUG TEMPORARIO: só os nomes das chaves, sem valor, pra identificar o
+    # campo do plano de saude. Remover depois de mapear o campo certo.
+    logger.info("DEBUG campos do lead recebidos: %s", list(fields.keys()))
+
     name = (fields.get("full_name") or fields.get("first_name") or "Lead Meta Ads").strip()
     email = fields.get("email")
     phone = fields.get("phone_number")
