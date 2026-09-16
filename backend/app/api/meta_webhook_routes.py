@@ -1,4 +1,5 @@
 import hashlib
+import re
 import hmac
 import json
 import logging
@@ -87,6 +88,16 @@ def _fetch_lead_fields(leadgen_id: str, page_access_token: str) -> dict:
     return fields
 
 
+def _clean_meta_choice(raw: Optional[str]) -> Optional[str]:
+    """Respostas de multipla escolha do formulario vem tipo
+    "❌_não_tenho_plano_de_saúde" — tira o emoji/simbolo do inicio e troca
+    underscore por espaco, pra comparar com texto normal."""
+    if not raw:
+        return None
+    text = re.sub(r'^[^\w]+', '', raw, flags=re.UNICODE).replace('_', ' ').strip()
+    return text or None
+
+
 def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
     page_access_token = _setting(db, "meta_page_access_token")
     if not page_access_token:
@@ -102,13 +113,19 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
     name = (fields.get("full_name") or fields.get("first_name") or "Lead Meta Ads").strip()
     email = fields.get("email")
     phone = fields.get("phone_number")
-    # O formulario pergunta primeiro se a pessoa tem plano, e so mostra o
-    # campo com o nome do plano se a resposta for "sim" — por isso prioriza
-    # o nome do plano quando presente, caindo pra resposta da primeira
-    # pergunta (que cobre o caso "nao tenho plano de saude").
-    plan_name = fields.get("qual_o_seu_plano_de_saúde_atual?")
-    has_plan_answer = fields.get("em_qual_opção_melhor_se_encaixa?")
-    current_plan = normalize_current_plan(plan_name) or normalize_current_plan(has_plan_answer)
+    # O formulario pergunta primeiro se a pessoa tem plano; quando a resposta
+    # e "nao tenho", o campo com o nome do plano fica escondido mas a Meta
+    # ainda manda um valor residual nele (ex: "outro") — por isso a resposta
+    # da primeira pergunta manda: só olha o nome do plano quando ela indicar
+    # que a pessoa tem plano. As respostas de multipla escolha vem com
+    # emoji/underscore (ex: "❌_não_tenho_plano_de_saúde"), entao limpa antes
+    # de comparar.
+    has_plan_answer = _clean_meta_choice(fields.get("em_qual_opção_melhor_se_encaixa?"))
+    if normalize_current_plan(has_plan_answer) == "Não possui plano":
+        current_plan = "Não possui plano"
+    else:
+        plan_name = _clean_meta_choice(fields.get("qual_o_seu_plano_de_saúde_atual?"))
+        current_plan = normalize_current_plan(plan_name) or normalize_current_plan(has_plan_answer)
 
     existing = None
     if email:
