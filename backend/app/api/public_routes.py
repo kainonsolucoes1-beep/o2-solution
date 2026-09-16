@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models import Lead, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAMS, team_key_setting, team_rr_index_setting, team_attendant_names
+from app.lead_utils import normalize_current_plan as _normalize_current_plan
 
 router = APIRouter(prefix="/api/v1/public", tags=["public"])
 logger = logging.getLogger(__name__)
@@ -62,23 +63,6 @@ def _normalize_modalidade(modalidade: Optional[str]) -> Optional[str]:
     if not modalidade:
         return modalidade
     return _MODALIDADE_ALIASES.get(modalidade.strip().lower(), modalidade)
-
-
-# "plano atual" — o formulário do Meta manda o rótulo da opção que a pessoa
-# marcou. Normaliza as grafias de "não tem plano" pro sentinela que os KPIs
-# usam ("Não possui plano"); qualquer outra coisa é o nome do plano.
-_SEM_PLANO = {
-    "não possui plano", "nao possui plano", "não possuo plano", "nao possuo plano",
-    "sem plano", "não tenho plano", "nao tenho plano", "nenhum", "nenhum", "não", "nao",
-}
-
-
-def _normalize_current_plan(current_plan: Optional[str]) -> Optional[str]:
-    if not current_plan or not current_plan.strip():
-        return None
-    if current_plan.strip().lower() in _SEM_PLANO:
-        return "Não possui plano"
-    return current_plan.strip()
 
 
 _FAIXA_LABELS = [

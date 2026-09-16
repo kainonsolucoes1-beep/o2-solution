@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models import Lead, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAM_BY_SLUG, team_rr_index_setting, team_attendant_names
+from app.lead_utils import normalize_current_plan
 
 router = APIRouter(prefix="/api/v1/webhooks", tags=["meta-webhook"])
 logger = logging.getLogger(__name__)
@@ -98,13 +99,16 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         logger.exception("Falha ao buscar dados do lead na Graph API — leadgen_id=%s", leadgen_id)
         return
 
-    # DEBUG TEMPORARIO: só os nomes das chaves, sem valor, pra identificar o
-    # campo do plano de saude. Remover depois de mapear o campo certo.
-    logger.info("DEBUG campos do lead recebidos: %s", list(fields.keys()))
-
     name = (fields.get("full_name") or fields.get("first_name") or "Lead Meta Ads").strip()
     email = fields.get("email")
     phone = fields.get("phone_number")
+    # O formulario pergunta primeiro se a pessoa tem plano, e so mostra o
+    # campo com o nome do plano se a resposta for "sim" — por isso prioriza
+    # o nome do plano quando presente, caindo pra resposta da primeira
+    # pergunta (que cobre o caso "nao tenho plano de saude").
+    plan_name = fields.get("qual_o_seu_plano_de_saúde_atual?")
+    has_plan_answer = fields.get("em_qual_opção_melhor_se_encaixa?")
+    current_plan = normalize_current_plan(plan_name) or normalize_current_plan(has_plan_answer)
 
     existing = None
     if email:
@@ -125,6 +129,7 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         phone=phone,
         origin="Meta Ads",
         conversion_point=form_name,
+        current_plan=current_plan,
         attendant=attendant,
         team=team["name"],
         status="novo",
