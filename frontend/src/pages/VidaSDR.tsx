@@ -4,11 +4,13 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import {
-  ArrowLeft, Loader2, Lock, AlertTriangle, Clock3, TrendingUp, CheckCircle2, type LucideIcon,
+  ArrowLeft, Loader2, Lock, AlertTriangle, Clock3, TrendingUp, CheckCircle2, ChevronRight, type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 import { type FiltroPeriodo, mesAtualRange } from '../utils/periodoFiltro'
+import { parseUTC } from '../utils/date'
+import { statusColor } from '../utils/leadStatus'
 import SmartPreviewDrawer from '../components/SmartPreviewDrawer'
 import {
   buildSmartPreview, fetchSmartPreviewRows, fetchReceitaComposicao, receitaRows, needsRowFetch, MOCK_CUSTO_TOTAL,
@@ -22,6 +24,8 @@ interface RankingGeralEntry { nome: string; valor: number; voce: boolean }
 interface RankingGeralSection { posicao: number; total: number; leaderboard: RankingGeralEntry[] }
 interface RankingGeral { captacoes: RankingGeralSection; vendas: RankingGeralSection }
 interface Atividade { tipo: 'status' | 'nota' | 'agendamento'; lead_nome: string; lead_id?: string; detalhe: string | null; em: string }
+interface EstagioLead { id: string; nome: string; valor: number; atualizado_em: string | null }
+interface Estagio { key: string; label: string; count: number; leads: EstagioLead[] }
 interface VidaSdrData {
   captacoes: number
   em_andamento: number
@@ -41,6 +45,7 @@ interface VidaSdrData {
   ranking: Ranking | null
   ranking_geral: RankingGeral | null
   atividades: Atividade[]
+  estagios: Estagio[]
 }
 
 const ACCENT = 'var(--accent)'
@@ -255,6 +260,75 @@ function FunnelStep({ label, value, share, tone, onOpen }: {
       <div style={{ height: 6, borderRadius: 999, background: 'var(--border-lt)', marginTop: 5, overflow: 'hidden' }}>
         <div style={{ width: `${Math.max(2, Math.min(100, share))}%`, height: '100%', borderRadius: 999, background: bar }} />
       </div>
+    </div>
+  )
+}
+
+// tempo parado desde a última interação (senão a última atualização) — mesma
+// referência usada nos alertas de Leads Vencidos em outras telas.
+function elapsedLabel(iso: string | null): { label: string; hot: boolean } {
+  if (!iso) return { label: '—', hot: false }
+  const hours = Math.max(0, Math.round((Date.now() - parseUTC(iso)) / 3600000))
+  const label = hours < 1 ? 'agora' : hours >= 48 ? `${Math.round(hours / 24)}d parado` : `${hours}h parado`
+  return { label, hot: hours >= 24 }
+}
+
+// Detalhamento do "Ainda em andamento" por etapa (Novo/Qualificado/Proposta/
+// Pendência/Documentação pendente/Emissão/Negociação) — cada etapa abre a
+// lista dos leads dela, do mais parado pro mais recente, pra dar visibilidade
+// de quem está sendo atendido e quem está parado.
+function StageAccordion({ stages, total }: { stages: Estagio[]; total: number }) {
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  const effectiveOpen = openKey ?? stages[0]?.key ?? null
+
+  return (
+    <div>
+      {stages.map((st, i) => {
+        const isOpen = st.key === effectiveOpen
+        const share = total ? (st.count / total) * 100 : 0
+        const oldest = st.leads[0] ? elapsedLabel(st.leads[0].atualizado_em) : null
+        const color = statusColor(st.key).color
+        return (
+          <div key={st.key} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-lt)', paddingTop: i === 0 ? 0 : 2 }}>
+            <button
+              type="button"
+              onClick={() => setOpenKey(isOpen ? '' : st.key)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', font: 'inherit' }}
+            >
+              <ChevronRight size={13} style={{ color: 'var(--text-muted)', flexShrink: 0, transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)', minWidth: 132, flexShrink: 0 }}>{st.label}</span>
+              <span style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--border-lt)', overflow: 'hidden', minWidth: 30 }}>
+                <span style={{ display: 'block', width: `${Math.max(2, Math.min(100, share))}%`, height: '100%', borderRadius: 999, background: color }} />
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', width: 20, textAlign: 'right', flexShrink: 0 }}>{st.count}</span>
+              {oldest && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0,
+                  background: oldest.hot ? 'var(--danger-weak)' : 'var(--bg-subtle)', color: oldest.hot ? 'var(--danger)' : 'var(--text-muted)',
+                }}>{oldest.label}</span>
+              )}
+            </button>
+            {isOpen && (
+              <div style={{ padding: '0 0 8px 22px' }}>
+                {st.leads.map(l => {
+                  const e = elapsedLabel(l.atualizado_em)
+                  return (
+                    <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderTop: '1px solid var(--border-lt)' }}>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.nome}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', flexShrink: 0 }}>{l.valor ? fmtBrl(l.valor) : 'sem valor'}</span>
+                      <span style={{
+                        fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0,
+                        background: e.hot ? 'var(--danger-weak)' : 'var(--bg-subtle)', color: e.hot ? 'var(--danger)' : 'var(--text-muted)',
+                      }}>{e.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -506,8 +580,8 @@ export default function VidaSDR() {
                 onOpen={trigger => openPreview('vendas', 0, trigger)}
               />
               <HeroCard
-                tone="risk" icon={AlertTriangle} label="Taxa de cancelamento" value={`${cancellationRate}%`}
-                sub={`${data.cancelados} de ${data.captacoes} leads`}
+                tone="risk" icon={AlertTriangle} label="Cancelados" value={String(data.cancelados)}
+                sub={`de ${data.captacoes} leads no período`}
                 onOpen={trigger => openPreview('cancellationRate', 0, trigger)}
               />
               {canSeeFinance ? (
@@ -534,15 +608,12 @@ export default function VidaSDR() {
                 <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 13 }}>
                   <FunnelStep label="Captados" value={String(data.captacoes)} share={100}
                     onOpen={t => openPreview('captacoes', 0, t)} />
-                  <FunnelStep label="Ainda em andamento" value={String(data.em_andamento)}
-                    share={data.captacoes ? (data.em_andamento / data.captacoes) * 100 : 0}
-                    onOpen={t => openPreview('em_andamento', 0, t)} />
-                  <FunnelStep label="Cancelados" value={String(data.cancelados)} tone="bad"
-                    share={data.captacoes ? (data.cancelados / data.captacoes) * 100 : 0}
-                    onOpen={t => openPreview('cancelados', 0, t)} />
-                  <FunnelStep label="Viraram venda" value={`${data.vendas} · ${data.conversao}%`}
-                    share={data.captacoes ? (data.vendas / data.captacoes) * 100 : 0}
-                    onOpen={t => openPreview('vendas', 0, t)} />
+                </div>
+                <div style={{ marginTop: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Ainda em andamento <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{data.em_andamento}</b></span>
+                  </div>
+                  <StageAccordion stages={data.estagios} total={data.em_andamento} />
                 </div>
               </section>
 

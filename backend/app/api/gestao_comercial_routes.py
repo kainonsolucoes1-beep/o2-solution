@@ -34,6 +34,22 @@ AGENDAMENTO_STATUSES = ("qualificado", "scheduled")
 # ainda não são venda nem perda, só continuação do fechamento da proposta.
 PROPOSTA_STATUSES   = ("proposta", "proposal_sent", "negociacao", "pendencia", "documentacao_pendente", "emissao")
 
+# canoniza a grafia crua do status pra etapa do funil, usado no detalhamento
+# "Ainda em andamento" da Vida do Agente (mesma ideia do STAGE_CANON do front)
+_STAGE_CANON = {
+    "novo": "novo", "new": "novo", "pending": "novo",
+    "qualificado": "qualificado", "qualified": "qualificado", "scheduled": "qualificado",
+    "proposta": "proposta", "proposal_sent": "proposta", "proposal sent": "proposta",
+    "negociacao": "negociacao", "negociação": "negociacao",
+    "pendencia": "pendencia", "documentacao_pendente": "documentacao_pendente",
+    "emissao": "emissao", "emissão": "emissao",
+}
+_STAGE_LABELS = {
+    "novo": "Novo", "qualificado": "Qualificado", "proposta": "Proposta",
+    "negociacao": "Negociação", "pendencia": "Pendência",
+    "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
+}
+
 # "Captacao efetiva": quando um lead cancelado/parado e' retrabalhado
 # (Lead.retrabalhado_em preenchido), ele passa a contar na data do retrabalho
 # pros relatorios de periodo — sem apagar Lead.created_at (historico real).
@@ -847,7 +863,10 @@ def vida_sdr(
     meta = _compute_meta_mes(db, parts) if parts else None
 
     leads = (
-        db.query(Lead.status, Lead.receita_real_recebida, Lead.receita_real_a_receber, EFFECTIVE_CAPTACAO.label("created_at"), Lead.value_potential)
+        db.query(
+            Lead.id, Lead.name, Lead.status, Lead.receita_real_recebida, Lead.receita_real_a_receber,
+            EFFECTIVE_CAPTACAO.label("created_at"), Lead.value_potential, Lead.last_interaction_at, Lead.updated_at,
+        )
         .filter(*filters)
         .all()
     ) if parts else []
@@ -857,7 +876,7 @@ def vida_sdr(
             "captacoes": 0, "em_andamento": 0, "cancelados": 0, "vendas": 0,
             "conversao": 0.0, "receita_recebida": 0.0, "receita_a_receber": 0.0, "receita_potencial": 0.0,
             "primeiro_lead_em": None, "ativo_desde": ativo_desde.isoformat() if ativo_desde else None, "meta": meta, "trend": [],
-            "ranking": None, "ranking_geral": None, "atividades": [],
+            "ranking": None, "ranking_geral": None, "atividades": [], "estagios": [],
         }
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -868,8 +887,9 @@ def vida_sdr(
     receita_a_receber = 0.0
     receita_potencial = 0.0
     monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0})
+    stage_data: dict = defaultdict(lambda: {"count": 0, "leads": []})
 
-    for status, recebido, a_receber, captacao_em, value_potential in leads:
+    for lead_id, name, status, recebido, a_receber, captacao_em, value_potential, last_interaction_at, updated_at in leads:
         s = (status or "").lower()
         if s in venda_set:
             vendas += 1
@@ -879,6 +899,13 @@ def vida_sdr(
             # em aberto no funil (inclui "novo") — soma o valor estimado de cada lead,
             # o mesmo que aparece na Ficha do Lead como Valor Cotação/Proposta
             receita_potencial += float(value_potential or 0)
+            stage_key = _STAGE_CANON.get(s, "novo")
+            atualizado_em = last_interaction_at or updated_at
+            stage_data[stage_key]["count"] += 1
+            stage_data[stage_key]["leads"].append({
+                "id": str(lead_id), "nome": name, "valor": float(value_potential or 0),
+                "atualizado_em": atualizado_em.isoformat() if atualizado_em else None,
+            })
         receita_recebida += float(recebido or 0)
         receita_a_receber += float(a_receber or 0)
 
@@ -889,6 +916,15 @@ def vida_sdr(
         monthly[key]["receita"] += float(recebido or 0)
 
     em_andamento = captacoes - vendas - cancelados
+
+    # detalhamento do "Ainda em andamento" por etapa, cada lead ordenado do
+    # mais parado pro mais recente (mesma referência de "última interação,
+    # senão última atualização" usada nos alertas de Leads Vencidos)
+    estagios = [
+        {"key": key, "label": _STAGE_LABELS[key], "count": v["count"],
+         "leads": sorted(v["leads"], key=lambda l: (l["atualizado_em"] is None, l["atualizado_em"] or ""))}
+        for key, v in sorted(stage_data.items(), key=lambda kv: kv[1]["count"], reverse=True)
+    ]
     conversao = round(vendas / captacoes * 100, 1) if captacoes else 0.0
 
     earliest = min(l.created_at for l in leads)
@@ -1022,6 +1058,7 @@ def vida_sdr(
         "ranking": ranking,
         "ranking_geral": ranking_geral,
         "atividades": atividades[:100],
+        "estagios": estagios,
     }
 
 
