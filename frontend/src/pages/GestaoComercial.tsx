@@ -361,6 +361,11 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
       small: overview.proposta > 0 ? `${fmtBrl(overview.proposta_value)} em aberto` : 'sem propostas enviadas',
       nav: cardNav({ status: 'proposal_sent' }),
     },
+    {
+      key: 'qualificado', label: 'Qualificado', count: overview.negociacao, done: false,
+      small: overview.negociacao > 0 ? `${fmtBrl(overview.negociacao_value)} em aberto` : 'nenhuma oportunidade nesta etapa',
+      nav: cardNav({ perception: 'Quente,Morno' }),
+    },
     // Pendência/Emissão só aparecem quando tem lead nesse status -- etapas
     // novas e raras, não vale poluir a jornada com nó zerado sempre.
     ...(overview.pendencia > 0 ? [{
@@ -373,11 +378,6 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
       small: `${fmtBrl(overview.emissao_value)} em aberto`,
       nav: cardNav({ status: 'emissao' }),
     }] : []),
-    {
-      key: 'qualificado', label: 'Qualificado', count: overview.negociacao, done: false,
-      small: overview.negociacao > 0 ? `${fmtBrl(overview.negociacao_value)} em aberto` : 'nenhuma oportunidade nesta etapa',
-      nav: cardNav({ perception: 'Quente,Morno' }),
-    },
     {
       key: 'fechado', label: 'Fechado', count: overview.fechado, done: true,
       small: overview.fechado > 0 ? `${fmtBrl(overview.fechado_value)} realizados` : 'sem vendas no período',
