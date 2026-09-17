@@ -563,7 +563,7 @@ def leads_conv_point(
     STATUS_PT = {
         "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
         "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
-        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
+        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Agendado",
         "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
         "pendencia": "Pendência", "documentacao_pendente": "Documentação Pendente", "emissao": "Emissão",
@@ -1118,7 +1118,7 @@ def leads_base(
     STATUS_PT = {
         "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
         "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
-        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
+        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Agendado",
         "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
         "pendencia": "Pendência", "documentacao_pendente": "Documentação Pendente", "emissao": "Emissão",
@@ -1285,7 +1285,7 @@ def leads_faixa_etaria(
     STATUS_PT = {
         "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
         "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
-        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
+        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Agendado",
         "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
         "pendencia": "Pendência", "documentacao_pendente": "Documentação Pendente", "emissao": "Emissão",
@@ -1407,7 +1407,7 @@ def leads_plano_saude(
     STATUS_PT = {
         "waiting_billing": "Aguard. Faturamento", "sale_performed": "Venda Realizada",
         "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
-        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Qualificado",
+        "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Agendado",
         "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
         "pendencia": "Pendência", "documentacao_pendente": "Documentação Pendente", "emissao": "Emissão",
