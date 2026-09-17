@@ -1059,7 +1059,7 @@ export default function KPIs() {
 
       {/* Navegação por abas */}
       <div role="tablist" style={{ display: 'flex', gap: 4, marginBottom: 32, borderBottom: '1px solid var(--border)' }}>
-        {MAIN_TABS.map(tab => {
+        {MAIN_TABS.filter(tab => tab.key !== 'ranking').map(tab => {
           const active = activeMainTab === tab.key
           return (
             <button
