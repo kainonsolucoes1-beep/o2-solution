@@ -109,3 +109,21 @@ def is_organico(origin: str | None, conversion_point: str | None = None) -> bool
         return True
     o = (origin or '').lower()
     return 'org' in o or o in ORGANICO_EXTRA
+
+
+# Sinonimos de "nao tenho plano de saude" usados em diferentes formularios
+# (site publico e formulario de lead ads do Meta) que devem cair no mesmo
+# sentinela usado pelos KPIs.
+SEM_PLANO = {
+    "não possui plano", "nao possui plano", "não possuo plano", "nao possuo plano",
+    "sem plano", "não tenho plano", "nao tenho plano", "nenhum", "não", "nao",
+    "não tenho plano de saúde", "nao tenho plano de saude",
+}
+
+
+def normalize_current_plan(current_plan):
+    if not current_plan or not current_plan.strip():
+        return None
+    if current_plan.strip().lower() in SEM_PLANO:
+        return "Não possui plano"
+    return current_plan.strip()

@@ -31,6 +31,7 @@ from app.api import telefonia_routes
 from app.api import kpis_routes
 from app.api import gestao_comercial_routes
 from app.api import public_routes
+from app.api import meta_webhook_routes
 from app.api import financeiro_routes
 from app.api import campanhas_routes
 from app.api.auth_routes import get_current_user
@@ -151,6 +152,7 @@ app.include_router(forms_routes.router)
 app.include_router(telefonia_routes.router)
 app.include_router(kpis_routes.router)
 app.include_router(gestao_comercial_routes.router)
+app.include_router(meta_webhook_routes.router)
 app.include_router(public_routes.router)
 app.include_router(financeiro_routes.router)
 app.include_router(campanhas_routes.router)
