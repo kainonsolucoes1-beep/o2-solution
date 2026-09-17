@@ -477,9 +477,6 @@ export default function LeadDetailPage() {
   const perception = lead.perception && PERCEPTION_STYLE[lead.perception] ? PERCEPTION_STYLE[lead.perception] : null
   const scheduleLabel = activeSchedule ? fmtDate(activeSchedule.scheduled_at) : 'Nada agendado'
 
-  const telHref = lead.phone ? `tel:${lead.phone.replace(/\D/g, '')}` : null
-  const mailHref = lead.email ? `mailto:${lead.email}` : null
-
   // lead em renutrição com outra pessoa: quem não é o dono (nem admin) só olha
   const renutricaoLock = !!lead.renutricao_owner_id && me !== null && lead.renutricao_owner_id !== me.id && !isAdmin
 
@@ -562,8 +559,6 @@ export default function LeadDetailPage() {
 
       <LeadNextStepPanel
         editing={acaoRapidaEditing}
-        telHref={telHref}
-        mailHref={mailHref}
         locked={renutricaoLock}
         onToggleEditing={() => {
           const next = !acaoRapidaEditing
@@ -573,13 +568,6 @@ export default function LeadDetailPage() {
           setEditingProposta(false)
           setFinalizarFlow(false)
           if (next) setStatusSubMenu(null)
-        }}
-        onOpenSchedule={() => {
-          setEditingSchedule(true)
-          setEditingStatus(false)
-          setEditingPerception(true)
-          setEditingProposta(false)
-          setStatusSubMenu(null)
         }}
         onOpenProposta={() => {
           setEditingProposta(true)

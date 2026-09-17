@@ -1197,6 +1197,18 @@ def create_schedule(
         created_by=current_user.first_name or current_user.username,
     )
     db.add(schedule)
+
+    # agendar já avança o status pra "Agendado" -- não existe mais o toggle
+    # manual separado, o próprio agendamento é o que qualifica o lead.
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if lead.status != "qualificado":
+        db.add(LeadStatusHistory(
+            lead_id=lead.id, from_status=lead.status, to_status="qualificado",
+            changed_at=now, changed_by=current_user.first_name or current_user.username,
+        ))
+        lead.status = "qualificado"
+        lead.updated_at = now
+
     db.commit()
     db.refresh(schedule)
     return schedule

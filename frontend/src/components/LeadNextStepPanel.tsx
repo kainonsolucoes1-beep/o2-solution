@@ -1,13 +1,13 @@
-import type { RefObject } from 'react'
-import { Phone, Mail } from 'lucide-react'
+import { useState, type RefObject } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { fmtDate } from '../utils/leadFormat'
 import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
+import { statusLabel } from '../utils/statusLabel'
 import CurrencyInput from './CurrencyInput'
 
 const STATUS_OPTIONS = [
   { value: 'novo',        label: 'Novo' },
   { value: 'sem_retorno', label: 'Sem retorno' },
-  { value: 'qualificado', label: 'Agendado' },
   { value: 'proposta',    label: 'Proposta' },
   { value: 'pendencia',   label: 'Pendência' },
   { value: 'documentacao_pendente', label: 'Documentação pendente' },
@@ -32,16 +32,6 @@ const LOST_REASONS = [
   'Sem retorno',
 ]
 
-function WhatsAppIcon({ size = 15 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M17.6 6.32A7.85 7.85 0 0 0 12.05 4a7.94 7.94 0 0 0-6.9 11.9L4 20l4.2-1.1a7.9 7.9 0 0 0 3.8 1h.03a7.94 7.94 0 0 0 5.57-13.58zM12.06 18.4h-.02a6.58 6.58 0 0 1-3.36-.92l-.24-.14-2.5.66.67-2.44-.16-.25a6.6 6.6 0 1 1 12.24-3.5 6.56 6.56 0 0 1-6.63 6.6zm3.6-4.94c-.2-.1-1.17-.58-1.35-.64-.18-.07-.31-.1-.45.1-.13.2-.5.64-.62.77-.11.13-.23.15-.42.05-.2-.1-.83-.3-1.58-.97a5.9 5.9 0 0 1-1.1-1.36c-.11-.2 0-.3.09-.4.1-.1.2-.23.3-.35.1-.11.13-.2.2-.32.06-.13.03-.25-.02-.35-.05-.1-.45-1.08-.62-1.48-.16-.4-.33-.33-.45-.34h-.38c-.13 0-.35.05-.53.25s-.7.68-.7 1.66.72 1.93.82 2.06c.1.13 1.4 2.15 3.4 3 .48.2.85.33 1.14.42.48.15.92.13 1.26.08.39-.06 1.17-.48 1.34-.94.16-.46.16-.85.11-.94-.05-.09-.18-.14-.38-.24z"/>
-    </svg>
-  )
-}
-
-const waHref = 'https://app.hbcconecta.com.br/index.html#/atendimentos/chat/'
-
 function actionBtnStyle(enabled: boolean): React.CSSProperties {
   return {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 34, padding: '0 12px', borderRadius: 7,
@@ -58,8 +48,8 @@ const primaryActionBtnStyle: React.CSSProperties = {
 }
 
 export default function LeadNextStepPanel({
-  editing, onToggleEditing, onOpenSchedule, onOpenProposta, onOpenFinalizar,
-  telHref, mailHref, locked,
+  editing, onToggleEditing, onOpenProposta, onOpenFinalizar,
+  locked,
   status, editingStatus, statusSubMenu, savingStatus,
   onStatusOptionClick, onClosedSubClick, onLostReasonClick, onBackToStatusOptions, onCancelStatusEdit,
   onVendaRealizadaClick, onBackToFinalizar,
@@ -72,12 +62,9 @@ export default function LeadNextStepPanel({
 }: {
   editing: boolean
   onToggleEditing: () => void
-  onOpenSchedule: () => void
   onOpenProposta: () => void
   onOpenFinalizar: () => void
 
-  telHref: string | null
-  mailHref: string | null
   locked?: boolean
 
   status: string
@@ -133,6 +120,9 @@ export default function LeadNextStepPanel({
   onCancelRetrabalhar: () => void
   retrabalhando: boolean
 }) {
+  const [statusPickerOpen, setStatusPickerOpen] = useState(false)
+  const [perceptionPickerOpen, setPerceptionPickerOpen] = useState(false)
+
   return (
     <section style={{
       background: 'var(--bg-card)', border: '1px solid var(--border)',
@@ -149,20 +139,6 @@ export default function LeadNextStepPanel({
         </div>
 
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end" style={{ gap: 7 }}>
-          {!locked && (
-          <button style={primaryActionBtnStyle} onClick={onOpenSchedule}>
-            Agendar
-          </button>
-          )}
-          <a href={telHref ?? undefined} style={actionBtnStyle(!!telHref)} onClick={e => { if (!telHref) e.preventDefault() }}>
-            <Phone size={14} color={telHref ? 'var(--accent)' : 'currentColor'} /> Ligar
-          </a>
-          <a href={waHref} target="_blank" rel="noreferrer" style={actionBtnStyle(true)}>
-            <span style={{ color: '#25D366', display: 'flex' }}><WhatsAppIcon size={14} /></span> WhatsApp
-          </a>
-          <a href={mailHref ?? undefined} style={actionBtnStyle(!!mailHref)} onClick={e => { if (!mailHref) e.preventDefault() }}>
-            <Mail size={14} /> Enviar e-mail
-          </a>
           {locked ? null : status === 'sale_not_performed' ? (
             showRetrabalhar ? (
               <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -214,7 +190,7 @@ export default function LeadNextStepPanel({
           )}
           {!locked && (
             <button style={actionBtnStyle(true)} onClick={onToggleEditing}>
-              {editing ? 'Concluir edição' : 'Editar ação rápida'}
+              {editing ? 'Concluir edição' : 'Ações'}
             </button>
           )}
         </div>
@@ -379,35 +355,59 @@ export default function LeadNextStepPanel({
                   </button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {STATUS_OPTIONS.map(opt => {
-                    const s = STATUS_STYLE[opt.value] ?? { bg: 'var(--bg-subtle)', color: 'var(--text-muted)' }
-                    const active = status === opt.value
+                <div>
+                  {(() => {
+                    const currentLabel = STATUS_OPTIONS.find(o => o.value === status)?.label ?? statusLabel(status)
+                    const s = STATUS_STYLE[status] ?? { bg: 'var(--bg-subtle)', color: 'var(--text-muted)' }
                     return (
                       <button
-                        key={opt.value}
-                        disabled={savingStatus}
-                        onClick={() => onStatusOptionClick(opt.value)}
+                        type="button"
+                        onClick={() => setStatusPickerOpen(v => !v)}
                         style={{
-                          background: active ? s.color : s.bg,
-                          color: active ? 'white' : s.color,
-                          border: `1.5px solid ${s.color}`,
-                          padding: '4px 14px', borderRadius: 99,
-                          fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
-                          opacity: savingStatus ? 0.6 : 1,
-                          transition: 'all 150ms', textTransform: 'capitalize',
+                          display: 'inline-flex', alignItems: 'center', gap: 8,
+                          padding: '5px 12px 5px 6px', borderRadius: 99,
+                          border: `1.5px solid ${s.color}`, background: 'var(--bg-card)',
+                          fontSize: 13, fontWeight: 600, color: s.color, cursor: 'pointer',
                         }}
                       >
-                        {opt.label}
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                        {currentLabel}
+                        <ChevronDown size={13} style={{ transform: statusPickerOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
                       </button>
                     )
-                  })}
-                  <button
-                    onClick={onCancelStatusEdit}
-                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                  >
-                    Cancelar
-                  </button>
+                  })()}
+                  {statusPickerOpen && (
+                    <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: 'var(--bg-subtle)', border: '1px solid var(--border-lt)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {STATUS_OPTIONS.map(opt => {
+                        const s = STATUS_STYLE[opt.value] ?? { bg: 'var(--bg-subtle)', color: 'var(--text-muted)' }
+                        const active = status === opt.value
+                        return (
+                          <button
+                            key={opt.value}
+                            disabled={savingStatus}
+                            onClick={() => { onStatusOptionClick(opt.value); setStatusPickerOpen(false) }}
+                            style={{
+                              background: active ? s.color : s.bg,
+                              color: active ? 'white' : s.color,
+                              border: `1.5px solid ${s.color}`,
+                              padding: '4px 14px', borderRadius: 99,
+                              fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
+                              opacity: savingStatus ? 0.6 : 1,
+                              transition: 'all 150ms', textTransform: 'capitalize',
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        )
+                      })}
+                      <button
+                        onClick={() => { setStatusPickerOpen(false); onCancelStatusEdit() }}
+                        style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
           </div>
@@ -420,36 +420,57 @@ export default function LeadNextStepPanel({
             Temperatura
           </div>
           <div style={{ marginTop: 8 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              {Object.keys(PERCEPTION_STYLE).map(key => {
-                const s = PERCEPTION_STYLE[key]
-                const active = perception === key
-                return (
-                  <button
-                    key={key}
-                    disabled={savingPerception}
-                    onClick={() => onPerceptionClick(key)}
-                    style={{
-                      background: active ? s.color : s.bg,
-                      color: active ? 'white' : s.color,
-                      border: `1.5px solid ${s.color}`,
-                      padding: '4px 14px', borderRadius: 99,
-                      fontSize: 13, fontWeight: 600, cursor: savingPerception ? 'not-allowed' : 'pointer',
-                      opacity: savingPerception ? 0.6 : 1,
-                      transition: 'all 150ms',
-                    }}
-                  >
-                    {s.label}
-                  </button>
-                )
-              })}
-              <button
-                onClick={onCancelPerceptionEdit}
-                style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-              >
-                Cancelar
-              </button>
-            </div>
+            {(() => {
+              const s = perception ? PERCEPTION_STYLE[perception] : null
+              return (
+                <button
+                  type="button"
+                  onClick={() => setPerceptionPickerOpen(v => !v)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '5px 12px 5px 6px', borderRadius: 99,
+                    border: `1.5px solid ${s?.color ?? 'var(--border-in)'}`, background: 'var(--bg-card)',
+                    fontSize: 13, fontWeight: 600, color: s?.color ?? 'var(--text-muted)', cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: s?.color ?? 'var(--border-in)', flexShrink: 0 }} />
+                  {s?.label ?? 'Definir'}
+                  <ChevronDown size={13} style={{ transform: perceptionPickerOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
+                </button>
+              )
+            })()}
+            {perceptionPickerOpen && (
+              <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: 'var(--bg-subtle)', border: '1px solid var(--border-lt)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {Object.keys(PERCEPTION_STYLE).map(key => {
+                  const s = PERCEPTION_STYLE[key]
+                  const active = perception === key
+                  return (
+                    <button
+                      key={key}
+                      disabled={savingPerception}
+                      onClick={() => { onPerceptionClick(key); setPerceptionPickerOpen(false) }}
+                      style={{
+                        background: active ? s.color : s.bg,
+                        color: active ? 'white' : s.color,
+                        border: `1.5px solid ${s.color}`,
+                        padding: '4px 14px', borderRadius: 99,
+                        fontSize: 13, fontWeight: 600, cursor: savingPerception ? 'not-allowed' : 'pointer',
+                        opacity: savingPerception ? 0.6 : 1,
+                        transition: 'all 150ms',
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  )
+                })}
+                <button
+                  onClick={() => { setPerceptionPickerOpen(false); onCancelPerceptionEdit() }}
+                  style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
           </div>
         </div>
         )}
