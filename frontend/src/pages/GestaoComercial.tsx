@@ -471,10 +471,6 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <p style={{ fontSize: 12.5, color: 'var(--text-meta)' }}>
-          {distTotal} leads captados no período · {_gcFmtBR(dateFrom)} até {_gcFmtBR(dateTo)}
-        </p>
-
         {/* Resultado do período + Fluxo do pipeline — protagonista, visível pra todos os papéis */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
           <div className="bg-white rounded-xl" style={{ flex: '1 1 260px', minWidth: 0, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column' }}>
