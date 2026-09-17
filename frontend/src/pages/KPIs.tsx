@@ -2128,11 +2128,11 @@ function ResumoAquisicao({ bases, canais, pontos, modalidades, renutricao, loadi
               Ver tudo <ChevronRight size={13} />
             </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 26, padding: '6px 16px 16px', flexWrap: 'wrap' }}>
-            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Captações</div><div style={{ fontSize: 19, fontWeight: 750, color: 'var(--text-1)', marginTop: 2 }}>{renutricao.captacoes}</div></div>
-            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Vendas</div><div style={{ fontSize: 19, fontWeight: 750, color: 'var(--text-1)', marginTop: 2 }}>{renutricao.vendas}</div></div>
-            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Conversão</div><div style={{ fontSize: 19, fontWeight: 750, color: 'var(--success)', marginTop: 2 }}>{renutricao.conversao}%</div></div>
-            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Cancelados</div><div style={{ fontSize: 19, fontWeight: 750, color: 'var(--danger)', marginTop: 2 }}>{renutricao.cancelados}</div></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, padding: '6px 16px 16px' }}>
+            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Captações</div><div style={{ fontSize: 22, fontWeight: 750, color: 'var(--text-1)', marginTop: 4 }}>{renutricao.captacoes}</div></div>
+            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Vendas</div><div style={{ fontSize: 22, fontWeight: 750, color: 'var(--text-1)', marginTop: 4 }}>{renutricao.vendas}</div></div>
+            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Conversão</div><div style={{ fontSize: 22, fontWeight: 750, color: 'var(--success)', marginTop: 4 }}>{renutricao.conversao}%</div></div>
+            <div><div style={{ fontSize: 11, color: 'var(--text-subtle)', fontWeight: 650, textTransform: 'uppercase' }}>Cancelados</div><div style={{ fontSize: 22, fontWeight: 750, color: 'var(--danger)', marginTop: 4 }}>{renutricao.cancelados}</div></div>
           </div>
         </div>
       )}
