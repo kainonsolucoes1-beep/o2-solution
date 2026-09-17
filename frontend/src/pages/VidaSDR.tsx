@@ -604,15 +604,12 @@ export default function VidaSDR() {
 
             <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? 'minmax(0, 1.5fr) minmax(280px, 1fr)' : '1fr', gap: 18, alignItems: 'start' }}>
               <section style={panelStyle}>
-                <span style={kickerStyle}>O funil dele · {data.captacoes} leads</span>
+                <span style={kickerStyle}>Funil</span>
                 <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 13 }}>
                   <FunnelStep label="Captados" value={String(data.captacoes)} share={100}
                     onOpen={t => openPreview('captacoes', 0, t)} />
                 </div>
                 <div style={{ marginTop: 13 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Ainda em andamento <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{data.em_andamento}</b></span>
-                  </div>
                   <StageAccordion stages={data.estagios} total={data.em_andamento} />
                 </div>
               </section>
