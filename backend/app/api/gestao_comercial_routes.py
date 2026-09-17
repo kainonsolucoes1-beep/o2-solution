@@ -38,6 +38,7 @@ PROPOSTA_STATUSES   = ("proposta", "proposal_sent", "negociacao", "pendencia", "
 # "Ainda em andamento" da Vida do Agente (mesma ideia do STAGE_CANON do front)
 _STAGE_CANON = {
     "novo": "novo", "new": "novo", "pending": "novo",
+    "sem_retorno": "sem_retorno",
     "qualificado": "qualificado", "qualified": "qualificado", "scheduled": "qualificado",
     "proposta": "proposta", "proposal_sent": "proposta", "proposal sent": "proposta",
     "negociacao": "negociacao", "negociação": "negociacao",
@@ -45,7 +46,7 @@ _STAGE_CANON = {
     "emissao": "emissao", "emissão": "emissao",
 }
 _STAGE_LABELS = {
-    "novo": "Novo", "qualificado": "Qualificado", "proposta": "Proposta",
+    "novo": "Novo", "sem_retorno": "Sem retorno", "qualificado": "Qualificado", "proposta": "Proposta",
     "negociacao": "Negociação", "pendencia": "Pendência",
     "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
 }

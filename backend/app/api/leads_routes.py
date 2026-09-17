@@ -757,7 +757,7 @@ def assign_renutricao(
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     _SALE_NOT_PERFORMED = {"sale_not_performed", "sale not performed"}
     _STATUS_PT = {
-        "novo": "novo", "new": "novo", "pending": "pendente",
+        "novo": "novo", "new": "novo", "pending": "pendente", "sem_retorno": "sem retorno",
         "qualificado": "agendado", "qualified": "agendado", "scheduled": "agendado",
         "proposal_sent": "proposta enviada", "proposta": "proposta enviada",
         "pendencia": "pendência", "documentacao_pendente": "documentação pendente", "emissao": "emissão",

@@ -86,6 +86,7 @@ const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,conver
 const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
 const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
 const STATUS_PENDENTE = 'pending,novo,new'
+const STATUS_SEM_RETORNO = 'sem_retorno'
 const STATUS_AGENDADO = 'scheduled,qualificado,qualified'
 const STATUS_PROPOSTA = 'proposal_sent,proposta,proposal sent'
 const STATUS_PENDENCIA = 'pendencia,documentacao_pendente'
@@ -94,6 +95,7 @@ const STATUS_EMISSAO = 'emissao'
 const STATUS_PILLS: { value: string; label: string; color: string; bg: string; border: string }[] = [
   { value: '',                label: 'Todos',        color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
   { value: STATUS_PENDENTE,   label: 'Pendente',      color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
+  { value: STATUS_SEM_RETORNO, label: 'Sem retorno',  color: '#F97316', bg: '#FFF7ED', border: '#FED7AA' },
   { value: STATUS_AGENDADO,   label: 'Agendado',      color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
   { value: STATUS_PROPOSTA,   label: 'Proposta',      color: '#9333EA', bg: '#FAF5FF', border: '#E9D5FF' },
   { value: STATUS_PENDENCIA,  label: 'Pendência',     color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
@@ -161,6 +163,7 @@ const STATUS_STYLE: Record<string, { color: string }> = {
   novo: { color: '#3B82F6' },
   new: { color: '#3B82F6' },
   pending: { color: '#3B82F6' },
+  sem_retorno: { color: '#F97316' },
   qualificado: { color: '#7C3AED' },
   qualified: { color: '#7C3AED' },
   scheduled: { color: '#7C3AED' },

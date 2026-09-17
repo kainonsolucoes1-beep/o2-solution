@@ -40,8 +40,8 @@ type DrillTipo = 'receita_potencial' | 'vendas' | 'perda'
 // ── Pipeline types ───────────────────────────────────────────────────────────
 interface PipelineOverview {
   total: number
-  novo: number; qualificado: number; proposta: number; pendencia: number; emissao: number; negociacao: number; fechado: number; perdido: number
-  novo_value: number; qualificado_value: number; proposta_value: number; pendencia_value: number; emissao_value: number
+  novo: number; sem_retorno: number; qualificado: number; proposta: number; pendencia: number; emissao: number; negociacao: number; fechado: number; perdido: number
+  novo_value: number; sem_retorno_value: number; qualificado_value: number; proposta_value: number; pendencia_value: number; emissao_value: number
   negociacao_value: number; fechado_value: number; perdido_value: number
 }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
@@ -116,7 +116,7 @@ function groupOrigens(origens: OrigemItem[]): GrupoOrigem[] {
 
 // ── Drill helpers ────────────────────────────────────────────────────────────
 const STAGE_LABELS: Record<string, string> = {
-  novo: 'Novo', new: 'Novo', em_atendimento: 'Em Atendimento', attending: 'Em Atendimento',
+  novo: 'Novo', new: 'Novo', sem_retorno: 'Sem retorno', em_atendimento: 'Em Atendimento', attending: 'Em Atendimento',
   qualificacao: 'Qualificação', primeiro_contato: '1º Contato', agendamento: 'Agendamento',
   scheduled: 'Agendado', reuniao: 'Reunião', meeting: 'Reunião',
   proposta: 'Enviada', proposal: 'Enviada', proposal_sent: 'Enviada',
@@ -126,7 +126,7 @@ const STAGE_LABELS: Record<string, string> = {
   fechado: 'Fechado', closed: 'Fechado', won: 'Ganho', convertido: 'Convertido',
 }
 const STAGE_ORDER: Record<string, number> = {
-  scheduled: 1, proposal_sent: 2, proposta: 2, pendencia: 2.1, emissao: 2.2, waiting_billing: 3, sale_performed: 4,
+  sem_retorno: 0.5, scheduled: 1, proposal_sent: 2, proposta: 2, pendencia: 2.1, emissao: 2.2, waiting_billing: 3, sale_performed: 4,
   fechado: 5, closed: 5, won: 5, convertido: 5,
 }
 const stageLabel = (s: string) => STAGE_LABELS[s?.toLowerCase()] ?? s
@@ -136,6 +136,7 @@ const stageOrder = (s: string) => STAGE_ORDER[s?.toLowerCase()] ?? 99
 // qualificado/scheduled…). Canoniza pra não duplicar linhas em "Por etapa".
 const STAGE_CANON: Record<string, string> = {
   novo: 'novo', new: 'novo', pending: 'novo',
+  sem_retorno: 'sem_retorno',
   qualificado: 'scheduled', qualified: 'scheduled', scheduled: 'scheduled', agendado: 'scheduled',
   proposta: 'proposal_sent', proposal: 'proposal_sent', proposal_sent: 'proposal_sent', 'proposal sent': 'proposal_sent',
   negociacao: 'negociacao', 'negociação': 'negociacao', negotiation: 'negociacao',
@@ -336,14 +337,19 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   // Soma as etapas mostradas na jornada (Perdido fica de fora dela — aparece no
   // "Resultado do período"), pra esse número reconciliar com o total do topo:
   // etapas + perdidos = total captado.
-  const journeyTotal = overview.novo + overview.qualificado + overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado
-  const journeyValue = overview.novo_value + overview.qualificado_value + overview.proposta_value + overview.pendencia_value + overview.emissao_value + overview.negociacao_value + overview.fechado_value
+  const journeyTotal = overview.novo + overview.sem_retorno + overview.qualificado + overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado
+  const journeyValue = overview.novo_value + overview.sem_retorno_value + overview.qualificado_value + overview.proposta_value + overview.pendencia_value + overview.emissao_value + overview.negociacao_value + overview.fechado_value
 
   const journeyNodes = [
     {
       key: 'novo', label: 'Novo', count: overview.novo, done: false,
       small: `${overview.novo} sem contato`,
       nav: cardNav({ status: 'pending,novo,new' }),
+    },
+    {
+      key: 'sem_retorno', label: 'Sem retorno', count: overview.sem_retorno, done: false,
+      small: overview.sem_retorno > 0 ? `${overview.sem_retorno} sem interação` : 'ninguém sem retorno',
+      nav: cardNav({ status: 'sem_retorno' }),
     },
     {
       key: 'agendado', label: 'Agendado', count: overview.qualificado, done: false,
