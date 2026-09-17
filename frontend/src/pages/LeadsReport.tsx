@@ -88,7 +88,7 @@ const STATUS_VENDA_REALIZADA = 'sale_performed,fechado,closed,won,convertido'
 const STATUS_PENDENTE = 'pending,novo,new'
 const STATUS_AGENDADO = 'scheduled,qualificado,qualified'
 const STATUS_PROPOSTA = 'proposal_sent,proposta,proposal sent'
-const STATUS_PENDENCIA = 'pendencia'
+const STATUS_PENDENCIA = 'pendencia,documentacao_pendente'
 const STATUS_EMISSAO = 'emissao'
 
 const STATUS_PILLS: { value: string; label: string; color: string; bg: string; border: string }[] = [
@@ -167,6 +167,7 @@ const STATUS_STYLE: Record<string, { color: string }> = {
   proposta: { color: '#D97706' },
   proposal_sent: { color: '#D97706' },
   pendencia: { color: '#B45309' },
+  documentacao_pendente: { color: '#B45309' },
   emissao: { color: '#0891B2' },
   waiting_billing: { color: '#0D9488' },
   sale_performed: { color: '#059669' },

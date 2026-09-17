@@ -9,6 +9,7 @@ const STATUS_OPTIONS = [
   { value: 'qualificado', label: 'Agendado' },
   { value: 'proposta',    label: 'Proposta' },
   { value: 'pendencia',   label: 'Pendência' },
+  { value: 'documentacao_pendente', label: 'Documentação pendente' },
   { value: 'emissao',     label: 'Emissão' },
   { value: 'fechado',     label: 'Fechado' },
   { value: 'convertido',  label: 'Convertido' },

@@ -13,6 +13,8 @@ export const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   'negociação':         { bg: '#F5F3FF', color: '#8B5CF6' },
   pendencia:            { bg: '#FEF3C7', color: '#D97706' },
   'pendência':          { bg: '#FEF3C7', color: '#D97706' },
+  documentacao_pendente:  { bg: '#FEF3C7', color: '#D97706' },
+  'documentação pendente': { bg: '#FEF3C7', color: '#D97706' },
   emissao:              { bg: '#ECFEFF', color: '#0891B2' },
   'emissão':            { bg: '#ECFEFF', color: '#0891B2' },
   waiting_billing:      { bg: '#ECFDF5', color: '#059669' },

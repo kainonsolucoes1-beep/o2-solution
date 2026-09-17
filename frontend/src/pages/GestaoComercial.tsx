@@ -140,6 +140,7 @@ const STAGE_CANON: Record<string, string> = {
   proposta: 'proposal_sent', proposal: 'proposal_sent', proposal_sent: 'proposal_sent', 'proposal sent': 'proposal_sent',
   negociacao: 'negociacao', 'negociação': 'negociacao', negotiation: 'negociacao',
   pendencia: 'pendencia', 'pendência': 'pendencia',
+  documentacao_pendente: 'pendencia', 'documentação pendente': 'pendencia',
   emissao: 'emissao', 'emissão': 'emissao',
   waiting_billing: 'waiting_billing', 'waiting billing': 'waiting_billing',
   sale_performed: 'sale_performed', 'sale performed': 'sale_performed',
