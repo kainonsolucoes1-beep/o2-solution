@@ -7,6 +7,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
+from app.api.dashboard_routes import _owner_names
 from app.br_calendar import business_days_in_month
 from app.database import get_db
 from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
@@ -543,16 +544,31 @@ def performance_historico(
         filters.append(EFFECTIVE_CAPTACAO <= dt_to_excl - timedelta(microseconds=1))
 
     leads = (
-        db.query(Lead.origin, Lead.status, Lead.value_potential, EFFECTIVE_CAPTACAO)
+        db.query(
+            Lead.origin, Lead.status, Lead.value_potential, EFFECTIVE_CAPTACAO,
+            Lead.renutricao_owner_id, Lead.campanha_status, Lead.retrabalhado_em,
+        )
         .filter(*filters)
         .all()
     )
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
+    owner_names = _owner_names(db, {r.renutricao_owner_id for r in leads if r.renutricao_owner_id})
+
+    # Quem só faz renutrição (ex: Pamela) nunca captura lead com o próprio nome
+    # como origem -- sem isso, os leads que ela reativou ficam perdidos dentro
+    # do canal original (Orgânico, Discadora...) e ela nunca aparece como
+    # operadora no comparativo. Mesma regra do Ranking do Dashboard / KPIs
+    # Agentes (_operador_do_lead), mas preserva o nome do canal pros demais
+    # leads em vez de colapsar tudo em "Orgânico"/"Outros canais".
+    def _op_efetivo(origin, owner_id, campanha_status, retrabalhado_em):
+        if owner_id and owner_id in owner_names and campanha_status not in CAMPANHA_ATIVA_STATUSES and retrabalhado_em is not None:
+            return owner_names[owner_id]
+        return (origin or "").strip()
 
     data: dict = defaultdict(lambda: {"captacoes": 0, "cancelados": 0, "vendas": 0, "receita": 0.0})
-    for origin, status, value, _ in leads:
-        op = (origin or "").strip()
+    for origin, status, value, _, owner_id, campanha_status, retrabalhado_em in leads:
+        op = _op_efetivo(origin, owner_id, campanha_status, retrabalhado_em)
         if not op:
             continue
         s = (status or "").lower()
@@ -585,8 +601,8 @@ def performance_historico(
 
     monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0})
     monthly_por_operador: dict = defaultdict(lambda: defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0}))
-    for origin, status, value, created_at in leads:
-        op = (origin or "").strip()
+    for origin, status, value, created_at, owner_id, campanha_status, retrabalhado_em in leads:
+        op = _op_efetivo(origin, owner_id, campanha_status, retrabalhado_em)
         if not op:
             continue
         key = f"{created_at.year}-{created_at.month:02d}"
