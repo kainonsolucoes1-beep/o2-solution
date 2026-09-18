@@ -850,6 +850,20 @@ def update_lead_info(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
+
+    # coordenador enxerga e edita a base inteira (fora da própria carteira) --
+    # mantém rastro do que ele muda na ficha, como nota, pro admin poder auditar.
+    _track_edits = current_user.role == "coordenador"
+    _labels = {
+        "name": "Nome", "company": "Empresa", "email": "E-mail", "phone": "Telefone",
+        "attendant": "Atendente", "document": "Documento", "origin": "Origem",
+        "modalidade": "Modalidade", "conversion_point": "Ponto de conversão",
+        "perception": "Temperatura", "visibility_tag": "Tag de visibilidade",
+        "operadoras_enviadas": "Operadoras enviadas", "current_plan": "Plano atual",
+        "value_potential": "Valor potencial",
+    }
+    _before = {f: getattr(lead, f) for f in _labels} if _track_edits else {}
+
     if body.name is not None and body.name.strip():
         lead.name = body.name.strip()
     if body.company is not None:
@@ -891,6 +905,19 @@ def update_lead_info(
         lead.current_plan = body.current_plan.strip() or None
     if body.value_potential is not None:
         lead.value_potential = body.value_potential
+
+    if _track_edits:
+        changes = [
+            f"{label}: '{_before[field] or '—'}' → '{getattr(lead, field) or '—'}'"
+            for field, label in _labels.items()
+            if _before[field] != getattr(lead, field)
+        ]
+        if changes:
+            db.add(LeadNote(
+                lead_id=lead.id, user_id=current_user.id,
+                content=f"Ficha editada por {current_user.first_name or current_user.username} (coordenador): " + "; ".join(changes),
+            ))
+
     db.commit()
     return LeadInfoUpdateResponse(
         success=True, lead_id=lead.id, name=lead.name,
