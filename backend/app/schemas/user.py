@@ -30,9 +30,18 @@ class UserResponse(BaseModel):
     hire_date: Optional[date] = None
     must_change_password: bool = False
     is_campanha_operador: bool = False
+    # "visualizar como" (staging apenas): real_role vem preenchido só quando
+    # `role` está sobrescrito por um preview; is_staging avisa o front pra
+    # mostrar o seletor.
+    real_role: Optional[str] = None
+    is_staging: bool = False
 
     class Config:
         from_attributes = True
+
+
+class PreviewRoleRequest(BaseModel):
+    role: Optional[str] = None
 
 
 class ChangePasswordRequest(BaseModel):

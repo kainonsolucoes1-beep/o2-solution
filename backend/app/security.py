@@ -36,6 +36,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 FINANCIAL_ROLES = ("admin", "diretor", "financeiro", "coordenador")
 
+# todos os papeis validos do sistema -- usado pra validar o seletor de
+# "visualizar como" no staging (ver auth_routes.py)
+ALL_ROLES = ("admin", "diretor", "financeiro", "coordenador", "supervisor", "comercial", "usuario")
+
 
 def can_see_financials(user) -> bool:
     """Receita real (recebida/a receber) e dado confidencial: so admin, diretor,

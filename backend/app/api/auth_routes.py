@@ -1,3 +1,4 @@
+import os
 import time
 from collections import defaultdict, deque
 from datetime import datetime, timezone
@@ -10,10 +11,14 @@ from app.models.login_event import LoginEvent
 from app.models.trusted_device import TrustedDevice
 from app.access_policy import check_time_window, check_device, RESTRICTED_ROLES
 from app.request_utils import client_ip, ua_short
-from app.schemas import UserLogin, TokenResponse, UserResponse, ChangePasswordRequest
-from app.security import verify_password, create_access_token, decode_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, needs_own_origin_filter, hash_password
+from app.schemas import UserLogin, TokenResponse, UserResponse, ChangePasswordRequest, PreviewRoleRequest
+from app.security import verify_password, create_access_token, decode_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, needs_own_origin_filter, hash_password, ALL_ROLES
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+# "Visualizar como": só existe no staging -- deixa testar a visão/permissão de
+# qualquer papel sem precisar de um login separado por papel.
+_STAGING = os.getenv("APP_ENV") == "staging"
 
 _LOGIN_RATE_WINDOW = 300
 _LOGIN_RATE_MAX = 10
@@ -52,6 +57,15 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    preview_role = payload.get("preview_role") if _STAGING else None
+    if preview_role and preview_role in ALL_ROLES:
+        # expunge ANTES de sobrescrever role: sem isso, o SQLAlchemy rastreia
+        # a mudança no objeto e um commit() de qualquer outro endpoint nesta
+        # mesma requisição gravaria o papel falso no banco de verdade.
+        db.expunge(user)
+        user.real_role = user.role
+        user.role = preview_role
 
     check_time_window(user, db)
     check_device(user, db, payload.get("did"))
@@ -121,7 +135,26 @@ async def login(credentials: UserLogin, request: Request, db: Session = Depends(
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+    return UserResponse(
+        **UserResponse.model_validate(current_user).model_dump(exclude={"is_staging"}),
+        is_staging=_STAGING,
+    )
+
+
+@router.post("/preview-role", response_model=TokenResponse)
+def preview_role(body: PreviewRoleRequest, current_user: User = Depends(get_current_user)):
+    """Troca o papel efetivo da sessão atual (staging apenas) -- pra testar a
+    visão/permissão de qualquer papel sem precisar de um login por papel.
+    O token continua identificando o mesmo usuário real (sub); role=None
+    volta pro papel de verdade."""
+    if not _STAGING:
+        raise HTTPException(status_code=404)
+    if body.role is not None and body.role not in ALL_ROLES:
+        raise HTTPException(status_code=422, detail="Papel inválido")
+    token_data: dict = {"sub": str(current_user.id)}
+    if body.role:
+        token_data["preview_role"] = body.role
+    return TokenResponse(access_token=create_access_token(token_data), must_change_password=False)
 
 @router.post("/change-password")
 async def change_password(

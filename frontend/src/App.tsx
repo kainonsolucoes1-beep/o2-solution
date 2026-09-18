@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import api from './api'
 import Login from './pages/Login'
 import ChangePassword from './pages/ChangePassword'
 import AcessoBloqueado from './pages/AcessoBloqueado'
@@ -38,10 +40,60 @@ function StagingBanner() {
   )
 }
 
+const PREVIEW_ROLES = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervisor', 'comercial', 'usuario']
+
+// "Visualizar como": seletor de papel só no staging, pra testar a visão e
+// as permissões de qualquer perfil sem precisar de um login por papel.
+function RoleSwitcher() {
+  const [me, setMe] = useState<{ role: string; real_role: string | null; is_staging: boolean } | null>(null)
+  const [switching, setSwitching] = useState(false)
+
+  useEffect(() => {
+    if (!window.location.hostname.startsWith('staging.') || !localStorage.getItem('token')) return
+    api.get('/api/v1/auth/me').then(r => setMe(r.data)).catch(() => {})
+  }, [])
+
+  if (!me?.is_staging) return null
+
+  function handleChange(role: string) {
+    setSwitching(true)
+    api.post('/api/v1/auth/preview-role', { role: role || null })
+      .then(r => { localStorage.setItem('token', r.data.access_token); window.location.reload() })
+      .catch(() => setSwitching(false))
+  }
+
+  const realRole = me!.real_role ?? me!.role
+
+  return (
+    <div style={{ position: 'fixed', top: 8, right: 12, zIndex: 99999, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{
+        fontSize: 10.5, fontWeight: 700, color: '#fff', background: '#7C3AED',
+        padding: '4px 8px', borderRadius: '8px 0 0 8px', letterSpacing: '0.04em',
+      }}>
+        VER COMO
+      </span>
+      <select
+        value={me!.real_role ? me!.role : ''}
+        disabled={switching}
+        onChange={e => handleChange(e.target.value)}
+        style={{
+          fontSize: 11.5, fontWeight: 600, color: '#111827', background: '#fff',
+          border: '1px solid #DDD6FE', borderRadius: '0 8px 8px 0', padding: '4px 8px',
+          cursor: switching ? 'wait' : 'pointer',
+        }}
+      >
+        <option value="">Meu papel ({realRole})</option>
+        {PREVIEW_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+      </select>
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <ThemeProvider>
     <StagingBanner />
+    <RoleSwitcher />
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
