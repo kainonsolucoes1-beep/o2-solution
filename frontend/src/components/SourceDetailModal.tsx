@@ -21,6 +21,7 @@ interface Props {
 
 const STATUS_COLORS: Record<string, string> = {
   Pendente:  '#3B82F6',
+  'Aguardando dados': '#6366F1',
   'Sem retorno': '#F97316',
   Agendado:  '#10B981',
   Proposta:  '#F59E0B',

@@ -7,6 +7,7 @@ import CurrencyInput from './CurrencyInput'
 
 const STATUS_OPTIONS = [
   { value: 'novo',        label: 'Novo' },
+  { value: 'aguardando_dados', label: 'Aguardando dados' },
   { value: 'sem_retorno', label: 'Sem retorno' },
   { value: 'proposta',    label: 'Proposta' },
   { value: 'pendencia',   label: 'Pendência' },

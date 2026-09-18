@@ -3,6 +3,7 @@ export const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   novo:                 { bg: '#EFF6FF', color: '#3B82F6' },
   new:                  { bg: '#EFF6FF', color: '#3B82F6' },
   pending:              { bg: '#EFF6FF', color: '#3B82F6' },
+  aguardando_dados:     { bg: '#EEF2FF', color: '#6366F1' },
   sem_retorno:          { bg: '#FFF7ED', color: '#F97316' },
   qualificado:          { bg: '#ECFDF5', color: '#10B981' },
   qualified:            { bg: '#ECFDF5', color: '#10B981' },

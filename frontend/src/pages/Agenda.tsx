@@ -32,7 +32,7 @@ const MONTHS = [
 ]
 
 const STATUS_DOT: Record<string, string> = {
-  novo: '#3B82F6', new: '#3B82F6', pending: '#3B82F6', sem_retorno: '#F97316',
+  novo: '#3B82F6', new: '#3B82F6', pending: '#3B82F6', aguardando_dados: '#6366F1', sem_retorno: '#F97316',
   qualificado: '#10B981', qualified: '#10B981', scheduled: '#10B981',
   proposta: '#F59E0B', proposal_sent: '#F59E0B', 'proposal sent': '#F59E0B',
   negociacao: '#8B5CF6', negociação: '#8B5CF6',

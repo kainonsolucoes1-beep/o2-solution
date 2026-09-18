@@ -1,5 +1,6 @@
 export const STATUS_LABEL: Record<string, string> = {
   novo: 'Novo', new: 'Novo', pending: 'Novo',
+  aguardando_dados: 'Aguardando dados',
   sem_retorno: 'Sem retorno',
   qualificado: 'Agendado', qualified: 'Agendado',
   scheduled: 'Agendado',

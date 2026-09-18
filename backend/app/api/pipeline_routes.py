@@ -15,6 +15,7 @@ from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
 router = APIRouter(prefix="/api/v1/pipeline", tags=["pipeline"])
 
 PENDENTE_STATUSES    = ("pending", "novo", "new")
+AGUARDANDO_DADOS_STATUSES = ("aguardando_dados",)
 SEM_RETORNO_STATUSES = ("sem_retorno",)
 AGENDADO_STATUSES    = ("scheduled", "qualificado", "qualified")
 PROPOSTA_STATUSES    = ("proposal_sent", "proposta", "negociacao")
@@ -206,6 +207,7 @@ def pipeline_overview(
 
     total = _apply_filters(db.query(func.count(Lead.id)), date_from, date_to, source, team).scalar() or 0
 
+    aguardando_dados = _count_status(db, AGUARDANDO_DADOS_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
     sem_retorno = _count_status(db, SEM_RETORNO_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
     qualificado = _count_status(db, AGENDADO_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
     proposta    = _count_status(db, PROPOSTA_STATUSES, date_from, date_to, source, team, extra_filters=[not_hot_warm])
@@ -223,7 +225,7 @@ def pipeline_overview(
         ~_status_in(FECHADO_STATUSES), ~_status_in(PERDIDO_STATUSES),
         ~_status_in(AGENDADO_STATUSES), ~_status_in(PROPOSTA_STATUSES),
         ~_status_in(PENDENCIA_STATUSES), ~_status_in(EMISSAO_STATUSES),
-        ~_status_in(SEM_RETORNO_STATUSES),
+        ~_status_in(SEM_RETORNO_STATUSES), ~_status_in(AGUARDANDO_DADOS_STATUSES),
     )
     novo = _apply_filters(db.query(func.count(Lead.id)).filter(nao_avancou), date_from, date_to, source, team).scalar() or 0
     novo_value = float(_apply_filters(
@@ -233,6 +235,7 @@ def pipeline_overview(
     return {
         "total":       total,
         "novo":        novo,
+        "aguardando_dados": aguardando_dados,
         "sem_retorno": sem_retorno,
         "qualificado": qualificado,
         "proposta":    proposta,
@@ -242,6 +245,7 @@ def pipeline_overview(
         "fechado":     fechado,
         "perdido":     perdido,
         "novo_value":        novo_value,
+        "aguardando_dados_value": _sum_value(db, [_status_in(AGUARDANDO_DADOS_STATUSES), not_hot_warm], date_from, date_to, source, team),
         "sem_retorno_value": _sum_value(db, [_status_in(SEM_RETORNO_STATUSES), not_hot_warm], date_from, date_to, source, team),
         "qualificado_value": _sum_value(db, [_status_in(AGENDADO_STATUSES), not_hot_warm],  date_from, date_to, source, team),
         "proposta_value":    _sum_value(db, [_status_in(PROPOSTA_STATUSES), not_hot_warm],  date_from, date_to, source, team),
@@ -295,7 +299,7 @@ def pipeline_alerts(
     source = _effective_source(source, current_user)
     now = _now()
 
-    vencidos_filter = _status_in(PENDENTE_STATUSES + SEM_RETORNO_STATUSES)
+    vencidos_filter = _status_in(PENDENTE_STATUSES + AGUARDANDO_DADOS_STATUSES + SEM_RETORNO_STATUSES)
 
     # "vencido" = 24h uteis sem atualizacao (fim de semana e feriado nacional nao contam)
     candidatos_q = db.query(Lead).filter(Lead.updated_at.isnot(None), vencidos_filter)
@@ -527,6 +531,7 @@ def pipeline_source_details(
         "average_time_in_pipeline": avg_time,
         "distribution_by_status": {
             "Pendente":  _count_status(db, PENDENTE_STATUSES,  date_from, date_to, source_name),
+            "Aguardando dados": _count_status(db, AGUARDANDO_DADOS_STATUSES, date_from, date_to, source_name),
             "Sem retorno": _count_status(db, SEM_RETORNO_STATUSES, date_from, date_to, source_name),
             "Agendado":  _count_status(db, AGENDADO_STATUSES,  date_from, date_to, source_name),
             "Proposta":  _count_status(db, PROPOSTA_STATUSES,  date_from, date_to, source_name),

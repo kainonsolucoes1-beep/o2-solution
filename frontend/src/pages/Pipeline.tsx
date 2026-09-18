@@ -5,8 +5,8 @@ import api from '../api'
 import { useTheme } from '../ThemeContext'
 
 interface PipelineOverview {
-  novo: number; sem_retorno: number; qualificado: number; proposta: number; pendencia: number; emissao: number; negociacao: number; fechado: number; perdido: number
-  novo_value: number; sem_retorno_value: number; qualificado_value: number; proposta_value: number; pendencia_value: number; emissao_value: number; negociacao_value: number; fechado_value: number; perdido_value: number
+  novo: number; aguardando_dados: number; sem_retorno: number; qualificado: number; proposta: number; pendencia: number; emissao: number; negociacao: number; fechado: number; perdido: number
+  novo_value: number; aguardando_dados_value: number; sem_retorno_value: number; qualificado_value: number; proposta_value: number; pendencia_value: number; emissao_value: number; negociacao_value: number; fechado_value: number; perdido_value: number
 }
 interface AlertLead { id: string; name: string; hours_without_action?: number; status?: string }
 interface PipelineAlerts { vencidos: AlertLead[]; uncontacted: AlertLead[]; vencidos_count?: number; uncontacted_count?: number; avg_time_in_funnel?: number; avg_first_contact_minutes?: number; contacted_count?: number }
@@ -99,6 +99,7 @@ export default function Pipeline() {
 
   const overviewCards = [
     { label: 'Pendente',    value: overview.novo,        color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: cardNav({ status: 'pending,novo,new' }) },
+    { label: 'Aguardando dados', value: overview.aguardando_dados, color: '#6366F1', bg: '#EEF2FF', icon: '📋', nav: cardNav({ status: 'aguardando_dados' }) },
     { label: 'Sem retorno', value: overview.sem_retorno, color: '#F97316', bg: '#FFF7ED', icon: '📵', nav: cardNav({ status: 'sem_retorno' }) },
     { label: 'Agendado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
     { label: 'Enviada',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
@@ -111,9 +112,10 @@ export default function Pipeline() {
     { label: 'Perdido',     value: overview.perdido,     color: '#EF4444', bg: '#FEF2F2', icon: '❌', nav: cardNav({ status: 'sale_not_performed' }), onOpen: openLostModal },
   ]
 
-  const distTotal = overview.novo + overview.sem_retorno + overview.qualificado + overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado + overview.perdido
+  const distTotal = overview.novo + overview.aguardando_dados + overview.sem_retorno + overview.qualificado + overview.proposta + overview.pendencia + overview.emissao + overview.negociacao + overview.fechado + overview.perdido
   const distStages = [
     { stage: 'Pendente',    value: overview.novo_value,        color: '#3B82F6' },
+    { stage: 'Aguardando dados', value: overview.aguardando_dados_value, color: '#6366F1' },
     { stage: 'Sem retorno', value: overview.sem_retorno_value, color: '#F97316' },
     { stage: 'Agendado', value: overview.qualificado_value, color: '#10B981' },
     { stage: 'Enviada',     value: overview.proposta_value,    color: '#F59E0B' },

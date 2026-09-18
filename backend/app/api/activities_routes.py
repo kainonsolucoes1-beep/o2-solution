@@ -12,7 +12,7 @@ from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/activities", tags=["activities"])
 
-_PENDENTE    = ("pending", "novo", "new", "sem_retorno")
+_PENDENTE    = ("pending", "novo", "new", "aguardando_dados", "sem_retorno")
 _QUALIFICADO = ("scheduled", "qualificado", "qualified")
 _PROPOSTA    = ("proposal_sent", "pendencia", "documentacao_pendente", "emissao")
 
