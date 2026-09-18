@@ -26,6 +26,7 @@ const CLOSED_SUB_OPTIONS = [
 const LOST_REASONS = [
   'Cliente não retornou contato',
   'Dados incorretos',
+  'Declinou',
   'Finalizado automaticamente',
   'Preço',
   'Sem interesse',
