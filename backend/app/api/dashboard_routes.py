@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.br_calendar import business_days_in_month
-from app.lead_utils import extract_base, is_organico
+from app.lead_utils import is_organico
 from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, today_utc_range
@@ -509,7 +509,7 @@ def dashboard_performance(
 
     # Captação do dia por operador (mesma regra de posse do ranking do mês)
     hoje_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential, Lead.conversion_point, Lead.campanha_status, Lead.retrabalhado_em, Lead.notes)
+        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential, Lead.conversion_point, Lead.campanha_status, Lead.retrabalhado_em)
         .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
@@ -522,7 +522,7 @@ def dashboard_performance(
     # número de captação no Ranking (clicar num operador mostra a origem dele).
     hoje_bases_por_operador: dict = defaultdict(lambda: defaultdict(int))
     hoje_conv_por_operador: dict = defaultdict(lambda: defaultdict(int))
-    for origin, owner_id, status, value_potential, conversion_point, campanha_status, retrabalhado_em, notes in hoje_leads:
+    for origin, owner_id, status, value_potential, conversion_point, campanha_status, retrabalhado_em in hoje_leads:
         fonte = _operador_do_lead(origin, owner_id, _owner_names_hoje, _persons, conversion_point, campanha_status, retrabalhado_em, status)
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
@@ -531,7 +531,7 @@ def dashboard_performance(
             cp = (conversion_point or "").strip() or "Não informado"
             hoje_conv_por_operador[fonte][cp] += 1
         else:
-            base = extract_base(notes) or "Base não identificada"
+            base = (origin or "").strip() or "Base não identificada"
             hoje_bases_por_operador[fonte][base] += 1
     captacao_hoje_por_fonte = [
         {"name": name, "count": count, "propostas_valor": round(hoje_proposta_valor.get(name, 0.0), 2)}
@@ -545,20 +545,23 @@ def dashboard_performance(
         for name in hoje_counts
     }
 
-    # Captação do dia por base (origin/SDR) e ponto de conversão (orgânico)
+    # Captação do dia por base (origin/SDR) e ponto de conversão (orgânico).
+    # "Base" usa Lead.origin direto (sempre preenchido) em vez de extrair da
+    # nota -- extract_base() quebra fácil (nota sobrescrita num retrabalho,
+    # lead sem a tag), gerando "Base não identificada" à toa.
     hoje_origem_rows = (
-        db.query(Lead.origin, Lead.notes, Lead.conversion_point)
+        db.query(Lead.origin, Lead.conversion_point)
         .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
     bases_count: dict = defaultdict(int)
     conv_points_count: dict = defaultdict(int)
-    for origin, notes, conversion_point in hoje_origem_rows:
+    for origin, conversion_point in hoje_origem_rows:
         if is_organico(origin, conversion_point):
             cp = (conversion_point or "").strip() or "Não informado"
             conv_points_count[cp] += 1
         else:
-            base = extract_base(notes) or "Base não identificada"
+            base = (origin or "").strip() or "Base não identificada"
             bases_count[base] += 1
     captacao_hoje_origem = {
         "bases": [
