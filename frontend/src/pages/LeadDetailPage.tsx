@@ -661,6 +661,7 @@ export default function LeadDetailPage() {
             activity={visibleActivity}
             filter={activityFilter}
             onFilterChange={setActivityFilter}
+            lostReason={lead.lost_reason}
           />
         </div>
 

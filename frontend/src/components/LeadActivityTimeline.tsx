@@ -10,7 +10,7 @@ const FILTERS: ActivityFilter[] = ['Todos', 'Status', 'Notas']
 export default function LeadActivityTimeline({
   isAdmin, savingRealign, onRealignHistory,
   noteText, onNoteTextChange, savingNote, onSaveNote,
-  loadingActivity, activity, filter, onFilterChange, locked,
+  loadingActivity, activity, filter, onFilterChange, locked, lostReason,
 }: {
   isAdmin: boolean
   savingRealign: boolean
@@ -24,6 +24,7 @@ export default function LeadActivityTimeline({
   filter: ActivityFilter
   onFilterChange: (value: ActivityFilter) => void
   locked?: boolean
+  lostReason?: string | null
 }) {
   return (
     <section className="min-h-0 sm:min-h-[650px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }}>
@@ -129,6 +130,9 @@ export default function LeadActivityTimeline({
                           <>criou o lead como <b style={{ color: c.color, fontWeight: 700 }}>{statusLabel(ev.status)}</b></>
                         ) : (
                           <>moveu para <b style={{ color: c.color, fontWeight: 700 }}>{statusLabel(ev.status)}</b></>
+                        )}
+                        {ev.status === 'sale_not_performed' && ev.ongoing && lostReason && (
+                          <> — <b style={{ color: c.color, fontWeight: 700 }}>{lostReason}</b></>
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
