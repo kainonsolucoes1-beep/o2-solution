@@ -195,6 +195,7 @@ export default function LeadDetailPage() {
     api.post(`/api/v1/leads/${id}/status`, { status: newStatus, ...(lostReason ? { lost_reason: lostReason } : {}) })
       .then(() => {
         setStatus(newStatus)
+        if (lostReason) setLead(prev => prev ? { ...prev, lost_reason: lostReason } : prev)
         setEditingStatus(false)
         setStatusSubMenu(null)
         setToast({ msg: 'Status atualizado com sucesso', ok: true })
