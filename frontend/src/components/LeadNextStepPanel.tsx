@@ -465,6 +465,21 @@ export default function LeadNextStepPanel({
                     </button>
                   )
                 })}
+                {perception && (
+                  <button
+                    disabled={savingPerception}
+                    onClick={() => { onPerceptionClick(''); setPerceptionPickerOpen(false) }}
+                    style={{
+                      background: 'var(--bg-card)', color: 'var(--text-muted)',
+                      border: '1.5px solid var(--border-in)',
+                      padding: '4px 14px', borderRadius: 99,
+                      fontSize: 13, fontWeight: 600, cursor: savingPerception ? 'not-allowed' : 'pointer',
+                      opacity: savingPerception ? 0.6 : 1,
+                    }}
+                  >
+                    Remover
+                  </button>
+                )}
                 <button
                   onClick={() => { setPerceptionPickerOpen(false); onCancelPerceptionEdit() }}
                   style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
