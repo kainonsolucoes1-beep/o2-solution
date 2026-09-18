@@ -39,6 +39,10 @@ interface PerformanceData {
     bases: { label: string; count: number }[]
     conversion_points: { label: string; count: number }[]
   }
+  captacao_hoje_origem_por_operador: Record<string, {
+    bases: { label: string; count: number }[]
+    conversion_points: { label: string; count: number }[]
+  }>
 }
 
 
@@ -188,6 +192,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<{ from: string; to: string } | null>(null)
   const [origemOpen, setOrigemOpen] = useState<'conv' | 'base' | null>(null)
+  const [operadorOrigemOpen, setOperadorOrigemOpen] = useState<string | null>(null)
   const [filterOpen, setFilterOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState('')
   const [draftTo, setDraftTo] = useState('')
@@ -488,27 +493,72 @@ export default function Dashboard() {
         </div>
 
         {/* Ranking de hoje — colunas segmentadas (só divisórias verticais) */}
-        <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        <div className="bg-white rounded-xl p-6 flex flex-col gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', position: 'relative' }}>
           <h2 style={H2_STYLE}>Ranking de Operadores — {diaLabel}</h2>
           {data.captacao_hoje_por_fonte.length === 0 ? (
             <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Sem captações {filter && !single ? 'no período' : filter ? 'nesse dia' : 'hoje'}.</p>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr' }}>
-              {['Operador', 'Captação', 'Em propostas'].map((hd, c) => (
+              {['Operador', 'Captação', 'Valor enviado'].map((hd, c) => (
                 <div key={hd} style={{ ...rkHead, paddingLeft: c ? 14 : 0, borderLeft: c ? '1px solid var(--border-lt)' : 'none' }}>{hd}</div>
               ))}
-              {data.captacao_hoje_por_fonte.map((op, i) => (
-                <div key={op.name} style={{ display: 'contents' }}>
-                  <span style={{ padding: '9px 0 9px', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <span style={{ fontSize: i < 3 ? 15 : 11, width: 20, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
-                      {i < 3 ? MEDALS[i] : `${i + 1}°`}
+              {data.captacao_hoje_por_fonte.map((op, i) => {
+                const origem = data.captacao_hoje_origem_por_operador[op.name]
+                const origemItems = origem ? [
+                  ...origem.conversion_points.map(it => ({ ...it, dot: '#3B82F6' })),
+                  ...origem.bases.map(it => ({ ...it, dot: '#F59E0B' })),
+                ].sort((a, b) => b.count - a.count) : []
+                const isOpen = operadorOrigemOpen === op.name
+                return (
+                  <div key={op.name} style={{ display: 'contents' }}>
+                    <span style={{ padding: '9px 0 9px', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <span style={{ fontSize: i < 3 ? 15 : 11, width: 20, textAlign: 'center', flexShrink: 0, color: 'var(--text-subtle)', fontWeight: 700 }}>
+                        {i < 3 ? MEDALS[i] : `${i + 1}°`}
+                      </span>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
                     </span>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
-                  </span>
-                  <span style={{ ...rkCell, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)] }}>{op.count}</span>
-                  <span style={rkCell}>{op.propostas_valor > 0 ? fmtBrlShort(op.propostas_valor) : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
-                </div>
-              ))}
+                    <button
+                      onClick={() => setOperadorOrigemOpen(o => o === op.name ? null : op.name)}
+                      disabled={origemItems.length === 0}
+                      style={{
+                        ...rkCell, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)],
+                        background: 'none', border: 'none', font: 'inherit', textAlign: 'inherit',
+                        cursor: origemItems.length > 0 ? 'pointer' : 'default',
+                        textDecoration: isOpen ? 'underline' : 'none',
+                      }}
+                    >
+                      {op.count}
+                    </button>
+                    <span style={rkCell}>{op.propostas_valor > 0 ? fmtBrlShort(op.propostas_valor) : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
+                    {isOpen && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 20, right: 20, zIndex: 20, marginTop: -8,
+                        background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12,
+                        boxShadow: '0 16px 40px rgba(15,23,42,0.18)', padding: 16,
+                      }}>
+                        <button
+                          onClick={() => setOperadorOrigemOpen(null)}
+                          aria-label="Fechar"
+                          style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', color: 'var(--text-subtle)', cursor: 'pointer' }}
+                        >
+                          <X size={16} />
+                        </button>
+                        <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-2)', margin: '0 0 8px' }}>
+                          De onde vieram os leads de {op.name}
+                          <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>· {op.count}</span>
+                        </p>
+                        {origemItems.map(it => (
+                          <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-2)', padding: '4px 0' }}>
+                            <span style={{ width: 7, height: 7, borderRadius: 2, background: it.dot, flexShrink: 0 }} />
+                            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0, width: 18, textAlign: 'right' }}>{it.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

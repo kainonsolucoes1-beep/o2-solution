@@ -509,7 +509,7 @@ def dashboard_performance(
 
     # Captação do dia por operador (mesma regra de posse do ranking do mês)
     hoje_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential, Lead.conversion_point, Lead.campanha_status, Lead.retrabalhado_em)
+        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential, Lead.conversion_point, Lead.campanha_status, Lead.retrabalhado_em, Lead.notes)
         .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
@@ -517,15 +517,33 @@ def dashboard_performance(
     _proposta_set = {s.lower() for s in _PROPOSTA}
     hoje_counts: dict = defaultdict(int)
     hoje_proposta_valor: dict = defaultdict(float)
-    for origin, owner_id, status, value_potential, conversion_point, campanha_status, retrabalhado_em in hoje_leads:
+    # "de onde vieram" por operador -- mesma ideia do card "De onde vieram" do
+    # dia, mas recortado por quem está com a posse do lead, pra abrir junto do
+    # número de captação no Ranking (clicar num operador mostra a origem dele).
+    hoje_bases_por_operador: dict = defaultdict(lambda: defaultdict(int))
+    hoje_conv_por_operador: dict = defaultdict(lambda: defaultdict(int))
+    for origin, owner_id, status, value_potential, conversion_point, campanha_status, retrabalhado_em, notes in hoje_leads:
         fonte = _operador_do_lead(origin, owner_id, _owner_names_hoje, _persons, conversion_point, campanha_status, retrabalhado_em, status)
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
             hoje_proposta_valor[fonte] += float(value_potential or 0)
+        if is_organico(origin, conversion_point):
+            cp = (conversion_point or "").strip() or "Não informado"
+            hoje_conv_por_operador[fonte][cp] += 1
+        else:
+            base = extract_base(notes) or "Base não identificada"
+            hoje_bases_por_operador[fonte][base] += 1
     captacao_hoje_por_fonte = [
         {"name": name, "count": count, "propostas_valor": round(hoje_proposta_valor.get(name, 0.0), 2)}
         for name, count in sorted(hoje_counts.items(), key=lambda kv: kv[1], reverse=True)
     ]
+    captacao_hoje_origem_por_operador = {
+        name: {
+            "bases": [{"label": k, "count": v} for k, v in sorted(hoje_bases_por_operador[name].items(), key=lambda kv: kv[1], reverse=True)],
+            "conversion_points": [{"label": k, "count": v} for k, v in sorted(hoje_conv_por_operador[name].items(), key=lambda kv: kv[1], reverse=True)],
+        }
+        for name in hoje_counts
+    }
 
     # Captação do dia por base (origin/SDR) e ponto de conversão (orgânico)
     hoje_origem_rows = (
@@ -570,6 +588,7 @@ def dashboard_performance(
         "evolucao_diaria": evolucao_diaria,
         "captacao_hoje_por_fonte": captacao_hoje_por_fonte,
         "captacao_hoje_origem": captacao_hoje_origem,
+        "captacao_hoje_origem_por_operador": captacao_hoje_origem_por_operador,
     }
 
 
