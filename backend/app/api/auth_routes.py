@@ -66,6 +66,11 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
         db.expunge(user)
         user.real_role = user.role
         user.role = preview_role
+        # o front tem alguns atalhos "isAdmin" hardcoded pro username da conta
+        # de admin principal (Sidebar.tsx, LeadDetailPage.tsx, LeadsReport.tsx)
+        # -- sem mascarar aqui, logar como essa conta e trocar de papel não
+        # muda nada na prática, porque esses atalhos continuam liberando tudo.
+        user.username = f"preview-{preview_role}@staging.local"
 
     check_time_window(user, db)
     check_device(user, db, payload.get("did"))
