@@ -527,7 +527,7 @@ def dashboard_performance(
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
             hoje_proposta_valor[fonte] += float(value_potential or 0)
-        cp = (conversion_point or "").strip()
+        cp = (conversion_point or "").strip().capitalize()
         if cp:
             hoje_conv_por_operador[fonte][cp] += 1
         else:
@@ -557,7 +557,7 @@ def dashboard_performance(
     bases_count: dict = defaultdict(int)
     conv_points_count: dict = defaultdict(int)
     for origin, conversion_point in hoje_origem_rows:
-        cp = (conversion_point or "").strip()
+        cp = (conversion_point or "").strip().capitalize()
         if cp:
             conv_points_count[cp] += 1
         else:
