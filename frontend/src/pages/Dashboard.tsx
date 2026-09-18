@@ -522,7 +522,7 @@ export default function Dashboard() {
                       disabled={origemItems.length === 0}
                       style={{
                         ...rkCell, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)],
-                        background: 'none', border: 'none', font: 'inherit', textAlign: 'inherit',
+                        background: 'none', border: 'none', fontFamily: 'inherit', textAlign: 'inherit',
                         cursor: origemItems.length > 0 ? 'pointer' : 'default',
                         textDecoration: isOpen ? 'underline' : 'none',
                       }}
