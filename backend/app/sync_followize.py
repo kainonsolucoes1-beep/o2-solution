@@ -451,13 +451,27 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
             ))
             # Reativação feita no Followize: lead que estava fechado/cancelado
             # voltou pra um status ativo -> recontar como captação nova, igual
-            # ao "retrabalhar lead" do o2 Sig.
+            # ao "retrabalhar lead" do o2 Sig. Alguns leads oscilam de status
+            # várias vezes no Followize (dado instável do lado deles) -- sem
+            # essa trava, cada oscilação reconta a captação de novo pro dia
+            # atual. Só reconta se não houve outra "reativação" recente pro
+            # mesmo lead (24h).
             if (prev_status or "").lower() in _TERMINAL_STATUSES and (new_status or "").lower() not in _TERMINAL_STATUSES and new_status:
-                existing.retrabalhado_em = now
-                db.add(LeadNote(
-                    lead_id=existing.id, user_id=user_id,
-                    content=f"Reativado no Followize ({(prev_status or '—')} → {new_status}); captação recontada nesta data.",
-                ))
+                recent_reactivation = (
+                    db.query(LeadNote.id)
+                    .filter(
+                        LeadNote.lead_id == existing.id,
+                        LeadNote.content.like("Reativado no Followize%"),
+                        LeadNote.created_at >= now - timedelta(hours=24),
+                    )
+                    .first()
+                )
+                if not recent_reactivation:
+                    existing.retrabalhado_em = now
+                    db.add(LeadNote(
+                        lead_id=existing.id, user_id=user_id,
+                        content=f"Reativado no Followize ({(prev_status or '—')} → {new_status}); captação recontada nesta data.",
+                    ))
 
         return "updated"
 
