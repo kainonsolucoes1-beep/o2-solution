@@ -66,9 +66,11 @@ def _person_name_set(db):
 
 
 _CAMPANHA_ATIVA_STATUSES = {"fila", "disparado_sem_resposta"}
+# lead "intocado": nao avancou nada desde que foi atribuido/capturado
+_STATUS_NAO_TRABALHADO = {"novo", "new", "pending", "sale_not_performed"}
 
 
-def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_point=None, campanha_status=None, retrabalhado_em=None):
+def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_point=None, campanha_status=None, retrabalhado_em=None, status=None):
     """Quem está com a posse do lead pro ranking do Dashboard: dono de
     renutrição > SDR que prospectou (origem = pessoa). O atendente NÃO conta —
     quem só atende lead de outro não leva o crédito da captação (decisão da
@@ -77,12 +79,15 @@ def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_po
     canais" (Meta Ads e demais pagos). Lead na fila de disparo (Campanhas)
     não conta pro Isaac — ele é o operador do disparo, não o dono do lead;
     a posse só passa a valer quando o rodízio distribui (ou volta ao normal
-    se ele soltar o lead). Atribuir um lead de renutrição não é retrabalhá-lo
-    -- só conta pro dono quando `retrabalhado_em` está preenchido (ele de fato
-    reativou), senão um lote de leads só atribuídos (ainda "não realizada",
-    sem nenhum trabalho real) infla a captação da pessoa."""
-    if owner_id and owner_id in owner_names and campanha_status not in _CAMPANHA_ATIVA_STATUSES and retrabalhado_em is not None:
-        return owner_names[owner_id]
+    se ele soltar o lead). Atribuir um lead não é trabalhá-lo -- só conta pro
+    dono quando ele de fato reativou (`retrabalhado_em` preenchido) OU já
+    avançou o status (prova de trabalho real, ex: lead de Meta Ads atribuído
+    direto, sem passar pelo fluxo de retrabalho por nunca ter sido perdido),
+    senão um lote só atribuído e nunca tocado infla a captação da pessoa."""
+    if owner_id and owner_id in owner_names and campanha_status not in _CAMPANHA_ATIVA_STATUSES:
+        trabalhado = retrabalhado_em is not None or (status or "").lower() not in _STATUS_NAO_TRABALHADO
+        if trabalhado:
+            return owner_names[owner_id]
     o = (origin or "").strip()
     if o and o.lower() in person_names:
         return o
@@ -467,15 +472,15 @@ def dashboard_performance(
     # quem prospectou (SDR na origem) > "Orgânico" / "Outros canais".
     # Detalhamento de canal fica no Performance, não no Dashboard.
     ranking_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.conversion_point, Lead.campanha_status, Lead.retrabalhado_em)
+        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.conversion_point, Lead.campanha_status, Lead.retrabalhado_em, Lead.status)
         .filter(EFFECTIVE_CAPTACAO >= month_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
     _owner_names_month = _owner_names(db, {r.renutricao_owner_id for r in ranking_leads if r.renutricao_owner_id})
     _persons = _person_name_set(db)
     ranking_counts: dict = defaultdict(int)
-    for origin, owner_id, conversion_point, campanha_status, retrabalhado_em in ranking_leads:
-        ranking_counts[_operador_do_lead(origin, owner_id, _owner_names_month, _persons, conversion_point, campanha_status, retrabalhado_em)] += 1
+    for origin, owner_id, conversion_point, campanha_status, retrabalhado_em, status in ranking_leads:
+        ranking_counts[_operador_do_lead(origin, owner_id, _owner_names_month, _persons, conversion_point, campanha_status, retrabalhado_em, status)] += 1
     total_ranking = sum(ranking_counts.values())
     max_count = max(ranking_counts.values()) if ranking_counts else 1
     ranking = [
@@ -513,7 +518,7 @@ def dashboard_performance(
     hoje_counts: dict = defaultdict(int)
     hoje_proposta_valor: dict = defaultdict(float)
     for origin, owner_id, status, value_potential, conversion_point, campanha_status, retrabalhado_em in hoje_leads:
-        fonte = _operador_do_lead(origin, owner_id, _owner_names_hoje, _persons, conversion_point, campanha_status, retrabalhado_em)
+        fonte = _operador_do_lead(origin, owner_id, _owner_names_hoje, _persons, conversion_point, campanha_status, retrabalhado_em, status)
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
             hoje_proposta_valor[fonte] += float(value_potential or 0)

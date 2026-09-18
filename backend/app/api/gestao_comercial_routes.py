@@ -27,6 +27,9 @@ VENDA_STATUSES      = ("waiting_billing", "sale_performed", "fechado", "closed",
 # dele -- ele e' o operador do disparo, nao o dono; a posse so' passa a valer
 # quando o rodizio distribui (ou o lead e' solto de volta).
 CAMPANHA_ATIVA_STATUSES = ("fila", "disparado_sem_resposta")
+# lead "intocado": nao avancou nada desde que foi atribuido/capturado -- so'
+# conta pro dono via posse quando sai desse conjunto (ou foi retrabalhado)
+STATUS_NAO_TRABALHADO = ("novo", "new", "pending", "sale_not_performed")
 HOT_WARM_PERCEPTIONS = ("Quente", "Morno")
 CANCELADO_STATUS    = "sale_not_performed"
 AGENDAMENTO_STATUSES = ("qualificado", "scheduled")
@@ -579,14 +582,16 @@ def performance_historico(
     # operadora no comparativo. Mesma regra do Ranking do Dashboard / KPIs
     # Agentes (_operador_do_lead), mas preserva o nome do canal pros demais
     # leads em vez de colapsar tudo em "Orgânico"/"Outros canais".
-    def _op_efetivo(origin, owner_id, campanha_status, retrabalhado_em):
-        if owner_id and owner_id in owner_names and campanha_status not in CAMPANHA_ATIVA_STATUSES and retrabalhado_em is not None:
-            return owner_names[owner_id]
+    def _op_efetivo(origin, owner_id, campanha_status, retrabalhado_em, status):
+        if owner_id and owner_id in owner_names and campanha_status not in CAMPANHA_ATIVA_STATUSES:
+            trabalhado = retrabalhado_em is not None or (status or "").lower() not in STATUS_NAO_TRABALHADO
+            if trabalhado:
+                return owner_names[owner_id]
         return (origin or "").strip()
 
     data: dict = defaultdict(lambda: {"captacoes": 0, "cancelados": 0, "vendas": 0, "receita": 0.0})
     for origin, status, value, _, owner_id, campanha_status, retrabalhado_em in leads:
-        op = _op_efetivo(origin, owner_id, campanha_status, retrabalhado_em)
+        op = _op_efetivo(origin, owner_id, campanha_status, retrabalhado_em, status)
         if not op:
             continue
         s = (status or "").lower()
@@ -620,7 +625,7 @@ def performance_historico(
     monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0})
     monthly_por_operador: dict = defaultdict(lambda: defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0}))
     for origin, status, value, created_at, owner_id, campanha_status, retrabalhado_em in leads:
-        op = _op_efetivo(origin, owner_id, campanha_status, retrabalhado_em)
+        op = _op_efetivo(origin, owner_id, campanha_status, retrabalhado_em, status)
         if not op:
             continue
         key = f"{created_at.year}-{created_at.month:02d}"
@@ -840,10 +845,15 @@ def vida_sdr(
     origin_or_owner = Lead.origin.in_(parts) if parts else None
     if owner_ids:
         _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
-        # Atribuir não é retrabalhar: só conta pro dono quando ele de fato
-        # reativou o lead (retrabalhado_em preenchido) -- senão um lote
-        # atribuído e nunca tocado (ainda "não realizada") infla a captação dele.
-        owner_match = and_(Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo, Lead.retrabalhado_em.isnot(None))
+        # Atribuir não é trabalhar: só conta pro dono quando ele de fato
+        # reativou o lead (retrabalhado_em preenchido) OU já avançou o status
+        # (prova de trabalho real, ex: lead de Meta Ads atribuído direto sem
+        # nunca ter sido perdido) -- senão um lote atribuído e nunca tocado
+        # infla a captação dele.
+        owner_match = and_(
+            Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo,
+            or_(Lead.retrabalhado_em.isnot(None), func.lower(Lead.status).notin_(STATUS_NAO_TRABALHADO)),
+        )
         origin_or_owner = or_(origin_or_owner, owner_match)
     filters = [origin_or_owner, *date_filters] if parts else []
 
@@ -1105,10 +1115,15 @@ def vida_sdr_receita_composicao(
     origin_or_owner = Lead.origin.in_(parts)
     if owner_ids:
         _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
-        # Atribuir não é retrabalhar: só conta pro dono quando ele de fato
-        # reativou o lead (retrabalhado_em preenchido) -- senão um lote
-        # atribuído e nunca tocado (ainda "não realizada") infla a captação dele.
-        owner_match = and_(Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo, Lead.retrabalhado_em.isnot(None))
+        # Atribuir não é trabalhar: só conta pro dono quando ele de fato
+        # reativou o lead (retrabalhado_em preenchido) OU já avançou o status
+        # (prova de trabalho real, ex: lead de Meta Ads atribuído direto sem
+        # nunca ter sido perdido) -- senão um lote atribuído e nunca tocado
+        # infla a captação dele.
+        owner_match = and_(
+            Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo,
+            or_(Lead.retrabalhado_em.isnot(None), func.lower(Lead.status).notin_(STATUS_NAO_TRABALHADO)),
+        )
         origin_or_owner = or_(origin_or_owner, owner_match)
     tem_receita = or_(Lead.receita_real_recebida > 0, Lead.receita_real_a_receber > 0)
     total_expr = func.coalesce(Lead.receita_real_recebida, 0) + func.coalesce(Lead.receita_real_a_receber, 0)

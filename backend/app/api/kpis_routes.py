@@ -250,7 +250,7 @@ def agentes_performance(
 
     data: dict = defaultdict(_new_acc)
     for origin, owner_id, campanha_status, conv_point, status, created_at, receita_data_venda, receita_real_recebida, retrabalhado_em in leads:
-        operador = _operador_do_lead(origin, owner_id, owner_names, person_names, conv_point, campanha_status, retrabalhado_em)
+        operador = _operador_do_lead(origin, owner_id, owner_names, person_names, conv_point, campanha_status, retrabalhado_em, status)
         if operador in ("Orgânico", "Outros canais"):
             continue
         _accumulate(data[operador], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
