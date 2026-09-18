@@ -527,8 +527,8 @@ def dashboard_performance(
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
             hoje_proposta_valor[fonte] += float(value_potential or 0)
-        if is_organico(origin, conversion_point):
-            cp = (conversion_point or "").strip() or "Não informado"
+        cp = (conversion_point or "").strip()
+        if cp:
             hoje_conv_por_operador[fonte][cp] += 1
         else:
             base = (origin or "").strip() or "Base não identificada"
@@ -557,8 +557,8 @@ def dashboard_performance(
     bases_count: dict = defaultdict(int)
     conv_points_count: dict = defaultdict(int)
     for origin, conversion_point in hoje_origem_rows:
-        if is_organico(origin, conversion_point):
-            cp = (conversion_point or "").strip() or "Não informado"
+        cp = (conversion_point or "").strip()
+        if cp:
             conv_points_count[cp] += 1
         else:
             base = (origin or "").strip() or "Base não identificada"
