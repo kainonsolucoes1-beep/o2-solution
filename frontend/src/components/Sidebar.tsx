@@ -247,7 +247,7 @@ export default function Sidebar() {
       open={openGroup === 'settings'} onToggle={() => setOpenGroup(g => g === 'settings' ? null : 'settings')}
     />
   )
-  const financeiroGroup = isAdmin && (
+  const financeiroGroup = (isAdmin || user?.role === 'coordenador') && (
     <ExpandableNavGroup
       label="Financeiro" Icon={DollarSign} basePath="/financeiro" children={FINANCEIRO_CHILDREN} slim={slim} pathname={location.pathname}
       open={openGroup === 'financeiro'} onToggle={() => setOpenGroup(g => g === 'financeiro' ? null : 'financeiro')}

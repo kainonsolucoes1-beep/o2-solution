@@ -461,6 +461,9 @@ export default function LeadsReport() {
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
+  // coordenador pode atribuir leads (renutrição), mas não excluir nem as
+  // outras ações admin-only desta tela.
+  const canAssign = isAdmin || (me !== null && me.role === 'coordenador')
   // comercial (ex: Julia) enxerga a carteira de toda a equipe 'usuario'
   // (visibilidade ampla, ver database.py) -- por isso também pode filtrar
   // por Operador, diferente de 'usuario' que só vê a própria carteira mesmo.
@@ -698,33 +701,33 @@ export default function LeadsReport() {
                 </button>
               </div>
             )}
+            {canAssign && selected.size > 0 && (
+              <button
+                onClick={() => setAssignOpen(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                  background: 'var(--accent-weak)', color: 'var(--accent)', border: '1px solid var(--accent-weak)',
+                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                }}
+              >
+                <RotateCcw size={15} />
+                Atribuir ({selected.size})
+              </button>
+            )}
             {isAdmin && selected.size > 0 && (
-              <>
-                <button
-                  onClick={() => setAssignOpen(true)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                    background: 'var(--accent-weak)', color: 'var(--accent)', border: '1px solid var(--accent-weak)',
-                    cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                  }}
-                >
-                  <RotateCcw size={15} />
-                  Atribuir ({selected.size})
-                </button>
-                <button
-                  onClick={() => setConfirmDeleteOpen(true)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                    background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
-                    cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                  }}
-                >
-                  <Trash2 size={15} />
-                  Excluir ({selected.size})
-                </button>
-              </>
+              <button
+                onClick={() => setConfirmDeleteOpen(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                  background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
+                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                }}
+              >
+                <Trash2 size={15} />
+                Excluir ({selected.size})
+              </button>
             )}
             <button
               onClick={() => { resetNewLead(); setNewLeadOpen(true) }}
@@ -934,7 +937,7 @@ export default function LeadsReport() {
 
         {searched && report && !loading && (
           <>
-            {isAdmin && selected.size > 0 && report.total > report.leads.length && (
+            {canAssign && selected.size > 0 && report.total > report.leads.length && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap',
                 background: 'var(--accent-weak)', border: '1px solid var(--accent-weak)', borderRadius: 10,
@@ -965,7 +968,7 @@ export default function LeadsReport() {
                   <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-hover)' }}>
-                        {isAdmin && (
+                        {canAssign && (
                           <th style={{ padding: '11px 12px', border: '1px solid var(--border)', borderLeft: '1px solid var(--border)', borderTopLeftRadius: 10, borderBottomLeftRadius: 10, width: 1 }}>
                             <input
                               type="checkbox"
@@ -985,10 +988,10 @@ export default function LeadsReport() {
                               textTransform: 'uppercase', letterSpacing: '0.05em',
                               cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
                               border: '1px solid var(--border)',
-                              borderLeft: i === 0 && !isAdmin ? '1px solid var(--border)' : i === 0 ? 'none' : 'none',
+                              borderLeft: i === 0 && !canAssign ? '1px solid var(--border)' : i === 0 ? 'none' : 'none',
                               borderRight: i === COLUMNS.length - 1 ? '1px solid var(--border)' : 'none',
-                              borderTopLeftRadius: i === 0 && !isAdmin ? 10 : 0,
-                              borderBottomLeftRadius: i === 0 && !isAdmin ? 10 : 0,
+                              borderTopLeftRadius: i === 0 && !canAssign ? 10 : 0,
+                              borderBottomLeftRadius: i === 0 && !canAssign ? 10 : 0,
                               borderTopRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
                               borderBottomRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
                             }}
@@ -1019,7 +1022,7 @@ export default function LeadsReport() {
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-card)')}
                         >
-                          {isAdmin && (
+                          {canAssign && (
                             <td
                               onClick={e => e.stopPropagation()}
                               style={{ padding: '12px 12px', borderTopLeftRadius: 10, borderBottomLeftRadius: 10, borderLeft: `3px solid ${rail}` }}
@@ -1032,7 +1035,7 @@ export default function LeadsReport() {
                               />
                             </td>
                           )}
-                          <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', borderTopLeftRadius: isAdmin ? 0 : 10, borderBottomLeftRadius: isAdmin ? 0 : 10, borderLeft: isAdmin ? 'none' : `3px solid ${rail}` }}>
+                          <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', borderTopLeftRadius: canAssign ? 0 : 10, borderBottomLeftRadius: canAssign ? 0 : 10, borderLeft: canAssign ? 'none' : `3px solid ${rail}` }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <span style={{
                                 width: 30, height: 30, borderRadius: 9, flexShrink: 0,

@@ -747,8 +747,8 @@ def assign_renutricao(
     candidatos -- qualquer outro status (`conflicts`) significa negociacao em
     andamento; aviso suave se teve interacao nos ultimos 30 dias; force_ids
     passa por cima. Com is_renutrucao=False atribui direto (sem checagem) e
-    limpa a tag se o lead ja tinha. So admin."""
-    if not _is_admin(current_user):
+    limpa a tag se o lead ja tinha. Admin ou coordenador."""
+    if current_user.role not in ("admin", "coordenador"):
         raise HTTPException(status_code=403, detail="Apenas administradores podem atribuir renutrição")
     owner = db.query(User).filter(User.id == body.owner_id).first()
     if not owner:

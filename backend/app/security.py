@@ -90,8 +90,9 @@ def needs_own_origin_filter(user) -> bool:
     ja e' restrita pelo filtro global de sessao (restrict_to_usuario_leads,
     database.py), e somar os dois filtros zerava a lista pra sempre (o nome
     do comercial nunca bate com o Lead.origin dos leads da equipe que ele
-    supervisiona, que pertencem a outras contas)."""
-    return user.role != "admin" and user.role not in COMERCIAL_ROLES
+    supervisiona, que pertencem a outras contas). Coordenador ve a base
+    inteira, sem restricao de origem."""
+    return user.role not in ("admin", "coordenador") and user.role not in COMERCIAL_ROLES
 
 
 def verify_token(token: str) -> Optional[str]:
