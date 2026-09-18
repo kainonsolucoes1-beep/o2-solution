@@ -902,7 +902,15 @@ def vida_sdr(
             # o mesmo que aparece na Ficha do Lead como Valor Cotação/Proposta
             receita_potencial += float(value_potential or 0)
             stage_key = _STAGE_CANON.get(s, "novo")
-            atualizado_em = last_interaction_at or updated_at
+            # referência de "parado há quanto tempo": a mais recente entre última
+            # interação, última atualização e a captação efetiva (retrabalhado_em,
+            # quando é lead de renutrição) -- senão um lead reativado mas nunca
+            # mais tocado mostra o histórico antigo do Followize (anos), não o
+            # tempo real desde que voltou a ser trabalhado.
+            atualizado_em = max(
+                (d for d in (last_interaction_at, updated_at, captacao_em) if d is not None),
+                default=None,
+            )
             stage_data[stage_key]["count"] += 1
             stage_data[stage_key]["leads"].append({
                 "id": str(lead_id), "nome": name, "valor": float(value_potential or 0),
