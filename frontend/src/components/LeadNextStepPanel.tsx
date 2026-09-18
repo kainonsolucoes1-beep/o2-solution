@@ -25,7 +25,7 @@ const CLOSED_SUB_OPTIONS = [
 
 const LOST_REASONS = [
   'Cliente não retornou contato',
-  'Dados incorretos',
+  'Trocou de número',
   'Declinou',
   'Finalizado automaticamente',
   'Preço',
@@ -52,7 +52,7 @@ const primaryActionBtnStyle: React.CSSProperties = {
 export default function LeadNextStepPanel({
   editing, onToggleEditing, onOpenProposta, onOpenFinalizar,
   locked,
-  status, editingStatus, statusSubMenu, savingStatus,
+  status, lostReason, editingStatus, statusSubMenu, savingStatus,
   onStatusOptionClick, onClosedSubClick, onLostReasonClick, onBackToStatusOptions, onCancelStatusEdit,
   onVendaRealizadaClick, onBackToFinalizar,
   perception, editingPerception, savingPerception, onPerceptionClick, onCancelPerceptionEdit,
@@ -70,6 +70,7 @@ export default function LeadNextStepPanel({
   locked?: boolean
 
   status: string
+  lostReason?: string | null
   editingStatus: boolean
   statusSubMenu: 'fechado' | 'perdido' | 'finalizar' | 'venda_realizada' | null
   savingStatus: boolean
@@ -124,6 +125,7 @@ export default function LeadNextStepPanel({
 }) {
   const [statusPickerOpen, setStatusPickerOpen] = useState(false)
   const [perceptionPickerOpen, setPerceptionPickerOpen] = useState(false)
+  const [showLostReasons, setShowLostReasons] = useState(false)
 
   return (
     <section style={{
@@ -329,17 +331,20 @@ export default function LeadNextStepPanel({
                     Voltar
                   </button>
                 </div>
-              ) : statusSubMenu === 'perdido' ? (
+              ) : statusSubMenu === 'perdido' || showLostReasons ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   {LOST_REASONS.map(reason => {
                     const s = STATUS_STYLE.sale_not_performed
+                    const active = status === 'sale_not_performed' && lostReason === reason
                     return (
                       <button
                         key={reason}
                         disabled={savingStatus}
-                        onClick={() => onLostReasonClick(reason)}
+                        onClick={() => { onLostReasonClick(reason); setShowLostReasons(false); setStatusPickerOpen(false) }}
                         style={{
-                          background: s.bg, color: s.color, border: `1.5px solid ${s.color}`,
+                          background: active ? s.color : s.bg,
+                          color: active ? 'white' : s.color,
+                          border: `1.5px solid ${s.color}`,
                           padding: '4px 14px', borderRadius: 99,
                           fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
                           opacity: savingStatus ? 0.6 : 1, transition: 'all 150ms',
@@ -350,7 +355,7 @@ export default function LeadNextStepPanel({
                     )
                   })}
                   <button
-                    onClick={onBackToStatusOptions}
+                    onClick={() => { setShowLostReasons(false); onBackToStatusOptions() }}
                     style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
                   >
                     Voltar
@@ -359,12 +364,17 @@ export default function LeadNextStepPanel({
               ) : (
                 <div>
                   {(() => {
-                    const currentLabel = STATUS_OPTIONS.find(o => o.value === status)?.label ?? statusLabel(status)
+                    const baseLabel = STATUS_OPTIONS.find(o => o.value === status)?.label ?? statusLabel(status)
+                    const currentLabel = status === 'sale_not_performed' && lostReason ? `${baseLabel} — ${lostReason}` : baseLabel
                     const s = STATUS_STYLE[status] ?? { bg: 'var(--bg-subtle)', color: 'var(--text-muted)' }
                     return (
                       <button
                         type="button"
-                        onClick={() => setStatusPickerOpen(v => !v)}
+                        onClick={() => setStatusPickerOpen(v => {
+                          const next = !v
+                          setShowLostReasons(next && status === 'sale_not_performed')
+                          return next
+                        })}
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: 8,
                           padding: '5px 12px 5px 6px', borderRadius: 99,

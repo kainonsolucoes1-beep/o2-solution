@@ -587,6 +587,7 @@ export default function LeadDetailPage() {
         }}
 
         status={status}
+        lostReason={lead.lost_reason}
         editingStatus={editingStatus}
         statusSubMenu={statusSubMenu}
         savingStatus={savingStatus}
