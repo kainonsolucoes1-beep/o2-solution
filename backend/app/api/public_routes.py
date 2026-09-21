@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Lead, User
+from app.models import Lead, LeadNote, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAMS, team_key_setting, team_rr_index_setting, team_attendant_names
 from app.lead_utils import normalize_current_plan as _normalize_current_plan
@@ -79,13 +79,19 @@ _FAIXA_LABELS = [
 ]
 
 
+_FAIXAS_MARKER = "Quantidade de Vidas por Faixa"
+
+
 def _build_notes(body: "PublicLeadCreate") -> Optional[str]:
     """Monta as observacoes do lead: mensagem livre (se houver) + o bloco
     'Campos customizados' no mesmo formato usado pelos leads antigos do
-    Followize (ex: '24-28 anos: 1')."""
+    Followize (ex: '24-28 anos: 1'). Se a mensagem ja traz o resumo das
+    faixas (plugin Gravity Forms >= 1.1.5 monta isso), nao repete o bloco."""
     parts = []
     if body.message and body.message.strip():
         parts.append(body.message.strip())
+    if body.message and _FAIXAS_MARKER in body.message:
+        return parts[0]
     faixas_lines = [f"{label}: {getattr(body, field)}" for field, label in _FAIXA_LABELS if getattr(body, field)]
     if faixas_lines:
         parts.append("Campos customizados:\n" + "\n".join(faixas_lines))
@@ -183,6 +189,11 @@ def create_public_lead(
         user_id=default_user.id if default_user else None,
     )
     db.add(lead)
+    db.flush()
+    # Lead.notes nao aparece na ficha (so a linha do tempo, que le LeadNote) --
+    # espelha as observacoes (mensagem + idades) como nota pra ficarem visiveis.
+    if lead.notes:
+        db.add(LeadNote(lead_id=lead.id, user_id=lead.user_id, content=lead.notes))
     db.commit()
     db.refresh(lead)
     return {"success": True, "lead_id": str(lead.id)}

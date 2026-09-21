@@ -352,7 +352,7 @@ def _parse_lead_fields(raw: dict) -> dict:
 def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     """Insere ou atualiza um lead. Retorna 'inserted', 'updated' ou 'skipped'.
 
-    Lead em renutrição (is_renutrucao) é pulado: o o2 Sig passou a ser o dono
+    Lead em renutrição (is_renutrucao) ou já trabalhado no o2 Sig (sig_locked) é pulado: o o2 Sig passou a ser o dono
     dele, então o sync não pode mais sobrescrever status/temperatura/notas com
     os valores do Followize (senão o retrabalho é anulado a cada sync)."""
     fields = _parse_lead_fields(raw)
@@ -381,7 +381,7 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     if existing:
-        if existing.is_renutrucao:
+        if existing.is_renutrucao or existing.sig_locked:
             return "skipped"
 
         prev_status = existing.status
@@ -564,7 +564,7 @@ async def sync_leads_from_followize() -> None:
         db.commit()
         counts = f"{inserted} inseridos, {updated} atualizados"
         if skipped:
-            counts += f", {skipped} em renutrição (pulados)"
+            counts += f", {skipped} travados no o2 Sig (pulados)"
         _save_sync_status(True, counts=counts)
         logger.info(
             "Followize sync concluído: %d leads (%d inseridos, %d atualizados)",

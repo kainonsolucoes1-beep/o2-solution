@@ -33,6 +33,10 @@ class Lead(Base):
     # quando true, o sync do Followize nao sobrescreve mais o origin desta lead
     # (usado pra proteger correcoes manuais feitas apos o lead ser reativado)
     origin_locked = Column(Boolean, default=False, nullable=False, server_default='false')
+    # true assim que um operador mexe no lead no o2 Sig (status, ficha, nota,
+    # agenda...): o sync do Followize passa a pular o lead, senao sobrescreve o
+    # trabalho feito aqui (ex: "proposta enviada" voltando pra "novo")
+    sig_locked = Column(Boolean, default=False, nullable=False, server_default='false')
     ages_raw = Column(String(100), nullable=True)
     modalidade = Column(String(255), nullable=True)
     categoria = Column(String(255), nullable=True)

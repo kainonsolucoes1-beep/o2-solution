@@ -88,9 +88,14 @@ def _is_admin(user: User) -> bool:
 
 def _assert_renutricao_unlocked(lead, user: User) -> None:
     """Lead atribuido a alguem pra renutricao so aceita edicao do proprio dono
-    ou de um admin -- os outros veem a ficha, mas nao mexem."""
+    ou de um admin -- os outros veem a ficha, mas nao mexem.
+
+    Toda escrita no lead passa por aqui, entao tambem e' onde o lead vira "do
+    o2 Sig" (sig_locked): a partir da primeira acao do operador o sync do
+    Followize para de sobrescrever status/temperatura/notas."""
     if lead.renutricao_owner_id and lead.renutricao_owner_id != user.id and not _is_admin(user):
         raise HTTPException(status_code=403, detail="Este lead está em renutrição com outra pessoa — você não pode editá-lo")
+    lead.sig_locked = True
 
 
 @router.get("/leads", response_model=List[LeadResponse])
