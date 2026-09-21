@@ -1377,7 +1377,7 @@ def get_agenda(
     except ValueError:
         raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
 
-    rows = (
+    q = (
         db.query(LeadSchedule, Lead)
         .join(Lead, LeadSchedule.lead_id == Lead.id)
         .filter(
@@ -1385,9 +1385,19 @@ def get_agenda(
             LeadSchedule.scheduled_at >= start,
             LeadSchedule.scheduled_at < end,
         )
-        .order_by(LeadSchedule.scheduled_at.asc())
-        .all()
     )
+    if current_user.role == "usuario":
+        # so' o perfil usuario e' restrito a propria agenda: leads dele (mesma regra
+        # da lista de leads) ou agendamentos que ele proprio criou. Os demais perfis
+        # veem todos os agendamentos (supervisor/comercial ainda passam pelos filtros
+        # globais de sessao de equipe/visibilidade).
+        my_name = current_user.first_name or current_user.username
+        q = q.filter(or_(
+            Lead.origin == my_name,
+            Lead.renutricao_owner_id == current_user.id,
+            LeadSchedule.created_by == my_name,
+        ))
+    rows = q.order_by(LeadSchedule.scheduled_at.asc()).all()
     items = [
         AgendaItem(
             id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,

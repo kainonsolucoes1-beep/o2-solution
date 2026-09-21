@@ -15,7 +15,7 @@ const NAV = [
   { to: '/dashboard',        label: 'Dashboard',        Icon: LayoutDashboard, adminOnly: false },
   { to: '/leads-report',     label: 'Relatório',        Icon: FileText,        adminOnly: false },
   { to: '/gestao-comercial', label: 'Gestão Comercial', Icon: Briefcase,       adminOnly: false },
-  { to: '/agenda',           label: 'Agenda',           Icon: CalendarDays,    adminOnly: true  },
+  { to: '/agenda',           label: 'Agenda',           Icon: CalendarDays,    adminOnly: false },
   { to: '/kpis',             label: 'Performance',      Icon: TrendingUp,      adminOnly: false },
   { to: '/telefonia',        label: 'Telefonia',        Icon: Phone,           adminOnly: true  },
 ]
