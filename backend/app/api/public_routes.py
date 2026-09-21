@@ -191,9 +191,10 @@ def create_public_lead(
     db.add(lead)
     db.flush()
     # Lead.notes nao aparece na ficha (so a linha do tempo, que le LeadNote) --
-    # espelha as observacoes (mensagem + idades) como nota pra ficarem visiveis.
+    # espelha as observacoes (mensagem + idades) como nota pra ficarem visiveis
+    # (sem autor: aparece como "Sistema", nao com o nome de um usuario real).
     if lead.notes:
-        db.add(LeadNote(lead_id=lead.id, user_id=lead.user_id, content=lead.notes))
+        db.add(LeadNote(lead_id=lead.id, user_id=None, content=lead.notes))
     db.commit()
     db.refresh(lead)
     return {"success": True, "lead_id": str(lead.id)}

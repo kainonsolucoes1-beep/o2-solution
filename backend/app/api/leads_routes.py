@@ -1201,7 +1201,7 @@ def get_lead_notes(
         NoteResponse(
             id=note.id,
             content=note.content,
-            created_by=(user.first_name or user.username) if user else "Usuário",
+            created_by=(user.first_name or user.username) if user else "Sistema",
             created_at=note.created_at,
         )
         for note, user in rows
