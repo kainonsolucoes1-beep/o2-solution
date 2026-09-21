@@ -107,6 +107,23 @@ def _load_tokens_from_db() -> None:
         logger.warning("Não foi possível carregar tokens do banco: %s", exc)
 
 
+def is_sync_paused() -> bool:
+    """Interruptor manual (Configuracoes > Status do sync): com 'followize_sync_paused'=1
+    o sync automatico e os backfills nao rodam. Usado pra testar integracoes (ex: Gravity
+    Forms) sem o Followize trazendo o lead de volta. Falha aberta: na duvida, sincroniza."""
+    try:
+        from app.models.app_settings import AppSettings
+        db = SessionLocal()
+        try:
+            row = db.query(AppSettings).filter(AppSettings.key == "followize_sync_paused").first()
+            return bool(row and row.value == "1")
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("Não foi possível ler o interruptor de pausa do sync: %s", exc)
+        return False
+
+
 def _save_sync_status(ok: bool, counts: str = "", error: str = "") -> None:
     """Persiste resultado do último sync no banco para visibilidade no painel."""
     try:
@@ -511,6 +528,9 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
 
 async def sync_leads_from_followize() -> None:
     """Sincroniza leads do Followize para o PostgreSQL."""
+    if is_sync_paused():
+        logger.info("Sync Followize pausado manualmente — ciclo ignorado")
+        return
     _load_tokens_from_db()
     if not _tokens["access"]:
         logger.error("FOLLOWIZE_ACCESS_TOKEN não configurado — sync ignorado")
@@ -582,6 +602,9 @@ async def sync_leads_from_followize() -> None:
 
 async def sync_leads_backfill(days: int = 365) -> None:
     """Backfill histórico para preencher conversion_point em leads antigos."""
+    if is_sync_paused():
+        logger.info("Sync Followize pausado manualmente — backfill ignorado")
+        return
     _load_tokens_from_db()
     if not _tokens["access"]:
         return

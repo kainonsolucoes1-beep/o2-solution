@@ -158,7 +158,7 @@ def sync_status(
     _require_admin(current_user)
     from app.models.app_settings import AppSettings
     keys = ["last_sync_at", "last_sync_ok", "last_sync_counts", "last_sync_error",
-            "followize_access_token", "followize_refresh_token"]
+            "followize_access_token", "followize_refresh_token", "followize_sync_paused"]
     rows = {r.key: r.value for r in db.query(AppSettings).filter(AppSettings.key.in_(keys)).all()}
     return {
         "last_sync_at": rows.get("last_sync_at"),
@@ -166,7 +166,31 @@ def sync_status(
         "last_sync_counts": rows.get("last_sync_counts", ""),
         "last_sync_error": rows.get("last_sync_error", ""),
         "tokens_configured": bool(rows.get("followize_access_token") and rows.get("followize_refresh_token")),
+        "paused": rows.get("followize_sync_paused") == "1",
     }
+
+
+class SyncPauseRequest(BaseModel):
+    paused: bool
+
+
+@router.post("/sync-pause")
+def set_sync_pause(
+    body: SyncPauseRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Pausa/retoma o sync automatico do Followize (nao afeta o 'Reprocessar' manual)."""
+    _require_admin(current_user)
+    value = "1" if body.paused else "0"
+    row = db.query(AppSettings).filter(AppSettings.key == "followize_sync_paused").first()
+    if row:
+        row.value = value
+    else:
+        db.add(AppSettings(key="followize_sync_paused", value=value))
+    db.commit()
+    logger.warning("Sync Followize %s por %s", "PAUSADO" if body.paused else "RETOMADO", current_user.username)
+    return {"paused": body.paused}
 
 
 @router.post("/deduplicate-leads")

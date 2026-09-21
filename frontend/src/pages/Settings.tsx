@@ -12,7 +12,7 @@ import Accordion from '../components/Accordion'
 // ── Configurações tab ────────────────────────────────────────────────────────
 interface SyncHealth {
   last_sync_at: string | null; last_sync_ok: boolean
-  last_sync_counts: string; last_sync_error: string; tokens_configured: boolean
+  last_sync_counts: string; last_sync_error: string; tokens_configured: boolean; paused?: boolean
 }
 function formatAgo(iso: string | null): string {
   if (!iso) return '—'
@@ -66,6 +66,17 @@ function ConfiguracoesTab() {
     catch {}
     finally { setHealthLoading(false) }
   }, [])
+
+  const [pauseBusy, setPauseBusy] = useState(false)
+  const togglePause = async () => {
+    if (!health) return
+    const next = !health.paused
+    if (next && !window.confirm('Pausar o sync com o Followize? Nenhum lead novo do Followize entrará no o2 Sig até você retomar.')) return
+    setPauseBusy(true)
+    try { await api.post('/api/v1/admin/sync-pause', { paused: next }); await fetchHealth() }
+    catch { window.alert('Não foi possível alterar a pausa do sync.') }
+    finally { setPauseBusy(false) }
+  }
 
   useEffect(() => {
     fetchHealth()
@@ -439,6 +450,14 @@ function ConfiguracoesTab() {
               <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: health.tokens_configured ? '#10B981' : '#EF4444', flexShrink: 0 }} />
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{health.tokens_configured ? 'Tokens Followize configurados no banco' : 'Tokens não encontrados no banco'}</span>
             </div>
+            {health.paused && (
+              <div style={{ padding: '8px 12px', background: 'rgba(245,158,11,0.12)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.35)' }}>
+                <p style={{ fontSize: 12, color: '#B45309', margin: 0, fontWeight: 600 }}>Sync PAUSADO — leads do Followize não estão entrando.</p>
+              </div>
+            )}
+            <button onClick={togglePause} disabled={pauseBusy} style={{ alignSelf: 'flex-start', padding: '7px 16px', borderRadius: 8, background: health.paused ? '#10B981' : '#F59E0B', color: 'white', fontWeight: 600, fontSize: 12, border: 'none', cursor: pauseBusy ? 'not-allowed' : 'pointer' }}>
+              {pauseBusy ? 'Aguarde…' : health.paused ? 'Retomar sync' : 'Pausar sync'}
+            </button>
             <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>Sync automático a cada 5 minutos. Token renovado automaticamente em caso de expiração.</p>
           </div>
         ) : (
