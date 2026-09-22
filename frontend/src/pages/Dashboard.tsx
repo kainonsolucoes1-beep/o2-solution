@@ -215,6 +215,8 @@ export default function Dashboard() {
   // contra o polling de 45s abaixo).
   const fetchAllGenRef = useRef(0)
   const fetchSideGenRef = useRef(0)
+  const alertsSeenRef = useRef<Set<string> | null>(null)  // null = ainda nao carregou (evita beep na primeira carga)
+  const audioCtxRef = useRef<AudioContext | null>(null)
 
   const fetchAll = useCallback((f: { from: string; to: string } | null, silent = false) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -232,11 +234,36 @@ export default function Dashboard() {
       .finally(() => { if (fetchAllGenRef.current === gen && !silent) setLoading(false) })
   }, [navigate])
 
+  const playAlertBeep = useCallback(() => {
+    try {
+      let ctx = audioCtxRef.current
+      if (!ctx) { ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); audioCtxRef.current = ctx }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = 880
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35)
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.35)
+    } catch { /* autoplay bloqueado ou navegador sem suporte -- silencioso */ }
+  }, [])
+
   const fetchAlerts = useCallback(() => {
     api.get<{ items: AgendaAlertItem[] }>('/api/v1/agenda/alerts', { params: { window_minutes: 10 } })
-      .then(r => setAlerts(r.data.items))
+      .then(r => {
+        const items = r.data.items
+        const ids = new Set(items.map(a => a.schedule_id))
+        const seen = alertsSeenRef.current
+        if (seen && [...ids].some(id => !seen.has(id))) playAlertBeep()
+        alertsSeenRef.current = ids
+        setAlerts(items)
+      })
       .catch(() => {})
-  }, [])
+  }, [playAlertBeep])
 
   const fetchSide = useCallback(() => {
     const gen = ++fetchSideGenRef.current
