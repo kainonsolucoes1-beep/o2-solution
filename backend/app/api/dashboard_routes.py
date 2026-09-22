@@ -70,20 +70,17 @@ _CAMPANHA_ATIVA_STATUSES = {"fila", "disparado_sem_resposta"}
 _STATUS_NAO_TRABALHADO = {"novo", "new", "pending", "sale_not_performed"}
 
 
-def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_point=None, campanha_status=None, retrabalhado_em=None, status=None):
-    """Quem está com a posse do lead pro ranking do Dashboard: dono de
-    renutrição > SDR que prospectou (origem = pessoa). O atendente NÃO conta —
-    quem só atende lead de outro não leva o crédito da captação (decisão da
-    usuária: Julia atende leads do time, mas o lead conta pra origem).
-    Sem posse de pessoa: "Orgânico" (site, chatgpt, google...) ou "Outros
-    canais" (Meta Ads e demais pagos). Lead na fila de disparo (Campanhas)
-    não conta pro Isaac — ele é o operador do disparo, não o dono do lead;
-    a posse só passa a valer quando o rodízio distribui (ou volta ao normal
-    se ele soltar o lead). Atribuir um lead não é trabalhá-lo -- só conta pro
-    dono quando ele de fato reativou (`retrabalhado_em` preenchido) OU já
-    avançou o status (prova de trabalho real, ex: lead de Meta Ads atribuído
-    direto, sem passar pelo fluxo de retrabalho por nunca ter sido perdido),
-    senão um lote só atribuído e nunca tocado infla a captação da pessoa."""
+def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_point=None, campanha_status=None, retrabalhado_em=None, status=None, attendant=None):
+    """Quem está com a posse do lead pro ranking do Dashboard, nesta ordem:
+    dono de renutrição > SDR que prospectou (origem = pessoa) > atendente
+    atribuído (rodízio de Meta Ads/site) > "Orgânico" / "Outros canais".
+    Atribuir um lead de renutrição não é trabalhá-lo -- só conta pro dono
+    quando ele de fato reativou (`retrabalhado_em` preenchido) OU já avançou
+    o status, senão um lote só atribuído e nunca tocado infla a captação da
+    pessoa. Já o atendente do rodízio conta na hora, sem essa trava: a
+    atribuição por rodízio ACONTECE na captação (Meta Ads/Gravity Forms),
+    diferente da renutrição (redistribuição de leads antigos) -- e é o
+    atendente quem de fato vai tratar o lead a partir daí."""
     if owner_id and owner_id in owner_names and campanha_status not in _CAMPANHA_ATIVA_STATUSES:
         trabalhado = retrabalhado_em is not None or (status or "").lower() not in _STATUS_NAO_TRABALHADO
         if trabalhado:
@@ -91,6 +88,9 @@ def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_po
     o = (origin or "").strip()
     if o and o.lower() in person_names:
         return o
+    a = (attendant or "").strip()
+    if a and a.lower() != "sem atendente":
+        return a
     if is_organico(origin, conversion_point):
         return "Orgânico"
     return "Outros canais"
@@ -469,18 +469,31 @@ def dashboard_performance(
 
     # Ranking de captação — mês atual até a data de referência. O lead conta
     # pra quem está com a posse dele, nesta ordem: dono de renutrição >
-    # quem prospectou (SDR na origem) > "Orgânico" / "Outros canais".
-    # Detalhamento de canal fica no Performance, não no Dashboard.
+    # quem prospectou (SDR na origem) > atendente do rodízio > "Orgânico" /
+    # "Outros canais". Clicar num operador mostra a origem real dele (mesma
+    # ideia do card "De onde vieram", recortada por quem tem a posse).
     ranking_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.conversion_point, Lead.campanha_status, Lead.retrabalhado_em, Lead.status)
+        db.query(
+            Lead.origin, Lead.renutricao_owner_id, Lead.conversion_point, Lead.campanha_status,
+            Lead.retrabalhado_em, Lead.status, Lead.attendant, Lead.notes,
+        )
         .filter(EFFECTIVE_CAPTACAO >= month_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
     _owner_names_month = _owner_names(db, {r.renutricao_owner_id for r in ranking_leads if r.renutricao_owner_id})
     _persons = _person_name_set(db)
     ranking_counts: dict = defaultdict(int)
-    for origin, owner_id, conversion_point, campanha_status, retrabalhado_em, status in ranking_leads:
-        ranking_counts[_operador_do_lead(origin, owner_id, _owner_names_month, _persons, conversion_point, campanha_status, retrabalhado_em, status)] += 1
+    ranking_bases_por_operador: dict = defaultdict(lambda: defaultdict(int))
+    ranking_conv_por_operador: dict = defaultdict(lambda: defaultdict(int))
+    for origin, owner_id, conversion_point, campanha_status, retrabalhado_em, status, attendant, notes in ranking_leads:
+        name = _operador_do_lead(origin, owner_id, _owner_names_month, _persons, conversion_point, campanha_status, retrabalhado_em, status, attendant)
+        ranking_counts[name] += 1
+        if is_organico(origin, conversion_point):
+            cp = (conversion_point or "").strip() or "Não informado"
+            ranking_conv_por_operador[name][cp] += 1
+        else:
+            base = extract_base(notes) or "Base não identificada"
+            ranking_bases_por_operador[name][base] += 1
     total_ranking = sum(ranking_counts.values())
     max_count = max(ranking_counts.values()) if ranking_counts else 1
     ranking = [
@@ -492,6 +505,13 @@ def dashboard_performance(
         }
         for name, count in sorted(ranking_counts.items(), key=lambda kv: kv[1], reverse=True)
     ]
+    ranking_origem_por_operador = {
+        name: {
+            "bases": [{"label": k, "count": v} for k, v in sorted(ranking_bases_por_operador[name].items(), key=lambda kv: kv[1], reverse=True)],
+            "conversion_points": [{"label": k, "count": v} for k, v in sorted(ranking_conv_por_operador[name].items(), key=lambda kv: kv[1], reverse=True)],
+        }
+        for name in ranking_counts
+    }
 
     # Evolução diária — leads por dia no mês até a data de referência
     daily_rows = (
@@ -509,7 +529,10 @@ def dashboard_performance(
 
     # Captação do dia por operador (mesma regra de posse do ranking do mês)
     hoje_leads = (
-        db.query(Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential, Lead.conversion_point, Lead.campanha_status, Lead.retrabalhado_em, Lead.notes)
+        db.query(
+            Lead.origin, Lead.renutricao_owner_id, Lead.status, Lead.value_potential, Lead.conversion_point,
+            Lead.campanha_status, Lead.retrabalhado_em, Lead.notes, Lead.attendant,
+        )
         .filter(EFFECTIVE_CAPTACAO >= today_start, EFFECTIVE_CAPTACAO < today_end)
         .all()
     )
@@ -522,8 +545,8 @@ def dashboard_performance(
     # número de captação no Ranking (clicar num operador mostra a origem dele).
     hoje_bases_por_operador: dict = defaultdict(lambda: defaultdict(int))
     hoje_conv_por_operador: dict = defaultdict(lambda: defaultdict(int))
-    for origin, owner_id, status, value_potential, conversion_point, campanha_status, retrabalhado_em, notes in hoje_leads:
-        fonte = _operador_do_lead(origin, owner_id, _owner_names_hoje, _persons, conversion_point, campanha_status, retrabalhado_em, status)
+    for origin, owner_id, status, value_potential, conversion_point, campanha_status, retrabalhado_em, notes, attendant in hoje_leads:
+        fonte = _operador_do_lead(origin, owner_id, _owner_names_hoje, _persons, conversion_point, campanha_status, retrabalhado_em, status, attendant)
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
             hoje_proposta_valor[fonte] += float(value_potential or 0)
@@ -585,6 +608,7 @@ def dashboard_performance(
         "projecao_mes": projecao_mes,
         "dias_uteis_mes": dias_uteis_mes,
         "ranking": ranking,
+        "ranking_origem_por_operador": ranking_origem_por_operador,
         "evolucao_diaria": evolucao_diaria,
         "captacao_hoje_por_fonte": captacao_hoje_por_fonte,
         "captacao_hoje_origem": captacao_hoje_origem,
