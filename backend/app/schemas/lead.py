@@ -334,6 +334,14 @@ class AgendaAlertsResponse(BaseModel):
     today: int
 
 
+class AgendaAlertItem(AgendaItem):
+    bucket: str  # 'overdue' | 'due_soon'
+
+
+class AgendaAlertsListResponse(BaseModel):
+    items: List[AgendaAlertItem]
+
+
 class RenutricaoPreviewRow(BaseModel):
     row: int
     nome: str

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { TrendingUp, TrendingDown, Zap, Filter, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, Zap, Filter, X, ChevronDown, ChevronRight, Bell, Clock, AlertTriangle } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -148,6 +148,7 @@ function mergeO2Ranking(ranking: RankItem[]): RankItem[] {
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const fmtBR = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 const fmtBRShort = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+const fmtHM = (iso: string) => new Date(parseUTC(iso)).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
 // Feriados nacionais do Brasil (fixos + móveis a partir da Páscoa). Usado só
 // para o atalho "dia útil anterior".
@@ -182,6 +183,11 @@ function lastBusinessDayISO(from: Date): string {
 }
 
 
+interface AgendaAlertItem {
+  id: string; name: string; phone: string | null; attendant: string | null
+  scheduled_at: string; bucket: 'overdue' | 'due_soon'
+}
+
 const todayStr = new Date().toISOString().slice(0, 10)
 
 export default function Dashboard() {
@@ -200,6 +206,8 @@ export default function Dashboard() {
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [feedOpen, setFeedOpen] = useState(false)
   const [rankMonthExpanded, setRankMonthExpanded] = useState(false)
+  const [alerts, setAlerts] = useState<AgendaAlertItem[]>([])
+  const [alertsOpen, setAlertsOpen] = useState(false)
 
   // Contadores de geração — ignora resposta se, quando ela chega, já não é
   // mais a última chamada em andamento (evita resposta antiga de um dia
@@ -224,6 +232,12 @@ export default function Dashboard() {
       .finally(() => { if (fetchAllGenRef.current === gen && !silent) setLoading(false) })
   }, [navigate])
 
+  const fetchAlerts = useCallback(() => {
+    api.get<{ items: AgendaAlertItem[] }>('/api/v1/agenda/alerts', { params: { window_minutes: 10 } })
+      .then(r => setAlerts(r.data.items))
+      .catch(() => {})
+  }, [])
+
   const fetchSide = useCallback(() => {
     const gen = ++fetchSideGenRef.current
     api.get<FeedItem[]>('/api/v1/dashboard/activity-feed')
@@ -233,6 +247,11 @@ export default function Dashboard() {
 
   useEffect(() => { fetchAll(filter) }, [fetchAll, filter])
   useEffect(() => { fetchSide() }, [fetchSide])
+  useEffect(() => { fetchAlerts() }, [fetchAlerts])
+  useEffect(() => {
+    const id = setInterval(fetchAlerts, 60000)
+    return () => clearInterval(id)
+  }, [fetchAlerts])
 
   useEffect(() => {
     if (filter) return   // vista histórica não precisa de polling
@@ -317,6 +336,53 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setAlertsOpen(o => !o)}
+              title="Follow-ups perto de vencer"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, border: `1px solid ${alerts.length > 0 ? '#F59E0B' : 'var(--border)'}`, background: alerts.length > 0 ? 'rgba(245,158,11,0.08)' : 'var(--bg-card)', color: alerts.length > 0 ? '#B45309' : 'var(--text-muted)', cursor: 'pointer', position: 'relative' }}
+            >
+              <Bell size={15} />
+              {alerts.length > 0 && (
+                <span style={{ position: 'absolute', top: -5, right: -5, background: alerts.some(a => a.bucket === 'overdue') ? '#EF4444' : '#F59E0B', color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1 }}>
+                  {alerts.length}
+                </span>
+              )}
+            </button>
+            {alertsOpen && (
+              <>
+                <div onClick={() => setAlertsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 19 }} />
+                <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 20, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 10, boxShadow: '0 8px 28px rgba(15,23,42,0.16)', width: 300, maxHeight: 360, overflowY: 'auto' }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', margin: '4px 6px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Follow-up</p>
+                  {alerts.length === 0 ? (
+                    <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', padding: '4px 6px 8px' }}>Nada vencendo nos próximos 10 minutos.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {alerts.map(a => (
+                        <button
+                          key={a.schedule_id}
+                          onClick={() => { setAlertsOpen(false); navigate(`/leads/${a.id}`) }}
+                          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 6px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-subtle)' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                        >
+                          {a.bucket === 'overdue'
+                            ? <AlertTriangle size={14} color="#EF4444" style={{ flexShrink: 0, marginTop: 2 }} />
+                            : <Clock size={14} color="#F59E0B" style={{ flexShrink: 0, marginTop: 2 }} />}
+                          <span style={{ minWidth: 0, flex: 1 }}>
+                            <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                            <span style={{ display: 'block', fontSize: 11, color: a.bucket === 'overdue' ? '#EF4444' : 'var(--text-muted)' }}>
+                              {a.bucket === 'overdue' ? 'Atrasado — ' : 'Vencendo — '}{fmtHM(a.scheduled_at)}{a.attendant ? ` · ${a.attendant}` : ''}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
           {filter && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#2563EB' }}>{diaLabel}</span>

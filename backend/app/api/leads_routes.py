@@ -28,7 +28,7 @@ from app.schemas.lead import (
     NoteResponse, NotesListResponse,
     StatusHistoryItem, StatusHistoryResponse,
     ScheduleCreateRequest, ScheduleItem, ScheduleHistoryResponse,
-    AgendaItem, AgendaResponse, AgendaAlertsResponse,
+    AgendaItem, AgendaResponse, AgendaAlertsResponse, AgendaAlertItem, AgendaAlertsListResponse,
     LeadReceitaUpdateRequest, LeadReceitaUpdateResponse,
     ParcelaRequest, ParcelaUpdateRequest, ParcelaResponse, ParcelasListResponse,
     AttachmentResponse, AttachmentsListResponse, AttachmentUploadResponse, AttachmentDownloadResponse,
@@ -1378,6 +1378,22 @@ def lead_peek(
     }
 
 
+def _scope_own_agenda(q, current_user: User):
+    """Restringe uma query LeadSchedule+Lead a agendamentos do proprio usuario --
+    so' o perfil 'usuario' e' restrito (leads dele, renutricao dele, agendamento
+    que ele criou ou onde e' o attendant). Os demais perfis veem tudo (supervisor/
+    comercial ainda passam pelos filtros globais de sessao de equipe/visibilidade)."""
+    if current_user.role == "usuario":
+        my_name = current_user.first_name or current_user.username
+        q = q.filter(or_(
+            Lead.origin == my_name,
+            Lead.renutricao_owner_id == current_user.id,
+            LeadSchedule.created_by == my_name,
+            Lead.attendant == my_name,
+        ))
+    return q
+
+
 @router.get("/agenda", response_model=AgendaResponse)
 def get_agenda(
     date_from: str = Query(..., description="YYYY-MM-DD"),
@@ -1400,18 +1416,7 @@ def get_agenda(
             LeadSchedule.scheduled_at < end,
         )
     )
-    if current_user.role == "usuario":
-        # so' o perfil usuario e' restrito a propria agenda: leads dele (mesma regra
-        # da lista de leads) ou agendamentos que ele proprio criou. Os demais perfis
-        # veem todos os agendamentos (supervisor/comercial ainda passam pelos filtros
-        # globais de sessao de equipe/visibilidade).
-        my_name = current_user.first_name or current_user.username
-        q = q.filter(or_(
-            Lead.origin == my_name,
-            Lead.renutricao_owner_id == current_user.id,
-            LeadSchedule.created_by == my_name,
-            Lead.attendant == my_name,
-        ))
+    q = _scope_own_agenda(q, current_user)
     rows = q.order_by(LeadSchedule.scheduled_at.asc()).all()
     items = [
         AgendaItem(
@@ -1455,6 +1460,43 @@ def get_agenda_alerts_count(
         .scalar()
     )
     return AgendaAlertsResponse(overdue=overdue, today=today)
+
+
+@router.get("/agenda/alerts", response_model=AgendaAlertsListResponse)
+def get_agenda_alerts(
+    window_minutes: int = Query(10, ge=1, le=180, description="Janela pra considerar um agendamento 'vencendo' (minutos)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Agendamentos atrasados ou vencendo nos proximos `window_minutes` -- caixa
+    de notificacoes do Dashboard. Mesma visibilidade da /agenda (usuario comum
+    so' os proprios; demais perfis, todos)."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    due_soon_until = now + timedelta(minutes=window_minutes)
+
+    q = (
+        db.query(LeadSchedule, Lead)
+        .join(Lead, LeadSchedule.lead_id == Lead.id)
+        .filter(LeadSchedule.is_active.is_(True), LeadSchedule.scheduled_at < due_soon_until)
+    )
+    q = _scope_own_agenda(q, current_user)
+    rows = q.order_by(LeadSchedule.scheduled_at.asc()).limit(50).all()
+
+    items = [
+        AgendaAlertItem(
+            id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
+            company=lead.company, attendant=lead.attendant, origem=lead.origin,
+            conversion_point=lead.conversion_point, status=lead.status,
+            perception=lead.perception,
+            value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
+            current_plan=lead.current_plan,
+            created_at=lead.created_at, followize_id=lead.followize_id,
+            scheduled_at=sched.scheduled_at, schedule_id=sched.id,
+            bucket="overdue" if sched.scheduled_at < now else "due_soon",
+        )
+        for sched, lead in rows
+    ]
+    return AgendaAlertsListResponse(items=items)
 
 
 @router.post("/leads/{lead_id}/notes", response_model=NoteCreateResponse)
