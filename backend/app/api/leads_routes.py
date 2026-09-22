@@ -1473,11 +1473,19 @@ def get_agenda_alerts(
     so' os proprios; demais perfis, todos)."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     due_soon_until = now + timedelta(minutes=window_minutes)
+    # atraso sem limite viraria lista de backlog acumulado (agendamento
+    # esquecido ha' semanas) em vez de alerta de follow-up -- atraso mais
+    # antigo continua visivel na Agenda, que tem filtro de periodo proprio.
+    overdue_since = now - timedelta(hours=24)
 
     q = (
         db.query(LeadSchedule, Lead)
         .join(Lead, LeadSchedule.lead_id == Lead.id)
-        .filter(LeadSchedule.is_active.is_(True), LeadSchedule.scheduled_at < due_soon_until)
+        .filter(
+            LeadSchedule.is_active.is_(True),
+            LeadSchedule.scheduled_at >= overdue_since,
+            LeadSchedule.scheduled_at < due_soon_until,
+        )
     )
     q = _scope_own_agenda(q, current_user)
     rows = q.order_by(LeadSchedule.scheduled_at.asc()).limit(50).all()
