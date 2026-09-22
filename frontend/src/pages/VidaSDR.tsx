@@ -46,7 +46,6 @@ interface VidaSdrData {
   ranking_geral: RankingGeral | null
   atividades: Atividade[]
   estagios: Estagio[]
-  equipe_medias: { captacoes: number; vendas: number; conversao: number; estagios: Record<string, number> } | null
 }
 
 const ACCENT = 'var(--accent)'
@@ -278,7 +277,7 @@ function elapsedLabel(iso: string | null): { label: string; hot: boolean } {
 // Pendência/Documentação pendente/Emissão/Negociação) — cada etapa abre a
 // lista dos leads dela, do mais parado pro mais recente, pra dar visibilidade
 // de quem está sendo atendido e quem está parado.
-function StageAccordion({ stages, total, equipeEstagios }: { stages: Estagio[]; total: number; equipeEstagios?: Record<string, number> | null }) {
+function StageAccordion({ stages, total }: { stages: Estagio[]; total: number }) {
   const [openKey, setOpenKey] = useState<string | null>(null)
   const effectiveOpen = openKey ?? stages[0]?.key ?? null
 
@@ -308,11 +307,6 @@ function StageAccordion({ stages, total, equipeEstagios }: { stages: Estagio[]; 
                   fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0,
                   background: oldest.hot ? 'var(--danger-weak)' : 'var(--bg-subtle)', color: oldest.hot ? 'var(--danger)' : 'var(--text-muted)',
                 }}>{oldest.label}</span>
-              )}
-              {equipeEstagios && equipeEstagios[st.key] != null && (
-                <span style={{ fontSize: 10, color: 'var(--text-subtle)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  equipe: {equipeEstagios[st.key].toFixed(1).replace('.0', '')}d
-                </span>
               )}
             </button>
             {isOpen && (
@@ -378,7 +372,6 @@ export default function VidaSDR() {
   const [loading, setLoading] = useState(true)
   const [agentes, setAgentes] = useState<string[]>([])
   const [filtro, setFiltro] = useState<FiltroPeriodo>('geral')
-  const [modo, setModo] = useState<'completo' | 'producao'>('completo')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
 
@@ -465,9 +458,6 @@ export default function VidaSDR() {
   }
 
   const canSeeFinance = !!data && data.receita_recebida != null
-  // modo "Produção": esconde financeiro mesmo pra quem tem permissao (admin/diretor),
-  // pra virar uma tela limpa de producao, comparavel com a media do time.
-  const showFinance = canSeeFinance && modo !== 'producao'
   const cancellationRate = data && data.captacoes ? Math.round((data.cancelados / data.captacoes) * 100) : 0
 
   // Deltas reais mês a mês (ver monthDelta/conversionDelta) — indisponíveis
@@ -520,21 +510,6 @@ export default function VidaSDR() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 10, padding: 3, height: 40, alignItems: 'center', background: 'var(--bg-card)' }}>
-            {(['producao', 'completo'] as const).map(m => (
-              <button
-                key={m}
-                onClick={() => setModo(m)}
-                title={m === 'producao' ? 'Sem financeiro, com comparativo vs. a equipe' : 'Visão completa, com financeiro'}
-                style={{
-                  height: 32, padding: '0 12px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-                  background: modo === m ? ACCENT : 'transparent', color: modo === m ? '#fff' : 'var(--text-muted)', transition: 'background 150ms',
-                }}
-              >
-                {m === 'producao' ? 'Produção' : 'Completo'}
-              </button>
-            ))}
-          </div>
           {agentes.length > 0 && (
             <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700 }}>
               Agente
@@ -600,7 +575,7 @@ export default function VidaSDR() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
               <HeroCard
                 tone="good" icon={CheckCircle2} label="Vendas realizadas" value={String(data.vendas)}
-                sub={`de ${data.captacoes} leads no período` + (modo === 'producao' && data.equipe_medias ? ` · equipe: ${data.equipe_medias.vendas}` : '')}
+                sub={`de ${data.captacoes} leads no período`}
                 context={deltas.vendas ? { text: `${deltas.vendas.text} vs. mês passado`, tone: deltas.vendas.tone } : null}
                 onOpen={trigger => openPreview('vendas', 0, trigger)}
               />
@@ -609,7 +584,7 @@ export default function VidaSDR() {
                 sub={`de ${data.captacoes} leads no período`}
                 onOpen={trigger => openPreview('cancellationRate', 0, trigger)}
               />
-              {showFinance ? (
+              {canSeeFinance ? (
                 <HeroCard
                   tone="good" icon={TrendingUp} label="Receita recebida"
                   value={fmtBrl(data.receita_recebida || 0)}
@@ -620,33 +595,26 @@ export default function VidaSDR() {
               ) : (
                 <HeroCard
                   tone="good" icon={TrendingUp} label="Conversão geral" value={`${data.conversao}%`}
-                  sub={'no período' + (modo === 'producao' && data.equipe_medias ? ` · equipe: ${data.equipe_medias.conversao}%` : '')}
+                  sub="no período"
                   context={deltas.conversao ? { text: `${deltas.conversao.text} vs. mês passado`, tone: deltas.conversao.tone } : null}
                   onOpen={trigger => openPreview('conversao', 0, trigger)}
                 />
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: showFinance ? 'minmax(0, 1.5fr) minmax(280px, 1fr)' : '1fr', gap: 18, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: canSeeFinance ? 'minmax(0, 1.5fr) minmax(280px, 1fr)' : '1fr', gap: 18, alignItems: 'start' }}>
               <section style={panelStyle}>
-                <span style={kickerStyle}>
-                  Funil
-                  {modo === 'producao' && data.equipe_medias && (
-                    <span style={{ marginLeft: 8, fontWeight: 500, color: 'var(--text-subtle)', textTransform: 'none', letterSpacing: 0 }}>
-                      · média da equipe: {data.equipe_medias.captacoes} captações
-                    </span>
-                  )}
-                </span>
+                <span style={kickerStyle}>Funil</span>
                 <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 13 }}>
                   <FunnelStep label="Captados" value={String(data.captacoes)} share={100}
                     onOpen={t => openPreview('captacoes', 0, t)} />
                 </div>
                 <div style={{ marginTop: 13 }}>
-                  <StageAccordion stages={data.estagios} total={data.em_andamento} equipeEstagios={modo === 'producao' ? data.equipe_medias?.estagios : null} />
+                  <StageAccordion stages={data.estagios} total={data.em_andamento} />
                 </div>
               </section>
 
-              {showFinance && (
+              {canSeeFinance && (
                 <section style={panelStyle}>
                   <span style={kickerStyle}>Financeiro</span>
                   <div style={{ marginTop: 6 }}>
@@ -675,7 +643,7 @@ export default function VidaSDR() {
             <section style={{ padding: '24px 24px 8px', border: '1px solid var(--border)', borderRadius: 16, background: 'var(--bg-card)', boxShadow: '0 1px 3px rgba(15,23,42,0.06)' }}>
               <span style={kickerStyle}>Evolução mensal</span>
               <div style={{ display: 'flex', gap: 6, margin: '16px 0 16px', overflowX: 'auto' }}>
-                {(['captacoes', 'vendas', ...(showFinance ? ['receita' as const] : [])] as const).map(m => (
+                {(['captacoes', 'vendas', ...(canSeeFinance ? ['receita' as const] : [])] as const).map(m => (
                   <button
                     key={m}
                     onClick={() => setChartMetric(m)}
@@ -893,7 +861,7 @@ export default function VidaSDR() {
                   value={String(data.em_andamento)} title="Leads em andamento" desc="Aguardando avanço no funil"
                   ctaLabel="Ver leads →" onOpen={trigger => openPreview('progress', 0, trigger)}
                 />
-                {showFinance ? (
+                {canSeeFinance ? (
                   deltas.receita_recebida ? (
                     <InsightRow tone="good" icon={TrendingUp} value={deltas.receita_recebida.text} title="Receita recebida" desc="Em relação ao mês anterior" />
                   ) : (
