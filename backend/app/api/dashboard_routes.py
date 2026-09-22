@@ -28,6 +28,22 @@ from app.schemas.dashboard import (
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
+
+def _drilldown_base_label(conversion_point, notes) -> str:
+    """Rotulo de um lead dentro do grupo SDR do 'De onde vieram': prioriza a
+    base extraida da nota (formato do Followize, ex: 'Salyd') -- e' o dado mais
+    especifico quando existe. Followize esta' desativado, entao lead novo nunca
+    tem esse formato -- cai pro Ponto de Conversao, que ainda carrega
+    informacao real (ex: 'Campanha WhatsApp', 'Importação'). So' na falta dos
+    dois o rotulo vira generico."""
+    base = extract_base(notes)
+    if base:
+        return base
+    cp = (conversion_point or "").strip()
+    if cp:
+        return cp
+    return "Sem origem detalhada"
+
 META_DAILY = int(os.getenv("META_DAILY", 10))
 META_MONTHLY = int(os.getenv("META_MONTHLY", 200))
 QUALIFIED_STATUSES = ("qualificado", "qualified", "convertido")
@@ -492,8 +508,7 @@ def dashboard_performance(
             cp = (conversion_point or "").strip() or "Não informado"
             ranking_conv_por_operador[name][cp] += 1
         else:
-            base = extract_base(notes) or "Base não identificada"
-            ranking_bases_por_operador[name][base] += 1
+            ranking_bases_por_operador[name][_drilldown_base_label(conversion_point, notes)] += 1
     total_ranking = sum(ranking_counts.values())
     max_count = max(ranking_counts.values()) if ranking_counts else 1
     ranking = [
@@ -554,8 +569,7 @@ def dashboard_performance(
             cp = (conversion_point or "").strip() or "Não informado"
             hoje_conv_por_operador[fonte][cp] += 1
         else:
-            base = extract_base(notes) or "Base não identificada"
-            hoje_bases_por_operador[fonte][base] += 1
+            hoje_bases_por_operador[fonte][_drilldown_base_label(conversion_point, notes)] += 1
     captacao_hoje_por_fonte = [
         {"name": name, "count": count, "propostas_valor": round(hoje_proposta_valor.get(name, 0.0), 2)}
         for name, count in sorted(hoje_counts.items(), key=lambda kv: kv[1], reverse=True)
@@ -581,8 +595,7 @@ def dashboard_performance(
             cp = (conversion_point or "").strip() or "Não informado"
             conv_points_count[cp] += 1
         else:
-            base = extract_base(notes) or "Base não identificada"
-            bases_count[base] += 1
+            bases_count[_drilldown_base_label(conversion_point, notes)] += 1
     captacao_hoje_origem = {
         "bases": [
             {"label": k, "count": v}
