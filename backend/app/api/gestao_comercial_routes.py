@@ -1025,6 +1025,50 @@ def vida_sdr(
 
     ranking_geral = {"captacoes": _rank_by("captacoes"), "vendas": _rank_by("vendas")}
 
+    # medias do time -- pra visao "Producao" comparar o agente com o resto da
+    # equipe, sem depender de financeiro. Reaproveita count_buckets (mesmo
+    # periodo/filtro) excluindo o bucket agregado "o2 Solution" (contas de
+    # sistema/bot, nao um operador de verdade) e o proprio agente, senao ele
+    # se compara contra uma media que ja inclui ele mesmo.
+    _outros = {k: v for k, v in count_buckets.items() if k != "o2 Solution" and k != current_key}
+    _n_outros = len(_outros) or 1
+    _total_capt_outros = sum(v["captacoes"] for v in _outros.values())
+    _total_vendas_outros = sum(v["vendas"] for v in _outros.values())
+    equipe_medias = {
+        "captacoes": round(_total_capt_outros / _n_outros, 1),
+        "vendas": round(_total_vendas_outros / _n_outros, 1),
+        "conversao": round(_total_vendas_outros / _total_capt_outros * 100, 1) if _total_capt_outros else 0.0,
+        "estagios": {},
+    }
+    # tempo parado medio por estagio, mesma referencia usada pro agente (ultima
+    # interacao > ultima atualizacao > captacao efetiva) -- so' leads em aberto
+    # (fora do funil de venda/cancelado) de operadores reais (exclui organico),
+    # excluindo o proprio agente da media.
+    _team_open_rows = (
+        db.query(
+            Lead.origin, Lead.status, EFFECTIVE_CAPTACAO.label("created_at"),
+            Lead.last_interaction_at, Lead.updated_at,
+        )
+        .filter(Lead.origin.isnot(None), Lead.origin != "", *date_filters)
+        .all()
+    )
+    _now_ref = datetime.now(timezone.utc).replace(tzinfo=None)
+    _stage_days: dict = defaultdict(list)
+    for _origin, _status, _created_at, _last_int, _upd in _team_open_rows:
+        if _is_organico(_origin) or _origin in parts:
+            continue
+        _s = (_status or "").lower()
+        if _s in venda_set or _s == CANCELADO_STATUS:
+            continue
+        _ref = max((d for d in (_last_int, _upd, _created_at) if d is not None), default=None)
+        if _ref is None:
+            continue
+        _stage_key = _STAGE_CANON.get(_s, "novo")
+        _stage_days[_stage_key].append((_now_ref - _ref).total_seconds() / 86400)
+    equipe_medias["estagios"] = {
+        k: round(sum(v) / len(v), 1) for k, v in _stage_days.items() if v
+    }
+
     status_rows = (
         db.query(LeadStatusHistory.changed_at, LeadStatusHistory.to_status, Lead.name, Lead.id)
         .join(Lead, Lead.id == LeadStatusHistory.lead_id)
@@ -1079,6 +1123,7 @@ def vida_sdr(
         "ranking_geral": ranking_geral,
         "atividades": atividades[:100],
         "estagios": estagios,
+        "equipe_medias": equipe_medias,
     }
 
 
