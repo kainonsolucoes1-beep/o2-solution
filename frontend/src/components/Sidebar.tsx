@@ -173,6 +173,30 @@ export default function Sidebar() {
     return () => { cancelled = true; clearInterval(id) }
   }, [user])
 
+  // Dedupe entre abas: com mais de uma aba/janela logada, cada uma tem seu
+  // proprio timer e tocaria o beep sozinha pro mesmo agendamento. localStorage
+  // e' compartilhado entre abas da mesma origem -- a primeira aba a ver um
+  // schedule_id "reivindica" o beep gravando-o aqui; as outras, ao verem que
+  // ja' foi reivindicado, nao tocam de novo. Se o localStorage falhar (modo
+  // anonimo, por ex.), toca mesmo assim -- melhor duplicar que perder o alerta.
+  const claimFollowupBeep = useCallback((newIds: string[]): boolean => {
+    const KEY = 'o2sig_followup_beeped_ids_v1'
+    const TTL_MS = 2 * 60 * 60 * 1000
+    try {
+      const now = Date.now()
+      const map: Record<string, number> = JSON.parse(localStorage.getItem(KEY) || '{}')
+      for (const k of Object.keys(map)) { if (now - map[k] > TTL_MS) delete map[k] }
+      let shouldBeep = false
+      for (const id of newIds) {
+        if (!(id in map)) { shouldBeep = true; map[id] = now }
+      }
+      localStorage.setItem(KEY, JSON.stringify(map))
+      return shouldBeep
+    } catch {
+      return true
+    }
+  }, [])
+
   const playFollowupBeep = useCallback(() => {
     try {
       let ctx = audioCtxRef.current
@@ -201,7 +225,10 @@ export default function Sidebar() {
           const items = r.data.items
           const ids = new Set(items.map(a => a.schedule_id))
           const seen = followupSeenRef.current
-          if (seen && [...ids].some(id => !seen.has(id))) playFollowupBeep()
+          if (seen) {
+            const newIds = [...ids].filter(id => !seen.has(id))
+            if (newIds.length > 0 && claimFollowupBeep(newIds)) playFollowupBeep()
+          }
           followupSeenRef.current = ids
           setFollowupAlerts(items)
         })
@@ -210,7 +237,7 @@ export default function Sidebar() {
     loadFollowup()
     const id = setInterval(loadFollowup, 60 * 1000)
     return () => { cancelled = true; clearInterval(id) }
-  }, [user, playFollowupBeep])
+  }, [user, playFollowupBeep, claimFollowupBeep])
 
   function logout() { localStorage.removeItem('token'); navigate('/login') }
 
