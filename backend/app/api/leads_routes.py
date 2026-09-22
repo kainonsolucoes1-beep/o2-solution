@@ -221,7 +221,14 @@ def leads_by_period(
             else:
                 q = q.filter(date_clause)
         if needs_own_origin_filter(current_user):
-            q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
+            _own_clause = or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id)
+            # perfil usuario tambem enxerga o que estiver atribuido a ele como
+            # atendente (Lead.attendant) -- cobre leads de origem "Meta Ads" /
+            # "Organico" que o rodizio atribuiu a ele, mas cuja origin nao e' o
+            # nome dele (ex: leads do plugin Gravity Forms / Meta Ads).
+            if current_user.role == "usuario":
+                _own_clause = or_(_own_clause, Lead.attendant == my_name)
+            q = q.filter(_own_clause)
         elif origem:
             _oc = _origem_clause(db, origem)
             if _oc is not None:
@@ -394,7 +401,14 @@ def leads_report_stats(
             else:
                 q = q.filter(date_clause)
         if needs_own_origin_filter(current_user):
-            q = q.filter(or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id))
+            _own_clause = or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id)
+            # perfil usuario tambem enxerga o que estiver atribuido a ele como
+            # atendente (Lead.attendant) -- cobre leads de origem "Meta Ads" /
+            # "Organico" que o rodizio atribuiu a ele, mas cuja origin nao e' o
+            # nome dele (ex: leads do plugin Gravity Forms / Meta Ads).
+            if current_user.role == "usuario":
+                _own_clause = or_(_own_clause, Lead.attendant == my_name)
+            q = q.filter(_own_clause)
         elif origem:
             _oc = _origem_clause(db, origem)
             if _oc is not None:
@@ -1396,6 +1410,7 @@ def get_agenda(
             Lead.origin == my_name,
             Lead.renutricao_owner_id == current_user.id,
             LeadSchedule.created_by == my_name,
+            Lead.attendant == my_name,
         ))
     rows = q.order_by(LeadSchedule.scheduled_at.asc()).all()
     items = [
