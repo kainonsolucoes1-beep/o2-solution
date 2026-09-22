@@ -1,8 +1,8 @@
-import { useState, useEffect, type MouseEvent } from 'react'
+import { useState, useEffect, useCallback, useRef, type MouseEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound, Megaphone,
+  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound, Megaphone, Bell, Clock, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
@@ -10,6 +10,11 @@ import { useTheme } from '../ThemeContext'
 
 interface UserInfo { username: string; first_name: string | null; role: string; is_campanha_operador?: boolean }
 interface AgendaAlerts { overdue: number; today: number }
+interface AgendaAlertItem {
+  id: string; name: string; phone: string | null; attendant: string | null
+  scheduled_at: string; schedule_id: string; bucket: 'overdue' | 'due_soon'
+}
+const fmtHM = (iso: string) => new Date(iso.endsWith('Z') ? iso : iso + 'Z').toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
 const NAV = [
   { to: '/dashboard',        label: 'Dashboard',        Icon: LayoutDashboard, adminOnly: false },
@@ -128,6 +133,12 @@ export default function Sidebar() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [user, setUser] = useState<UserInfo | null>(null)
   const [agendaAlerts, setAgendaAlerts] = useState<AgendaAlerts | null>(null)
+  // Follow-up perto de vencer/atrasado -- visivel em qualquer tela (o backend
+  // ja' escopa por perfil: usuario comum so' os proprios, demais veem todos).
+  const [followupAlerts, setFollowupAlerts] = useState<AgendaAlertItem[]>([])
+  const [followupOpen, setFollowupOpen] = useState(false)
+  const followupSeenRef = useRef<Set<string> | null>(null)  // null = 1a carga (evita beep de leads ja existentes)
+  const audioCtxRef = useRef<AudioContext | null>(null)
   // Expanders da sidebar (Campanhas/Financeiro/Configurações) em modo "sanfona"
   // -- só um aberto por vez. Abre sozinho ao entrar numa rota do grupo; fora
   // isso, só um clique manual no cabeçalho abre/fecha.
@@ -161,6 +172,45 @@ export default function Sidebar() {
     const id = setInterval(load, 3 * 60 * 1000)
     return () => { cancelled = true; clearInterval(id) }
   }, [user])
+
+  const playFollowupBeep = useCallback(() => {
+    try {
+      let ctx = audioCtxRef.current
+      if (!ctx) { ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); audioCtxRef.current = ctx }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = 880
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35)
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.35)
+    } catch { /* autoplay bloqueado ou navegador sem suporte -- silencioso */ }
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    function loadFollowup() {
+      api.get<{ items: AgendaAlertItem[] }>('/api/v1/agenda/alerts', { params: { window_minutes: 10 } })
+        .then(r => {
+          if (cancelled) return
+          const items = r.data.items
+          const ids = new Set(items.map(a => a.schedule_id))
+          const seen = followupSeenRef.current
+          if (seen && [...ids].some(id => !seen.has(id))) playFollowupBeep()
+          followupSeenRef.current = ids
+          setFollowupAlerts(items)
+        })
+        .catch(() => {})
+    }
+    loadFollowup()
+    const id = setInterval(loadFollowup, 60 * 1000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [user, playFollowupBeep])
 
   function logout() { localStorage.removeItem('token'); navigate('/login') }
 
@@ -301,9 +351,76 @@ export default function Sidebar() {
     </div>
   )
 
+  const followupBell = (
+    <div style={{ position: 'fixed', top: 12, right: 16, zIndex: 60 }}>
+      <button
+        onClick={() => setFollowupOpen(o => !o)}
+        title="Follow-ups perto de vencer"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 36, height: 36, borderRadius: '50%', position: 'relative',
+          border: `1px solid ${followupAlerts.length > 0 ? '#F59E0B' : '#1F2937'}`,
+          background: followupAlerts.length > 0 ? 'rgba(245,158,11,0.12)' : '#111827',
+          color: followupAlerts.length > 0 ? '#F59E0B' : '#9CA3AF',
+          cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        }}
+      >
+        <Bell size={16} />
+        {followupAlerts.length > 0 && (
+          <span style={{
+            position: 'absolute', top: -3, right: -3,
+            background: followupAlerts.some(a => a.bucket === 'overdue') ? '#EF4444' : '#F59E0B',
+            color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700,
+            minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 3px', lineHeight: 1,
+          }}>
+            {followupAlerts.length}
+          </span>
+        )}
+      </button>
+      {followupOpen && (
+        <>
+          <div onClick={() => setFollowupOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 59 }} />
+          <div style={{
+            position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 61, width: 300, maxHeight: 360, overflowY: 'auto',
+            background: '#1F2937', border: '1px solid #374151', borderRadius: 12, padding: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.4)',
+          }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '4px 6px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Follow-up</p>
+            {followupAlerts.length === 0 ? (
+              <p style={{ fontSize: 12.5, color: '#6B7280', padding: '4px 6px 8px' }}>Nada vencendo nos próximos 10 minutos.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {followupAlerts.map(a => (
+                  <button
+                    key={a.schedule_id}
+                    onClick={() => { setFollowupOpen(false); navigate(`/leads/${a.id}`) }}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 6px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    {a.bucket === 'overdue'
+                      ? <AlertTriangle size={14} color="#EF4444" style={{ flexShrink: 0, marginTop: 2 }} />
+                      : <Clock size={14} color="#F59E0B" style={{ flexShrink: 0, marginTop: 2 }} />}
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#F9FAFB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: a.bucket === 'overdue' ? '#EF4444' : '#9CA3AF' }}>
+                        {a.bucket === 'overdue' ? 'Atrasado — ' : 'Vencendo — '}{fmtHM(a.scheduled_at)}{a.attendant ? ` · ${a.attendant}` : ''}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+
   if (isMobile) {
     return (
       <>
+        {followupBell}
         {!mobileOpen && (
           <button
             onClick={() => setMobileOpen(true)}
@@ -356,7 +473,9 @@ export default function Sidebar() {
 
   const w = collapsed ? 64 : 240
   return (
-    <aside style={{
+    <>
+      {followupBell}
+      <aside style={{
       width: w, flexShrink: 0, height: '100vh',
       position: 'sticky', top: 0,
       transition: 'width 200ms ease',
@@ -389,6 +508,7 @@ export default function Sidebar() {
         {settingsGroup}
       </nav>
       {footer}
-    </aside>
+      </aside>
+    </>
   )
 }
