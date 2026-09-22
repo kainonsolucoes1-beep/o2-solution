@@ -1,6 +1,7 @@
+import logging
 from calendar import monthrange
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, func, or_
@@ -17,6 +18,7 @@ from app.security import can_see_financials, needs_own_origin_filter, team_scope
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, br_month_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/gestao-comercial", tags=["gestao-comercial"])
+logger = logging.getLogger(__name__)
 
 # abreviacao de mes em pt-BR — nao depende de locale instalado no servidor
 MESES_ABREV = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
@@ -888,7 +890,7 @@ def vida_sdr(
             "captacoes": 0, "em_andamento": 0, "cancelados": 0, "vendas": 0,
             "conversao": 0.0, "receita_recebida": 0.0, "receita_a_receber": 0.0, "receita_potencial": 0.0,
             "primeiro_lead_em": None, "ativo_desde": ativo_desde.isoformat() if ativo_desde else None, "meta": meta, "trend": [],
-            "ranking": None, "ranking_geral": None, "atividades": [], "estagios": [],
+            "ranking": None, "ranking_geral": None, "atividades": [], "estagios": [], "equipe_medias": None,
         }
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -1025,6 +1027,55 @@ def vida_sdr(
 
     ranking_geral = {"captacoes": _rank_by("captacoes"), "vendas": _rank_by("vendas")}
 
+    # medias do time -- pra visao "Producao" comparar o agente com o resto da
+    # equipe, sem depender de financeiro. Todo o bloco e' best-effort: qualquer
+    # falha aqui (ex: dataset grande, erro de query) nao pode derrubar o resto
+    # da resposta -- so' perde o comparativo, a tela continua funcionando.
+    equipe_medias = None
+    try:
+        _outros = {k: v for k, v in count_buckets.items() if k != "o2 Solution" and k != current_key}
+        _n_outros = len(_outros) or 1
+        _total_capt_outros = sum(v["captacoes"] for v in _outros.values())
+        _total_vendas_outros = sum(v["vendas"] for v in _outros.values())
+        equipe_medias = {
+            "captacoes": round(_total_capt_outros / _n_outros, 1),
+            "vendas": round(_total_vendas_outros / _n_outros, 1),
+            "conversao": round(_total_vendas_outros / _total_capt_outros * 100, 1) if _total_capt_outros else 0.0,
+            "estagios": {},
+        }
+        # tempo parado medio por estagio, mesma referencia usada pro agente (ultima
+        # interacao > ultima atualizacao > captacao efetiva). O filtro de status
+        # "em aberto" vai pro WHERE (nao filtrado em Python depois) pra nao trazer
+        # pra memoria anos de leads fechados/cancelados do historico do Followize.
+        _status_aberto = or_(
+            func.lower(Lead.status).notin_(list(venda_set) + [CANCELADO_STATUS]),
+            Lead.status.is_(None),
+        )
+        _team_open_rows = (
+            db.query(
+                Lead.origin, Lead.status, EFFECTIVE_CAPTACAO.label("created_at"),
+                Lead.last_interaction_at, Lead.updated_at,
+            )
+            .filter(Lead.origin.isnot(None), Lead.origin != "", _status_aberto, *date_filters)
+            .all()
+        )
+        _now_ref = datetime.now(timezone.utc).replace(tzinfo=None)
+        _stage_days: dict = defaultdict(list)
+        for _origin, _status, _created_at, _last_int, _upd in _team_open_rows:
+            if _is_organico(_origin) or _origin in parts:
+                continue
+            _ref = max((d for d in (_last_int, _upd, _created_at) if d is not None), default=None)
+            if _ref is None:
+                continue
+            _stage_key = _STAGE_CANON.get((_status or "").lower(), "novo")
+            _stage_days[_stage_key].append((_now_ref - _ref).total_seconds() / 86400)
+        equipe_medias["estagios"] = {
+            k: round(sum(v) / len(v), 1) for k, v in _stage_days.items() if v
+        }
+    except Exception:
+        logger.exception("Falha ao calcular medias do time em /vida-sdr (origens=%s)", origens)
+        equipe_medias = None
+
     status_rows = (
         db.query(LeadStatusHistory.changed_at, LeadStatusHistory.to_status, Lead.name, Lead.id)
         .join(Lead, Lead.id == LeadStatusHistory.lead_id)
@@ -1079,6 +1130,7 @@ def vida_sdr(
         "ranking_geral": ranking_geral,
         "atividades": atividades[:100],
         "estagios": estagios,
+        "equipe_medias": equipe_medias,
     }
 
 
