@@ -14,6 +14,7 @@ import LeadCurrentStatusPanel from '../components/LeadCurrentStatusPanel'
 import LeadRegistrationPanel from '../components/LeadRegistrationPanel'
 import LeadFinanceiroPanel from '../components/LeadFinanceiroPanel'
 import LeadAttachmentsPanel from '../components/LeadAttachmentsPanel'
+import EmissaoModal from '../components/EmissaoModal'
 
 interface LeadItem {
   id: string
@@ -103,6 +104,7 @@ export default function LeadDetailPage() {
   const [editingStatus, setEditingStatus] = useState(false)
   const [statusSubMenu, setStatusSubMenu] = useState<'fechado' | 'perdido' | 'finalizar' | 'venda_realizada' | null>(null)
   const [savingStatus, setSavingStatus]   = useState(false)
+  const [emissaoOpen, setEmissaoOpen]     = useState(false)
   const [notes, setNotes]                 = useState<Note[]>([])
   const [loadingNotes, setLoadingNotes]   = useState(true)
   const [noteText, setNoteText]           = useState('')
@@ -189,20 +191,24 @@ export default function LeadDetailPage() {
     return () => clearInterval(t)
   }, [])
 
-  function handleStatusChange(newStatus: string, lostReason?: string) {
+  function handleStatusChange(newStatus: string, lostReason?: string, extra?: Record<string, unknown>) {
     if (!id) return
     setSavingStatus(true)
-    api.post(`/api/v1/leads/${id}/status`, { status: newStatus, ...(lostReason ? { lost_reason: lostReason } : {}) })
+    api.post(`/api/v1/leads/${id}/status`, { status: newStatus, ...(lostReason ? { lost_reason: lostReason } : {}), ...(extra ?? {}) })
       .then(() => {
         setStatus(newStatus)
         if (lostReason) setLead(prev => prev ? { ...prev, lost_reason: lostReason } : prev)
         setEditingStatus(false)
         setStatusSubMenu(null)
+        setEmissaoOpen(false)
         setToast({ msg: 'Status atualizado com sucesso', ok: true })
         return api.get<{ history: StatusHistoryItem[] }>(`/api/v1/leads/${id}/status-history`)
       })
       .then(r => setHistory(r.data.history))
-      .catch(() => setToast({ msg: 'Erro ao atualizar status', ok: false }))
+      .catch(err => {
+        const detail = err?.response?.data?.detail
+        setToast({ msg: typeof detail === 'string' ? detail : 'Erro ao atualizar status', ok: false })
+      })
       .finally(() => setSavingStatus(false))
   }
 
@@ -497,6 +503,20 @@ export default function LeadDetailPage() {
           {toast.msg}
         </div>
       )}
+      {emissaoOpen && lead && (
+        <EmissaoModal
+          leadName={lead.name}
+          statusLabel={statusLabel(status)}
+          defaultValor={lead.value_potential != null ? lead.value_potential.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+          saving={savingStatus}
+          onCancel={() => setEmissaoOpen(false)}
+          onConfirm={({ operadora, valor, observacao }) => handleStatusChange('emissao', undefined, {
+            operadora,
+            ...(valor.trim() ? { valor_contrato: parseBRNumber(valor) } : {}),
+            ...(observacao.trim() ? { observacao: observacao.trim() } : {}),
+          })}
+        />
+      )}
 
       {renutricaoLock && (
         <div style={{
@@ -595,6 +615,7 @@ export default function LeadDetailPage() {
         onStatusOptionClick={value => {
           if (value === 'fechado') { setStatusSubMenu('fechado'); return }
           if (value === 'sale_not_performed') { setStatusSubMenu('perdido'); return }
+          if (value === 'emissao') { setEmissaoOpen(true); return }
           handleStatusChange(value)
         }}
         onClosedSubClick={value => handleStatusChange(value)}

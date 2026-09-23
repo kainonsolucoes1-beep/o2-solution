@@ -99,6 +99,10 @@ class BulkDeleteResponse(BaseModel):
 class StatusUpdateRequest(BaseModel):
     status: str
     lost_reason: Optional[str] = None
+    # so' usados quando status == "emissao" (envio pra emissao de contrato)
+    operadora: Optional[str] = None
+    valor_contrato: Optional[float] = None
+    observacao: Optional[str] = None
 
 
 class StatusUpdateResponse(BaseModel):

@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.lead_utils import extract_base
-from app.models import Lead, LeadAttachment, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
+from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
+from app.operadoras import OPERADORAS_EMISSAO
 from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads
 from app.tz_utils import br_date_to_utc_range, now_br
 from app import storage_r2
@@ -573,6 +574,13 @@ def list_modalidades(
     return list(MODALIDADES_FIXAS)
 
 
+@router.get("/leads/operadoras-emissao", response_model=List[str])
+def list_operadoras_emissao(
+    current_user: User = Depends(get_current_user),
+):
+    return list(OPERADORAS_EMISSAO)
+
+
 @router.get("/leads/{lead_id}", response_model=LeadReportItem)
 def get_lead(
     lead_id: str,
@@ -637,16 +645,58 @@ def update_lead_status(
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
     prev_status = lead.status
+    actor = current_user.first_name or current_user.username
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    if body.status == "emissao":
+        operadora = (body.operadora or "").strip()
+        if operadora not in OPERADORAS_EMISSAO:
+            raise HTTPException(status_code=422, detail="Selecione a operadora da emissão")
+        valor = body.valor_contrato if body.valor_contrato is not None else lead.value_potential
+        obs = (body.observacao or "").strip() or None
+        ja_em_emissao = (prev_status or "").lower() == "emissao"
+        if ja_em_emissao:
+            # so' corrige operadora/valor do envio atual -- nao conta um envio novo.
+            # Lead que ja' estava em Emissao antes deste campo existir (sem linha):
+            # cria a linha com a data/autor da entrada real no status, pra nao virar
+            # "enviado hoje" so' porque alguem preencheu a operadora agora.
+            row = (
+                db.query(LeadEmissao).filter(LeadEmissao.lead_id == lead.id)
+                .order_by(LeadEmissao.enviado_em.desc()).first()
+            )
+            if row is None:
+                entrada = (
+                    db.query(LeadStatusHistory)
+                    .filter(LeadStatusHistory.lead_id == lead.id, LeadStatusHistory.to_status == "emissao")
+                    .order_by(LeadStatusHistory.changed_at.desc()).first()
+                )
+                row = LeadEmissao(
+                    lead_id=lead.id, valor_cotacao=lead.value_potential,
+                    enviado_por=(entrada.changed_by if entrada else None) or actor,
+                    enviado_em=(entrada.changed_at if entrada and entrada.changed_at else now),
+                )
+                db.add(row)
+            row.operadora = operadora
+            row.valor = valor
+            row.observacao = obs
+            lead.updated_at = now
+            db.commit()
+            return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
+        db.add(LeadEmissao(
+            lead_id=lead.id, operadora=operadora, valor=valor, valor_cotacao=lead.value_potential,
+            observacao=obs, enviado_por=actor, user_id=current_user.id, enviado_em=now,
+        ))
+
     lead.status = body.status
     if body.lost_reason is not None:
         lead.lost_reason = body.lost_reason.strip() or None
-    lead.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    lead.updated_at = now
     history = LeadStatusHistory(
         lead_id=lead.id,
         from_status=prev_status,
         to_status=body.status,
         changed_at=lead.updated_at,
-        changed_by=current_user.first_name or current_user.username,
+        changed_by=actor,
     )
     db.add(history)
     db.commit()

@@ -98,6 +98,24 @@ class LeadStatusHistory(Base):
     changed_by = Column(String(255), nullable=True)
 
 
+class LeadEmissao(Base):
+    """Envio de um lead pra emissao de contrato junto a operadora. Uma linha por
+    envio (o indicador "Emissao de contrato" conta estas linhas por dia, atribuidas
+    a quem enviou). Guarda a cotacao do momento (valor_cotacao) separada do valor
+    do contrato (valor), que pode ser ajustado no envio."""
+    __tablename__ = "lead_emissoes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
+    operadora = Column(String(60), nullable=False)
+    valor = Column(Numeric(12, 2), nullable=True)
+    valor_cotacao = Column(Numeric(12, 2), nullable=True)
+    observacao = Column(Text, nullable=True)
+    enviado_por = Column(String(255), nullable=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    enviado_em = Column(TIMESTAMP, nullable=False, server_default=func.now(), index=True)
+
+
 class LeadSchedule(Base):
     __tablename__ = "lead_schedules"
 
