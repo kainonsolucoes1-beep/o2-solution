@@ -60,6 +60,11 @@ function ConfiguracoesTab() {
   const [rotatingTeamSlug, setRotatingTeamSlug] = useState<string | null>(null)
   const [docsTeamSlug, setDocsTeamSlug] = useState<string | null>(null)
   const [curlCopied, setCurlCopied] = useState(false)
+  const [apiTab, setApiTab] = useState<'chaves' | 'docs' | 'sync'>('chaves')
+  // chaves ficam mascaradas na tela (Mostrar/Ocultar); Copiar sempre leva o valor real
+  const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set())
+  const toggleReveal = (id: string) => setRevealedKeys(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const maskKey = (v: string) => '•'.repeat(16) + v.slice(-4)
 
   const fetchHealth = useCallback(async () => {
     try { const res = await api.get('/api/v1/admin/sync-status'); setHealth(res.data as SyncHealth) }
@@ -134,11 +139,12 @@ function ConfiguracoesTab() {
 
   const activeDocsTeamSlug = docsTeamSlug ?? Object.keys(teamKeys)[0] ?? null
 
-  function buildCurlExample(): string {
+  function buildCurlExample(masked = false): string {
     const apiBase = import.meta.env.VITE_API_URL || window.location.origin
-    const teamValue = activeDocsTeamSlug ? (teamKeys[activeDocsTeamSlug]?.value ?? '<chave-da-equipe>') : '<chave-da-equipe>'
+    const accountValue = masked ? '<chave-da-conta>' : (publicApiKey ?? '<chave-da-conta>')
+    const teamValue = masked ? '<chave-da-equipe>' : (activeDocsTeamSlug ? (teamKeys[activeDocsTeamSlug]?.value ?? '<chave-da-equipe>') : '<chave-da-equipe>')
     return `curl -X POST ${apiBase}/api/v1/public/leads \\
-  -H "X-API-Key: ${publicApiKey ?? '<chave-da-conta>'}" \\
+  -H "X-API-Key: ${accountValue}" \\
   -H "X-Team-Key: ${teamValue}" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -210,35 +216,26 @@ function ConfiguracoesTab() {
         <HealthCell dot="#9CA3AF" label="Financeiro" value="Sincronização manual" sub="rodar quando a planilha mudar" />
       </div>
 
+      <div role="tablist" aria-label="Seções da API" style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)' }}>
+        {([['chaves', 'Chaves'], ['docs', 'Documentação'], ['sync', 'Sincronizações']] as const).map(([id, label]) => (
+          <button
+            key={id} role="tab" aria-selected={apiTab === id} onClick={() => setApiTab(id)}
+            style={{
+              padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 13.5, fontWeight: apiTab === id ? 700 : 600,
+              color: apiTab === id ? '#2563EB' : 'var(--text-muted)',
+              borderBottom: apiTab === id ? '2px solid #2563EB' : '2px solid transparent', marginBottom: -1,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {(apiTab === 'chaves' || apiTab === 'docs') && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <p style={eyebrowStyle}>Integrações e credenciais</p>
-
-      <Accordion
-        title="Tokens Followize"
-        statusColor={health?.tokens_configured ? '#10B981' : '#EF4444'}
-        summary={health?.tokens_configured ? 'configurados' : 'não encontrados'}
-      >
-        <div className="flex flex-col gap-5">
-        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Cole os tokens gerados pelo script <code>renovar_token.py</code>. O sistema atualiza imediatamente sem precisar reiniciar.</p>
-        <div className="flex flex-col gap-2">
-          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>Access Token</label>
-          <textarea value={accessToken} onChange={e => setAccessToken(e.target.value)} rows={4} placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
-            style={{ fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-in)', resize: 'vertical', fontFamily: 'monospace', color: 'var(--text-2)', outline: 'none', background: 'var(--bg-input)' }} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>Refresh Token</label>
-          <textarea value={refreshToken} onChange={e => setRefreshToken(e.target.value)} rows={3} placeholder="def50200..."
-            style={{ fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-in)', resize: 'vertical', fontFamily: 'monospace', color: 'var(--text-2)', outline: 'none', background: 'var(--bg-input)' }} />
-        </div>
-        {status === 'success' && <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}><p style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>Tokens atualizados com sucesso.</p></div>}
-        {status === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{errorMsg}</p></div>}
-        <button onClick={handleSave} disabled={status === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: status === 'loading' ? '#93C5FD' : '#2563EB', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: status === 'loading' ? 'not-allowed' : 'pointer' }}>
-          {status === 'loading' ? 'Salvando...' : 'Salvar Tokens'}
-        </button>
-        </div>
-      </Accordion>
-
-      <Accordion
+      {apiTab === 'chaves' && (
+      <Accordion defaultOpen
         title="Chaves de integração — leads públicos"
         statusColor="var(--accent)"
         summary={publicKeyLoading ? undefined : `1 chave de conta · ${Object.keys(teamKeys).length} de equipe`}
@@ -254,7 +251,8 @@ function ConfiguracoesTab() {
             <div className="flex flex-col gap-1">
               <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>Chave da conta</span>
               <div className="flex items-center" style={{ gap: 8 }}>
-                <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{publicApiKey}</code>
+                <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{revealedKeys.has('conta') ? publicApiKey : maskKey(publicApiKey)}</code>
+                <button onClick={() => toggleReveal('conta')} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>{revealedKeys.has('conta') ? 'Ocultar' : 'Mostrar'}</button>
                 <button onClick={copyPublicKey} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: publicKeyCopied ? '#10B981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
                   {publicKeyCopied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
                 </button>
@@ -282,7 +280,8 @@ function ConfiguracoesTab() {
                 <div key={slug} className="flex flex-col gap-1">
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>{team.name}</span>
                   <div className="flex items-center" style={{ gap: 8 }}>
-                    <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{team.value}</code>
+                    <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{revealedKeys.has(`team:${slug}`) ? team.value : maskKey(team.value)}</code>
+                    <button onClick={() => toggleReveal(`team:${slug}`)} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>{revealedKeys.has(`team:${slug}`) ? 'Ocultar' : 'Mostrar'}</button>
                     <button onClick={() => copyTeamKey(slug)} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: teamKeyCopiedSlug === slug ? '#10B981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
                       {teamKeyCopiedSlug === slug ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
                     </button>
@@ -301,8 +300,10 @@ function ConfiguracoesTab() {
         </p>
         </div>
       </Accordion>
+      )}
 
-      <Accordion title="Documentação da API — leads públicos" summary="endpoint, campos e exemplo de payload">
+      {apiTab === 'docs' && (
+      <Accordion defaultOpen title="Documentação da API — leads públicos" summary="endpoint, campos e exemplo de payload">
         <div className="flex flex-col gap-4">
         <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Referência para integrar sites e automações (Gravity Forms, Make.com, etc.) direto com o o2-solution.</p>
 
@@ -413,15 +414,44 @@ function ConfiguracoesTab() {
             >
               {curlCopied ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> Copiar</>}
             </button>
-            <pre style={{ margin: 0, fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', fontSize: 12, lineHeight: 1.6, color: '#E2E8F0', whiteSpace: 'pre' }}>{buildCurlExample()}</pre>
+            <pre style={{ margin: 0, fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', fontSize: 12, lineHeight: 1.6, color: '#E2E8F0', whiteSpace: 'pre' }}>{buildCurlExample(true)}</pre>
           </div>
+          <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--text-subtle)' }}>As chaves aparecem como {'<chave-…>'}. O botão Copiar leva o comando com as chaves reais.</p>
         </div>
         </div>
       </Accordion>
+      )}
       </div>
+      )}
 
+      {apiTab === 'sync' && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <p style={eyebrowStyle}>Sincronização e manutenção</p>
+
+      <Accordion
+        title="Tokens Followize (desativado)"
+        statusColor={health?.tokens_configured ? '#10B981' : '#EF4444'}
+        summary={health?.tokens_configured ? 'configurados' : 'não encontrados'}
+      >
+        <div className="flex flex-col gap-5">
+        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Cole os tokens gerados pelo script <code>renovar_token.py</code>. O sistema atualiza imediatamente sem precisar reiniciar.</p>
+        <div className="flex flex-col gap-2">
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>Access Token</label>
+          <textarea value={accessToken} onChange={e => setAccessToken(e.target.value)} rows={4} placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
+            style={{ fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-in)', resize: 'vertical', fontFamily: 'monospace', color: 'var(--text-2)', outline: 'none', background: 'var(--bg-input)' }} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>Refresh Token</label>
+          <textarea value={refreshToken} onChange={e => setRefreshToken(e.target.value)} rows={3} placeholder="def50200..."
+            style={{ fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-in)', resize: 'vertical', fontFamily: 'monospace', color: 'var(--text-2)', outline: 'none', background: 'var(--bg-input)' }} />
+        </div>
+        {status === 'success' && <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}><p style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>Tokens atualizados com sucesso.</p></div>}
+        {status === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{errorMsg}</p></div>}
+        <button onClick={handleSave} disabled={status === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: status === 'loading' ? '#93C5FD' : '#2563EB', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: status === 'loading' ? 'not-allowed' : 'pointer' }}>
+          {status === 'loading' ? 'Salvando...' : 'Salvar Tokens'}
+        </button>
+        </div>
+      </Accordion>
 
       <Accordion
         title="Status do sync automático"
@@ -515,6 +545,7 @@ function ConfiguracoesTab() {
         </div>
       </Accordion>
       </div>
+      )}
     </div>
   )
 }
