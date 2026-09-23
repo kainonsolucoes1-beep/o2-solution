@@ -14,7 +14,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.lead_utils import extract_base
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
-from app.operadoras import OPERADORAS_EMISSAO
+from app.operadoras import get_operadoras
 from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads
 from app.tz_utils import br_date_to_utc_range, now_br
 from app import storage_r2
@@ -577,8 +577,9 @@ def list_modalidades(
 @router.get("/leads/operadoras-emissao", response_model=List[str])
 def list_operadoras_emissao(
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    return list(OPERADORAS_EMISSAO)
+    return get_operadoras(db)
 
 
 @router.get("/leads/{lead_id}", response_model=LeadReportItem)
@@ -650,7 +651,7 @@ def update_lead_status(
 
     if body.status == "emissao":
         operadora = (body.operadora or "").strip()
-        if operadora not in OPERADORAS_EMISSAO:
+        if operadora not in get_operadoras(db):
             raise HTTPException(status_code=422, detail="Selecione a operadora da emissão")
         valor = body.valor_contrato if body.valor_contrato is not None else lead.value_potential
         obs = (body.observacao or "").strip() or None

@@ -28,6 +28,7 @@ const NAV = [
 const SETTINGS_CHILDREN = [
   { to: '/settings/usuarios', label: 'Usuários' },
   { to: '/settings/api',      label: 'API' },
+  { to: '/settings/operadoras', label: 'Operadoras' },
 ]
 
 const FINANCEIRO_CHILDREN = [

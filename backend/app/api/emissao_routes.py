@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models import Lead, LeadEmissao, LeadStatusHistory, User
-from app.operadoras import OPERADORAS_EMISSAO
+from app.operadoras import LISTA_MAX, NOME_MAX, RESERVADO, get_operadoras, normalizar, salvar_operadoras
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/emissao", tags=["emissao"])
@@ -195,7 +195,7 @@ def definir_operadora(
     saiu de Emissao -- onde reescolher "Emissao" na ficha mudaria o status. Nao conta
     envio novo: o registro criado leva a data e a pessoa da entrada real no status."""
     operadora = (body.operadora or "").strip()
-    if operadora not in OPERADORAS_EMISSAO:
+    if operadora not in get_operadoras(db):
         raise HTTPException(status_code=422, detail="Selecione a operadora da emissão")
     try:
         evento_id = uuid.UUID(body.evento_id)
@@ -234,3 +234,30 @@ def definir_operadora(
         row.valor = body.valor
     db.commit()
     return {"success": True}
+
+
+class OperadorasRequest(BaseModel):
+    operadoras: list[str]
+
+
+@router.put("/operadoras")
+def salvar_lista_operadoras(
+    body: OperadorasRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Lista de operadoras do envio pra emissao (so' admin). Nao altera envios ja' registrados."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    nomes = normalizar(body.operadoras)
+    if not nomes:
+        raise HTTPException(status_code=422, detail="A lista precisa ter ao menos uma operadora")
+    if len(nomes) > LISTA_MAX:
+        raise HTTPException(status_code=422, detail=f"No máximo {LISTA_MAX} operadoras")
+    for n in nomes:
+        if len(n) > NOME_MAX:
+            raise HTTPException(status_code=422, detail=f"Nome muito longo (máx. {NOME_MAX} caracteres): {n[:20]}…")
+        if n.lower() == RESERVADO.lower():
+            raise HTTPException(status_code=422, detail=f'"{RESERVADO}" é um nome reservado do indicador')
+    salvar_operadoras(db, nomes)
+    return nomes
