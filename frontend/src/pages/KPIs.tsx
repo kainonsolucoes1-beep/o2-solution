@@ -1238,7 +1238,7 @@ export default function KPIs() {
             ) : (
               <AquisicaoTable
                 rows={basesDisplay.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, tempoMedioDias: b.tempo_medio_dias, receitaGerada: b.receita_gerada }))}
-                onOpen={(label, trigger) => { if (label !== 'Sem base informada') openDrawer('base', label, undefined, trigger) }}
+                onOpen={(label, trigger) => openDrawer('base', label, undefined, trigger)}
               />
             )
           )}

@@ -18,6 +18,19 @@ from app.tz_utils import BR_OFFSET, br_date_to_utc_range, br_month_utc_range, no
 
 router = APIRouter(prefix="/api/v1/kpis", tags=["kpis"])
 
+# "Sem base informada" (Aquisicao > Bases): nao e' uma base real -- e' o resto dos
+# leads de SDR que nao tem "Base: X" nas notas (o front calcula como total de SDR
+# menos as bases identificadas). Aqui vira um filtro de verdade, pra listar quem sao.
+SEM_BASE_LABEL = "Sem base informada"
+# Espelha SDR_NAMES de frontend/src/pages/KPIs.tsx -- manter os dois em sincronia.
+_SDR_NAMES = {
+    "isaac", "julia", "leticia", "maria eduarda", "anny", "emily", "emilly",
+    "pedro", "lucas", "guilherme", "lucascardoso", "lucas cardoso", "rodolfo", "discadora",
+    "gabrieli", "gabrielli", "kauany", "kauanny", "clara", "o2 solution",
+    "lucas carvalho", "lucascarvalho", "thaynara", "pamela",
+}
+
+
 VENDA_STATUSES    = ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")
 CANCELADO_STATUSES = ("sale_not_performed",)
 
@@ -1011,15 +1024,15 @@ def base_detalhe(
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
+    sem_base = base.strip().lower() == SEM_BASE_LABEL.lower()
+    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user)]
+    if sem_base:
+        filters.append(func.lower(func.trim(Lead.origin)).in_(_SDR_NAMES))
+    else:
+        filters += [Lead.notes.isnot(None), Lead.notes.ilike('%Base%')]
     leads = (
         db.query(Lead.notes, Lead.status, Lead.value_potential, Lead.modalidade, Lead.current_plan)
-        .filter(
-            EFFECTIVE_CAPTACAO >= dt_from,
-            EFFECTIVE_CAPTACAO <= dt_to,
-            Lead.notes.isnot(None),
-            Lead.notes.ilike('%Base%'),
-            *_scope_filter(team, current_user),
-        )
+        .filter(*filters)
         .all()
     )
 
@@ -1038,7 +1051,10 @@ def base_detalhe(
 
     for notes, status, value, modalidade, current_plan in leads:
         b = _extract_base(notes)
-        if not b or b.lower() != target:
+        if sem_base:
+            if b:
+                continue
+        elif not b or b.lower() != target:
             continue
         captacoes += 1
         s = (status or "").lower()
@@ -1103,15 +1119,15 @@ def leads_base(
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
+    sem_base = (base or '').strip().lower() == SEM_BASE_LABEL.lower()
+    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user)]
+    if sem_base:
+        filters.append(func.lower(func.trim(Lead.origin)).in_(_SDR_NAMES))
+    else:
+        filters += [Lead.notes.isnot(None), Lead.notes.ilike('%Base%')]
     leads = (
         db.query(Lead.id, Lead.name, Lead.notes, Lead.status, Lead.value_potential)
-        .filter(
-            EFFECTIVE_CAPTACAO >= dt_from,
-            EFFECTIVE_CAPTACAO <= dt_to,
-            Lead.notes.isnot(None),
-            Lead.notes.ilike('%Base%'),
-            *_scope_filter(team, current_user),
-        )
+        .filter(*filters)
         .all()
     )
 
@@ -1130,7 +1146,10 @@ def leads_base(
     result = []
     for lead_id, name, notes, status, value in leads:
         b = _extract_base(notes)
-        if not b or b.lower() != target:
+        if sem_base:
+            if b:
+                continue
+        elif not b or b.lower() != target:
             continue
         s = (status or '').lower()
         tipo = "venda" if s in venda_set else "perda" if s in cancelado_set else "ativo"
