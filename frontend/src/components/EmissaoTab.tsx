@@ -13,7 +13,7 @@ export interface EmissaoResumo {
   por_operadora: { operadora: string; count: number; valor: number }[]
   por_operador: { operador: string; count: number; valor: number }[]
   serie: { data: string; count: number }[]
-  contratos: { lead_id: string; cliente: string; operadora: string; valor: number | null; operador: string; em: string }[]
+  contratos: { evento_id: string; tipo: 'linha' | 'historico'; lead_id: string; cliente: string; operadora: string; valor: number | null; operador: string; em: string }[]
 }
 
 type Periodo = 'hoje' | 'ontem' | '7dias' | 'mes'
@@ -67,6 +67,9 @@ export default function EmissaoTab() {
   const [error, setError] = useState(false)
   const [copied, setCopied] = useState(false)
   const [conhecidos, setConhecidos] = useState<string[]>([])
+  const [operadoras, setOperadoras] = useState<string[]>([])
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [fixError, setFixError] = useState('')
 
   const load = useCallback(() => {
     const { from, to } = periodoRange(periodo)
@@ -83,6 +86,26 @@ export default function EmissaoTab() {
   }, [periodo, operador])
 
   useEffect(() => { load() }, [load])
+
+  const semOperadora = data ? data.contratos.filter(c => c.operadora === 'Sem operadora').length : 0
+  useEffect(() => {
+    if (semOperadora === 0 || operadoras.length > 0) return
+    api.get<string[]>('/api/v1/leads/operadoras-emissao').then(r => setOperadoras(r.data)).catch(() => {})
+  }, [semOperadora, operadoras.length])
+
+  // Define a operadora de um envio (inclusive os anteriores a janela existir e os
+  // de lead que ja' saiu de Emissao). Nao conta envio novo.
+  function definirOperadora(c: EmissaoResumo['contratos'][number], operadora: string) {
+    if (!operadora) return
+    setSavingId(c.evento_id); setFixError('')
+    api.post('/api/v1/emissao/definir-operadora', { tipo: c.tipo, evento_id: c.evento_id, operadora })
+      .then(() => load())
+      .catch(err => {
+        const detail = err?.response?.data?.detail
+        setFixError(typeof detail === 'string' ? detail : 'Não foi possível salvar a operadora.')
+      })
+      .finally(() => setSavingId(null))
+  }
 
   const maxOperadora = useMemo(() => Math.max(1, ...(data?.por_operadora.map(o => o.valor) ?? [1])), [data])
   const maxSerie = useMemo(() => Math.max(1, ...(data?.serie.map(s => s.count) ?? [1])), [data])
@@ -239,6 +262,12 @@ export default function EmissaoTab() {
               <span style={eyebrow}>Contratos enviados</span>
               <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{data.enviados} contrato{data.enviados === 1 ? '' : 's'} · {fmtBrl(data.valor_total)}</span>
             </div>
+            {semOperadora > 0 && (
+              <p style={{ margin: '0 0 12px', padding: '9px 12px', borderRadius: 9, background: 'rgba(245,158,11,0.10)', color: '#92400E', fontSize: 12.5 }}>
+                {semOperadora} envio{semOperadora === 1 ? '' : 's'} sem operadora. Escolha na lista da linha para preencher; isso não conta como envio novo.
+              </p>
+            )}
+            {fixError && <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#DC2626' }}>{fixError}</p>}
             {data.contratos.length === 0 ? (
               <p style={{ margin: '4px 0 14px', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum envio neste período.</p>
             ) : (
@@ -254,7 +283,19 @@ export default function EmissaoTab() {
                   {data.contratos.map(c => (
                     <tr key={c.lead_id + c.em}>
                       <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{c.cliente}</td>
-                      <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: c.operadora === 'Sem operadora' ? 'var(--text-muted)' : 'var(--text-2)' }}>{c.operadora}</td>
+                      <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)' }}>
+                        {c.operadora === 'Sem operadora' ? (
+                          <select
+                            value="" disabled={savingId === c.evento_id || operadoras.length === 0}
+                            onChange={e => definirOperadora(c, e.target.value)}
+                            aria-label={`Definir a operadora de ${c.cliente}`}
+                            style={{ height: 30, padding: '0 8px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.55)', background: 'rgba(245,158,11,0.10)', color: '#92400E', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600 }}
+                          >
+                            <option value="">{savingId === c.evento_id ? 'Salvando…' : 'Definir operadora…'}</option>
+                            {operadoras.map(op => <option key={op} value={op}>{op}</option>)}
+                          </select>
+                        ) : c.operadora}
+                      </td>
                       <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.valor != null ? fmtBrl(c.valor) : '—'}</td>
                       <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)' }}>{c.operador}</td>
                       <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmtQuando(c.em)}</td>

@@ -7,15 +7,19 @@ Envios anteriores a essa janela nao tem linha -- entram pelo historico de status
 indicador ja' nascer com dados reais.
 """
 from collections import defaultdict
+import uuid
 from datetime import date, datetime, timedelta, timezone
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.models import Lead, LeadEmissao, LeadStatusHistory, User
+from app.operadoras import OPERADORAS_EMISSAO
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/emissao", tags=["emissao"])
@@ -38,6 +42,7 @@ def _events(db: Session, start: datetime, end_excl: datetime) -> list[dict]:
     )
     events = [
         {
+            "evento_id": str(r.id), "tipo": "linha",
             "lead_id": str(r.lead_id), "cliente": name or "Sem nome", "operadora": r.operadora,
             "valor": _num(r.valor if r.valor is not None else r.valor_cotacao),
             "operador": r.enviado_por or "—", "em": r.enviado_em, "observacao": r.observacao,
@@ -64,6 +69,7 @@ def _events(db: Session, start: datetime, end_excl: datetime) -> list[dict]:
             if (h.lead_id, h.changed_at) in cobertos:
                 continue  # ja' tem linha em lead_emissoes (mesmo instante) -- nao conta 2x
             events.append({
+                "evento_id": str(h.id), "tipo": "historico",
                 "lead_id": str(h.lead_id), "cliente": name or "Sem nome", "operadora": SEM_OPERADORA,
                 "valor": _num(valor), "operador": h.changed_by or "—", "em": h.changed_at, "observacao": None,
             })
@@ -169,3 +175,62 @@ def resumo(
             for e in sorted(events, key=lambda e: e["em"])
         ],
     }
+
+
+class DefinirOperadoraRequest(BaseModel):
+    tipo: Literal["linha", "historico"]
+    evento_id: str
+    operadora: str
+    valor: Optional[float] = None
+
+
+@router.post("/definir-operadora")
+def definir_operadora(
+    body: DefinirOperadoraRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Define (ou corrige) a operadora de um envio pra emissao. Serve tambem pro que foi
+    enviado antes da janela existir ("Sem operadora", tipo=historico) e pra lead que ja'
+    saiu de Emissao -- onde reescolher "Emissao" na ficha mudaria o status. Nao conta
+    envio novo: o registro criado leva a data e a pessoa da entrada real no status."""
+    operadora = (body.operadora or "").strip()
+    if operadora not in OPERADORAS_EMISSAO:
+        raise HTTPException(status_code=422, detail="Selecione a operadora da emissão")
+    try:
+        evento_id = uuid.UUID(body.evento_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Envio inválido")
+
+    own = current_user.first_name or current_user.username
+
+    def _checa_dono(autor: str | None) -> None:
+        # perfil usuario so' mexe nos proprios envios
+        if current_user.role == "usuario" and (autor or "") != own:
+            raise HTTPException(status_code=403, detail="Você só pode alterar os seus próprios envios")
+
+    if body.tipo == "linha":
+        row = db.query(LeadEmissao).filter(LeadEmissao.id == evento_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Envio não encontrado")
+        _checa_dono(row.enviado_por)
+    else:
+        h = db.query(LeadStatusHistory).filter(LeadStatusHistory.id == evento_id, LeadStatusHistory.to_status == "emissao").first()
+        if not h:
+            raise HTTPException(status_code=404, detail="Envio não encontrado")
+        _checa_dono(h.changed_by)
+        row = db.query(LeadEmissao).filter(LeadEmissao.lead_id == h.lead_id, LeadEmissao.enviado_em == h.changed_at).first()
+        if row is None:
+            lead = db.query(Lead).filter(Lead.id == h.lead_id).first()
+            if not lead:
+                raise HTTPException(status_code=404, detail="Lead não encontrado")
+            row = LeadEmissao(
+                lead_id=h.lead_id, valor=lead.value_potential, valor_cotacao=lead.value_potential,
+                enviado_por=h.changed_by, enviado_em=h.changed_at,
+            )
+            db.add(row)
+    row.operadora = operadora
+    if body.valor is not None:
+        row.valor = body.valor
+    db.commit()
+    return {"success": True}
