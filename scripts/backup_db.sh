@@ -36,7 +36,7 @@ fi
 if [ "$r2_ok" = 1 ] && [ -f "$ENV_FILE" ]; then
   while IFS='=' read -r k v; do
     case "$k" in
-      R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY|R2_ENDPOINT) export "$k=$v" ;;
+      R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY|R2_ENDPOINT|R2_BUCKET_NAME) export "$k=$v" ;;
     esac
   done < "$ENV_FILE"
 fi
@@ -59,6 +59,24 @@ if [ "$r2_ok" = 1 ]; then
   rclone copy "$OUT" "$DEST/" --s3-no-check-bucket
   rclone delete "$DEST/" --min-age "${RETENTION_DAYS}d" --s3-no-check-bucket || true
   echo ">>> OK remoto: $DEST/$(basename "$OUT")"
+
+  # Anexos dos leads (bucket do app, chaves leads/<id>/...): so' COPIA, nunca
+  # apaga no destino -- um anexo excluido no sistema continua guardado no
+  # backup. Prefixo proprio (anexos/), fora do alcance da rotacao de 14 dias
+  # do dump acima. Falha aqui nao derruba o backup do banco, que ja' concluiu.
+  if [ -n "${R2_BUCKET_NAME:-}" ]; then
+    ANEXOS_DEST="R2BK:${R2_BACKUP_BUCKET}/anexos/leads"
+    echo ">>> copiando anexos R2BK:${R2_BUCKET_NAME}/leads -> $ANEXOS_DEST"
+    # timeout: se a rede travar, o script nao fica preso (e nao pula a limpeza
+    # local no fim). A copia e' incremental -- na noite seguinte continua de onde parou.
+    if timeout "${ANEXOS_TIMEOUT:-30m}" rclone copy "R2BK:${R2_BUCKET_NAME}/leads" "$ANEXOS_DEST" --s3-no-check-bucket; then
+      echo ">>> OK anexos: $ANEXOS_DEST"
+    else
+      echo "!!! falha ao copiar anexos (o backup do banco concluiu normalmente)" >&2
+    fi
+  else
+    echo "!!! R2_BUCKET_NAME ausente em $ENV_FILE -- pulando backup de anexos" >&2
+  fi
 else
   echo "!!! ATENCAO: backup existe apenas localmente ($OUT). Sem copia offsite."
 fi
