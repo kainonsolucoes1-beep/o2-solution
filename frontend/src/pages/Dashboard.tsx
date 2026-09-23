@@ -8,6 +8,7 @@ import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
 import { useTheme } from '../ThemeContext'
+import EmissaoCard from '../components/EmissaoCard'
 
 interface FeedItem {
   id: string
@@ -414,7 +415,7 @@ export default function Dashboard() {
       <section className="flex flex-col gap-4">
         <ZoneHeader>{diaLabel}{!filter && ' · ao vivo'}</ZoneHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 xl:gap-6">
           <KpiCard
             label={capLabel}
             value={String(data.captacao_hoje)}
@@ -523,6 +524,7 @@ export default function Dashboard() {
               )
             })()}
           </div>
+        <EmissaoCard from={filter?.from} to={filter?.to} />
         </div>
 
         {/* Ranking de hoje — colunas segmentadas (só divisórias verticais) */}

@@ -15,12 +15,13 @@ import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
 import { formatPersonName } from '../utils/formatName'
 import MetricCard from '../components/MetricCard'
+import EmissaoTab from '../components/EmissaoTab'
 import TrendChart from '../components/TrendChart'
 import ProgressBarList from '../components/ProgressBarList'
 import SectionTitle from '../components/SectionTitle'
 import { useTheme } from '../ThemeContext'
 
-const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção'] as const
+const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção', 'Emissão'] as const
 type Tab = typeof TABS[number]
 
 // ── Visão Geral types ────────────────────────────────────────────────────────
@@ -1560,7 +1561,7 @@ function ComparisonModal({ onClose }: { onClose: () => void }) {
 export default function GestaoComercial() {
   const navigate = useNavigate()
   const { dark } = useTheme()
-  const [activeTab, setActiveTab]     = useState<Tab>('Visão Geral')
+  const [activeTab, setActiveTab]     = useState<Tab>(() => new URLSearchParams(window.location.search).get('tab') === 'emissao' ? 'Emissão' : 'Visão Geral')
   const [dateFrom, setDateFrom]       = useState(_gcMonthStart)
   const [dateTo, setDateTo]           = useState(_gcToday)
   const [filterOpen, setFilterOpen]   = useState(false)
@@ -1780,6 +1781,7 @@ export default function GestaoComercial() {
       </div>
 
       {/* ── FILTRO GLOBAL ── */}
+      {activeTab !== 'Emissão' && (
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16, position: 'relative' }}>
         {(activeTab === 'Visão Geral' || activeTab === 'Pipeline' || activeTab === 'Performance') && canCompare && (
           <button
@@ -1901,6 +1903,7 @@ export default function GestaoComercial() {
           </>
         )}
       </div>
+      )}
 
       {/* ── VISÃO GERAL ── */}
       {activeTab === 'Visão Geral' && (
@@ -2046,6 +2049,9 @@ export default function GestaoComercial() {
       {activeTab === 'Performance' && <PerformanceTab dateFrom={dateFrom} dateTo={dateTo} teamParam={teamParam} />}
 
       {activeTab === 'Projeção' && <ProjecaoTab />}
+
+      {/* ── EMISSÃO ── */}
+      {activeTab === 'Emissão' && <EmissaoTab />}
 
       {/* ── DRILL MODAL ── */}
       {showDrill && (

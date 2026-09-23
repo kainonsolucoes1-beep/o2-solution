@@ -34,6 +34,7 @@ from app.api import public_routes
 from app.api import meta_webhook_routes
 from app.api import financeiro_routes
 from app.api import campanhas_routes
+from app.api import emissao_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler, sync_leads_backfill
@@ -157,6 +158,7 @@ app.include_router(meta_webhook_routes.router)
 app.include_router(public_routes.router)
 app.include_router(financeiro_routes.router)
 app.include_router(campanhas_routes.router)
+app.include_router(emissao_routes.router)
 
 _FORM_USERS_SEED = [
     ("isaac",        "Isaac",        "",           "isaac@equipe.com",         "$2b$12$nNCX6xqvp1CPBWT2VmQQxeRymHfesflUbRrRt5CTo5Je0TKnKnOTS"),
