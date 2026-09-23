@@ -10,6 +10,7 @@ export interface EmissaoResumo {
   em_emissao: number; em_emissao_valor: number
   parados: { lead_id: string; cliente: string; operadora: string; operador: string; valor: number | null; dias: number }[]
   parados_valor: number
+  declinados: number; declinados_valor: number
   por_operadora: { operadora: string; count: number; valor: number }[]
   por_operador: { operador: string; count: number; valor: number }[]
   serie: { data: string; count: number }[]
@@ -49,6 +50,7 @@ export function resumoEmTexto(r: EmissaoResumo, periodo: Periodo): string {
   if (r.por_operadora.length) { L.push('', '*Por operadora*', ...r.por_operadora.map(o => `${o.operadora} ${o.count} · ${fmtBrl(o.valor)}`)) }
   if (r.por_operador.length) { L.push('', '*Por operador*', ...r.por_operador.map(o => `${o.operador} ${o.count} · ${fmtBrl(o.valor)}`)) }
   L.push('', `Em emissão agora: ${r.em_emissao} contrato${r.em_emissao === 1 ? '' : 's'} · ${fmtBrl(r.em_emissao_valor)}`)
+  if (r.declinados > 0) L.push(`Declinados: ${r.declinados} contrato${r.declinados === 1 ? '' : 's'} · ${fmtBrl(r.declinados_valor)}`)
   if (r.parados.length) L.push(`Atenção: ${r.parados.length} parado${r.parados.length === 1 ? '' : 's'} há mais de 3 dias (${fmtBrl(r.parados_valor)})`)
   L.push('', `Detalhes: ${window.location.host} › Gestão Comercial › Emissão`)
   return L.join('\n')
@@ -172,14 +174,14 @@ export default function EmissaoTab() {
               <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)' }}>contrato{data.enviados === 1 ? '' : 's'} · <b style={{ color: ACCENT }}>{deltaLabel}</b></p>
             </div>
             <div style={{ ...card, padding: '18px 20px' }}>
-              <span style={eyebrow}>Valor dos contratos</span>
-              <p style={{ margin: '10px 0 4px', fontSize: 30, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.02em', lineHeight: 1.1 }}>{fmtBrlInt(data.valor_total)}</p>
-              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)' }}>ticket médio {fmtBrl(data.ticket_medio)}</p>
-            </div>
-            <div style={{ ...card, padding: '18px 20px' }}>
               <span style={eyebrow}>Em emissão agora</span>
               <p style={{ margin: '10px 0 4px', fontSize: 36, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.02em', lineHeight: 1 }}>{data.em_emissao}</p>
               <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)' }}>{fmtBrl(data.em_emissao_valor)} em andamento</p>
+            </div>
+            <div style={{ ...card, padding: '18px 20px', ...(data.declinados ? { background: 'rgba(220,38,38,0.06)', borderColor: 'rgba(220,38,38,0.30)' } : {}) }}>
+              <span style={{ ...eyebrow, color: data.declinados ? '#991B1B' : 'var(--text-muted)' }}>Declinados</span>
+              <p style={{ margin: '10px 0 4px', fontSize: 36, fontWeight: 800, color: data.declinados ? '#B91C1C' : 'var(--text-1)', letterSpacing: '-0.02em', lineHeight: 1 }}>{data.declinados}</p>
+              <p style={{ margin: 0, fontSize: 12.5, color: data.declinados ? '#991B1B' : 'var(--text-muted)' }}>{data.declinados ? `${fmtBrl(data.declinados_valor)} em contratos declinados` : 'nenhum declinado no período'}</p>
             </div>
             <div style={{ ...card, padding: '18px 20px', ...(data.parados.length ? { background: 'rgba(245,158,11,0.10)', borderColor: 'rgba(245,158,11,0.40)' } : {}) }}>
               <span style={{ ...eyebrow, color: data.parados.length ? '#92400E' : 'var(--text-muted)' }}>Parados há mais de 3 dias</span>

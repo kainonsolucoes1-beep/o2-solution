@@ -159,6 +159,42 @@ def resumo(
     estoque = scoped(estoque)
     parados = sorted([e for e in estoque if e["dias"] > PARADO_DIAS], key=lambda e: e["dias"], reverse=True)
 
+    # declinados: saiu de Emissao pra Perdido com motivo "Declinou", no periodo (quando declinou,
+    # nao quando foi enviado). Dono/valor = do envio mais recente ate' o declinio.
+    dec_rows = (
+        db.query(LeadStatusHistory, Lead)
+        .join(Lead, Lead.id == LeadStatusHistory.lead_id)
+        .filter(
+            func.lower(LeadStatusHistory.from_status) == "emissao",
+            LeadStatusHistory.to_status == "sale_not_performed",
+            LeadStatusHistory.changed_at >= start, LeadStatusHistory.changed_at < end_excl,
+            func.lower(func.trim(Lead.lost_reason)) == "declinou",
+        )
+        .all()
+    )
+    declinados: list[dict] = []
+    if dec_rows:
+        ids = {l.id for _, l in dec_rows}
+        envios: dict = defaultdict(list)
+        for r in db.query(LeadEmissao).filter(LeadEmissao.lead_id.in_(ids)).order_by(LeadEmissao.enviado_em.asc()).all():
+            envios[r.lead_id].append(r)
+        entradas: dict = defaultdict(list)
+        for h in (
+            db.query(LeadStatusHistory)
+            .filter(LeadStatusHistory.lead_id.in_(ids), LeadStatusHistory.to_status == "emissao")
+            .order_by(LeadStatusHistory.changed_at.asc()).all()
+        ):
+            entradas[h.lead_id].append(h)
+        for h, l in dec_rows:
+            r = next((x for x in reversed(envios[l.id]) if x.enviado_em <= h.changed_at), None)
+            ent = next((x for x in reversed(entradas[l.id]) if x.changed_at <= h.changed_at), None)
+            valor = _num(r.valor if r and r.valor is not None else (r.valor_cotacao if r and r.valor_cotacao is not None else l.value_potential))
+            declinados.append({
+                "lead_id": str(l.id), "cliente": l.name or "Sem nome",
+                "operador": (r.enviado_por if r else (ent.changed_by if ent else None)) or "—", "valor": valor,
+            })
+    declinados = scoped(declinados)
+
     return {
         "date_from": d_from.isoformat(), "date_to": d_to.isoformat(), "operador": only,
         "enviados": len(events), "valor_total": valor_total,
@@ -167,6 +203,8 @@ def resumo(
         "em_emissao": len(estoque), "em_emissao_valor": round(sum(e["valor"] or 0.0 for e in estoque), 2),
         "parados": parados,
         "parados_valor": round(sum(e["valor"] or 0.0 for e in parados), 2),
+        "declinados": len(declinados),
+        "declinados_valor": round(sum(e["valor"] or 0.0 for e in declinados), 2),
         "por_operadora": _agg(events, "operadora"),
         "por_operador": _agg(events, "operador"),
         "serie": serie,
