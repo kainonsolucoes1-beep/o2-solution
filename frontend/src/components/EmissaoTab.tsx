@@ -272,7 +272,15 @@ export default function EmissaoTab() {
             {data.contratos.length === 0 ? (
               <p style={{ margin: '4px 0 14px', fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum envio neste período.</p>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620, tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '22%' }} />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '18%' }} />
+                </colgroup>
                 <thead>
                   <tr>
                     {['Cliente', 'Operadora', 'Valor do contrato', 'Enviado por', multiDia ? 'Quando' : 'Horário', ''].map((h, i) => (
@@ -283,7 +291,7 @@ export default function EmissaoTab() {
                 <tbody>
                   {data.contratos.map(c => (
                     <tr key={c.lead_id + c.em}>
-                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{c.cliente}</td>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.cliente}</td>
                       <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)' }}>
                         {c.operadora === 'Sem operadora' ? (
                           <select
