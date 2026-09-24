@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.database import get_db
-from app.lead_utils import extract_base
+from app.lead_utils import extract_base, normalize_conversion_point
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.operadoras import get_operadoras
 from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads
@@ -536,11 +536,13 @@ def list_conversion_points(
     rows = (
         db.query(Lead.conversion_point)
         .filter(Lead.conversion_point.isnot(None), Lead.conversion_point != "")
-        .distinct()
-        .order_by(Lead.conversion_point)
         .all()
     )
-    points = [r.conversion_point for r in rows]
+    # normaliza aqui (na fonte da lista), nao so' na exibicao dos relatorios --
+    # senao grafias diferentes do mesmo rotulo (ex: "Campanha Whatsapp" e
+    # "Campanha WhatsApp") continuam aparecendo como duas opcoes no seletor da
+    # ficha, e a pessoa cadastrando escolhe uma delas ao acaso.
+    points = sorted({normalize_conversion_point(r.conversion_point) for r in rows})
     if "Adm" not in points:
         points.append("Adm")
         points.sort()

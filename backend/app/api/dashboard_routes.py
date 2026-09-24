@@ -41,7 +41,7 @@ def _drilldown_base_label(conversion_point, notes) -> str:
         return base
     cp = (conversion_point or "").strip()
     if cp:
-        return cp
+        return normalize_conversion_point(cp)
     return "Sem origem detalhada"
 
 META_DAILY = int(os.getenv("META_DAILY", 10))

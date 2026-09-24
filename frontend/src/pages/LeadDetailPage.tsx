@@ -90,7 +90,7 @@ export type ActivityEvent =
 export type ActivityFilter = 'Todos' | 'Status' | 'Notas'
 
 // pontos de conversao fixos, disponiveis mesmo sem nenhum lead ainda usar esse valor
-const EXTRA_CONVERSION_POINTS = ['Campanha WhatsApp']
+const EXTRA_CONVERSION_POINTS = ['Campanhas WhatsApp']  // mesmo canonico do backend (normalize_conversion_point)
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
