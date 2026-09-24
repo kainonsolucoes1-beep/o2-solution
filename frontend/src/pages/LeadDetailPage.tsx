@@ -53,9 +53,12 @@ interface LeadItem {
 
 interface Note {
   id: string
+  user_id: string | null
   content: string
   created_by: string
   created_at: string
+  edited_at: string | null
+  edited_by: string | null
 }
 
 interface StatusHistoryItem {
@@ -74,7 +77,7 @@ interface ScheduleItem {
   created_at: string
 }
 
-interface Me {
+export interface Me {
   id: string
   username: string
   first_name: string | null
@@ -84,7 +87,7 @@ interface Me {
 // evento unificado do feed de Atividade: mudanca de status, nota ou agendamento, todos numa so linha do tempo
 export type ActivityEvent =
   | { kind: 'status'; at: string; status: string | null; by: string | null; isCreation: boolean; durationMs: number; ongoing: boolean }
-  | { kind: 'note'; at: string; content: string; by: string }
+  | { kind: 'note'; id: string; userId: string | null; at: string; content: string; by: string; editedAt: string | null; editedBy: string | null }
   | { kind: 'schedule'; at: string; scheduledAt: string; by: string | null; active: boolean }
 
 export type ActivityFilter = 'Todos' | 'Status' | 'Notas'
@@ -371,6 +374,24 @@ export default function LeadDetailPage() {
       .finally(() => setSavingNote(false))
   }
 
+  const [savingNoteEdit, setSavingNoteEdit] = useState(false)
+  function handleEditNote(noteId: string, content: string): Promise<void> {
+    if (!id) return Promise.reject()
+    setSavingNoteEdit(true)
+    return api.patch(`/api/v1/leads/${id}/notes/${noteId}`, { content })
+      .then(() => {
+        setToast({ msg: 'Nota atualizada com sucesso', ok: true })
+        return api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`)
+      })
+      .then(r => setNotes(r.data.notes))
+      .catch(err => {
+        const detail = err?.response?.data?.detail
+        setToast({ msg: typeof detail === 'string' ? detail : 'Erro ao editar nota', ok: false })
+        throw err
+      })
+      .finally(() => setSavingNoteEdit(false))
+  }
+
   function handleSchedule() {
     if (!id || !scheduleInput) return
     setSavingSchedule(true)
@@ -469,7 +490,7 @@ export default function LeadDetailPage() {
   // ── Atividade: timeline de status + notas + agendamentos, unificados por data (mais recente primeiro) ──
   const activity: ActivityEvent[] = [
     ...timeline.map(t => ({ kind: 'status' as const, at: t.at, status: t.status, by: t.by, isCreation: t.isCreation, durationMs: t.durationMs, ongoing: t.ongoing })),
-    ...notes.map(n => ({ kind: 'note' as const, at: n.created_at, content: n.content, by: n.created_by })),
+    ...notes.map(n => ({ kind: 'note' as const, id: n.id, userId: n.user_id, at: n.created_at, content: n.content, by: n.created_by, editedAt: n.edited_at, editedBy: n.edited_by })),
     ...schedules.map(s => ({ kind: 'schedule' as const, at: s.created_at, scheduledAt: s.scheduled_at, by: s.created_by, active: s.is_active })),
   ].sort((a, b) => parseUTC(b.at) - parseUTC(a.at))
 
@@ -677,6 +698,10 @@ export default function LeadDetailPage() {
             onNoteTextChange={setNoteText}
             savingNote={savingNote}
             onSaveNote={handleSaveNote}
+            me={me}
+            isCoordenador={me?.role === 'coordenador'}
+            savingNoteEdit={savingNoteEdit}
+            onSaveNoteEdit={handleEditNote}
             locked={renutricaoLock}
             loadingActivity={loadingActivity}
             activity={visibleActivity}

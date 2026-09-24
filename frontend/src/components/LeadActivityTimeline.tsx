@@ -1,15 +1,16 @@
-import type { CSSProperties, ReactNode } from 'react'
-import { Activity, StickyNote, CalendarClock } from 'lucide-react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
+import { Activity, StickyNote, CalendarClock, Pencil } from 'lucide-react'
 import { statusLabel } from '../utils/statusLabel'
 import { fmtDate, fmtDuration } from '../utils/leadFormat'
 import { statusColor } from '../utils/leadStatus'
-import type { ActivityEvent, ActivityFilter } from '../pages/LeadDetailPage'
+import type { ActivityEvent, ActivityFilter, Me } from '../pages/LeadDetailPage'
 
 const FILTERS: ActivityFilter[] = ['Todos', 'Status', 'Notas']
 
 export default function LeadActivityTimeline({
   isAdmin, savingRealign, onRealignHistory,
   noteText, onNoteTextChange, savingNote, onSaveNote,
+  me, isCoordenador, savingNoteEdit, onSaveNoteEdit,
   loadingActivity, activity, filter, onFilterChange, locked, lostReason,
 }: {
   isAdmin: boolean
@@ -19,6 +20,10 @@ export default function LeadActivityTimeline({
   onNoteTextChange: (value: string) => void
   savingNote: boolean
   onSaveNote: () => void
+  me: Me | null
+  isCoordenador: boolean
+  savingNoteEdit: boolean
+  onSaveNoteEdit: (noteId: string, content: string) => Promise<void>
   loadingActivity: boolean
   activity: ActivityEvent[]
   filter: ActivityFilter
@@ -26,6 +31,22 @@ export default function LeadActivityTimeline({
   locked?: boolean
   lostReason?: string | null
 }) {
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState('')
+
+  function startEdit(noteId: string, content: string) {
+    setEditingNoteId(noteId)
+    setEditDraft(content)
+  }
+  function cancelEdit() {
+    setEditingNoteId(null)
+    setEditDraft('')
+  }
+  function confirmEdit(noteId: string) {
+    const content = editDraft.trim()
+    if (!content) return
+    onSaveNoteEdit(noteId, content).then(() => { setEditingNoteId(null); setEditDraft('') }).catch(() => {})
+  }
   return (
     <section className="min-h-0 sm:min-h-[650px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }}>
       <div style={{ minHeight: 82, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, padding: '18px 20px' }}>
@@ -151,17 +172,69 @@ export default function LeadActivityTimeline({
                 )
               }
               if (ev.kind === 'note') {
+                const canEdit = !locked && !!me && (me.id === ev.userId || isAdmin || isCoordenador)
+                const isEditingThis = editingNoteId === ev.id
                 return (
                   <div key={`n-${i}`} style={rowStyle}>
                     {rail('var(--bg-subtle)', <StickyNote size={15} color="var(--text-3b)" strokeWidth={2.25} />)}
                     <div style={cardStyle}>
-                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                        <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{ev.by}</b> adicionou uma nota
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                          <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{ev.by}</b> adicionou uma nota
+                        </div>
+                        {canEdit && !isEditingThis && (
+                          <button
+                            onClick={() => startEdit(ev.id, ev.content)}
+                            title="Editar nota"
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: 'var(--text-subtle)', cursor: 'pointer', fontSize: 11.5, fontWeight: 600, flexShrink: 0, padding: 0 }}
+                          >
+                            <Pencil size={12} /> Editar
+                          </button>
+                        )}
                       </div>
-                      <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '6px 0 0', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--bg-subtle)', borderRadius: 8, padding: '9px 12px' }}>
-                        {ev.content}
-                      </p>
-                      <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 5 }}>{fmtDate(ev.at)}</div>
+                      {isEditingThis ? (
+                        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <textarea
+                            value={editDraft}
+                            onChange={e => setEditDraft(e.target.value)}
+                            rows={3}
+                            autoFocus
+                            style={{
+                              width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border-in)',
+                              fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)',
+                              resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                            }}
+                          />
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              onClick={() => confirmEdit(ev.id)}
+                              disabled={savingNoteEdit || !editDraft.trim()}
+                              style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: savingNoteEdit ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+                            >
+                              {savingNoteEdit ? 'Salvando…' : 'Salvar'}
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              disabled={savingNoteEdit}
+                              style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid var(--border-in)', background: 'none', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '6px 0 0', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--bg-subtle)', borderRadius: 8, padding: '9px 12px' }}>
+                          {ev.content}
+                        </p>
+                      )}
+                      <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {fmtDate(ev.at)}
+                        {ev.editedAt && (
+                          <span title={`Editado por ${ev.editedBy ?? '—'} em ${fmtDate(ev.editedAt)}`} style={{ fontStyle: 'italic', color: 'var(--text-subtle)' }}>
+                            · editado
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )

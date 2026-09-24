@@ -26,7 +26,7 @@ from app.schemas.lead import (
     LeadInfoUpdateRequest, LeadInfoUpdateResponse,
     LeadVendaRequest, LeadVendaResponse, LeadFaturarResponse,
     NoteCreateRequest, NoteCreateResponse,
-    NoteResponse, NotesListResponse,
+    NoteResponse, NotesListResponse, NoteUpdateRequest, NoteUpdateResponse,
     StatusHistoryItem, StatusHistoryResponse,
     ScheduleCreateRequest, ScheduleItem, ScheduleHistoryResponse,
     AgendaItem, AgendaResponse, AgendaAlertsResponse, AgendaAlertItem, AgendaAlertsListResponse,
@@ -1268,8 +1268,11 @@ def get_lead_notes(
         NoteResponse(
             id=note.id,
             content=note.content,
+            user_id=note.user_id,
             created_by=(user.first_name or user.username) if user else "Sistema",
             created_at=note.created_at,
+            edited_at=note.edited_at,
+            edited_by=note.edited_by,
         )
         for note, user in rows
     ]
@@ -1578,6 +1581,39 @@ def create_lead_note(
     db.commit()
     db.refresh(note)
     return NoteCreateResponse(success=True, note_id=note.id, created_at=note.created_at)
+
+
+@router.patch("/leads/{lead_id}/notes/{note_id}", response_model=NoteUpdateResponse)
+def update_lead_note(
+    lead_id: str,
+    note_id: str,
+    body: NoteUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Edita o texto de uma nota ja' salva. So' o autor, ou admin/coordenador,
+    pode editar -- e a edicao fica sinalizada (edited_at/edited_by), nunca
+    silenciosa: quem le' a nota sempre ve que ela foi alterada, e por quem."""
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
+    note = db.query(LeadNote).filter(LeadNote.id == note_id, LeadNote.lead_id == lead.id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Nota não encontrada")
+    if note.user_id != current_user.id and current_user.role not in ("admin", "coordenador"):
+        raise HTTPException(status_code=403, detail="Você só pode editar suas próprias notas")
+    content = body.content.strip()
+    if not content:
+        raise HTTPException(status_code=422, detail="A nota não pode ficar vazia")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    note.content = content
+    note.edited_at = now
+    note.edited_by = current_user.first_name or current_user.username
+    if 'renutrição' in content.lower():
+        lead.is_renutrucao = True
+    db.commit()
+    return NoteUpdateResponse(success=True, note_id=note.id, edited_at=now)
 
 
 def _attachment_response(att: LeadAttachment, user: Optional[User]) -> AttachmentResponse:

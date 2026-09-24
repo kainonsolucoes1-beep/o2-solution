@@ -85,6 +85,11 @@ class LeadNote(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
     content = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    # preenchidos so' quando a nota e' editada depois de criada -- "edited_at"
+    # e' o flag pedido (mostra "editado" na tela); "edited_by" guarda quem editou,
+    # que pode ser diferente do autor (ex: admin corrigindo a nota de outra pessoa).
+    edited_at = Column(TIMESTAMP, nullable=True)
+    edited_by = Column(String(255), nullable=True)
 
 
 class LeadStatusHistory(Base):

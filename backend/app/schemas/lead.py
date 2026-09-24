@@ -265,8 +265,11 @@ class NoteCreateResponse(BaseModel):
 class NoteResponse(BaseModel):
     id: UUID
     content: str
+    user_id: Optional[UUID] = None
     created_by: str
     created_at: datetime
+    edited_at: Optional[datetime] = None
+    edited_by: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -274,6 +277,16 @@ class NoteResponse(BaseModel):
 
 class NotesListResponse(BaseModel):
     notes: List[NoteResponse]
+
+
+class NoteUpdateRequest(BaseModel):
+    content: str
+
+
+class NoteUpdateResponse(BaseModel):
+    success: bool
+    note_id: UUID
+    edited_at: datetime
 
 
 class StatusHistoryItem(BaseModel):
