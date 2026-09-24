@@ -274,7 +274,7 @@ export default function EmissaoTab() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.15fr 1fr 0.85fr 1.05fr', columnGap: 24, minWidth: 620 }}>
                 {['Cliente', 'Operadora', 'Valor do contrato', 'Enviado por', multiDia ? 'Quando' : 'Horário', ''].map((h, i) => (
-                  <div key={i} style={{ textAlign: h === 'Valor do contrato' ? 'right' : 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', padding: '0 0 10px', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h}</div>
+                  <div key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', padding: '0 0 10px', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h}</div>
                 ))}
                 {data.contratos.map(c => (
                   <Fragment key={c.lead_id + c.em}>
@@ -292,7 +292,7 @@ export default function EmissaoTab() {
                         </select>
                       ) : c.operadora}
                     </div>
-                    <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.valor != null ? fmtBrl(c.valor) : '—'}</div>
+                    <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.valor != null ? fmtBrl(c.valor) : '—'}</div>
                     <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.operador}</div>
                     <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmtQuando(c.em)}</div>
                     <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border-lt)', textAlign: 'right' }}>
