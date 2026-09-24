@@ -274,17 +274,17 @@ export default function EmissaoTab() {
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 620, tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: '22%' }} />
+                  <col style={{ width: '24%' }} />
+                  <col style={{ width: '14%' }} />
                   <col style={{ width: '16%' }} />
-                  <col style={{ width: '16%' }} />
-                  <col style={{ width: '16%' }} />
-                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '14%' }} />
                   <col style={{ width: '18%' }} />
                 </colgroup>
                 <thead>
                   <tr>
                     {['Cliente', 'Operadora', 'Valor do contrato', 'Enviado por', multiDia ? 'Quando' : 'Horário', ''].map((h, i) => (
-                      <th key={i} style={{ textAlign: h === 'Valor do contrato' ? 'right' : 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', padding: '0 24px 10px 0', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                      <th key={i} style={{ textAlign: h === 'Valor do contrato' ? 'right' : 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', padding: '0 24px 10px 0', borderBottom: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -292,22 +292,22 @@ export default function EmissaoTab() {
                   {data.contratos.map(c => (
                     <tr key={c.lead_id + c.em}>
                       <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.cliente}</td>
-                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)' }}>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {c.operadora === 'Sem operadora' ? (
                           <select
                             value="" disabled={savingId === c.evento_id || operadoras.length === 0}
                             onChange={e => definirOperadora(c, e.target.value)}
                             aria-label={`Definir a operadora de ${c.cliente}`}
-                            style={{ height: 30, padding: '0 8px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.55)', background: 'rgba(245,158,11,0.10)', color: '#92400E', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600 }}
+                            style={{ height: 30, padding: '0 8px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.55)', background: 'rgba(245,158,11,0.10)', color: '#92400E', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, maxWidth: '100%' }}
                           >
                             <option value="">{savingId === c.evento_id ? 'Salvando…' : 'Definir operadora…'}</option>
                             {operadoras.map(op => <option key={op} value={op}>{op}</option>)}
                           </select>
                         ) : c.operadora}
                       </td>
-                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.valor != null ? fmtBrl(c.valor) : '—'}</td>
-                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)' }}>{c.operador}</td>
-                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmtQuando(c.em)}</td>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right', fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.valor != null ? fmtBrl(c.valor) : '—'}</td>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.operador}</td>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmtQuando(c.em)}</td>
                       <td style={{ padding: '12px 0', borderBottom: '1px solid var(--border-lt)', textAlign: 'right' }}>
                         <button onClick={() => navigate(`/leads/${c.lead_id}`)} style={{ background: 'none', border: 'none', color: ACCENT, fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Abrir ficha ›</button>
                       </td>
