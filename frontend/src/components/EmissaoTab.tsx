@@ -276,15 +276,15 @@ export default function EmissaoTab() {
                 <thead>
                   <tr>
                     {['Cliente', 'Operadora', 'Valor do contrato', 'Enviado por', multiDia ? 'Quando' : 'Horário', ''].map((h, i) => (
-                      <th key={i} style={{ textAlign: h === 'Valor do contrato' ? 'right' : 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', padding: h === 'Enviado por' ? '0 12px 10px 24px' : '0 12px 10px 0', borderBottom: '1px solid var(--border)' }}>{h}</th>
+                      <th key={i} style={{ textAlign: h === 'Valor do contrato' ? 'right' : 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', padding: '0 24px 10px 0', borderBottom: '1px solid var(--border)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {data.contratos.map(c => (
                     <tr key={c.lead_id + c.em}>
-                      <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{c.cliente}</td>
-                      <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)' }}>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{c.cliente}</td>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)' }}>
                         {c.operadora === 'Sem operadora' ? (
                           <select
                             value="" disabled={savingId === c.evento_id || operadoras.length === 0}
@@ -297,9 +297,9 @@ export default function EmissaoTab() {
                           </select>
                         ) : c.operadora}
                       </td>
-                      <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.valor != null ? fmtBrl(c.valor) : '—'}</td>
-                      <td style={{ padding: '12px 12px 12px 24px', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)' }}>{c.operador}</td>
-                      <td style={{ padding: '12px 12px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmtQuando(c.em)}</td>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, fontWeight: 700, color: 'var(--text-1)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{c.valor != null ? fmtBrl(c.valor) : '—'}</td>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-2)' }}>{c.operador}</td>
+                      <td style={{ padding: '12px 24px 12px 0', borderBottom: '1px solid var(--border-lt)', fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmtQuando(c.em)}</td>
                       <td style={{ padding: '12px 0', borderBottom: '1px solid var(--border-lt)', textAlign: 'right' }}>
                         <button onClick={() => navigate(`/leads/${c.lead_id}`)} style={{ background: 'none', border: 'none', color: ACCENT, fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Abrir ficha ›</button>
                       </td>
