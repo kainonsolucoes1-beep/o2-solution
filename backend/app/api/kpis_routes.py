@@ -414,7 +414,7 @@ def renutrucao_detalhe(
         if not is_perdido:
             if value:
                 receita += float(value)
-            modalidades[(modalidade or "").strip() or "Não informado"] += 1
+            modalidades[normalize_modalidade(modalidade)] += 1
             plano = (current_plan or "").strip()
             if not plano:
                 plano_sem_info += 1
@@ -654,7 +654,7 @@ def conv_point_detalhe(
         if not is_perdido:
             if value:
                 receita += float(value)
-            modalidades[(modalidade or "").strip() or "Não informado"] += 1
+            modalidades[normalize_modalidade(modalidade)] += 1
             plano = (current_plan or "").strip()
             if not plano:
                 plano_sem_info += 1
@@ -804,7 +804,7 @@ def sdr_detalhe(
         if not is_perdido:
             if value:
                 receita += float(value)
-            modalidades[(modalidade or "").strip() or "Não informado"] += 1
+            modalidades[normalize_modalidade(modalidade)] += 1
             plano = (current_plan or "").strip()
             if not plano:
                 plano_sem_info += 1
@@ -1067,7 +1067,7 @@ def base_detalhe(
         if not is_perdido:
             if value:
                 receita += float(value)
-            modalidades[(modalidade or "").strip() or "Não informado"] += 1
+            modalidades[normalize_modalidade(modalidade)] += 1
             plano = (current_plan or "").strip()
             if not plano:
                 plano_sem_info += 1
