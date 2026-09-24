@@ -203,16 +203,23 @@ export default function Sidebar() {
       let ctx = audioCtxRef.current
       if (!ctx) { ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); audioCtxRef.current = ctx }
       if (ctx.state === 'suspended') ctx.resume().catch(() => {})
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'sine'
-      osc.frequency.value = 880
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35)
-      osc.connect(gain); gain.connect(ctx.destination)
-      osc.start()
-      osc.stop(ctx.currentTime + 0.35)
+      // Dois beeps em sequencia (tipo notificacao de celular), bem mais alto que
+      // o beep unico de antes -- pedido pra nao passar batido num ambiente com
+      // barulho. Gain 0.6 (era 0.15): ainda longe do maximo (1.0), sem estourar.
+      const tone = (startAt: number) => {
+        const osc = ctx!.createOscillator()
+        const gain = ctx!.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = 880
+        gain.gain.setValueAtTime(0.0001, startAt)
+        gain.gain.exponentialRampToValueAtTime(0.6, startAt + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.32)
+        osc.connect(gain); gain.connect(ctx!.destination)
+        osc.start(startAt)
+        osc.stop(startAt + 0.32)
+      }
+      tone(ctx.currentTime)
+      tone(ctx.currentTime + 0.4)
     } catch { /* autoplay bloqueado ou navegador sem suporte -- silencioso */ }
   }, [])
 
