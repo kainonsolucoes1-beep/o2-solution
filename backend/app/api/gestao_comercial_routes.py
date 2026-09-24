@@ -1,6 +1,8 @@
 import logging
 from calendar import monthrange
 from collections import defaultdict
+
+from app.lead_utils import normalize_conversion_point
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -707,21 +709,21 @@ def conversion_points_by_group(
         if parts:
             filters.append(Lead.origin.in_(parts))
 
-    rows = (
-        db.query(Lead.conversion_point, func.count(Lead.id).label("cnt"))
-        .filter(*filters)
-        .group_by(Lead.conversion_point)
-        .order_by(func.count(Lead.id).desc())
-        .all()
-    )
-    total = sum(r.cnt for r in rows)
+    # Agrupa em Python (nao no SQL) pra aplicar normalize_conversion_point --
+    # sem isso, grafias diferentes do mesmo rotulo (ex: "Campanha Whatsapp" e
+    # "Campanha WhatsApp") viravam linhas separadas.
+    raw_rows = db.query(Lead.conversion_point).filter(*filters).all()
+    counts: dict = defaultdict(int)
+    for (cp,) in raw_rows:
+        counts[normalize_conversion_point(cp)] += 1
+    total = sum(counts.values())
     return [
         {
-            "conversion_point": r.conversion_point,
-            "count": r.cnt,
-            "pct": round(r.cnt / total * 100, 1) if total else 0.0,
+            "conversion_point": label,
+            "count": cnt,
+            "pct": round(cnt / total * 100, 1) if total else 0.0,
         }
-        for r in rows
+        for label, cnt in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
     ]
 
 

@@ -87,6 +87,20 @@ MODALIDADE_ALIASES: dict[str, str] = {
 }
 
 
+# Ponto de conversao e' texto livre (URL, nome de campanha digitado a mao), entao
+# so' normalizamos os poucos rotulos conhecidos que geram grafia inconsistente --
+# nao mexe em dominios/URLs, que ja' chegam padronizados.
+CONVERSION_POINT_ALIASES: dict[str, str] = {
+    "campanha whatsapp": "Campanhas WhatsApp",
+    "campanhas whatsapp": "Campanhas WhatsApp",
+}
+
+
+def normalize_conversion_point(raw: str | None) -> str:
+    nome = (raw or "").strip() or "Não informado"
+    return CONVERSION_POINT_ALIASES.get(nome.lower(), nome)
+
+
 def normalize_modalidade(raw: str | None) -> str:
     nome = (raw or "").strip() or "Não informado"
     return MODALIDADE_ALIASES.get(nome.lower(), nome)

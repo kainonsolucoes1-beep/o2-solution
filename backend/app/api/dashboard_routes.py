@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.br_calendar import business_days_in_month
-from app.lead_utils import extract_base, is_organico
+from app.lead_utils import extract_base, is_organico, normalize_conversion_point
 from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, today_utc_range
@@ -505,7 +505,7 @@ def dashboard_performance(
         name = _operador_do_lead(origin, owner_id, _owner_names_month, _persons, conversion_point, campanha_status, retrabalhado_em, status, attendant)
         ranking_counts[name] += 1
         if is_organico(origin, conversion_point):
-            cp = (conversion_point or "").strip() or "Não informado"
+            cp = normalize_conversion_point(conversion_point)
             ranking_conv_por_operador[name][cp] += 1
         else:
             ranking_bases_por_operador[name][_drilldown_base_label(conversion_point, notes)] += 1
@@ -566,7 +566,7 @@ def dashboard_performance(
         if (status or "").lower() in _proposta_set:
             hoje_proposta_valor[fonte] += float(value_potential or 0)
         if is_organico(origin, conversion_point):
-            cp = (conversion_point or "").strip() or "Não informado"
+            cp = normalize_conversion_point(conversion_point)
             hoje_conv_por_operador[fonte][cp] += 1
         else:
             hoje_bases_por_operador[fonte][_drilldown_base_label(conversion_point, notes)] += 1
@@ -592,7 +592,7 @@ def dashboard_performance(
     conv_points_count: dict = defaultdict(int)
     for origin, notes, conversion_point in hoje_origem_rows:
         if is_organico(origin, conversion_point):
-            cp = (conversion_point or "").strip() or "Não informado"
+            cp = normalize_conversion_point(conversion_point)
             conv_points_count[cp] += 1
         else:
             bases_count[_drilldown_base_label(conversion_point, notes)] += 1
