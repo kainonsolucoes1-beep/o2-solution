@@ -552,45 +552,47 @@ export default function Dashboard() {
                       </span>
                       <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.name}</span>
                     </span>
-                    <button
-                      onClick={() => setOperadorOrigemOpen(o => o === op.name ? null : op.name)}
-                      disabled={origemItems.length === 0}
-                      style={{
-                        ...rkCell, color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)],
-                        background: 'none', border: 'none', fontFamily: 'inherit', textAlign: 'inherit',
-                        cursor: origemItems.length > 0 ? 'pointer' : 'default',
-                        textDecoration: isOpen ? 'underline' : 'none',
-                      }}
-                    >
-                      {op.count}
-                    </button>
+                    <span style={{ ...rkCell, position: 'relative', display: 'block' }}>
+                      <button
+                        onClick={() => setOperadorOrigemOpen(o => o === op.name ? null : op.name)}
+                        disabled={origemItems.length === 0}
+                        style={{
+                          color: BAR_COLORS[Math.min(i, BAR_COLORS.length - 1)],
+                          background: 'none', border: 'none', padding: 0, font: 'inherit', fontFamily: 'inherit', textAlign: 'inherit',
+                          cursor: origemItems.length > 0 ? 'pointer' : 'default',
+                          textDecoration: isOpen ? 'underline' : 'none',
+                        }}
+                      >
+                        {op.count}
+                      </button>
+                      {isOpen && (
+                        <div style={{
+                          position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', zIndex: 20, marginTop: 8,
+                          width: 240, maxWidth: 'min(240px, calc(100vw - 32px))',
+                          background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12,
+                          boxShadow: '0 16px 40px rgba(15,23,42,0.18)', padding: 12, textAlign: 'left',
+                        }}>
+                          <button
+                            onClick={() => setOperadorOrigemOpen(null)}
+                            aria-label="Fechar"
+                            style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', color: 'var(--text-subtle)', cursor: 'pointer' }}
+                          >
+                            <X size={14} />
+                          </button>
+                          <p style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-2)', margin: '0 20px 6px 0' }}>
+                            De onde vieram · {op.name} <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>· {op.count}</span>
+                          </p>
+                          {origemItems.map(it => (
+                            <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text-2)', padding: '3px 0' }}>
+                              <span style={{ width: 7, height: 7, borderRadius: 2, background: it.dot, flexShrink: 0 }} />
+                              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
+                              <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0, marginLeft: 'auto', paddingLeft: 8 }}>{it.count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </span>
                     <span style={rkCell}>{op.propostas_valor > 0 ? fmtBrlShort(op.propostas_valor) : <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>—</span>}</span>
-                    {isOpen && (
-                      <div style={{
-                        position: 'absolute', top: '100%', right: 20, zIndex: 20, marginTop: -8,
-                        width: 240, maxWidth: 'calc(100% - 40px)',
-                        background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12,
-                        boxShadow: '0 16px 40px rgba(15,23,42,0.18)', padding: 12,
-                      }}>
-                        <button
-                          onClick={() => setOperadorOrigemOpen(null)}
-                          aria-label="Fechar"
-                          style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', color: 'var(--text-subtle)', cursor: 'pointer' }}
-                        >
-                          <X size={14} />
-                        </button>
-                        <p style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-2)', margin: '0 20px 6px 0' }}>
-                          De onde vieram · {op.name} <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>· {op.count}</span>
-                        </p>
-                        {origemItems.map(it => (
-                          <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text-2)', padding: '3px 0' }}>
-                            <span style={{ width: 7, height: 7, borderRadius: 2, background: it.dot, flexShrink: 0 }} />
-                            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
-                            <span style={{ fontWeight: 700, color: 'var(--text-1)', flexShrink: 0, marginLeft: 'auto', paddingLeft: 8 }}>{it.count}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )
               })}
