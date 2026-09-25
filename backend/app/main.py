@@ -93,10 +93,18 @@ with SessionLocal() as _seed_db:
             _seed_db.add(SdrMeta(nome=_nome, tipo=_tipo, meta_valor=_meta_valor))
     _seed_db.commit()
 
+# /docs, /redoc e /openapi.json expõem o mapa inteiro da API (toda rota,
+# todo campo) pra qualquer um na internet, sem exigir login. Desligado por
+# padrão -- só liga localmente com ENABLE_API_DOCS=1 no ambiente.
+_ENABLE_DOCS = os.getenv("ENABLE_API_DOCS", "0") == "1"
+
 app = FastAPI(
     title="O2 Solution API",
     description="Platform SaaS de gestão de leads",
     version="0.1.0",
+    docs_url="/docs" if _ENABLE_DOCS else None,
+    redoc_url="/redoc" if _ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if _ENABLE_DOCS else None,
 )
 
 app.add_middleware(

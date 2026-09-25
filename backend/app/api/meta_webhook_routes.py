@@ -162,12 +162,16 @@ async def receive_meta_lead(request: Request, db: Session = Depends(get_db)):
     raw_body = await request.body()
 
     app_secret = _setting(db, "meta_app_secret")
+    if not app_secret:
+        # sem segredo configurado nao da pra verificar a assinatura -- recusa
+        # em vez de aceitar qualquer payload sem checagem nenhuma
+        logger.error("meta_app_secret não configurado — recusando webhook do Meta")
+        raise HTTPException(status_code=503, detail="Webhook não configurado")
     signature = request.headers.get("X-Hub-Signature-256", "")
-    if app_secret:
-        expected_sig = "sha256=" + hmac.new(app_secret.encode(), raw_body, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected_sig, signature):
-            logger.warning("Assinatura inválida no webhook Meta")
-            raise HTTPException(status_code=403, detail="Assinatura inválida")
+    expected_sig = "sha256=" + hmac.new(app_secret.encode(), raw_body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected_sig, signature):
+        logger.warning("Assinatura inválida no webhook Meta")
+        raise HTTPException(status_code=403, detail="Assinatura inválida")
 
     try:
         payload = json.loads(raw_body or b"{}")
