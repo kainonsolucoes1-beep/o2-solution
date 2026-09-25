@@ -8,6 +8,7 @@ export const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   qualificado:          { bg: '#ECFDF5', color: '#10B981' },
   qualified:            { bg: '#ECFDF5', color: '#10B981' },
   scheduled:            { bg: '#ECFDF5', color: '#10B981' },
+  qualificado_temp:     { bg: 'rgba(220,38,38,0.12)', color: '#DC2626' },
   proposta:             { bg: '#FFFBEB', color: '#F59E0B' },
   proposal_sent:        { bg: '#FFFBEB', color: '#F59E0B' },
   'proposal sent':      { bg: '#FFFBEB', color: '#F59E0B' },

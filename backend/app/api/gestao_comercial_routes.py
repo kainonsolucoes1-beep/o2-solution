@@ -882,6 +882,7 @@ def vida_sdr(
         db.query(
             Lead.id, Lead.name, Lead.status, Lead.receita_real_recebida, Lead.receita_real_a_receber,
             EFFECTIVE_CAPTACAO.label("created_at"), Lead.value_potential, Lead.last_interaction_at, Lead.updated_at,
+            Lead.perception,
         )
         .filter(*filters)
         .all()
@@ -904,8 +905,12 @@ def vida_sdr(
     receita_potencial = 0.0
     monthly: dict = defaultdict(lambda: {"captacoes": 0, "vendas": 0, "receita": 0.0})
     stage_data: dict = defaultdict(lambda: {"count": 0, "leads": []})
+    # "Qualificado" aqui e' temperatura (Quente/Morno), nao status -- cruza com
+    # qualquer etapa do funil (ex: um lead em "Proposta" tambem pode estar
+    # Quente), por isso e' contado à parte, sem tirar o lead da sua etapa.
+    qualificado_temp_data = {"count": 0, "leads": []}
 
-    for lead_id, name, status, recebido, a_receber, captacao_em, value_potential, last_interaction_at, updated_at in leads:
+    for lead_id, name, status, recebido, a_receber, captacao_em, value_potential, last_interaction_at, updated_at, perception in leads:
         s = (status or "").lower()
         if s in venda_set:
             vendas += 1
@@ -930,6 +935,12 @@ def vida_sdr(
                 "id": str(lead_id), "nome": name, "valor": float(value_potential or 0),
                 "atualizado_em": atualizado_em.isoformat() if atualizado_em else None,
             })
+            if perception in HOT_WARM_PERCEPTIONS:
+                qualificado_temp_data["count"] += 1
+                qualificado_temp_data["leads"].append({
+                    "id": str(lead_id), "nome": name, "valor": float(value_potential or 0),
+                    "atualizado_em": atualizado_em.isoformat() if atualizado_em else None,
+                })
         receita_recebida += float(recebido or 0)
         receita_a_receber += float(a_receber or 0)
 
@@ -944,10 +955,14 @@ def vida_sdr(
     # detalhamento do "Ainda em andamento" por etapa, cada lead ordenado do
     # mais parado pro mais recente (mesma referência de "última interação,
     # senão última atualização" usada nos alertas de Leads Vencidos)
+    _all_stage_data = dict(stage_data)
+    if qualificado_temp_data["count"]:
+        _all_stage_data["qualificado_temp"] = qualificado_temp_data
+    _stage_labels = {**_STAGE_LABELS, "qualificado_temp": "Qualificado"}
     estagios = [
-        {"key": key, "label": _STAGE_LABELS[key], "count": v["count"],
+        {"key": key, "label": _stage_labels[key], "count": v["count"],
          "leads": sorted(v["leads"], key=lambda l: (l["atualizado_em"] is None, l["atualizado_em"] or ""))}
-        for key, v in sorted(stage_data.items(), key=lambda kv: kv[1]["count"], reverse=True)
+        for key, v in sorted(_all_stage_data.items(), key=lambda kv: kv[1]["count"], reverse=True)
     ]
     conversao = round(vendas / captacoes * 100, 1) if captacoes else 0.0
 
