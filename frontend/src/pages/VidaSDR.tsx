@@ -767,10 +767,6 @@ export default function VidaSDR() {
                               </span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                              <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>Seu ritmo atual</span>
-                              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-muted)' }}>{fmtN(m.ritmo_atual)} / dia útil</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                               <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>Projeção do mês</span>
                               <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-muted)' }}>~{fmtN(m.projecao)}{unit}</span>
                             </div>
