@@ -54,7 +54,7 @@ _STAGE_CANON = {
     "emissao": "emissao", "emissão": "emissao",
 }
 _STAGE_LABELS = {
-    "novo": "Novo", "aguardando_dados": "Aguardando dados", "sem_retorno": "Sem retorno", "qualificado": "Qualificado", "proposta": "Proposta",
+    "novo": "Novo", "aguardando_dados": "Aguardando dados", "sem_retorno": "Sem retorno", "qualificado": "Agendado", "proposta": "Proposta",
     "negociacao": "Negociação", "pendencia": "Pendência",
     "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
 }
