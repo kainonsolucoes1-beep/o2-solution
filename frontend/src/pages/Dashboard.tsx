@@ -580,7 +580,7 @@ export default function Dashboard() {
                             <X size={14} />
                           </button>
                           <p style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-2)', margin: '0 20px 6px 0' }}>
-                            Origem de captação · {op.name} <span style={{ color: 'var(--text-subtle)', fontWeight: 600 }}>· {op.count}</span>
+                            Origem de captação
                           </p>
                           {origemItems.map(it => (
                             <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text-2)', padding: '3px 0' }}>
