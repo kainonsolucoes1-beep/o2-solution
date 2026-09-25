@@ -281,12 +281,11 @@ function elapsedLabel(iso: string | null): { label: string; hot: boolean } {
 // de quem está sendo atendido e quem está parado.
 function StageAccordion({ stages, total, equipeEstagios }: { stages: Estagio[]; total: number; equipeEstagios?: Record<string, number> | null }) {
   const [openKey, setOpenKey] = useState<string | null>(null)
-  const effectiveOpen = openKey ?? stages[0]?.key ?? null
 
   return (
     <div>
       {stages.map((st, i) => {
-        const isOpen = st.key === effectiveOpen
+        const isOpen = st.key === openKey
         const share = total ? (st.count / total) * 100 : 0
         const oldest = st.leads[0] ? elapsedLabel(st.leads[0].atualizado_em) : null
         const color = statusColor(st.key).color
