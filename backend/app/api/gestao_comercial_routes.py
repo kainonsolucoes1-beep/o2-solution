@@ -764,6 +764,16 @@ def _compute_meta_mes(db: Session, parts: list[str]):
     ritmo_atual = progresso / dias_uteis_ate_hoje if dias_uteis_ate_hoje > 0 else 0.0
     projecao = ritmo_atual * dias_uteis_mes
 
+    # quanto do "falta pouco/muito" já está represado em Emissão -- contratos
+    # que só faltam a operadora confirmar pra virar venda de verdade. Dá pra
+    # bater a meta sem precisar captar leads novos, só fechando isso que já
+    # está andando (mesma lista de leads do mes, mesmo criterio de captacao
+    # usado no progresso, pra manter os dois numeros comparaveis).
+    em_emissao_valor = (
+        sum(float(v or 0) for s, v in mes_leads if (s or "").lower() in ("emissao", "emissão"))
+        if meta_row.tipo == "clt" else 0.0
+    )
+
     return {
         "tipo": meta_row.tipo,
         "meta_valor": meta_valor,
@@ -774,6 +784,7 @@ def _compute_meta_mes(db: Session, parts: list[str]):
         "ritmo_necessario": round(ritmo_necessario, 1),
         "ritmo_atual": round(ritmo_atual, 1),
         "projecao": round(projecao),
+        "em_emissao_valor": round(em_emissao_valor, 2),
     }
 
 

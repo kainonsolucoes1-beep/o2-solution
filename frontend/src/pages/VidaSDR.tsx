@@ -40,6 +40,7 @@ interface VidaSdrData {
   meta: {
     tipo: 'clt' | 'estagiario'; meta_valor: number; progresso: number; mes_label: string
     faltam: number; dias_uteis_restantes: number; ritmo_necessario: number; ritmo_atual: number; projecao: number
+    em_emissao_valor: number
   } | null
   trend: TrendItem[]
   ranking: Ranking | null
@@ -774,6 +775,15 @@ export default function VidaSDR() {
                               <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-muted)' }}>~{fmtN(m.projecao)}{unit}</span>
                             </div>
                           </div>
+                          {m.tipo === 'clt' && m.em_emissao_valor > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--accent-weak)' }}>
+                              <span style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 600 }}>Em emissão agora</span>
+                              <span style={{ fontSize: 13.5, fontWeight: 800, color: ACCENT }}>
+                                {fmtBrl(m.em_emissao_valor)}
+                                {m.meta_valor > 0 && <span style={{ fontSize: 11.5, fontWeight: 700 }}> · {Math.round(m.em_emissao_valor / m.meta_valor * 100)}% da meta</span>}
+                              </span>
+                            </div>
+                          )}
                         </>
                       )}
                     </>
