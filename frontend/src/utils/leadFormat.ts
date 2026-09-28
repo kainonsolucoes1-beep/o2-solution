@@ -15,6 +15,15 @@ export function fmtDateShort(iso: string) {
   return new Date(parseUTC(iso)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
+// Datas "puras" (sem hora relevante -- ex: previsao de recebimento, data da
+// venda), sempre gravadas como meia-noite. Passar por parseUTC/Date aqui
+// aplicaria o fuso do navegador e "roubaria" um dia (meia-noite UTC vira
+// 21h do dia anterior no Brasil) -- por isso le' o Y-M-D direto da string.
+export function fmtDateOnlyLiteral(iso: string) {
+  const [y, m, d] = iso.slice(0, 10).split('-')
+  return `${d}/${m}/${y}`
+}
+
 export function fmtDuration(ms: number) {
   if (ms < 0) ms = 0
   const totalMin = Math.floor(ms / 60000)

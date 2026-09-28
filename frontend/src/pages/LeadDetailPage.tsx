@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
-import { fmtDate, fmtDateOnly, fmtClock, fmtRelative, fmtBRL, parseBRNumber } from '../utils/leadFormat'
+import { fmtDate, fmtDateOnly, fmtDateOnlyLiteral, fmtClock, fmtRelative, fmtBRL, parseBRNumber } from '../utils/leadFormat'
 import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
 import { useTheme } from '../ThemeContext'
 import LeadDetailHeader from '../components/LeadDetailHeader'
@@ -784,7 +784,7 @@ export default function LeadDetailPage() {
               modalidadeLabel={lead.receita_modalidade ?? 'Não informado'}
               operadoraLabel={lead.receita_operadora ?? 'Não informado'}
               categoriaLabel={lead.receita_categoria ?? 'Não informado'}
-              dataVendaLabel={lead.receita_data_venda ? fmtDateOnly(lead.receita_data_venda) : 'Não informado'}
+              dataVendaLabel={lead.receita_data_venda ? fmtDateOnlyLiteral(lead.receita_data_venda) : 'Não informado'}
               dataVendaRaw={lead.receita_data_venda}
               onSaved={() => api.get<LeadItem>(`/api/v1/leads/${id}`).then(r => setLead(r.data))}
             />

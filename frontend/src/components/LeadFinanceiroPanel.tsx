@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Wallet, Plus, Pencil, Trash2, ChevronDown, Check, X } from 'lucide-react'
 import api from '../api'
-import { fmtBRL, fmtDateShort, parseBRNumber } from '../utils/leadFormat'
+import { fmtBRL, fmtDateOnlyLiteral, parseBRNumber } from '../utils/leadFormat'
 import SectionCard from './SectionCard'
 import EditPencil from './EditPencil'
 import Field from './Field'
@@ -386,7 +386,7 @@ export default function LeadFinanceiroPanel({
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                       <span style={{ fontSize: 10.5, color: 'var(--text-subtle)', flexShrink: 0, minWidth: 42, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {p.previsao_recebimento ? fmtDateShort(p.previsao_recebimento) : '—'}
+                        {p.previsao_recebimento ? fmtDateOnlyLiteral(p.previsao_recebimento) : '—'}
                       </span>
                       <button onClick={() => startEditParcela(p)} style={{ display: 'flex', color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
                         <Pencil size={13} />
