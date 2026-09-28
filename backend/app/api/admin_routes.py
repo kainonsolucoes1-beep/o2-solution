@@ -33,6 +33,12 @@ class TokenUpdateRequest(BaseModel):
     client_secret: str = ""
 
 
+class TransferLeadsRequest(BaseModel):
+    from_origin: str
+    to_origin: str
+    dry_run: bool = True
+
+
 @router.get("/followize-tokens")
 def get_followize_tokens(
     current_user: User = Depends(get_current_user),
@@ -381,6 +387,35 @@ def sync_receita_real_endpoint(
         return sync_receita_real(db)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/transfer-leads")
+def transfer_leads(
+    body: TransferLeadsRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Reatribui em massa a Origin de leads 'em andamento' (nao vendidos nem
+    perdidos) de um agente pra outro -- so' troca o campo Origin, sem tocar
+    em status/historico. dry_run=True (padrao) so' lista o que seria afetado,
+    sem gravar nada."""
+    _require_admin(current_user)
+    from app.api.gestao_comercial_routes import VENDA_STATUSES, CANCELADO_STATUS
+    venda_set = {s.lower() for s in VENDA_STATUSES}
+    leads = db.query(Lead).filter(Lead.origin == body.from_origin).all()
+    affected = [
+        lead for lead in leads
+        if (lead.status or "").lower() not in venda_set and (lead.status or "").lower() != CANCELADO_STATUS
+    ]
+    if not body.dry_run:
+        for lead in affected:
+            lead.origin = body.to_origin
+        db.commit()
+    return {
+        "dry_run": body.dry_run,
+        "count": len(affected),
+        "leads": [{"id": str(lead.id), "name": lead.name, "status": lead.status} for lead in affected],
+    }
 
 
 @router.get("/distinct-attendants")
