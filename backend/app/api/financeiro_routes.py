@@ -1,4 +1,5 @@
 import calendar
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -26,6 +27,18 @@ def _is_atrasado(parcela: LeadParcela) -> bool:
         and parcela.previsao_recebimento is not None
         and parcela.previsao_recebimento.date() < now_br().date()
     )
+
+
+def _plain_date_range(date_from: str, date_to: str) -> tuple[datetime, datetime]:
+    """previsao_recebimento e receita_data_venda sao datas puras (sempre
+    meia-noite, sem fuso real -- vem de _parse_sheet_date em sheets_receita.py).
+    Diferente de timestamps de verdade, NAO usa br_date_to_utc_range (que
+    desloca +3h assumindo fuso de Brasilia): isso faria a meia-noite gravada
+    do primeiro dia do periodo cair ANTES do inicio deslocado, excluindo esse
+    dia do filtro (ex: parcela de 01/09 sumia do filtro de setembro)."""
+    d_from = datetime.strptime(date_from, "%Y-%m-%d")
+    d_to_excl = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+    return d_from, d_to_excl
 
 
 def _apply_search(q, model, search: Optional[str]):
@@ -76,10 +89,10 @@ def list_contratos(
         (Lead.receita_real_recebida > 0) | (Lead.receita_real_a_receber > 0)
     )
     if date_from:
-        dt_from, _ = br_date_to_utc_range(date_from)
+        dt_from, _ = _plain_date_range(date_from, date_from)
         q = q.filter(Lead.receita_data_venda >= dt_from)
     if date_to:
-        _, dt_to_excl = br_date_to_utc_range(date_to)
+        _, dt_to_excl = _plain_date_range(date_to, date_to)
         q = q.filter(Lead.receita_data_venda < dt_to_excl)
     q = _apply_search(q, Lead, search)
     q = _apply_canal(q, Lead, canal)
@@ -138,8 +151,7 @@ def previsao_periodo(
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
 
     try:
-        inicio, _ = br_date_to_utc_range(date_from)
-        _, fim_excl = br_date_to_utc_range(date_to)
+        inicio, fim_excl = _plain_date_range(date_from, date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="Parâmetros 'date_from'/'date_to' inválidos, use YYYY-MM-DD")
 
