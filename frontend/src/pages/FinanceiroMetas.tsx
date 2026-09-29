@@ -83,7 +83,9 @@ export default function FinanceiroMetas() {
   useEffect(fetchMetas, [filtro, dataInicio, dataFim])
 
   const metas = data?.metas ?? []
-  const selected = metas.find(m => m.id === selectedId) ?? null
+  const sortedMetas = [...metas].sort((a, b) => b.pct - a.pct)
+  const selected = metas.find(m => m.id === selectedId) ?? sortedMetas[0] ?? null
+  const teamAvgPct = metas.length ? metas.reduce((s, m) => s + m.pct, 0) / metas.length : 0
 
   function openCreate() {
     setForm({ nome: '', tipo: 'clt', meta_valor: '' })
@@ -183,37 +185,56 @@ export default function FinanceiroMetas() {
       ) : metas.length === 0 ? (
         <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum operador com meta cadastrada ainda.</p>
       ) : (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-          {metas.map((m, i) => (
-            <div
-              key={m.id}
-              role="button" tabIndex={0}
-              onClick={() => setSelectedId(m.id)}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(m.id) } }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', cursor: 'pointer',
-                borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-              }}
-            >
-              <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: avatarBg(m.tipo), color: '#fff', fontWeight: 700, fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {initials(m.nome)}
-              </div>
-              <div style={{ width: 112, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{m.nome}</span>
-                <span style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 99, background: m.tipo === 'clt' ? 'rgba(37,99,235,0.1)' : 'rgba(124,58,237,0.1)', color: m.tipo === 'clt' ? ACCENT : '#7C3AED' }}>
-                  {m.tipo === 'clt' ? 'CLT' : 'Estagiário'}
-                </span>
-              </div>
-              <div style={{ flex: 1, marginRight: 28, height: 9, borderRadius: 99, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, m.pct)}%`, borderRadius: 99, background: statusColor(m.pct), transition: 'width 300ms ease' }} />
-              </div>
+        <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+          <div style={{ width: 320, flexShrink: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--border-lt)' }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>
+                Equipe — {Math.round(teamAvgPct)}% da meta em média
+              </span>
             </div>
-          ))}
-        </div>
-      )}
+            <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
+              {sortedMetas.map(m => {
+                const active = selected?.id === m.id
+                const sc = statusColor(m.pct)
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedId(m.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', border: 'none', cursor: 'pointer',
+                      borderRadius: 12, marginBottom: 2, textAlign: 'left', fontFamily: 'inherit',
+                      background: active ? (m.tipo === 'clt' ? 'rgba(37,99,235,0.08)' : 'rgba(124,58,237,0.08)') : 'transparent',
+                    }}
+                  >
+                    <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: avatarBg(m.tipo), color: '#fff', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {initials(m.nome)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: active ? 'var(--text-1)' : 'var(--text-2)' }}>{m.nome}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: m.tipo === 'clt' ? ACCENT : '#7C3AED' }}>{m.tipo === 'clt' ? 'CLT' : 'Estagiário'}</span>
+                    </div>
+                    <div style={{ width: 58, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: sc }}>{Math.round(m.pct)}%</span>
+                      <div style={{ width: 50, height: 5, borderRadius: 99, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.min(100, m.pct)}%`, borderRadius: 99, background: sc }} />
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-      {selected && (
-        <DetailModal meta={selected} mesLabel={data?.mes_label ?? ''} filtro={filtro} onClose={() => setSelectedId(null)} onEdit={() => { setSelectedId(null); openEdit(selected) }} />
+          {selected && (
+            <FocusPanel
+              meta={selected}
+              mesLabel={data?.mes_label ?? ''}
+              filtro={filtro}
+              teamAvgPct={teamAvgPct}
+              onEdit={() => openEdit(selected)}
+            />
+          )}
+        </div>
       )}
 
       {showCompare && (
@@ -278,52 +299,62 @@ function Donut({ pct, color }: { pct: number; color: string }) {
   )
 }
 
-function DetailModal({ meta, mesLabel, filtro, onClose, onEdit }: {
-  meta: MetaProgress; mesLabel: string; filtro: FiltroPeriodo; onClose: () => void; onEdit: () => void
+function FocusPanel({ meta, mesLabel, filtro, teamAvgPct, onEdit }: {
+  meta: MetaProgress; mesLabel: string; filtro: FiltroPeriodo; teamAvgPct: number; onEdit: () => void
 }) {
   const color = statusColor(meta.pct)
+  const diff = Math.round(meta.pct - teamAvgPct)
+  const compareText = diff === 0
+    ? 'na média da equipe'
+    : diff > 0
+      ? `${diff}% acima da média da equipe (${Math.round(teamAvgPct)}%)`
+      : `${Math.abs(diff)}% abaixo da média da equipe (${Math.round(teamAvgPct)}%)`
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={onClose}>
-      <div style={{ background: 'var(--bg-card)', borderRadius: 20, width: '100%', maxWidth: 420, padding: 26, boxShadow: '0 24px 64px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: avatarBg(meta.tipo), color: '#fff', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {initials(meta.nome)}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ fontSize: 16, fontWeight: 800, display: 'block', color: 'var(--text-1)' }}>{meta.nome}</span>
-            <span style={{ display: 'inline-block', marginTop: 3, fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 99, background: meta.tipo === 'clt' ? 'rgba(37,99,235,0.1)' : 'rgba(124,58,237,0.1)', color: meta.tipo === 'clt' ? ACCENT : '#7C3AED' }}>
-              {meta.tipo === 'clt' ? 'CLT' : 'Estagiário'}
-            </span>
-          </div>
-          <button onClick={onEdit} title="Editar meta" style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: 'none', color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <Pencil size={15} />
-          </button>
-          <button onClick={onClose} title="Fechar" style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: 'none', color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <X size={18} />
-          </button>
+    <div style={{ flex: 1, minWidth: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ width: 48, height: 48, borderRadius: 13, background: avatarBg(meta.tipo), color: '#fff', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {initials(meta.nome)}
         </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 17, fontWeight: 800, display: 'block', color: 'var(--text-1)' }}>{meta.nome}</span>
+          <span style={{ display: 'inline-block', marginTop: 3, fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 99, background: meta.tipo === 'clt' ? 'rgba(37,99,235,0.1)' : 'rgba(124,58,237,0.1)', color: meta.tipo === 'clt' ? ACCENT : '#7C3AED' }}>
+            {meta.tipo === 'clt' ? 'CLT' : 'Estagiário'}
+          </span>
+        </div>
+        <button onClick={onEdit} title="Editar meta" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 34, padding: '0 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+          <Pencil size={14} />
+          Editar meta
+        </button>
+      </div>
 
-        <div style={{ textAlign: 'center', padding: 18, borderRadius: 14, background: 'var(--bg-subtle)', marginBottom: 18, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <Donut pct={meta.pct} color={color} />
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{filtro === 'mes_atual' ? mesLabel : filtro === 'geral' ? 'Histórico completo' : 'Período selecionado'}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 150 }}>{compareText}</span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 280, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, alignContent: 'start' }}>
           <Tile label="Leads captados" value={fmtNum(meta.leads)} />
           <Tile label="Vendas realizadas" value={fmtNum(meta.vendas)} />
           <Tile label="Meta mensal" value={fmtValor(meta.tipo, meta.meta_valor)} />
           <Tile label="Valor atingido no mês" value={fmtValor(meta.tipo, meta.atingido)} />
-          {meta.projecao != null && (
-            <div style={{ gridColumn: '1 / -1', borderRadius: 12, padding: '13px 14px', background: 'rgba(37,99,235,0.08)' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: ACCENT }}>Projeção pro fim do mês</span>
-              <span style={{ display: 'block', fontSize: 19, fontWeight: 800, color: ACCENT, marginTop: 6 }}>{fmtValor(meta.tipo, meta.projecao)}</span>
-              <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
-                Mantendo o ritmo atual, {meta.projecao >= meta.meta_valor ? 'fica acima' : 'fica abaixo'} da meta de {fmtValor(meta.tipo, meta.meta_valor)}
-              </span>
-            </div>
-          )}
         </div>
       </div>
+
+      <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{filtro === 'mes_atual' ? mesLabel : filtro === 'geral' ? 'Histórico completo' : 'Período selecionado'}</span>
+
+      {meta.projecao != null && (
+        <div style={{ borderRadius: 12, padding: '13px 16px', background: 'rgba(37,99,235,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: ACCENT }}>Projeção pro fim do mês</span>
+            <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+              Mantendo o ritmo atual, {meta.projecao >= meta.meta_valor ? 'fica acima' : 'fica abaixo'} da meta de {fmtValor(meta.tipo, meta.meta_valor)}
+            </span>
+          </div>
+          <span style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{fmtValor(meta.tipo, meta.projecao)}</span>
+        </div>
+      )}
     </div>
   )
 }
