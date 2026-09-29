@@ -1,61 +1,72 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, Check } from 'lucide-react'
 import FieldLabel from './FieldLabel'
-import Pill from './Pill'
 
 const OPERADORAS_OPTIONS = [
-  'Amil', 'Bradesco', 'Hapvida', 'Medsenior', 'Prevent Senior', 'Trasmontano', 'SulAmérica',
-  'Alice', 'Bio Vida', 'Porto Saúde', 'Porto Bairros', 'Select',
+  'Amil', 'Bradesco', 'SulAmerica', 'Porto', 'Seguros Unimed', 'Unimed',
+  'Trasmontano', 'Alice', 'HapVida', 'NotreDame', 'MedSenior', 'Prevent Senior',
 ]
 
 export default function OperadorasField({ value, saving, onChange }: { value: string | null; saving?: boolean; onChange: (v: string) => void }) {
-  const [expanded, setExpanded] = useState(false)
+  const [open, setOpen] = useState(false)
   const selected = new Set((value ?? '').split(',').map(s => s.trim()).filter(Boolean))
   function toggle(op: string) {
     const next = new Set(selected)
     next.has(op) ? next.delete(op) : next.add(op)
     onChange([...next].join(','))
   }
+  const summary = selected.size === 0 ? 'Nenhuma enviada' : [...selected].join(', ')
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" style={{ position: 'relative' }}>
+      <FieldLabel>Operadoras enviadas{selected.size > 0 ? ` (${selected.size})` : ''}</FieldLabel>
       <button
-        onClick={() => setExpanded(v => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        onClick={() => setOpen(v => !v)}
+        disabled={saving}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: 9,
+          border: '1px solid var(--border-in)', background: 'var(--bg-input)',
+          color: selected.size > 0 ? 'var(--text-1)' : 'var(--text-subtle)',
+          fontSize: 13.5, fontFamily: 'inherit', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1,
+        }}
       >
-        <FieldLabel>Operadoras enviadas{selected.size > 0 ? ` (${selected.size})` : ''}</FieldLabel>
-        {expanded ? <ChevronDown size={12} color="var(--text-muted)" /> : <ChevronRight size={12} color="var(--text-muted)" />}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary}</span>
+        <ChevronDown size={14} color="var(--text-muted)" style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
       </button>
-      {!expanded && selected.size > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {[...selected].map(op => (
-            <Pill key={op} tone="info">{op}</Pill>
-          ))}
-        </div>
-      )}
-      {!expanded && selected.size === 0 && (
-        <span style={{ fontSize: 14, lineHeight: '20px', color: 'var(--text-subtle)', fontWeight: 400 }}>Nenhuma enviada</span>
-      )}
-      {expanded && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, opacity: saving ? 0.6 : 1, pointerEvents: saving ? 'none' : 'auto' }}>
-          {OPERADORAS_OPTIONS.map(op => {
-            const active = selected.has(op)
-            return (
-              <button
-                key={op}
-                onClick={() => toggle(op)}
-                style={{
-                  fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 99,
-                  border: `1px solid ${active ? '#2563EB' : 'var(--border-in)'}`,
-                  background: active ? '#EFF6FF' : 'var(--bg-input)',
-                  color: active ? '#2563EB' : 'var(--text-2)',
-                  cursor: 'pointer',
-                }}
-              >
-                {op}
-              </button>
-            )
-          })}
-        </div>
+
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 100,
+            background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10,
+            boxShadow: '0 8px 24px rgba(15,23,42,0.14)', maxHeight: 260, overflowY: 'auto', padding: 6,
+          }}>
+            {OPERADORAS_OPTIONS.map(op => {
+              const active = selected.has(op)
+              return (
+                <button
+                  key={op}
+                  onClick={() => toggle(op)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', borderRadius: 7,
+                    background: active ? 'var(--accent-weak)' : 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 13, color: active ? 'var(--accent)' : 'var(--text-2)', fontWeight: active ? 600 : 500, textAlign: 'left',
+                  }}
+                >
+                  <span style={{
+                    width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border-in)'}`,
+                    display: 'grid', placeItems: 'center', flexShrink: 0, background: active ? 'var(--accent)' : 'transparent',
+                  }}>
+                    {active && <Check size={11} color="#fff" strokeWidth={3} />}
+                  </span>
+                  {op}
+                </button>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )
