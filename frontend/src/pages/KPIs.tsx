@@ -805,14 +805,19 @@ export default function KPIs() {
   // incluir ela aqui fazia "Pontos de conversão" mostrar uma contagem que
   // sempre voltava zerada ao abrir a analise (nenhum lead tem esse conversion_point).
   const _allBp = data.flatMap(f => f.breakdown).filter(b => b.label !== '🔄 Renutrição')
-  const _bpLabels = [...new Set(_allBp.map(b => b.label))]
-  const allConvPoints = _bpLabels
-    .map(label => {
-      const rows = _allBp.filter(b => b.label === label)
+  // agrupa por minusculo pra unir o mesmo ponto de conversao mesmo quando a
+  // grafia (maiuscula/minuscula) varia de uma origem pra outra -- cada
+  // origem ja' vem unificada do backend, mas aqui juntamos TODAS as
+  // origens numa lista so', entao precisa do mesmo cuidado de novo.
+  const _bpKeys = [...new Set(_allBp.map(b => b.label.toLowerCase()))]
+  const allConvPoints = _bpKeys
+    .map(key => {
+      const rows = _allBp.filter(b => b.label.toLowerCase() === key)
+      const label = rows[0].label
       const cap = rows.reduce((s, b) => s + b.captacoes, 0)
       const ven = rows.reduce((s, b) => s + b.vendas, 0)
       const can = rows.reduce((s, b) => s + b.cancelados, 0)
-      const relevantFontes = data.filter(f => f.breakdown.some(bd => bd.label === label)).map(f => f.fonte)
+      const relevantFontes = data.filter(f => f.breakdown.some(bd => bd.label.toLowerCase() === key)).map(f => f.fonte)
       // tempo médio combinado: média ponderada pelas vendas de cada origem (aproximação a partir das médias já calculadas por origem)
       const tempoRows = rows.filter(b => b.tempo_medio_dias != null && b.vendas > 0)
       const tempoPeso = tempoRows.reduce((s, b) => s + b.vendas, 0)
@@ -830,9 +835,10 @@ export default function KPIs() {
     .sort((a, b) => b.captacoes - a.captacoes)
 
   const organicOnly = data.filter(d => !isSdr(d.fonte))
-  const organicBpForCompare = [...new Set(organicOnly.flatMap(f => f.breakdown).map(b => b.label))]
-    .map(label => {
-      const rows = organicOnly.flatMap(f => f.breakdown).filter(b => b.label === label)
+  const organicBpForCompare = [...new Set(organicOnly.flatMap(f => f.breakdown).map(b => b.label.toLowerCase()))]
+    .map(key => {
+      const rows = organicOnly.flatMap(f => f.breakdown).filter(b => b.label.toLowerCase() === key)
+      const label = rows[0].label
       const cap = rows.reduce((s, b) => s + b.captacoes, 0)
       const ven = rows.reduce((s, b) => s + b.vendas, 0)
       return { label, captacoes: cap, vendas: ven, conversao: cap > 0 ? +(ven / cap * 100).toFixed(1) : 0 }
