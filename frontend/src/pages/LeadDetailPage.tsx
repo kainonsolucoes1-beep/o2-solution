@@ -161,7 +161,7 @@ export default function LeadDetailPage() {
   const agendaRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
-  const canSeeFinancials = me !== null && (me.role === 'admin' || me.role === 'diretor')
+  const canSeeFinancials = me !== null && ['admin', 'diretor', 'financeiro', 'coordenador'].includes(me.role)
   const canDeleteAttachments = me !== null && ['admin', 'diretor', 'financeiro', 'coordenador'].includes(me.role)
   const conversionPointOptions = Array.from(new Set([...conversionPoints, ...EXTRA_CONVERSION_POINTS])).sort()
 
