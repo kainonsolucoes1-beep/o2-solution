@@ -711,19 +711,25 @@ def conversion_points_by_group(
 
     # Agrupa em Python (nao no SQL) pra aplicar normalize_conversion_point --
     # sem isso, grafias diferentes do mesmo rotulo (ex: "Campanha Whatsapp" e
-    # "Campanha WhatsApp") viravam linhas separadas.
+    # "Campanha WhatsApp") viravam linhas separadas. Alem disso, agrupa por
+    # minusculo pra tambem unir grafias sem apelido cadastrado (ex: "manual"
+    # x "Manual"), mantendo a primeira grafia vista como rotulo exibido.
     raw_rows = db.query(Lead.conversion_point).filter(*filters).all()
     counts: dict = defaultdict(int)
+    labels: dict = {}
     for (cp,) in raw_rows:
-        counts[normalize_conversion_point(cp)] += 1
+        display = normalize_conversion_point(cp)
+        key = display.lower()
+        labels.setdefault(key, display)
+        counts[key] += 1
     total = sum(counts.values())
     return [
         {
-            "conversion_point": label,
+            "conversion_point": labels[key],
             "count": cnt,
             "pct": round(cnt / total * 100, 1) if total else 0.0,
         }
-        for label, cnt in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+        for key, cnt in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
     ]
 
 
