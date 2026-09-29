@@ -345,7 +345,9 @@ function FocusPanel({ meta, teamAvgPct, onEdit }: {
           <div>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: ACCENT }}>Projeção pro fim do mês</span>
             <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-              Mantendo o ritmo atual, {meta.projecao >= meta.meta_valor ? 'fica acima' : 'fica abaixo'} da meta de {fmtValor(meta.tipo, meta.meta_valor)}
+              {meta.tipo === 'clt'
+                ? `Vendas já fechadas/aguardando faturamento + propostas em andamento, ${meta.projecao >= meta.meta_valor ? 'fica acima' : 'fica abaixo'} da meta de ${fmtValor(meta.tipo, meta.meta_valor)}`
+                : `Mantendo o ritmo atual, ${meta.projecao >= meta.meta_valor ? 'fica acima' : 'fica abaixo'} da meta de ${fmtValor(meta.tipo, meta.meta_valor)}`}
             </span>
           </div>
           <span style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{fmtValor(meta.tipo, meta.projecao)}</span>
