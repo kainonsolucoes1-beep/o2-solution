@@ -196,7 +196,7 @@ def conversao_por_fonte(
         _accumulate(data[fonte]["acc"], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
         if conv_point:
-            bp = conv_point.strip().lower()
+            bp = normalize_conversion_point(conv_point)
             _accumulate(data[fonte]["breakdown"][bp], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
     result = []
