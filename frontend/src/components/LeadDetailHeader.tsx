@@ -18,7 +18,7 @@ function ContactRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function LeadDetailHeader({
-  name, statusLabel, sStyle, perceptionLabel, perceptionStyle,
+  name, statusLabel, sStyle, perceptionLabel, perceptionStyle, avisoPrevioLabel,
   phoneLabel, emailLabel, attendantLabel, origemLabel,
   isAdmin, menuOpen, onToggleMenu, onCloseMenu, onRequestDelete, onBack,
   hasRenutricao, onRemoveRenutricao,
@@ -28,6 +28,7 @@ export default function LeadDetailHeader({
   sStyle: { bg: string; color: string }
   perceptionLabel: string | null
   perceptionStyle: { bg: string; color: string } | null
+  avisoPrevioLabel: string | null
   phoneLabel: string
   emailLabel: string
   attendantLabel: string
@@ -71,6 +72,7 @@ export default function LeadDetailHeader({
               <div className="flex flex-wrap" style={{ gap: 5, marginTop: 3 }}>
                 <Pill colors={sStyle}>{statusLabel}</Pill>
                 {perceptionLabel && perceptionStyle && <Pill colors={perceptionStyle}>{perceptionLabel}</Pill>}
+                {avisoPrevioLabel && <Pill colors={{ bg: '#FEF3C7', color: '#92400E' }}>{avisoPrevioLabel}</Pill>}
               </div>
             </div>
           </div>
