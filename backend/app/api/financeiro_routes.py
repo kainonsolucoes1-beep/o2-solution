@@ -7,7 +7,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
-from app.api.gestao_comercial_routes import MESES_ABREV, PROPOSTA_STATUSES, VENDA_STATUSES
+from app.api.gestao_comercial_routes import MESES_ABREV, VENDA_STATUSES
 from app.database import get_db
 from app.models.lead import Lead, LeadParcela
 from app.models.sdr_meta import SdrMeta
@@ -235,10 +235,10 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
     if _is_current_month_range(date_from, date_to):
         if meta.tipo == "clt":
             # projecao = o que ja esta garantido (vendido/aguardando faturamento)
-            # + o valor das propostas em andamento que ainda podem fechar --
-            # nao e' mais extrapolacao linear de ritmo.
-            proposta_set = {s.lower() for s in PROPOSTA_STATUSES}
-            pipeline_valor = sum(float(value or 0) for status, value in leads_rows if (status or "").lower() in proposta_set)
+            # + o valor dos leads em emissao (documentacao ja enviada pelo
+            # cliente, etapa avancada) -- proposta/negociacao ainda sao
+            # "frias" demais pra entrar na projecao.
+            pipeline_valor = sum(float(value or 0) for status, value in leads_rows if (status or "").lower() == "emissao")
             projecao = round(atingido + pipeline_valor, 2)
         else:
             now = now_br()
