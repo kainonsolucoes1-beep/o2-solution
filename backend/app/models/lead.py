@@ -68,6 +68,11 @@ class Lead(Base):
     visibility_tag = Column(String(50), nullable=True)
     operadoras_enviadas = Column(Text, nullable=True)  # lista separada por virgula
     receita_data_venda = Column(TIMESTAMP, nullable=True)
+    # "Aviso prévio": a venda já fechou, mas o cliente só paga/fatura numa
+    # data futura combinada (ex: 28/11) -- so' informativo, nao trava o
+    # botao Faturar, que continua liberado a qualquer momento.
+    aviso_previo = Column(Boolean, default=False, nullable=False, server_default='false')
+    data_faturamento_previsto = Column(TIMESTAMP, nullable=True)
     # Campanha de disparo (WhatsApp/e-mail/SMS) -- canal/status ATIVOS enquanto
     # o lead está na fila do Isaac. Zerados quando sai da campanha (respondeu
     # ou não retrabalhar); o histórico completo fica em CampanhaEvento.

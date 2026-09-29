@@ -615,6 +615,8 @@ def get_lead(
         receita_categoria=lead.receita_categoria if show_fin else None,
         receita_data_venda=lead.receita_data_venda if show_fin else None,
         receita_origem=lead.receita_origem if show_fin else None,
+        aviso_previo=bool(lead.aviso_previo) if show_fin else False,
+        data_faturamento_previsto=lead.data_faturamento_previsto if show_fin else None,
         visibility_tag=lead.visibility_tag,
         is_renutrucao=bool(lead.is_renutrucao),
         renutricao_owner_id=lead.renutricao_owner_id,
@@ -1172,7 +1174,10 @@ def registrar_venda(
     db: Session = Depends(get_db),
 ):
     """Registra o valor final e a data da venda fechada; o valor entra como
-    'a receber' ate o faturamento (ver /faturar)."""
+    'a receber' ate o faturamento (ver /faturar). Se for "aviso previo"
+    (cliente so' paga numa data futura combinada), guarda essa previsao —
+    e' so' informativo, nao trava o /faturar, que continua liberado a
+    qualquer momento."""
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
@@ -1181,10 +1186,21 @@ def registrar_venda(
         data_venda, _ = br_date_to_utc_range(body.data_venda)
     except ValueError:
         raise HTTPException(status_code=400, detail="Data inválida, use o formato AAAA-MM-DD")
+    data_faturamento_previsto = None
+    if body.aviso_previo and body.data_faturamento_previsto:
+        try:
+            data_faturamento_previsto, _ = br_date_to_utc_range(body.data_faturamento_previsto)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Data de faturamento inválida, use o formato AAAA-MM-DD")
     lead.receita_real_a_receber = body.valor
     lead.receita_data_venda = data_venda
+    lead.aviso_previo = body.aviso_previo
+    lead.data_faturamento_previsto = data_faturamento_previsto
     db.commit()
-    return LeadVendaResponse(success=True, lead_id=lead.id)
+    return LeadVendaResponse(
+        success=True, lead_id=lead.id,
+        aviso_previo=lead.aviso_previo, data_faturamento_previsto=lead.data_faturamento_previsto,
+    )
 
 
 @router.post("/leads/{lead_id}/faturar", response_model=LeadFaturarResponse)

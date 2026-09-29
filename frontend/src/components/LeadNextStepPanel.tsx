@@ -59,7 +59,9 @@ export default function LeadNextStepPanel({
   agendaRef, editingSchedule, scheduleInput, onScheduleInputChange, savingSchedule, loadingSchedules,
   activeSchedule, cancelingSchedule, onSaveSchedule, onCancelScheduleEdit, onRemoveSchedule,
   editingProposta, propostaValor, onPropostaValorChange, savingProposta, onSaveProposta, onCancelPropostaEdit,
-  vendaValor, onVendaValorChange, vendaData, onVendaDataChange, savingVenda, onSaveVenda, faturando, onFaturar,
+  vendaValor, onVendaValorChange, vendaData, onVendaDataChange,
+  avisoPrevio, onAvisoPrevioChange, dataFaturamentoPrevisto, onDataFaturamentoPrevistoChange,
+  savingVenda, onSaveVenda, faturando, onFaturar, faturamentoPrevistoLabel,
   showRetrabalhar, onToggleRetrabalhar, retrabalharData, onRetrabalharDataChange, onConfirmRetrabalhar, onCancelRetrabalhar, retrabalhando,
 }: {
   editing: boolean
@@ -111,10 +113,15 @@ export default function LeadNextStepPanel({
   onVendaValorChange: (value: string) => void
   vendaData: string
   onVendaDataChange: (value: string) => void
+  avisoPrevio: boolean
+  onAvisoPrevioChange: (value: boolean) => void
+  dataFaturamentoPrevisto: string
+  onDataFaturamentoPrevistoChange: (value: string) => void
   savingVenda: boolean
   onSaveVenda: () => void
   faturando: boolean
   onFaturar: () => void
+  faturamentoPrevistoLabel: string | null
   showRetrabalhar: boolean
   onToggleRetrabalhar: () => void
   retrabalharData: string
@@ -182,9 +189,16 @@ export default function LeadNextStepPanel({
                 Enviar proposta
               </button>
               {status === 'waiting_billing' ? (
-                <button style={primaryActionBtnStyle} onClick={onFaturar} disabled={faturando}>
-                  {faturando ? 'Faturando…' : 'Faturar'}
-                </button>
+                <>
+                  {faturamentoPrevistoLabel && (
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      Faturamento previsto: {faturamentoPrevistoLabel}
+                    </span>
+                  )}
+                  <button style={primaryActionBtnStyle} onClick={onFaturar} disabled={faturando}>
+                    {faturando ? 'Faturando…' : 'Faturar'}
+                  </button>
+                </>
               ) : (
                 <button style={actionBtnStyle(true)} onClick={onOpenFinalizar}>
                   Finalizar atendimento
@@ -270,39 +284,58 @@ export default function LeadNextStepPanel({
                   </button>
                 </div>
               ) : statusSubMenu === 'venda_realizada' ? (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <CurrencyInput value={vendaValor} onChange={onVendaValorChange} autoFocus />
-                  <input
-                    type="date"
-                    value={vendaData}
-                    onChange={e => onVendaDataChange(e.target.value)}
-                    style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
-                  />
-                  <button
-                    onClick={onSaveVenda}
-                    disabled={savingVenda || !vendaValor || !vendaData}
-                    style={{
-                      background: savingVenda || !vendaValor || !vendaData ? 'var(--bg-subtle)' : 'var(--accent)',
-                      color: savingVenda || !vendaValor || !vendaData ? 'var(--text-subtle)' : 'white',
-                      border: 'none', borderRadius: 8,
-                      padding: '7px 16px', fontSize: 13, fontWeight: 500,
-                      cursor: savingVenda || !vendaValor || !vendaData ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {savingVenda ? 'Salvando…' : 'Confirmar'}
-                  </button>
-                  <button
-                    onClick={onBackToFinalizar}
-                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                  >
-                    Voltar
-                  </button>
-                  <button
-                    onClick={onCancelStatusEdit}
-                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
-                  >
-                    Cancelar
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <CurrencyInput value={vendaValor} onChange={onVendaValorChange} autoFocus />
+                    <input
+                      type="date"
+                      value={vendaData}
+                      onChange={e => onVendaDataChange(e.target.value)}
+                      style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text-2)', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={avisoPrevio} onChange={e => onAvisoPrevioChange(e.target.checked)} />
+                    Aviso prévio (cliente só fatura numa data futura)
+                  </label>
+                  {avisoPrevio && (
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', width: 'fit-content' }}>
+                      Data de faturamento
+                      <input
+                        type="date"
+                        value={dataFaturamentoPrevisto}
+                        onChange={e => onDataFaturamentoPrevistoChange(e.target.value)}
+                        style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, fontWeight: 400, textTransform: 'none', color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
+                      />
+                    </label>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                      onClick={onSaveVenda}
+                      disabled={savingVenda || !vendaValor || !vendaData || (avisoPrevio && !dataFaturamentoPrevisto)}
+                      style={{
+                        background: savingVenda || !vendaValor || !vendaData || (avisoPrevio && !dataFaturamentoPrevisto) ? 'var(--bg-subtle)' : 'var(--accent)',
+                        color: savingVenda || !vendaValor || !vendaData || (avisoPrevio && !dataFaturamentoPrevisto) ? 'var(--text-subtle)' : 'white',
+                        border: 'none', borderRadius: 8,
+                        padding: '7px 16px', fontSize: 13, fontWeight: 500,
+                        cursor: savingVenda || !vendaValor || !vendaData || (avisoPrevio && !dataFaturamentoPrevisto) ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {savingVenda ? 'Salvando…' : 'Confirmar'}
+                    </button>
+                    <button
+                      onClick={onBackToFinalizar}
+                      style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      onClick={onCancelStatusEdit}
+                      style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-subtle)', cursor: 'pointer', padding: '4px 8px' }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
               ) : statusSubMenu === 'fechado' ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

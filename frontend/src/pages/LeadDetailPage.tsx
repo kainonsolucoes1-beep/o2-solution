@@ -38,6 +38,8 @@ interface LeadItem {
   receita_operadora: string | null
   receita_categoria: string | null
   receita_data_venda: string | null
+  aviso_previo: boolean
+  data_faturamento_previsto: string | null
   receita_origem: string | null
   visibility_tag: string | null
   operadoras_enviadas: string | null
@@ -130,6 +132,8 @@ export default function LeadDetailPage() {
   const [savingProposta, setSavingProposta] = useState(false)
   const [vendaValor, setVendaValor] = useState('')
   const [vendaData, setVendaData] = useState('')
+  const [avisoPrevio, setAvisoPrevio] = useState(false)
+  const [dataFaturamentoPrevisto, setDataFaturamentoPrevisto] = useState('')
   const [savingVenda, setSavingVenda] = useState(false)
   const [faturando, setFaturando] = useState(false)
   const [retrabalhando, setRetrabalhando] = useState(false)
@@ -217,8 +221,12 @@ export default function LeadDetailPage() {
 
   function handleRegistrarVenda() {
     if (!id || !vendaValor.trim() || !vendaData) return
+    if (avisoPrevio && !dataFaturamentoPrevisto) return
     setSavingVenda(true)
-    api.post(`/api/v1/leads/${id}/venda`, { valor: parseBRNumber(vendaValor), data_venda: vendaData })
+    api.post(`/api/v1/leads/${id}/venda`, {
+      valor: parseBRNumber(vendaValor), data_venda: vendaData,
+      aviso_previo: avisoPrevio, data_faturamento_previsto: avisoPrevio ? dataFaturamentoPrevisto : null,
+    })
       .then(() => handleStatusChange('waiting_billing'))
       .catch(() => setToast({ msg: 'Erro ao registrar venda', ok: false }))
       .finally(() => setSavingVenda(false))
@@ -675,10 +683,15 @@ export default function LeadDetailPage() {
         onVendaValorChange={setVendaValor}
         vendaData={vendaData}
         onVendaDataChange={setVendaData}
+        avisoPrevio={avisoPrevio}
+        onAvisoPrevioChange={setAvisoPrevio}
+        dataFaturamentoPrevisto={dataFaturamentoPrevisto}
+        onDataFaturamentoPrevistoChange={setDataFaturamentoPrevisto}
         savingVenda={savingVenda}
         onSaveVenda={handleRegistrarVenda}
         faturando={faturando}
         onFaturar={handleFaturar}
+        faturamentoPrevistoLabel={lead.aviso_previo && lead.data_faturamento_previsto ? fmtDateOnlyLiteral(lead.data_faturamento_previsto) : null}
         showRetrabalhar={showRetrabalhar}
         onToggleRetrabalhar={handleToggleRetrabalhar}
         retrabalharData={retrabalharData}

@@ -53,6 +53,8 @@ class LeadReportItem(BaseModel):
     receita_categoria: Optional[str] = None
     receita_data_venda: Optional[datetime] = None
     receita_origem: Optional[str] = None
+    aviso_previo: bool = False
+    data_faturamento_previsto: Optional[datetime] = None
     visibility_tag: Optional[str] = None
     is_renutrucao: bool = False
     renutricao_owner_id: Optional[UUID] = None
@@ -204,11 +206,15 @@ class ParcelasListResponse(BaseModel):
 class LeadVendaRequest(BaseModel):
     valor: float
     data_venda: str  # AAAA-MM-DD
+    aviso_previo: bool = False
+    data_faturamento_previsto: Optional[str] = None  # AAAA-MM-DD
 
 
 class LeadVendaResponse(BaseModel):
     success: bool
     lead_id: UUID
+    aviso_previo: bool = False
+    data_faturamento_previsto: Optional[datetime] = None
 
 
 class LeadFaturarResponse(BaseModel):
