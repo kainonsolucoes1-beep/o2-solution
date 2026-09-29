@@ -9,6 +9,7 @@ import { titleCase } from '../utils/leadFormat'
 interface InfoDraft {
   name: string
   company: string
+  titular_menor: string
   email: string
   phone: string
   attendant: string
@@ -21,7 +22,7 @@ const isEmpty = (v: string) => !v || v === '—' || v === 'Não informado' || v 
 export default function LeadRegistrationPanel({
   origem, origemOptions, savingOrigem, onOrigemChange,
   conversionPoint, conversionPointOptions, savingConversionPoint, onConversionPointChange,
-  leadSinceLabel, leadSinceRelative, retrabalhadoEmLabel, documentoLabel, empresaLabel, visibilityTag,
+  leadSinceLabel, leadSinceRelative, retrabalhadoEmLabel, documentoLabel, empresaLabel, titularMenorLabel, visibilityTag,
   editingInfo, savingInfo, infoDraft, onDraftChange, onStartEdit, onCancelEdit, onSaveEdit, locked,
 }: {
   origem: string
@@ -37,6 +38,7 @@ export default function LeadRegistrationPanel({
   retrabalhadoEmLabel?: string | null
   documentoLabel: string
   empresaLabel: string
+  titularMenorLabel: string | null
   visibilityTag: string | null
   editingInfo: boolean
   savingInfo: boolean
@@ -90,6 +92,7 @@ export default function LeadRegistrationPanel({
         {editingInfo ? (
           <>
             <EditInput label="Nome" value={infoDraft.name} onChange={v => onDraftChange('name', v)} />
+            <EditInput label="Titular Menor" value={infoDraft.titular_menor} onChange={v => onDraftChange('titular_menor', v)} />
             <EditInput label="Empresa" value={infoDraft.company} onChange={v => onDraftChange('company', v)} />
             <EditInput label="Email" value={infoDraft.email} onChange={v => onDraftChange('email', v)} />
             <EditInput label="Telefone" value={infoDraft.phone} onChange={v => onDraftChange('phone', v)} />
@@ -97,12 +100,17 @@ export default function LeadRegistrationPanel({
             <EditInput label="Atendente" value={infoDraft.attendant} onChange={v => onDraftChange('attendant', v)} />
             <EditInput label="Perfil" value={infoDraft.visibility_tag} onChange={v => onDraftChange('visibility_tag', v)} />
           </>
-        ) : bothEmpty ? (
-          <Field label="Empresa · Documento" value="Não informado" />
         ) : (
           <>
-            <Field label="Empresa" value={empresaLabel} />
-            <Field label="Documento" value={documentoLabel} />
+            {titularMenorLabel && <Field label="Titular Menor" value={titularMenorLabel} />}
+            {bothEmpty ? (
+              <Field label="Empresa · Documento" value="Não informado" />
+            ) : (
+              <>
+                <Field label="Empresa" value={empresaLabel} />
+                <Field label="Documento" value={documentoLabel} />
+              </>
+            )}
           </>
         )}
         {!editingInfo && visibilityTag && <Field label="Perfil" value={titleCase(visibilityTag)} />}

@@ -22,6 +22,7 @@ interface LeadItem {
   email: string | null
   phone: string | null
   company: string | null
+  titular_menor: string | null
   attendant: string | null
   origem: string | null
   conversion_point: string | null
@@ -143,7 +144,7 @@ export default function LeadDetailPage() {
   const [, setTick]                       = useState(0)
   const [editingInfo, setEditingInfo]     = useState(false)
   const [savingInfo, setSavingInfo]       = useState(false)
-  const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', email: '', phone: '', attendant: '', document: '', visibility_tag: '' })
+  const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', titular_menor: '', email: '', phone: '', attendant: '', document: '', visibility_tag: '' })
   const [origins, setOrigins]             = useState<string[]>([])
   const [conversionPoints, setConversionPoints] = useState<string[]>([])
   const [modalidades, setModalidades]     = useState<string[]>(['PF', 'PME'])
@@ -276,7 +277,7 @@ export default function LeadDetailPage() {
   function startEditInfo() {
     if (!lead) return
     setInfoDraft({
-      name: lead.name ?? '', company: lead.company ?? '', email: lead.email ?? '',
+      name: lead.name ?? '', company: lead.company ?? '', titular_menor: lead.titular_menor ?? '', email: lead.email ?? '',
       phone: lead.phone ?? '', attendant: lead.attendant ?? '', document: lead.document ?? '',
       visibility_tag: lead.visibility_tag ?? '',
     })
@@ -768,6 +769,7 @@ export default function LeadDetailPage() {
             retrabalhadoEmLabel={lead.retrabalhado_em ? fmtDateOnly(lead.retrabalhado_em) : null}
             documentoLabel={lead.document ?? 'Não informado'}
             empresaLabel={lead.company ?? 'Não informado'}
+            titularMenorLabel={lead.titular_menor ?? null}
             visibilityTag={lead.visibility_tag}
             editingInfo={editingInfo}
             savingInfo={savingInfo}

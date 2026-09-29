@@ -37,6 +37,7 @@ class LeadReportItem(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     company: Optional[str] = None
+    titular_menor: Optional[str] = None
     attendant: Optional[str] = None
     origem: Optional[str] = None
     conversion_point: Optional[str] = None
@@ -116,6 +117,7 @@ class StatusUpdateResponse(BaseModel):
 class LeadInfoUpdateRequest(BaseModel):
     name: Optional[str] = None
     company: Optional[str] = None
+    titular_menor: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
     attendant: Optional[str] = None
@@ -136,6 +138,7 @@ class LeadInfoUpdateResponse(BaseModel):
     lead_id: UUID
     name: str
     company: Optional[str] = None
+    titular_menor: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
     attendant: Optional[str] = None

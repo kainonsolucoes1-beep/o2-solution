@@ -79,6 +79,7 @@ with engine.connect() as _conn:
     _conn.execute(text("CREATE INDEX IF NOT EXISTS idx_login_events_user_created ON login_events(user_id, created_at DESC)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS aviso_previo BOOLEAN NOT NULL DEFAULT false"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_faturamento_previsto TIMESTAMP"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS titular_menor VARCHAR(255)"))
     _conn.commit()
 
 # seed via ORM (nao SQL puro) pra que o id UUID seja gerado pelo default do

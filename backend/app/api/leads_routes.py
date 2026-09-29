@@ -603,7 +603,7 @@ def get_lead(
             ren_nome = _o.first_name or _o.username
     return LeadReportItem(
         id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
-        company=lead.company, attendant=lead.attendant,
+        company=lead.company, titular_menor=lead.titular_menor, attendant=lead.attendant,
         origem=lead.origin, conversion_point=lead.conversion_point,
         base=extract_base(lead.notes),
         status=lead.status, perception=lead.perception,
@@ -931,7 +931,7 @@ def update_lead_info(
     # mantém rastro do que ele muda na ficha, como nota, pro admin poder auditar.
     _track_edits = current_user.role == "coordenador"
     _labels = {
-        "name": "Nome", "company": "Empresa", "email": "E-mail", "phone": "Telefone",
+        "name": "Nome", "company": "Empresa", "titular_menor": "Titular Menor", "email": "E-mail", "phone": "Telefone",
         "attendant": "Atendente", "document": "Documento", "origin": "Origem",
         "modalidade": "Modalidade", "conversion_point": "Ponto de conversão",
         "perception": "Temperatura", "visibility_tag": "Tag de visibilidade",
@@ -944,6 +944,8 @@ def update_lead_info(
         lead.name = body.name.strip()
     if body.company is not None:
         lead.company = body.company.strip() or None
+    if body.titular_menor is not None:
+        lead.titular_menor = body.titular_menor.strip() or None
     if body.email is not None:
         lead.email = body.email.strip() or None
     if body.phone is not None:
@@ -997,7 +999,7 @@ def update_lead_info(
     db.commit()
     return LeadInfoUpdateResponse(
         success=True, lead_id=lead.id, name=lead.name,
-        company=lead.company, email=lead.email, phone=lead.phone, attendant=lead.attendant,
+        company=lead.company, titular_menor=lead.titular_menor, email=lead.email, phone=lead.phone, attendant=lead.attendant,
         document=lead.document, origin=lead.origin, modalidade=lead.modalidade,
         conversion_point=lead.conversion_point, perception=lead.perception,
         created_at=lead.created_at, visibility_tag=lead.visibility_tag,

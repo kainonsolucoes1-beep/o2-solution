@@ -14,6 +14,9 @@ class Lead(Base):
     email = Column(String(255))
     phone = Column(String(255))
     company = Column(String(255))
+    # nome do titular do plano quando é menor de idade (dependente diferente
+    # de quem preencheu a ficha) -- so' um campo de texto livre no cadastro.
+    titular_menor = Column(String(255), nullable=True)
     origin = Column(String(100))
     conversion_point = Column(String(255), nullable=True)
     attendant = Column(String(255))
