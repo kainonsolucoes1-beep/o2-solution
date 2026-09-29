@@ -706,6 +706,20 @@ def update_lead_status(
         changed_by=actor,
     )
     db.add(history)
+
+    # "proposta enviada" agenda automaticamente um retorno 2 dias depois, no
+    # mesmo horario -- nao chama create_schedule() porque ela tambem bumpa o
+    # status pra "qualificado", o que desfaria o status que acabamos de setar.
+    if (body.status or "").strip().lower() in ("proposta", "proposal_sent", "proposal sent"):
+        db.query(LeadSchedule).filter(
+            LeadSchedule.lead_id == lead.id, LeadSchedule.is_active.is_(True)
+        ).update({"is_active": False})
+        db.add(LeadSchedule(
+            lead_id=lead.id,
+            scheduled_at=now + timedelta(days=2),
+            created_by=actor,
+        ))
+
     db.commit()
     return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
 
