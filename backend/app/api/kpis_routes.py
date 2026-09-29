@@ -189,20 +189,28 @@ def conversao_por_fonte(
         elif s in cancelado_set:
             rn_by_fonte[fonte]["cancelados"] += 1
 
-    data: dict = defaultdict(lambda: {"acc": _new_acc(), "breakdown": defaultdict(_new_acc)})
+    data: dict = defaultdict(lambda: {"acc": _new_acc(), "breakdown": defaultdict(_new_acc), "breakdown_labels": {}})
 
     for origin, status, conv_point, created_at, receita_data_venda, receita_real_recebida in leads:
         fonte = (origin or "").strip() or "Sem origem"
         _accumulate(data[fonte]["acc"], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
         if conv_point:
-            bp = normalize_conversion_point(conv_point)
-            _accumulate(data[fonte]["breakdown"][bp], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
+            # normalize_conversion_point ja' resolve os apelidos conhecidos
+            # (ex: "campanha whatsapp"). Alem disso, agrupa por minusculo pra
+            # nao duplicar linha por causa so' de maiuscula/minuscula em
+            # grafias que ainda nao tem apelido cadastrado (ex: "manual" x
+            # "Manual") -- mantem a primeira grafia vista como rotulo exibido.
+            bp_display = normalize_conversion_point(conv_point)
+            bp_key = bp_display.lower()
+            data[fonte]["breakdown_labels"].setdefault(bp_key, bp_display)
+            _accumulate(data[fonte]["breakdown"][bp_key], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
     result = []
     for fonte, entry in sorted(data.items(), key=lambda x: x[1]["acc"]["captacoes"], reverse=True):
         breakdown = []
-        for label, bc in sorted(entry["breakdown"].items(), key=lambda x: x[1]["captacoes"], reverse=True):
+        for bp_key, bc in sorted(entry["breakdown"].items(), key=lambda x: x[1]["captacoes"], reverse=True):
+            label = entry["breakdown_labels"][bp_key]
             breakdown.append({"label": label, **_finalize_acc(bc, show_fin)})
         rn = rn_by_fonte.get(fonte)
         if rn and rn["captacoes"] > 0:
