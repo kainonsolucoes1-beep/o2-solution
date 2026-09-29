@@ -543,9 +543,11 @@ def list_conversion_points(
     # "Campanha WhatsApp") continuam aparecendo como duas opcoes no seletor da
     # ficha, e a pessoa cadastrando escolhe uma delas ao acaso.
     points = sorted({normalize_conversion_point(r.conversion_point) for r in rows})
-    if "Adm" not in points:
-        points.append("Adm")
-        points.sort()
+    # opcoes fixas, disponiveis mesmo sem nenhum lead ainda usar esse valor
+    for fixed in ("Adm", "SMS"):
+        if fixed not in points:
+            points.append(fixed)
+    points.sort()
     return points
 
 
