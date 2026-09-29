@@ -228,8 +228,6 @@ export default function FinanceiroMetas() {
           {selected && (
             <FocusPanel
               meta={selected}
-              mesLabel={data?.mes_label ?? ''}
-              filtro={filtro}
               teamAvgPct={teamAvgPct}
               onEdit={() => openEdit(selected)}
             />
@@ -299,8 +297,8 @@ function Donut({ pct, color }: { pct: number; color: string }) {
   )
 }
 
-function FocusPanel({ meta, mesLabel, filtro, teamAvgPct, onEdit }: {
-  meta: MetaProgress; mesLabel: string; filtro: FiltroPeriodo; teamAvgPct: number; onEdit: () => void
+function FocusPanel({ meta, teamAvgPct, onEdit }: {
+  meta: MetaProgress; teamAvgPct: number; onEdit: () => void
 }) {
   const color = statusColor(meta.pct)
   const diff = Math.round(meta.pct - teamAvgPct)
@@ -341,8 +339,6 @@ function FocusPanel({ meta, mesLabel, filtro, teamAvgPct, onEdit }: {
           <Tile label="Valor atingido no mês" value={fmtValor(meta.tipo, meta.atingido)} />
         </div>
       </div>
-
-      <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>{filtro === 'mes_atual' ? mesLabel : filtro === 'geral' ? 'Histórico completo' : 'Período selecionado'}</span>
 
       {meta.projecao != null && (
         <div style={{ borderRadius: 12, padding: '13px 16px', background: 'rgba(37,99,235,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
