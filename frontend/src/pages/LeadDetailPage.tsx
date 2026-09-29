@@ -566,7 +566,7 @@ export default function LeadDetailPage() {
         sStyle={sStyle}
         perceptionLabel={perception?.label ?? null}
         perceptionStyle={perception}
-        avisoPrevioLabel={status === 'waiting_billing' && lead.aviso_previo && lead.data_faturamento_previsto ? `Aviso Prévio · ${fmtDateOnlyLiteral(lead.data_faturamento_previsto)}` : null}
+        avisoPrevioLabel={status === 'waiting_billing' && lead.aviso_previo ? 'Aviso Prévio' : null}
         phoneLabel={lead.phone ?? 'Não informado'}
         emailLabel={lead.email ?? 'Não informado'}
         attendantLabel={lead.attendant ?? 'Não informado'}

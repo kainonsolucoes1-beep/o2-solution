@@ -185,9 +185,11 @@ export default function LeadNextStepPanel({
             )
           ) : (
             <>
-              <button style={actionBtnStyle(true)} onClick={onOpenProposta}>
-                Enviar proposta
-              </button>
+              {status !== 'waiting_billing' && status !== 'sale_performed' && (
+                <button style={actionBtnStyle(true)} onClick={onOpenProposta}>
+                  Enviar proposta
+                </button>
+              )}
               {status === 'waiting_billing' ? (
                 <>
                   {faturamentoPrevistoLabel && (
