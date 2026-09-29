@@ -1,5 +1,5 @@
 import { useState, type RefObject } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, CalendarClock } from 'lucide-react'
 import { fmtDate } from '../utils/leadFormat'
 import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
 import { statusLabel } from '../utils/statusLabel'
@@ -149,7 +149,7 @@ export default function LeadNextStepPanel({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end" style={{ gap: 7 }}>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end" style={{ gap: 7, alignItems: 'center' }}>
           {locked ? null : status === 'sale_not_performed' ? (
             showRetrabalhar ? (
               <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -191,7 +191,12 @@ export default function LeadNextStepPanel({
               {status === 'waiting_billing' ? (
                 <>
                   {faturamentoPrevistoLabel && (
-                    <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                      fontSize: 11.5, fontWeight: 700, color: '#92400E', background: '#FEF3C7',
+                      border: '1px solid #FDE68A', borderRadius: 8, padding: '7px 11px', height: 34, boxSizing: 'border-box',
+                    }}>
+                      <CalendarClock size={13} />
                       Faturamento previsto: {faturamentoPrevistoLabel}
                     </span>
                   )}
