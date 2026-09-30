@@ -28,6 +28,8 @@ STATUS_ALVO = {
 }
 # "EMITIR BOLETO DIA 04/09" muda de texto conforme a data -- casa por prefixo
 _STATUS_EMITIR_BOLETO_RE = re.compile(r"^EMITIR BOLETO DIA\b")
+# "AVISO PRÉVIO 21/11" idem (com ou sem acento); a previsao continua vindo da nota da celula
+_STATUS_AVISO_PREVIO_RE = re.compile(r"^AVISO PR(?:\u00c9|E\u0301|E)VIO\b")
 CREDS_PATH = os.getenv(
     "GOOGLE_SERVICE_ACCOUNT_PATH",
     os.path.join(os.path.dirname(__file__), "..", "google_service_account.json"),
@@ -158,7 +160,7 @@ def _parse_brl(s: str | None) -> float:
 
 
 def _status_valido(status: str) -> bool:
-    return status in STATUS_ALVO or bool(_STATUS_EMITIR_BOLETO_RE.match(status))
+    return status in STATUS_ALVO or bool(_STATUS_EMITIR_BOLETO_RE.match(status)) or bool(_STATUS_AVISO_PREVIO_RE.match(status))
 
 
 def _get_service():
