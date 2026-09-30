@@ -89,7 +89,7 @@ export interface Me {
 
 // evento unificado do feed de Atividade: mudanca de status, nota ou agendamento, todos numa so linha do tempo
 export type ActivityEvent =
-  | { kind: 'status'; at: string; status: string | null; by: string | null; isCreation: boolean; durationMs: number; ongoing: boolean }
+  | { kind: 'status'; historyId: string | null; at: string; status: string | null; by: string | null; isCreation: boolean; durationMs: number; ongoing: boolean }
   | { kind: 'note'; id: string; userId: string | null; at: string; content: string; by: string; editedAt: string | null; editedBy: string | null }
   | { kind: 'schedule'; at: string; scheduledAt: string; by: string | null; active: boolean }
 
@@ -401,6 +401,24 @@ export default function LeadDetailPage() {
       .finally(() => setSavingNoteEdit(false))
   }
 
+  const [deletingStatusId, setDeletingStatusId] = useState<string | null>(null)
+  function handleDeleteStatus(historyId: string) {
+    if (!id || !confirm('Excluir esta ação de status? Se for a mais recente, o lead volta para o status anterior.')) return
+    setDeletingStatusId(historyId)
+    api.delete<{ history: StatusHistoryItem[] }>(`/api/v1/leads/${id}/status-history/${historyId}`)
+      .then(r => {
+        setHistory(r.data.history)
+        setToast({ msg: 'Ação de status excluída', ok: true })
+        return api.get<LeadItem>(`/api/v1/leads/${id}`)
+      })
+      .then(r => { setLead(r.data); setStatus(r.data.status ?? 'novo') })
+      .catch(err => {
+        const detail = err?.response?.data?.detail
+        setToast({ msg: typeof detail === 'string' ? detail : 'Erro ao excluir ação de status', ok: false })
+      })
+      .finally(() => setDeletingStatusId(null))
+  }
+
   function handleSchedule() {
     if (!id || !scheduleInput) return
     setSavingSchedule(true)
@@ -482,8 +500,8 @@ export default function LeadDetailPage() {
   // ── Timeline: tempo gasto em cada etapa ──────────────────────────────────
   const timeline = (() => {
     const points = [
-      { status: lead.status, at: lead.created_at, by: null as string | null, isCreation: true },
-      ...history.map(h => ({ status: h.to_status, at: h.changed_at, by: h.changed_by, isCreation: false })),
+      { historyId: null as string | null, status: lead.status, at: lead.created_at, by: null as string | null, isCreation: true },
+      ...history.map(h => ({ historyId: h.id as string | null, status: h.to_status, at: h.changed_at, by: h.changed_by, isCreation: false })),
     ]
     // se já existe um registro de criação no próprio histórico, não duplica o ponto inicial
     const firstHistoryAt = history[0]?.changed_at
@@ -498,7 +516,7 @@ export default function LeadDetailPage() {
 
   // ── Atividade: timeline de status + notas + agendamentos, unificados por data (mais recente primeiro) ──
   const activity: ActivityEvent[] = [
-    ...timeline.map(t => ({ kind: 'status' as const, at: t.at, status: t.status, by: t.by, isCreation: t.isCreation, durationMs: t.durationMs, ongoing: t.ongoing })),
+    ...timeline.map(t => ({ kind: 'status' as const, historyId: t.historyId, at: t.at, status: t.status, by: t.by, isCreation: t.isCreation, durationMs: t.durationMs, ongoing: t.ongoing })),
     ...notes.map(n => ({ kind: 'note' as const, id: n.id, userId: n.user_id, at: n.created_at, content: n.content, by: n.created_by, editedAt: n.edited_at, editedBy: n.edited_by })),
     ...schedules.map(s => ({ kind: 'schedule' as const, at: s.created_at, scheduledAt: s.scheduled_at, by: s.created_by, active: s.is_active })),
   ].sort((a, b) => parseUTC(b.at) - parseUTC(a.at))
@@ -717,6 +735,8 @@ export default function LeadDetailPage() {
             isCoordenador={me?.role === 'coordenador'}
             savingNoteEdit={savingNoteEdit}
             onSaveNoteEdit={handleEditNote}
+            deletingStatusId={deletingStatusId}
+            onDeleteStatus={handleDeleteStatus}
             locked={renutricaoLock}
             loadingActivity={loadingActivity}
             activity={visibleActivity}

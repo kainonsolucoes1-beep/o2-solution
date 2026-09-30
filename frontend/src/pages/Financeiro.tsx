@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronUp, ChevronRight, Building2, Layers3, CalendarClock, Filter, Search } from "lucide-react";
 import api from "../api";
@@ -16,6 +16,7 @@ import { useTheme } from "../ThemeContext";
 
 interface Parcela {
   numero: number | null;
+  descricao: string | null;
   valor: number;
   status: "recebido" | "a_receber";
   previsaoRecebimento: string | null;
@@ -40,6 +41,7 @@ interface ParcelaMes {
   promotora: string;
   modalidade: string;
   numero: number | null;
+  descricao: string | null;
   valor: number;
   status: "recebido" | "a_receber";
   previsaoRecebimento: string;
@@ -225,6 +227,7 @@ function Donut({ data, colors, centerLabel, centerSub }: { data: { name: string;
 export default function FinanceiroDashboard() {
   const { dark } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const urlMode = (searchParams.get("period") as PeriodMode) || "mes";
 
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -590,7 +593,7 @@ export default function FinanceiroDashboard() {
                         const cor = p.atrasado ? "#DC2626" : p.status === "recebido" ? "#0E9F6E" : "#C2760C";
                         const bg = p.atrasado ? "#FEF2F2" : p.status === "recebido" ? "#ECFDF5" : "#FFFBEB";
                         return (
-                        <tr key={`${p.leadId}-${i}`} className="border-b border-[#F0F1F5] last:border-0 hover:bg-[#FAFBFC]">
+                        <tr key={`${p.leadId}-${i}`} onClick={() => navigate(`/leads/${p.leadId}`)} title="Abrir ficha do lead" className="cursor-pointer border-b border-[#F0F1F5] last:border-0 hover:bg-[#FAFBFC]">
                           <td className="px-5 py-3.5 font-medium text-[#10142B]">{p.empresa}</td>
                           <td className="px-5 py-3.5 text-[#626A85]">
                             <span className="inline-flex items-center gap-1.5">
@@ -602,7 +605,7 @@ export default function FinanceiroDashboard() {
                             </span>
                           </td>
                           <td className="px-5 py-3.5 text-[#626A85]">{p.modalidade}</td>
-                          <td className="px-5 py-3.5 text-[#626A85]">{p.numero ? `${p.numero}ª parcela` : "Valor único"}</td>
+                          <td className="px-5 py-3.5 text-[#626A85]">{p.descricao || (p.numero ? `${p.numero}ª parcela` : "Valor único")}</td>
                           <td className="px-5 py-3.5 text-center" style={{ color: cor }}>{fmt(p.valor)}</td>
                           <td className="px-5 py-3.5 text-center">
                             <span className="inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium" style={{ background: bg, color: cor }}>
@@ -741,7 +744,15 @@ export default function FinanceiroDashboard() {
                       <td className="px-2 py-3.5 text-center text-[#8891AC]">
                         {hasParcelas && (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                       </td>
-                      <td className="px-5 py-3.5 font-medium text-[#10142B]">{c.empresa}</td>
+                      <td className="px-5 py-3.5 font-medium text-[#10142B]">
+                        {c.empresa}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/leads/${c.id}`); }}
+                          className="ml-2 text-[11px] font-semibold text-[#2563EB] hover:underline"
+                        >
+                          Abrir ficha ›
+                        </button>
+                      </td>
                       <td className="px-5 py-3.5 text-[#626A85]">
                         <span className="inline-flex items-center gap-1.5">
                           <span
@@ -782,7 +793,7 @@ export default function FinanceiroDashboard() {
                                   style={{ background: bg, border: `1px solid ${cor}33`, minWidth: 110 }}
                                 >
                                   <div className="font-semibold" style={{ color: cor }}>
-                                    {p.numero ? `${p.numero}ª parcela` : "Valor único"}
+                                    {p.descricao || (p.numero ? `${p.numero}ª parcela` : "Valor único")}
                                   </div>
                                   <div
                                     className="mt-0.5"

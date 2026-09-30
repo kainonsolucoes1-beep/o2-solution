@@ -111,6 +111,7 @@ def list_contratos(
         for r in rows:
             parcelas_by_lead.setdefault(r.lead_id, []).append({
                 "numero": r.numero,
+                "descricao": r.descricao,
                 "valor": float(r.valor),
                 "status": r.status,
                 "previsaoRecebimento": r.previsao_recebimento.strftime("%Y-%m-%d") if r.previsao_recebimento else None,
@@ -174,6 +175,7 @@ def previsao_periodo(
             "promotora": lead.receita_promotora or "Sem promotora",
             "modalidade": lead.receita_modalidade or "Sem modalidade",
             "numero": parcela.numero,
+            "descricao": parcela.descricao,
             "valor": float(parcela.valor),
             "status": parcela.status,
             "previsaoRecebimento": parcela.previsao_recebimento.strftime("%Y-%m-%d"),

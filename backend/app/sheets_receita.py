@@ -242,7 +242,7 @@ def sync_receita_real(db: Session) -> dict:
                     lead.receita_operadora = None
                     lead.receita_categoria = None
                     lead.receita_data_venda = None
-                    db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id).delete()
+                    db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id, LeadParcela.descricao.is_(None)).delete()
             continue
 
         if not candidates:
@@ -297,9 +297,15 @@ def sync_receita_real(db: Session) -> dict:
         lead.receita_data_venda = data_venda
         matched_names.append(titular)
 
-        db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id).delete()
+        # sub-linhas manuais (descricao preenchida) sobrevivem ao sync e somam no total
+        db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id, LeadParcela.descricao.is_(None)).delete()
         for numero, valor, p_status, previsao in parcelas:
             db.add(LeadParcela(lead_id=lead.id, numero=numero, valor=valor, status=p_status, previsao_recebimento=previsao))
+        for sub in db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id, LeadParcela.descricao.isnot(None)).all():
+            if sub.status == "recebido":
+                lead.receita_real_recebida += float(sub.valor)
+            else:
+                lead.receita_real_a_receber += float(sub.valor)
 
     db.commit()
     return {

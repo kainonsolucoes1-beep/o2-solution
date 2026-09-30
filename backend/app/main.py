@@ -61,6 +61,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS visibility_tag VARCHAR(50)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS operadoras_enviadas TEXT"))
     _conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS previsao_recebimento TIMESTAMP"))
+    _conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS descricao VARCHAR(255)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_origem VARCHAR(10) NOT NULL DEFAULT 'sheet'"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS retrabalhado_em TIMESTAMP"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS origin_locked BOOLEAN NOT NULL DEFAULT false"))
@@ -213,6 +214,7 @@ def _seed_form_users(db_session):
 async def startup_event():
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS conversion_point VARCHAR(255)"))
+        conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS descricao VARCHAR(255)"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS is_renutrucao BOOLEAN NOT NULL DEFAULT false"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS lost_reason VARCHAR(255)"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS lost_message TEXT"))
