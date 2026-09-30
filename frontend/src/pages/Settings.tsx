@@ -614,7 +614,7 @@ function UsuariosTab() {
   const [editCampanhaOperador, setEditCampanhaOperador] = useState(false)
   const [editError, setEditError]   = useState('')
   const [editSaving, setEditSaving] = useState(false)
-  const [createdCreds, setCreatedCreds] = useState<{ username: string; password: string } | null>(null)
+  const [createdCreds, setCreatedCreds] = useState<{ username: string; password: string; reset?: boolean } | null>(null)
   const [credsCopied, setCredsCopied] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'todos' | 'ativos' | 'inativos'>('todos')
   const [search, setSearch] = useState('')
@@ -662,8 +662,19 @@ function UsuariosTab() {
   }
 
   function closeCredsReveal() {
+    const wasReset = createdCreds?.reset
     setCreatedCreds(null); setCredsCopied(false); setShowModal(false)
-    setToast({ msg: 'Usuário criado com sucesso', ok: true })
+    setToast({ msg: wasReset ? 'Senha redefinida' : 'Usuário criado com sucesso', ok: true })
+  }
+
+  async function resetPassword(user: UserItem) {
+    if (!confirm(`Redefinir a senha de ${user.first_name || user.email}? A senha atual deixa de funcionar.`)) return
+    try {
+      const { data } = await api.post<{ email: string; temp_password: string }>(`/api/v1/admin/users/${user.id}/reset-password`)
+      setUsers(u => u.map(x => x.id === user.id ? { ...x, must_change_password: true } : x))
+      setCreatedCreds({ username: data.email, password: data.temp_password, reset: true })
+      setShowModal(true)
+    } catch { setToast({ msg: 'Erro ao redefinir senha', ok: false }) }
   }
 
   async function toggleActive(user: UserItem) {
@@ -868,6 +879,9 @@ function UsuariosTab() {
                     <select value={selected.role} onChange={e => changeRole(selected, e.target.value)} style={{ ...uBtn }}>
                       {ROLE_OPTIONS.map(r => <option key={r} value={r}>Perfil: {r}</option>)}
                     </select>
+                    <button onClick={() => resetPassword(selected)} style={{ ...uBtn }}>
+                      <KeyRound size={12} /> Redefinir senha
+                    </button>
                     <button onClick={() => toggleActive(selected)}
                       style={{ ...uBtn, borderColor: 'transparent', ...(selected.is_active ? { color: '#EF4444', background: 'rgba(239,68,68,0.1)' } : { color: '#10B981', background: 'rgba(16,185,129,0.1)' }) }}>
                       {selected.is_active ? 'Desativar' : 'Ativar'}
@@ -997,7 +1011,7 @@ function UsuariosTab() {
             {createdCreds ? (
               <>
                 <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)' }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>Usuário criado</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>{createdCreds.reset ? 'Senha redefinida' : 'Usuário criado'}</span>
                 </div>
                 <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <p style={{ fontSize: 12.5, color: 'var(--text-subtle)', margin: 0 }}>
