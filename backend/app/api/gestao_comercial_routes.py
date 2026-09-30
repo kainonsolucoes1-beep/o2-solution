@@ -64,6 +64,25 @@ _STAGE_LABELS = {
 # pros relatorios de periodo — sem apagar Lead.created_at (historico real).
 EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
 
+
+def agent_leads_clause(parts: list[str], owner_ids: list):
+    """Leads de um agente: origem = nome dele OU renutricao dele (usado pela
+    Vida do Agente e pelas Metas Mensais do Financeiro, pra baterem)."""
+    clause = Lead.origin.in_(parts)
+    if owner_ids:
+        _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
+        # Atribuir não é trabalhar: só conta pro dono quando ele de fato
+        # reativou o lead (retrabalhado_em preenchido) OU já avançou o status
+        # (prova de trabalho real, ex: lead de Meta Ads atribuído direto sem
+        # nunca ter sido perdido) -- senão um lote atribuído e nunca tocado
+        # infla a captação dele.
+        owner_match = and_(
+            Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo,
+            or_(Lead.retrabalhado_em.isnot(None), func.lower(Lead.status).notin_(STATUS_NAO_TRABALHADO)),
+        )
+        clause = or_(clause, owner_match)
+    return clause
+
 # mesma classificação SDR x Orgânico usada no front (GestaoComercial.tsx: groupOrigens)
 O2_NAMES        = {"clara", "maria eduarda", "kauany", "gabrieli", "o2 solution", "o2solution"}
 ORGANICO_EXTRA  = {"site", "chatgpt.com", "chatgpt", "google", "instagram", "facebook", "whatsapp", "meta ads"}
@@ -870,20 +889,7 @@ def vida_sdr(
         db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).all()
         if parts else []
     )
-    owner_ids = [u.id for u in matched_users]
-    origin_or_owner = Lead.origin.in_(parts) if parts else None
-    if owner_ids:
-        _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
-        # Atribuir não é trabalhar: só conta pro dono quando ele de fato
-        # reativou o lead (retrabalhado_em preenchido) OU já avançou o status
-        # (prova de trabalho real, ex: lead de Meta Ads atribuído direto sem
-        # nunca ter sido perdido) -- senão um lote atribuído e nunca tocado
-        # infla a captação dele.
-        owner_match = and_(
-            Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo,
-            or_(Lead.retrabalhado_em.isnot(None), func.lower(Lead.status).notin_(STATUS_NAO_TRABALHADO)),
-        )
-        origin_or_owner = or_(origin_or_owner, owner_match)
+    origin_or_owner = agent_leads_clause(parts, [u.id for u in matched_users]) if parts else None
     filters = [origin_or_owner, *date_filters] if parts else []
 
     # tenure do agente ("Desde X - N meses ativo") independe do filtro de
