@@ -733,11 +733,12 @@ def conversion_points_by_group(
     ]
 
 
-def _compute_meta_mes(db: Session, parts: list[str]):
+def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None):
     """Meta do mes corrente pro agente, independente do filtro de periodo da
     tela (Metas do Mes sempre olha pro mes calendario atual). Casa o nome do
     agente (qualquer um dos `parts`) contra sdr_metas.nome, sem diferenciar
-    maiusculas/minusculas."""
+    maiusculas/minusculas. `agent_clause` = mesmo recorte de leads da Vida do
+    Agente (origem OU renutricao do agente); sem ele, so' a origem."""
     meta_row = None
     for p in parts:
         meta_row = db.query(SdrMeta).filter(func.lower(SdrMeta.nome) == p.strip().lower()).first()
@@ -751,7 +752,7 @@ def _compute_meta_mes(db: Session, parts: list[str]):
 
     mes_leads = (
         db.query(Lead.status, Lead.value_potential)
-        .filter(Lead.origin.in_(parts), EFFECTIVE_CAPTACAO >= mes_inicio, EFFECTIVE_CAPTACAO < mes_fim)
+        .filter(agent_clause if agent_clause is not None else Lead.origin.in_(parts), EFFECTIVE_CAPTACAO >= mes_inicio, EFFECTIVE_CAPTACAO < mes_fim)
         .all()
     )
 
@@ -773,10 +774,17 @@ def _compute_meta_mes(db: Session, parts: list[str]):
     # quanto do "falta pouco/muito" já está represado em Emissão -- contratos
     # que só faltam a operadora confirmar pra virar venda de verdade. Dá pra
     # bater a meta sem precisar captar leads novos, só fechando isso que já
-    # está andando (mesma lista de leads do mes, mesmo criterio de captacao
-    # usado no progresso, pra manter os dois numeros comparaveis).
+    # está andando. Conta tudo que está em Emissão agora, independente do
+    # mes de captacao (lead captado em mes anterior tambem vira venda agora).
     em_emissao_valor = (
-        sum(float(v or 0) for s, v in mes_leads if (s or "").lower() in ("emissao", "emissão"))
+        float(
+            db.query(func.coalesce(func.sum(Lead.value_potential), 0))
+            .filter(
+                agent_clause if agent_clause is not None else Lead.origin.in_(parts),
+                func.lower(Lead.status).in_(("emissao", "emissão")),
+            )
+            .scalar()
+        )
         if meta_row.tipo == "clt" else 0.0
     )
 
@@ -893,7 +901,7 @@ def vida_sdr(
         ativo_desde = user_match.created_at
     else:
         ativo_desde = lead_min_created
-    meta = _compute_meta_mes(db, parts) if parts else None
+    meta = _compute_meta_mes(db, parts, origin_or_owner) if parts else None
 
     leads = (
         db.query(
