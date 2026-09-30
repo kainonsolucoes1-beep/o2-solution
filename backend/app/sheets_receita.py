@@ -179,6 +179,15 @@ def _fetch_rows():
     return resp["sheets"][0]["data"][0]["rowData"]
 
 
+def _add_manuais(db: Session, lead: Lead) -> None:
+    """Soma nos totais do lead as parcelas lancadas na ficha (manual=True)."""
+    for p in db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id, LeadParcela.manual.is_(True)).all():
+        if p.status == "recebido":
+            lead.receita_real_recebida = float(lead.receita_real_recebida or 0) + float(p.valor)
+        else:
+            lead.receita_real_a_receber = float(lead.receita_real_a_receber or 0) + float(p.valor)
+
+
 def sync_receita_real(db: Session) -> dict:
     """Le a aba UNIFICACAO da planilha de vendas e preenche receita_real_recebida/
     receita_real_a_receber dos leads correspondentes (cruzamento por telefone, com
@@ -242,7 +251,8 @@ def sync_receita_real(db: Session) -> dict:
                     lead.receita_operadora = None
                     lead.receita_categoria = None
                     lead.receita_data_venda = None
-                    db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id, LeadParcela.descricao.is_(None)).delete()
+                    db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id, LeadParcela.manual.is_(False)).delete()
+                    _add_manuais(db, lead)
             continue
 
         if not candidates:
@@ -297,15 +307,11 @@ def sync_receita_real(db: Session) -> dict:
         lead.receita_data_venda = data_venda
         matched_names.append(titular)
 
-        # sub-linhas manuais (descricao preenchida) sobrevivem ao sync e somam no total
-        db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id, LeadParcela.descricao.is_(None)).delete()
+        # parcelas lancadas na ficha (manual) sobrevivem ao sync e somam no total
+        db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id, LeadParcela.manual.is_(False)).delete()
         for numero, valor, p_status, previsao in parcelas:
             db.add(LeadParcela(lead_id=lead.id, numero=numero, valor=valor, status=p_status, previsao_recebimento=previsao))
-        for sub in db.query(LeadParcela).filter(LeadParcela.lead_id == lead.id, LeadParcela.descricao.isnot(None)).all():
-            if sub.status == "recebido":
-                lead.receita_real_recebida += float(sub.valor)
-            else:
-                lead.receita_real_a_receber += float(sub.valor)
+        _add_manuais(db, lead)
 
     db.commit()
     return {

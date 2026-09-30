@@ -1122,7 +1122,7 @@ def create_lead_parcela(
         raise HTTPException(status_code=400, detail="Status deve ser 'recebido' ou 'a_receber'")
     previsao = _parse_date_or_none(body.previsao_recebimento)
     descricao = (body.descricao or "").strip() or None
-    db.add(LeadParcela(lead_id=lead.id, numero=body.numero, valor=body.valor, status=body.status, previsao_recebimento=previsao, descricao=descricao))
+    db.add(LeadParcela(lead_id=lead.id, numero=body.numero, valor=body.valor, status=body.status, previsao_recebimento=previsao, descricao=descricao, manual=True))
     if not descricao:  # sub-linha nao tira o lead do controle da planilha
         lead.receita_origem = "manual"
     db.flush()
