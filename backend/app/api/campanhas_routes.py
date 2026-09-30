@@ -2,15 +2,16 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import List, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import Date, cast, func, or_
+from sqlalchemy import Date, Integer, cast, func, or_
 from sqlalchemy.orm import Session
 
+from app import sms_kolmeya_import
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.database import get_db
-from app.models import Lead, LeadNote, CampanhaEvento, CampanhaTemplate, User
+from app.models import Lead, LeadNote, CampanhaEvento, CampanhaTemplate, CampanhaSmsLote, CampanhaSmsResposta, User
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range
 
 router = APIRouter(prefix="/api/v1/campanhas", tags=["campanhas"])
@@ -365,6 +366,152 @@ def campanhas_dashboard(
         "rodizio": rodizio,
         "atividade_recente": atividade_recente,
     }
+
+
+@router.post("/sms/importar")
+def importar_sms_kolmeya(
+    envio: UploadFile | None = File(None),
+    retorno: UploadFile | None = File(None),
+    resposta: UploadFile | None = File(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Importa as planilhas da Kolmeya (SMS em massa, disparado fora do
+    sistema). Envio + retorno criam/atualizam o lote do job; resposta é
+    opcional e pode vir depois -- cada linha cai no lote pelo job e não
+    duplica se a mesma planilha for importada de novo."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Apenas administradores podem importar campanhas de SMS")
+    if not (envio or retorno or resposta):
+        raise HTTPException(status_code=422, detail="Envie ao menos uma planilha.")
+    if envio and not retorno:
+        raise HTTPException(status_code=422, detail="A planilha de envio precisa ir junto com a de retorno (é dela que vem o job).")
+
+    try:
+        lote = None
+        if retorno:
+            r = sms_kolmeya_import.parse_retorno(retorno.filename or "retorno", retorno.file.read())
+            lote = db.query(CampanhaSmsLote).filter(CampanhaSmsLote.job == r["job"]).first()
+            if not lote and not envio:
+                raise ValueError(f"Job {r['job']} ainda não foi importado — mande a planilha de envio junto.")
+            if not lote:
+                lote = CampanhaSmsLote(job=r["job"])
+                db.add(lote)
+            if envio:
+                lote.enviados = sms_kolmeya_import.parse_envio(envio.filename or "envio", envio.file.read())
+            lote.retornos = r["retornos"]
+            lote.entregues = r["entregues"]
+            lote.data_disparo = r["data_disparo"] or lote.data_disparo
+            lote.importado_por_user_id = current_user.id
+            db.flush()
+
+        novas, repetidas, jobs_nao_encontrados = 0, 0, set()
+        if resposta:
+            linhas = sms_kolmeya_import.parse_resposta(resposta.filename or "resposta", resposta.file.read())
+            lotes = {l.job: l for l in db.query(CampanhaSmsLote).filter(CampanhaSmsLote.job.in_({x["job"] for x in linhas})).all()}
+            ja_tem = {
+                (lote_id, tel, receb)
+                for lote_id, tel, receb in db.query(CampanhaSmsResposta.lote_id, CampanhaSmsResposta.telefone, CampanhaSmsResposta.recebido_em)
+                .filter(CampanhaSmsResposta.lote_id.in_([l.id for l in lotes.values()])).all()
+            } if lotes else set()
+            for x in linhas:
+                alvo = lotes.get(x["job"])
+                if not alvo:
+                    jobs_nao_encontrados.add(x["job"])
+                    continue
+                chave = (alvo.id, x["telefone"], x["recebido_em"])
+                if chave in ja_tem:
+                    repetidas += 1
+                    continue
+                ja_tem.add(chave)
+                db.add(CampanhaSmsResposta(
+                    lote_id=alvo.id, telefone=x["telefone"], nome=x["nome"],
+                    resposta=x["resposta"], recebido_em=x["recebido_em"], positivo=x["positivo"],
+                ))
+                novas += 1
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(e))
+
+    db.commit()
+    return {
+        "lote": {"job": lote.job, "enviados": lote.enviados, "retornos": lote.retornos, "entregues": lote.entregues} if lote else None,
+        "respostas_novas": novas,
+        "respostas_repetidas": repetidas,
+        "jobs_nao_encontrados": sorted(jobs_nao_encontrados),
+    }
+
+
+@router.get("/sms/dashboard")
+def sms_dashboard(
+    date_from: str = Query(...),
+    date_to: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Métricas dos lotes de SMS (Kolmeya) disparados no período."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Apenas administradores podem ver o dashboard de Campanhas")
+    try:
+        start, _ = br_date_to_utc_range(date_from)
+        _, end = br_date_to_utc_range(date_to)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
+
+    data_ref = func.coalesce(CampanhaSmsLote.data_disparo, CampanhaSmsLote.criado_em)
+    lotes = (
+        db.query(CampanhaSmsLote)
+        .filter(data_ref >= start, data_ref < end)
+        .order_by(data_ref.desc())
+        .all()
+    )
+    resp_map = {}
+    if lotes:
+        resp_map = {
+            lote_id: (total, int(pos or 0))
+            for lote_id, total, pos in db.query(
+                CampanhaSmsResposta.lote_id, func.count(CampanhaSmsResposta.id), func.sum(cast(CampanhaSmsResposta.positivo, Integer)),
+            ).filter(CampanhaSmsResposta.lote_id.in_([l.id for l in lotes])).group_by(CampanhaSmsResposta.lote_id).all()
+        }
+
+    def taxa(pos: int, entregues: int) -> float:
+        return round(pos / entregues * 100, 1) if entregues else 0.0
+
+    itens = []
+    for l in lotes:
+        respostas, positivos = resp_map.get(l.id, (0, 0))
+        itens.append({
+            "id": str(l.id),
+            "job": l.job,
+            "data_disparo": (l.data_disparo or l.criado_em).isoformat() if (l.data_disparo or l.criado_em) else None,
+            "enviados": l.enviados,
+            "retornos": l.retornos,
+            "entregues": l.entregues,
+            "respostas": respostas,
+            "positivos": positivos,
+            "taxa": taxa(positivos, l.entregues),
+        })
+
+    tot = {k: sum(i[k] for i in itens) for k in ("enviados", "retornos", "entregues", "respostas", "positivos")}
+    return {**tot, "taxa": taxa(tot["positivos"], tot["entregues"]), "lotes": itens}
+
+
+@router.delete("/sms/lotes/{lote_id}")
+def excluir_lote_sms(
+    lote_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove um lote importado errado (as respostas dele vão junto)."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Apenas administradores podem excluir lotes de SMS")
+    lote = db.query(CampanhaSmsLote).filter(CampanhaSmsLote.id == lote_id).first()
+    if not lote:
+        raise HTTPException(status_code=404, detail="Lote não encontrado")
+    db.query(CampanhaSmsResposta).filter(CampanhaSmsResposta.lote_id == lote.id).delete()
+    db.delete(lote)
+    db.commit()
+    return {"success": True}
 
 
 def _template_dict(t: CampanhaTemplate) -> dict:

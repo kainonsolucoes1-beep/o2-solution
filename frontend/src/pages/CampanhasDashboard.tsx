@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Filter, Trash2, Upload } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
+import ImportSmsKolmeyaModal from '../components/ImportSmsKolmeyaModal'
 
 type Canal = 'whatsapp' | 'email' | 'sms'
+type CanalFiltro = 'todos' | Canal
 type Periodo = 'hoje' | 'mes' | 'custom'
+
+interface SmsLote { id: string; job: string; data_disparo: string | null; enviados: number; retornos: number; entregues: number; respostas: number; positivos: number; taxa: number }
+interface SmsData { enviados: number; retornos: number; entregues: number; respostas: number; positivos: number; taxa: number; lotes: SmsLote[] }
 
 interface CanalDetalhe { canal: Canal; na_fila: number; disparado: number; respondeu: number; taxa: number }
 interface RitmoDia { dia: string; whatsapp: number; email: number; sms: number }
@@ -58,22 +64,42 @@ function fmtDiaCurto(iso: string): string {
 export default function CampanhasDashboard() {
   const { dark } = useTheme()
   const [periodo, setPeriodo] = useState<Periodo>('mes')
+  const [canal, setCanal] = useState<CanalFiltro>('todos')
+  const [filtroAberto, setFiltroAberto] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [data, setData] = useState<DashboardData | null>(null)
+  const [sms, setSms] = useState<SmsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const fetchData = useCallback((p: Periodo) => {
+  const fetchData = useCallback((p: Periodo, c: CanalFiltro) => {
     setLoading(true)
     setError('')
-    api.get<DashboardData>('/api/v1/campanhas/dashboard', { params: rangeFor(p) })
-      .then(r => setData(r.data))
+    const req = c === 'sms'
+      ? api.get<SmsData>('/api/v1/campanhas/sms/dashboard', { params: rangeFor(p) }).then(r => setSms(r.data))
+      : api.get<DashboardData>('/api/v1/campanhas/dashboard', { params: rangeFor(p) }).then(r => setData(r.data))
+    req
       .catch(() => setError('Não foi possível carregar as métricas.'))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { fetchData(periodo) }, [periodo, fetchData])
+  useEffect(() => { fetchData(periodo, canal) }, [periodo, canal, fetchData])
 
-  const maxRitmo = data ? Math.max(...data.ritmo_diario.map(d => d.whatsapp + d.email + d.sms), 1) : 1
+  async function excluirLote(l: SmsLote) {
+    if (!window.confirm(`Excluir o lote do job ${l.job}? As respostas importadas dele também saem.`)) return
+    try {
+      await api.delete(`/api/v1/campanhas/sms/lotes/${l.id}`)
+      fetchData(periodo, canal)
+    } catch {
+      setError('Não foi possível excluir o lote.')
+    }
+  }
+
+  const canaisVis: Canal[] = canal === 'todos' ? ['whatsapp', 'email', 'sms'] : [canal]
+  const canalDet = canal !== 'todos' && data ? data.canais.find(c => c.canal === canal) : undefined
+  const totalDia = (d: RitmoDia) => canaisVis.reduce((s, c) => s + d[c], 0)
+  const maxRitmo = data ? Math.max(...data.ritmo_diario.map(totalDia), 1) : 1
+  const cardStyle: React.CSSProperties = { background: 'var(--bg-card)', borderRadius: 12, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
 
   return (
     <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-5" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
@@ -82,7 +108,40 @@ export default function CampanhasDashboard() {
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Campanhas · Métricas</h1>
           <p style={{ fontSize: 13, color: 'var(--text-subtle)', marginTop: 3 }}>Disparo em massa — mede o disparo, não a captação/venda.</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {canal === 'sms' && (
+            <button
+              onClick={() => setImportOpen(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)' }}
+            >
+              <Upload size={14} /> Importar planilhas
+            </button>
+          )}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setFiltroAberto(o => !o)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, cursor: 'pointer',
+                border: `1px solid ${canal !== 'todos' ? 'var(--accent)' : 'var(--border)'}`, background: 'var(--bg-card)',
+                color: canal !== 'todos' ? 'var(--accent)' : 'var(--text-2)',
+              }}
+            >
+              <Filter size={14} /> {canal === 'todos' ? 'Todos os canais' : CANAL_CFG[canal].label}
+            </button>
+            {filtroAberto && (
+              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 20, minWidth: 170, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: 4 }}>
+                {(['todos', 'whatsapp', 'email', 'sms'] as const).map(c => (
+                  <button
+                    key={c}
+                    onClick={() => { setCanal(c); setFiltroAberto(false) }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', fontSize: 12.5, fontWeight: canal === c ? 700 : 500, padding: '8px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', background: canal === c ? 'var(--bg-subtle)' : 'transparent', color: 'var(--text-2)' }}
+                  >
+                    {c === 'todos' ? 'Todos os canais' : `${CANAL_CFG[c].emoji} ${CANAL_CFG[c].label}`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {([['hoje', 'Hoje'], ['mes', 'Este mês']] as const).map(([p, label]) => (
             <button
               key={p}
@@ -102,16 +161,65 @@ export default function CampanhasDashboard() {
 
       {error && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}
 
-      {loading || !data ? (
+      {importOpen && <ImportSmsKolmeyaModal onClose={() => setImportOpen(false)} onImported={() => fetchData(periodo, canal)} />}
+
+      {loading || (canal === 'sms' ? !sms : !data) ? (
         <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)', padding: '40px 0' }}>Carregando…</p>
-      ) : (
+      ) : canal === 'sms' && sms ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {([
+              { label: 'Enviados', value: sms.enviados, sub: 'linhas da planilha de envio', accent: 'var(--accent)' },
+              { label: 'Retornos', value: sms.retornos, sub: `${sms.entregues} entregues · ${sms.retornos - sms.entregues} não entregues/pendentes`, accent: CANAL_CFG.sms.color },
+              { label: 'Respostas', value: `${sms.positivos} · ${sms.taxa}%`, sub: `responderam "Sim" · % sobre entregues${sms.respostas > sms.positivos ? ` · ${sms.respostas} respostas no total` : ''}`, accent: 'var(--success)' },
+            ] as const).map(k => (
+              <div key={k.label} style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: k.accent }} />
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{k.label}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: '6px 0 2px' }}>{k.value}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={cardStyle}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>Disparos do período</p>
+            {sms.lotes.length === 0 ? (
+              <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Nenhum disparo importado no período. Use "Importar planilhas".</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{ minWidth: 640 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '90px 90px repeat(5, 1fr) 70px 32px', gap: 10, padding: '0 0 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <span>Data</span><span>Job</span><span style={{ textAlign: 'right' }}>Enviados</span><span style={{ textAlign: 'right' }}>Retornos</span><span style={{ textAlign: 'right' }}>Entregues</span><span style={{ textAlign: 'right' }}>Respostas</span><span style={{ textAlign: 'right' }}>"Sim"</span><span style={{ textAlign: 'right' }}>%</span><span />
+                  </div>
+                  {sms.lotes.map(l => (
+                    <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '90px 90px repeat(5, 1fr) 70px 32px', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border-lt)', fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
+                      <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{l.data_disparo ? new Date(l.data_disparo + 'Z').toLocaleDateString('pt-BR') : '—'}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>{l.job}</span>
+                      <span style={{ textAlign: 'right', color: 'var(--text-1)' }}>{l.enviados}</span>
+                      <span style={{ textAlign: 'right', color: 'var(--text-1)' }}>{l.retornos}</span>
+                      <span style={{ textAlign: 'right', color: 'var(--text-1)' }}>{l.entregues}</span>
+                      <span style={{ textAlign: 'right', color: 'var(--text-1)' }}>{l.respostas}</span>
+                      <span style={{ textAlign: 'right', color: 'var(--success)', fontWeight: 700 }}>{l.positivos}</span>
+                      <span style={{ textAlign: 'right', color: CANAL_CFG.sms.color, fontWeight: 800 }}>{l.taxa}%</span>
+                      <button onClick={() => excluirLote(l)} title="Excluir lote" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4, display: 'flex', justifyContent: 'center' }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : data && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {([
-              { label: 'Na fila', value: data.na_fila, sub: 'aguardando disparo', accent: '#7C93C4' },
-              { label: 'Disparos', value: data.disparos, sub: `${CANAL_CFG.whatsapp.label} ${data.canais.find(c => c.canal === 'whatsapp')?.disparado ?? 0} · ${CANAL_CFG.email.label} ${data.canais.find(c => c.canal === 'email')?.disparado ?? 0} · ${CANAL_CFG.sms.label} ${data.canais.find(c => c.canal === 'sms')?.disparado ?? 0}`, accent: 'var(--accent)' },
-              { label: 'Respostas', value: `${data.respostas} · ${data.taxa_resposta}%`, sub: 'taxa de resposta geral', accent: 'var(--success)' },
-              { label: 'Distribuídos', value: data.distribuidos, sub: 'foram pro rodízio', accent: 'var(--warning)' },
+              { label: 'Na fila', value: canalDet ? canalDet.na_fila : data.na_fila, sub: 'aguardando disparo', accent: '#7C93C4' },
+              { label: 'Disparos', value: canalDet ? canalDet.disparado : data.disparos, sub: canalDet ? CANAL_CFG[canalDet.canal].label : `${CANAL_CFG.whatsapp.label} ${data.canais.find(c => c.canal === 'whatsapp')?.disparado ?? 0} · ${CANAL_CFG.email.label} ${data.canais.find(c => c.canal === 'email')?.disparado ?? 0} · ${CANAL_CFG.sms.label} ${data.canais.find(c => c.canal === 'sms')?.disparado ?? 0}`, accent: 'var(--accent)' },
+              { label: 'Respostas', value: canalDet ? `${canalDet.respondeu} · ${canalDet.taxa}%` : `${data.respostas} · ${data.taxa_resposta}%`, sub: canalDet ? 'taxa de resposta do canal' : 'taxa de resposta geral', accent: 'var(--success)' },
+              { label: 'Distribuídos', value: canalDet ? canalDet.respondeu : data.distribuidos, sub: 'foram pro rodízio', accent: 'var(--warning)' },
             ] as const).map(k => (
               <div key={k.label} style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                 <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: k.accent }} />
@@ -123,7 +231,7 @@ export default function CampanhasDashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {data.canais.map(c => {
+            {data.canais.filter(c => canaisVis.includes(c.canal)).map(c => {
               const cfg = CANAL_CFG[c.canal]
               return (
                 <div key={c.canal} style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
@@ -156,14 +264,14 @@ export default function CampanhasDashboard() {
               <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>Disparos por dia · últimos 14 dias</p>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 100 }}>
                 {data.ritmo_diario.map(d => {
-                  const total = d.whatsapp + d.email + d.sms
+                  const total = totalDia(d)
                   const h = (total / maxRitmo) * 100
                   return (
                     <div key={d.dia} title={`${d.dia}: ${total}`} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', height: `${h}%`, minHeight: total > 0 ? 3 : 0, borderRadius: '3px 3px 0 0', overflow: 'hidden' }}>
-                        {d.sms > 0 && <span style={{ flex: d.sms, background: CANAL_CFG.sms.color }} />}
-                        {d.email > 0 && <span style={{ flex: d.email, background: CANAL_CFG.email.color }} />}
-                        {d.whatsapp > 0 && <span style={{ flex: d.whatsapp, background: CANAL_CFG.whatsapp.color }} />}
+                        {canaisVis.includes('sms') && d.sms > 0 && <span style={{ flex: d.sms, background: CANAL_CFG.sms.color }} />}
+                        {canaisVis.includes('email') && d.email > 0 && <span style={{ flex: d.email, background: CANAL_CFG.email.color }} />}
+                        {canaisVis.includes('whatsapp') && d.whatsapp > 0 && <span style={{ flex: d.whatsapp, background: CANAL_CFG.whatsapp.color }} />}
                       </div>
                     </div>
                   )
@@ -175,7 +283,7 @@ export default function CampanhasDashboard() {
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-3b)', marginTop: 12 }}>
-                {(['whatsapp', 'email', 'sms'] as const).map(c => (
+                {canaisVis.map(c => (
                   <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ width: 8, height: 8, borderRadius: 3, background: CANAL_CFG[c].color }} />{CANAL_CFG[c].label}
                   </span>
@@ -203,11 +311,11 @@ export default function CampanhasDashboard() {
 
           <div style={{ background: 'var(--bg-card)', borderRadius: 12, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>Atividade recente</p>
-            {data.atividade_recente.length === 0 ? (
+            {data.atividade_recente.filter(a => canaisVis.includes(a.canal)).length === 0 ? (
               <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Nada por aqui ainda.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {data.atividade_recente.map((a, i) => {
+                {data.atividade_recente.filter(a => canaisVis.includes(a.canal)).map((a, i) => {
                   const acao = ACAO_LABEL[a.acao]
                   const cfg = CANAL_CFG[a.canal]
                   return (
