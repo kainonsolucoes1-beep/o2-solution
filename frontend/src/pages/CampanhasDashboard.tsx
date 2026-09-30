@@ -9,7 +9,8 @@ type CanalFiltro = 'todos' | Canal
 type Periodo = 'hoje' | 'mes' | 'custom'
 
 interface SmsLote { id: string; job: string; data_disparo: string | null; enviados: number; retornos: number; entregues: number; respostas: number; positivos: number; taxa: number }
-interface SmsData { enviados: number; retornos: number; entregues: number; respostas: number; positivos: number; taxa: number; lotes: SmsLote[] }
+interface SmsRitmoDia { dia: string; enviados: number; entregues: number; positivos: number }
+interface SmsData { enviados: number; retornos: number; entregues: number; respostas: number; positivos: number; taxa: number; lotes: SmsLote[]; ritmo_diario: SmsRitmoDia[] }
 
 interface CanalDetalhe { canal: Canal; na_fila: number; disparado: number; respondeu: number; taxa: number }
 interface RitmoDia { dia: string; whatsapp: number; email: number; sms: number }
@@ -56,6 +57,11 @@ function fmtAgo(iso: string | null): string {
   if (hrs < 24) return `há ${hrs}h`
   return `há ${Math.floor(hrs / 24)}d`
 }
+const LOTE_COLS = 'repeat(8, minmax(0, 1fr)) 32px'
+function fmtDiaMes(iso: string): string {
+  const [, m, d] = iso.split('-')
+  return `${d}/${m}`
+}
 function fmtDiaCurto(iso: string): string {
   const d = new Date(iso + 'T00:00:00')
   return String(d.getDate())
@@ -99,6 +105,7 @@ export default function CampanhasDashboard() {
   const canalDet = canal !== 'todos' && data ? data.canais.find(c => c.canal === canal) : undefined
   const totalDia = (d: RitmoDia) => canaisVis.reduce((s, c) => s + d[c], 0)
   const maxRitmo = data ? Math.max(...data.ritmo_diario.map(totalDia), 1) : 1
+  const maxSms = sms ? Math.max(...sms.ritmo_diario.map(d => d.enviados), 1) : 1
   const cardStyle: React.CSSProperties = { background: 'var(--bg-card)', borderRadius: 12, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
 
   return (
@@ -183,25 +190,57 @@ export default function CampanhasDashboard() {
           </div>
 
           <div style={cardStyle}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>Disparos por dia · últimos 7 dias úteis</p>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 130 }}>
+              {sms.ritmo_diario.map(d => {
+                const h = (d.enviados / maxSms) * 100
+                return (
+                  <div key={d.dia} title={`${fmtDiaMes(d.dia)}: ${d.enviados} enviados · ${d.entregues} entregues · ${d.positivos} "Sim"`} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
+                    {d.enviados > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-1)', marginBottom: 3 }}>{d.enviados}</span>}
+                    <div style={{ position: 'relative', width: '100%', maxWidth: 56, height: `${h}%`, minHeight: d.enviados > 0 ? 3 : 0, background: CANAL_CFG.sms.bg, borderRadius: '4px 4px 0 0', overflow: 'hidden' }}>
+                      <span style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${d.enviados ? (d.entregues / d.enviados) * 100 : 0}%`, background: CANAL_CFG.sms.color }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
+              {sms.ritmo_diario.map(d => (
+                <div key={d.dia} style={{ flex: 1, textAlign: 'center', lineHeight: 1.35 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-2)' }}>{fmtDiaMes(d.dia)}</div>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: d.positivos > 0 ? 'var(--success)' : 'var(--text-subtle)' }}>{d.positivos} "Sim"</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'var(--text-3b)', marginTop: 12 }}>
+              {([['Enviados', CANAL_CFG.sms.bg], ['Entregues', CANAL_CFG.sms.color], ['"Sim"', 'var(--success)']] as const).map(([label, cor]) => (
+                <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 3, background: cor, border: '1px solid var(--border-lt)' }} />{label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div style={cardStyle}>
             <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>Disparos do período</p>
             {sms.lotes.length === 0 ? (
               <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Nenhum disparo importado no período. Use "Importar planilhas".</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ minWidth: 640 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '90px 90px repeat(5, 1fr) 70px 32px', gap: 10, padding: '0 0 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                    <span>Data</span><span>Job</span><span style={{ textAlign: 'right' }}>Enviados</span><span style={{ textAlign: 'right' }}>Retornos</span><span style={{ textAlign: 'right' }}>Entregues</span><span style={{ textAlign: 'right' }}>Respostas</span><span style={{ textAlign: 'right' }}>"Sim"</span><span style={{ textAlign: 'right' }}>%</span><span />
+                  <div style={{ display: 'grid', gridTemplateColumns: LOTE_COLS, gap: 10, padding: '0 0 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'center' }}>
+                    <span>Data</span><span>Job</span><span>Enviados</span><span>Retornos</span><span>Entregues</span><span>Respostas</span><span>"Sim"</span><span>%</span><span />
                   </div>
                   {sms.lotes.map(l => (
-                    <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '90px 90px repeat(5, 1fr) 70px 32px', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border-lt)', fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>
+                    <div key={l.id} style={{ display: 'grid', gridTemplateColumns: LOTE_COLS, gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border-lt)', fontSize: 12.5, fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>
                       <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{l.data_disparo ? new Date(l.data_disparo + 'Z').toLocaleDateString('pt-BR') : '—'}</span>
                       <span style={{ color: 'var(--text-muted)' }}>{l.job}</span>
-                      <span style={{ textAlign: 'right', color: 'var(--text-1)' }}>{l.enviados}</span>
-                      <span style={{ textAlign: 'right', color: 'var(--text-1)' }}>{l.retornos}</span>
-                      <span style={{ textAlign: 'right', color: 'var(--text-1)' }}>{l.entregues}</span>
-                      <span style={{ textAlign: 'right', color: 'var(--text-1)' }}>{l.respostas}</span>
-                      <span style={{ textAlign: 'right', color: 'var(--success)', fontWeight: 700 }}>{l.positivos}</span>
-                      <span style={{ textAlign: 'right', color: CANAL_CFG.sms.color, fontWeight: 800 }}>{l.taxa}%</span>
+                      <span style={{ color: 'var(--text-1)' }}>{l.enviados}</span>
+                      <span style={{ color: 'var(--text-1)' }}>{l.retornos}</span>
+                      <span style={{ color: 'var(--text-1)' }}>{l.entregues}</span>
+                      <span style={{ color: 'var(--text-1)' }}>{l.respostas}</span>
+                      <span style={{ color: 'var(--success)', fontWeight: 700 }}>{l.positivos}</span>
+                      <span style={{ color: CANAL_CFG.sms.color, fontWeight: 800 }}>{l.taxa}%</span>
                       <button onClick={() => excluirLote(l)} title="Excluir lote" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4, display: 'flex', justifyContent: 'center' }}>
                         <Trash2 size={14} />
                       </button>
