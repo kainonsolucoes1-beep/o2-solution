@@ -584,6 +584,24 @@ def update_user(
     return user
 
 
+@router.post("/users/{user_id}/reset-password")
+def reset_user_password(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Gera nova senha temporária (troca obrigatória no próximo login)."""
+    _require_admin(current_user)
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    temp_password = generate_temp_password()
+    user.password_hash = hash_password(temp_password)
+    user.must_change_password = True
+    db.commit()
+    return {"email": user.email, "temp_password": temp_password}
+
+
 _ACCESS_KEYS = {"janela_ativa": "acesso_janela_ativa", "dispositivo_ativo": "acesso_dispositivo_ativo"}
 
 
