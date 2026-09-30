@@ -192,4 +192,7 @@ class LeadParcela(Base):
     valor = Column(Numeric(12, 2), nullable=False)
     status = Column(String(20), nullable=False)  # 'recebido' | 'a_receber'
     previsao_recebimento = Column(TIMESTAMP, nullable=True)  # extraido da nota da celula na planilha
+    # preenchido = sub-linha manual (reajuste/entrada futura) presa a parcela de mesmo
+    # "numero"; o sync da planilha nunca apaga essas linhas.
+    descricao = Column(String(255), nullable=True)
     updated_at = Column(TIMESTAMP, server_default=func.now())

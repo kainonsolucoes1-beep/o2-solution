@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { Activity, StickyNote, CalendarClock, Pencil } from 'lucide-react'
+import { Activity, StickyNote, CalendarClock, Pencil, X } from 'lucide-react'
 import { statusLabel } from '../utils/statusLabel'
 import { fmtDate, fmtDuration } from '../utils/leadFormat'
 import { statusColor } from '../utils/leadStatus'
@@ -10,7 +10,7 @@ const FILTERS: ActivityFilter[] = ['Todos', 'Status', 'Notas']
 export default function LeadActivityTimeline({
   isAdmin, savingRealign, onRealignHistory,
   noteText, onNoteTextChange, savingNote, onSaveNote,
-  me, isCoordenador, savingNoteEdit, onSaveNoteEdit,
+  me, isCoordenador, savingNoteEdit, onSaveNoteEdit, deletingStatusId, onDeleteStatus,
   loadingActivity, activity, filter, onFilterChange, locked, lostReason,
 }: {
   isAdmin: boolean
@@ -24,6 +24,8 @@ export default function LeadActivityTimeline({
   isCoordenador: boolean
   savingNoteEdit: boolean
   onSaveNoteEdit: (noteId: string, content: string) => Promise<void>
+  deletingStatusId: string | null
+  onDeleteStatus: (historyId: string) => void
   loadingActivity: boolean
   activity: ActivityEvent[]
   filter: ActivityFilter
@@ -144,8 +146,18 @@ export default function LeadActivityTimeline({
                 return (
                   <div key={`s-${i}`} style={rowStyle}>
                     {rail(c.bg, <Activity size={15} color={c.color} strokeWidth={2.25} />)}
-                    <div style={cardStyle}>
-                      <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                    <div style={{ ...cardStyle, position: 'relative' }}>
+                      {!locked && !ev.isCreation && ev.historyId && (
+                        <button
+                          onClick={() => onDeleteStatus(ev.historyId!)}
+                          disabled={deletingStatusId === ev.historyId}
+                          title="Excluir esta ação de status"
+                          style={{ position: 'absolute', top: 10, right: 10, display: 'flex', background: 'none', border: 'none', color: 'var(--text-subtle)', cursor: deletingStatusId === ev.historyId ? 'not-allowed' : 'pointer', padding: 2, opacity: deletingStatusId === ev.historyId ? 0.5 : 1 }}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                      <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5, paddingRight: 20 }}>
                         <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{ev.by ?? 'Sistema'}</b>{' '}
                         {ev.isCreation ? (
                           <>criou o lead como <b style={{ color: c.color, fontWeight: 700 }}>{statusLabel(ev.status)}</b></>

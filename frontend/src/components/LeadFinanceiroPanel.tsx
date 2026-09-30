@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Wallet, Plus, Pencil, Trash2, ChevronDown, Check, X } from 'lucide-react'
 import api from '../api'
 import { fmtBRL, fmtDateOnlyLiteral, parseBRNumber } from '../utils/leadFormat'
@@ -16,6 +16,7 @@ interface ParcelaItem {
   valor: number
   status: 'recebido' | 'a_receber'
   previsao_recebimento: string | null
+  descricao: string | null  // preenchido = sub-linha (reajuste/entrada futura) da parcela de mesmo numero
 }
 
 interface ParcelasListResponse {
@@ -86,6 +87,10 @@ export default function LeadFinanceiroPanel({
   const [deletingParcelaId, setDeletingParcelaId] = useState<string | null>(null)
 
   const [showAllParcelas, setShowAllParcelas] = useState(false)
+
+  const [addingSubFor, setAddingSubFor] = useState<string | null>(null)
+  const [savingSub, setSavingSub] = useState(false)
+  const [newSub, setNewSub] = useState({ descricao: '', valor: '', data: '' })
 
   const [confirmingRecebidoId, setConfirmingRecebidoId] = useState<string | null>(null)
   const [savingQuickRecebidoId, setSavingQuickRecebidoId] = useState<string | null>(null)
@@ -171,6 +176,20 @@ export default function LeadFinanceiroPanel({
       .finally(() => setSavingQuickRecebidoId(null))
   }
 
+  function saveSub(parent: ParcelaItem) {
+    if (!newSub.descricao.trim() || !newSub.valor.trim() || !newSub.data) return
+    setSavingSub(true)
+    api.post(`/api/v1/leads/${leadId}/parcelas`, {
+      numero: parent.numero,
+      valor: parseBRNumber(newSub.valor),
+      status: 'a_receber',
+      previsao_recebimento: newSub.data,
+      descricao: newSub.descricao.trim(),
+    })
+      .then(() => { setAddingSubFor(null); setNewSub({ descricao: '', valor: '', data: '' }); onSaved(); fetchParcelas() })
+      .finally(() => setSavingSub(false))
+  }
+
   function deleteParcela(id: string) {
     setDeletingParcelaId(id)
     api.delete(`/api/v1/leads/${leadId}/parcelas/${id}`)
@@ -193,6 +212,71 @@ export default function LeadFinanceiroPanel({
     && dataVendaLabel === 'Não informado'
     && (!data || data.parcelas.length === 0)
   const collapsed = isEmpty && !editingGeral && !addingParcela
+
+  const allParcelas = data?.parcelas ?? []
+  const mains = allParcelas.filter(p => !p.descricao)
+  const subsOf = (p: ParcelaItem) => allParcelas.filter(x => x.descricao && x.numero === p.numero)
+  const orphanSubs = allParcelas.filter(x => x.descricao && !mains.some(m => m.numero === x.numero))
+  const subInput = { fontSize: 12, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-2)', minWidth: 0, boxSizing: 'border-box' as const }
+
+  function renderSub(x: ParcelaItem) {
+    const s = STATUS_STYLE[x.status]
+    return (
+      <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px 3px 4px', fontSize: 11.5 }}>
+        <span style={{ color: 'var(--text-subtle)', flexShrink: 0 }}>↳</span>
+        <span title={x.descricao ?? ''} style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.descricao}</span>
+        <span style={{ fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap' }}>{fmtBRL(x.valor)}</span>
+        {confirmingRecebidoId === x.id ? (
+          <>
+            <button onClick={() => quickMarkRecebido(x.id)} disabled={savingQuickRecebidoId === x.id} title="Confirmar recebimento" style={{ display: 'flex', border: 'none', background: 'var(--success)', color: '#fff', borderRadius: 5, padding: 2, cursor: 'pointer' }}><Check size={11} /></button>
+            <button onClick={() => setConfirmingRecebidoId(null)} title="Cancelar" style={{ display: 'flex', border: 'none', background: 'var(--border-lt)', color: 'var(--text-subtle)', borderRadius: 5, padding: 2, cursor: 'pointer' }}><X size={11} /></button>
+          </>
+        ) : (
+          <button
+            onClick={() => x.status === 'a_receber' && setConfirmingRecebidoId(x.id)}
+            title={x.status === 'a_receber' ? 'Marcar como recebida' : undefined}
+            style={{ fontSize: 9.5, fontWeight: 600, color: s.color, background: s.bg, padding: '1px 6px', borderRadius: 99, border: 'none', cursor: x.status === 'a_receber' ? 'pointer' : 'default', flexShrink: 0 }}
+          >
+            {s.label}
+          </button>
+        )}
+        <span style={{ fontSize: 10.5, color: 'var(--text-subtle)', whiteSpace: 'nowrap' }}>{x.previsao_recebimento ? fmtDateOnlyLiteral(x.previsao_recebimento) : '—'}</span>
+        <button onClick={() => deleteParcela(x.id)} disabled={deletingParcelaId === x.id} title="Excluir" style={{ display: 'flex', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: deletingParcelaId === x.id ? 0.5 : 1 }}>
+          <Trash2 size={12} />
+        </button>
+      </div>
+    )
+  }
+
+  function renderSubs(p: ParcelaItem) {
+    return (
+      <div style={{ marginLeft: 14, marginTop: -4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {subsOf(p).map(renderSub)}
+        {addingSubFor === p.id ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, border: '1px dashed var(--border-in)', borderRadius: 7, padding: 8 }}>
+            <input placeholder="Descrição (ex.: reajuste de comissão)" value={newSub.descricao} onChange={e => setNewSub(d => ({ ...d, descricao: e.target.value }))} autoFocus style={subInput} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <input placeholder="Valor" value={newSub.valor} onChange={e => setNewSub(d => ({ ...d, valor: e.target.value }))} style={subInput} />
+              <input type="date" value={newSub.data} onChange={e => setNewSub(d => ({ ...d, data: e.target.value }))} style={subInput} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setAddingSubFor(null)} style={{ fontSize: 11.5, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={() => saveSub(p)} disabled={savingSub || !newSub.descricao.trim() || !newSub.valor.trim() || !newSub.data} style={{ fontSize: 11.5, color: 'var(--accent)', background: 'none', border: 'none', cursor: savingSub ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                {savingSub ? 'Salvando…' : 'Adicionar'}
+              </button>
+            </div>
+          </div>
+        ) : !locked && (
+          <button
+            onClick={() => { setAddingSubFor(p.id); setNewSub({ descricao: '', valor: '', data: '' }) }}
+            style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 3, fontSize: 10.5, color: 'var(--text-subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }}
+          >
+            <Plus size={11} /> adicionar
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <SectionCard
@@ -305,11 +389,11 @@ export default function LeadFinanceiroPanel({
 
           {loading ? (
             <p style={{ fontSize: 12, color: 'var(--text-subtle)' }}>Carregando…</p>
-          ) : !data || data.parcelas.length === 0 ? (
+          ) : !data || allParcelas.length === 0 ? (
             <p style={{ fontSize: 12, color: 'var(--text-subtle)' }}>Nenhuma parcela lançada.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {(showAllParcelas ? data.parcelas : data.parcelas.slice(0, PARCELAS_COLLAPSED_LIMIT)).map(p => {
+              {(showAllParcelas ? mains : mains.slice(0, PARCELAS_COLLAPSED_LIMIT)).map(p => <Fragment key={p.id}>{(() => {
                 const s = STATUS_STYLE[p.status]
                 if (editingParcelaId === p.id) {
                   return (
@@ -401,16 +485,17 @@ export default function LeadFinanceiroPanel({
                     </div>
                   </div>
                 )
-              })}
+              })()}{renderSubs(p)}</Fragment>)}
+              {orphanSubs.map(renderSub)}
             </div>
           )}
 
-          {data && data.parcelas.length > PARCELAS_COLLAPSED_LIMIT && (
+          {mains.length > PARCELAS_COLLAPSED_LIMIT && (
             <button
               onClick={() => setShowAllParcelas(v => !v)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', marginTop: 4, padding: '8px 0 2px', fontSize: 12, fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              {showAllParcelas ? 'Ver menos' : `Ver mais ${data.parcelas.length - PARCELAS_COLLAPSED_LIMIT} parcelas`}
+              {showAllParcelas ? 'Ver menos' : `Ver mais ${mains.length - PARCELAS_COLLAPSED_LIMIT} parcelas`}
               <ChevronDown size={13} style={{ transform: showAllParcelas ? 'rotate(180deg)' : 'none', transition: 'transform 180ms ease' }} />
             </button>
           )}

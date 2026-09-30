@@ -182,6 +182,7 @@ class ParcelaRequest(BaseModel):
     valor: float
     status: str  # 'recebido' | 'a_receber'
     previsao_recebimento: Optional[str] = None  # AAAA-MM-DD
+    descricao: Optional[str] = None  # preenchido = sub-linha (reajuste/entrada futura)
 
 
 class ParcelaUpdateRequest(BaseModel):
@@ -197,6 +198,7 @@ class ParcelaResponse(BaseModel):
     valor: float
     status: str
     previsao_recebimento: Optional[datetime] = None
+    descricao: Optional[str] = None
 
 
 class ParcelasListResponse(BaseModel):

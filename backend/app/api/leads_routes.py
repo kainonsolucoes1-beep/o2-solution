@@ -1100,7 +1100,7 @@ def list_lead_parcelas(
         receita_real_recebida=float(lead.receita_real_recebida) if lead.receita_real_recebida is not None else None,
         receita_real_a_receber=float(lead.receita_real_a_receber) if lead.receita_real_a_receber is not None else None,
         parcelas=[
-            ParcelaResponse(id=p.id, numero=p.numero, valor=float(p.valor), status=p.status, previsao_recebimento=p.previsao_recebimento)
+            ParcelaResponse(id=p.id, numero=p.numero, valor=float(p.valor), status=p.status, previsao_recebimento=p.previsao_recebimento, descricao=p.descricao)
             for p in parcelas
         ],
     )
@@ -1121,8 +1121,10 @@ def create_lead_parcela(
     if body.status not in ("recebido", "a_receber"):
         raise HTTPException(status_code=400, detail="Status deve ser 'recebido' ou 'a_receber'")
     previsao = _parse_date_or_none(body.previsao_recebimento)
-    db.add(LeadParcela(lead_id=lead.id, numero=body.numero, valor=body.valor, status=body.status, previsao_recebimento=previsao))
-    lead.receita_origem = "manual"
+    descricao = (body.descricao or "").strip() or None
+    db.add(LeadParcela(lead_id=lead.id, numero=body.numero, valor=body.valor, status=body.status, previsao_recebimento=previsao, descricao=descricao))
+    if not descricao:  # sub-linha nao tira o lead do controle da planilha
+        lead.receita_origem = "manual"
     db.flush()
     _recalc_receita_from_parcelas(db, lead)
     db.commit()
@@ -1155,7 +1157,8 @@ def update_lead_parcela(
         parcela.status = body.status
     if body.previsao_recebimento is not None:
         parcela.previsao_recebimento = _parse_date_or_none(body.previsao_recebimento)
-    lead.receita_origem = "manual"
+    if not parcela.descricao:
+        lead.receita_origem = "manual"
     _recalc_receita_from_parcelas(db, lead)
     db.commit()
     return list_lead_parcelas(lead_id, current_user, db)
@@ -1177,7 +1180,8 @@ def delete_lead_parcela(
     if not parcela:
         raise HTTPException(status_code=404, detail="Parcela não encontrada")
     db.delete(parcela)
-    lead.receita_origem = "manual"
+    if not parcela.descricao:
+        lead.receita_origem = "manual"
     db.flush()
     _recalc_receita_from_parcelas(db, lead)
     db.commit()
@@ -1252,6 +1256,43 @@ def get_status_history(
         .all()
     )
     return StatusHistoryResponse(history=rows)
+
+
+@router.delete("/leads/{lead_id}/status-history/{history_id}", response_model=StatusHistoryResponse)
+def delete_status_history(
+    lead_id: str,
+    history_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove uma mudanca de status lancada por engano (ou duplicada). Se era a
+    mais recente, o lead volta pro status anterior. So' mexe no status --
+    dados de venda/emissao lancados junto ficam como estao."""
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    _assert_renutricao_unlocked(lead, current_user)
+    rows = (
+        db.query(LeadStatusHistory)
+        .filter(LeadStatusHistory.lead_id == lead.id)
+        .order_by(LeadStatusHistory.changed_at.asc())
+        .all()
+    )
+    idx = next((i for i, r in enumerate(rows) if str(r.id) == history_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Registro de status não encontrado")
+    target = rows[idx]
+    if idx == len(rows) - 1:
+        prev = rows[idx - 1].to_status if idx > 0 else target.from_status
+        if prev:
+            lead.status = prev
+    else:
+        # mantem a cadeia de/para coerente pro evento seguinte
+        rows[idx + 1].from_status = target.from_status
+    db.delete(target)
+    lead.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+    return get_status_history(lead_id, current_user, db)
 
 
 @router.post("/leads/{lead_id}/realign-history", response_model=StatusHistoryResponse)
