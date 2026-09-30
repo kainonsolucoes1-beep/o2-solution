@@ -7,7 +7,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
-from app.api.gestao_comercial_routes import MESES_ABREV, VENDA_STATUSES
+from app.api.gestao_comercial_routes import EFFECTIVE_CAPTACAO, MESES_ABREV, VENDA_STATUSES, agent_leads_clause
 from app.database import get_db
 from app.models.lead import Lead, LeadParcela
 from app.models.sdr_meta import SdrMeta
@@ -211,14 +211,17 @@ def _is_current_month_range(date_from: Optional[str], date_to: Optional[str]) ->
 def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], date_to: Optional[str]) -> SdrMetaProgress:
     """Leads captados, vendas realizadas e valor atingido no periodo (todo o
     historico se date_from/date_to nao forem informados), pro operador dessa
-    meta -- mesma logica de calculo usada em gestao_comercial_routes."""
-    filters = [Lead.origin == meta.nome]
+    meta -- mesma logica de calculo usada em gestao_comercial_routes (inclui
+    os leads de renutricao do agente e conta pela data de captacao efetiva)."""
+    owner_ids = [u.id for u in db.query(User.id).filter(or_(User.first_name == meta.nome, User.username == meta.nome)).all()]
+    agent = agent_leads_clause([meta.nome], owner_ids)
+    filters = [agent]
     if date_from:
         dt_from, _ = br_date_to_utc_range(date_from)
-        filters.append(Lead.created_at >= dt_from)
+        filters.append(EFFECTIVE_CAPTACAO >= dt_from)
     if date_to:
         _, dt_to_excl = br_date_to_utc_range(date_to)
-        filters.append(Lead.created_at < dt_to_excl)
+        filters.append(EFFECTIVE_CAPTACAO < dt_to_excl)
 
     leads_rows = db.query(Lead.status, Lead.value_potential).filter(*filters).all()
     venda_set = {s.lower() for s in VENDA_STATUSES}
@@ -239,8 +242,13 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
             # projecao = o que ja esta garantido (vendido/aguardando faturamento)
             # + o valor dos leads em emissao (documentacao ja enviada pelo
             # cliente, etapa avancada) -- proposta/negociacao ainda sao
-            # "frias" demais pra entrar na projecao.
-            pipeline_valor = sum(float(value or 0) for status, value in leads_rows if (status or "").lower() == "emissao")
+            # "frias" demais pra entrar na projecao. Emissao conta tudo que
+            # esta nesse status agora, independente do mes de captacao.
+            pipeline_valor = float(
+                db.query(func.coalesce(func.sum(Lead.value_potential), 0))
+                .filter(agent, func.lower(Lead.status).in_(("emissao", "emissão")))
+                .scalar()
+            )
             projecao = round(atingido + pipeline_valor, 2)
         else:
             now = now_br()
