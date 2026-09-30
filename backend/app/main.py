@@ -62,16 +62,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS operadoras_enviadas TEXT"))
     _conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS previsao_recebimento TIMESTAMP"))
     _conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS descricao VARCHAR(255)"))
-    _manual_col_existia = _conn.execute(text(
-        "SELECT 1 FROM information_schema.columns WHERE table_name = 'lead_parcelas' AND column_name = 'manual'"
-    )).first() is not None
     _conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS manual BOOLEAN NOT NULL DEFAULT false"))
-    if not _manual_col_existia:
-        # backfill unico: lead ainda "manual" = todas as parcelas dele foram lancadas na ficha
-        _conn.execute(text(
-            "UPDATE lead_parcelas SET manual = true "
-            "WHERE descricao IS NOT NULL OR lead_id IN (SELECT id FROM leads WHERE receita_origem = 'manual')"
-        ))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS receita_origem VARCHAR(10) NOT NULL DEFAULT 'sheet'"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS retrabalhado_em TIMESTAMP"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS origin_locked BOOLEAN NOT NULL DEFAULT false"))
