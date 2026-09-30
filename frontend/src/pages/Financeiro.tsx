@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronUp, ChevronRight, Building2, Layers3, CalendarClock, Filter, Search } from "lucide-react";
+import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronUp, ChevronRight, Building2, Layers3, CalendarClock, Filter, Search, ArrowUpRight } from "lucide-react";
 import api from "../api";
 import { useTheme } from "../ThemeContext";
 
@@ -738,7 +738,7 @@ export default function FinanceiroDashboard() {
                     <Fragment key={c.id}>
                     <tr
                       onClick={() => hasParcelas && toggleRow(c.id)}
-                      className="border-b border-[#F0F1F5] last:border-0 hover:bg-[#FAFBFC]"
+                      className="group border-b border-[#F0F1F5] last:border-0 hover:bg-[#FAFBFC]"
                       style={{ cursor: hasParcelas ? "pointer" : "default" }}
                     >
                       <td className="px-2 py-3.5 text-center text-[#8891AC]">
@@ -748,9 +748,10 @@ export default function FinanceiroDashboard() {
                         {c.empresa}
                         <button
                           onClick={(e) => { e.stopPropagation(); navigate(`/leads/${c.id}`); }}
-                          className="ml-2 text-[11px] font-semibold text-[#2563EB] hover:underline"
+                          title="Abrir ficha do lead"
+                          className="ml-1.5 inline-flex align-middle text-[#8891AC] transition-opacity hover:text-[#2563EB] md:opacity-0 md:group-hover:opacity-100"
                         >
-                          Abrir ficha ›
+                          <ArrowUpRight size={13} />
                         </button>
                       </td>
                       <td className="px-5 py-3.5 text-[#626A85]">
