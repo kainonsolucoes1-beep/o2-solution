@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app import sms_kolmeya_import
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
+from app.br_calendar import is_business_day
 from app.database import get_db
 from app.models import Lead, LeadNote, CampanhaEvento, CampanhaTemplate, CampanhaSmsLote, CampanhaSmsResposta, User
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range
@@ -458,21 +459,40 @@ def sms_dashboard(
     except ValueError:
         raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
 
+    # Ritmo: últimos 7 dias úteis (sem fim de semana/feriado) até o fim do período.
+    dias_uteis: list = []
+    d = (end - timedelta(microseconds=1) - BR_OFFSET).date()
+    while len(dias_uteis) < 7:
+        if is_business_day(d):
+            dias_uteis.insert(0, d)
+        d -= timedelta(days=1)
+    ritmo_ini, _ = br_date_to_utc_range(dias_uteis[0])
+
     data_ref = func.coalesce(CampanhaSmsLote.data_disparo, CampanhaSmsLote.criado_em)
-    lotes = (
+    todos = (
         db.query(CampanhaSmsLote)
-        .filter(data_ref >= start, data_ref < end)
+        .filter(data_ref >= min(start, ritmo_ini), data_ref < end)
         .order_by(data_ref.desc())
         .all()
     )
+    lotes = [l for l in todos if (l.data_disparo or l.criado_em) >= start]
     resp_map = {}
-    if lotes:
+    if todos:
         resp_map = {
             lote_id: (total, int(pos or 0))
             for lote_id, total, pos in db.query(
                 CampanhaSmsResposta.lote_id, func.count(CampanhaSmsResposta.id), func.sum(cast(CampanhaSmsResposta.positivo, Integer)),
-            ).filter(CampanhaSmsResposta.lote_id.in_([l.id for l in lotes])).group_by(CampanhaSmsResposta.lote_id).all()
+            ).filter(CampanhaSmsResposta.lote_id.in_([l.id for l in todos])).group_by(CampanhaSmsResposta.lote_id).all()
         }
+
+    ritmo_map: dict = {dia: {"enviados": 0, "entregues": 0, "positivos": 0} for dia in dias_uteis}
+    for l in todos:
+        dia = ((l.data_disparo or l.criado_em) - BR_OFFSET).date()
+        if dia in ritmo_map:
+            ritmo_map[dia]["enviados"] += l.enviados
+            ritmo_map[dia]["entregues"] += l.entregues
+            ritmo_map[dia]["positivos"] += resp_map.get(l.id, (0, 0))[1]
+    ritmo_diario = [{"dia": dia.isoformat(), **v} for dia, v in ritmo_map.items()]
 
     def taxa(pos: int, entregues: int) -> float:
         return round(pos / entregues * 100, 1) if entregues else 0.0
@@ -493,7 +513,7 @@ def sms_dashboard(
         })
 
     tot = {k: sum(i[k] for i in itens) for k in ("enviados", "retornos", "entregues", "respostas", "positivos")}
-    return {**tot, "taxa": taxa(tot["positivos"], tot["entregues"]), "lotes": itens}
+    return {**tot, "taxa": taxa(tot["positivos"], tot["entregues"]), "lotes": itens, "ritmo_diario": ritmo_diario}
 
 
 @router.delete("/sms/lotes/{lote_id}")
