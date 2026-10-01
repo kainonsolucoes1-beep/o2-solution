@@ -1,9 +1,10 @@
-import { User, RotateCcw } from 'lucide-react'
+import { User, RotateCcw, ChevronDown } from 'lucide-react'
 import SectionCard from './SectionCard'
 import EditPencil from './EditPencil'
 import Field from './Field'
 import EditInput from './EditInput'
 import SelectField from './SelectField'
+import FieldLabel from './FieldLabel'
 import { titleCase } from '../utils/leadFormat'
 
 interface InfoDraft {
@@ -17,11 +18,17 @@ interface InfoDraft {
   visibility_tag: string
 }
 
+// aparelhos da empresa: cor -> final do numero
+const CELULARES: Record<string, string> = {
+  Azul: '7531', Roxo: '4781', Vermelho: '5881', Amarelo: '4070', HBC: '9299',
+}
+
 const isEmpty = (v: string) => !v || v === '—' || v === 'Não informado' || v === 'Não definido'
 
 export default function LeadRegistrationPanel({
   origem, origemOptions, savingOrigem, onOrigemChange,
   conversionPoint, conversionPointOptions, savingConversionPoint, onConversionPointChange,
+  celularCor, savingCelular, onCelularChange,
   leadSinceLabel, leadSinceRelative, retrabalhadoEmLabel, documentoLabel, empresaLabel, titularMenorLabel, visibilityTag,
   editingInfo, savingInfo, infoDraft, onDraftChange, onStartEdit, onCancelEdit, onSaveEdit, locked,
 }: {
@@ -33,6 +40,9 @@ export default function LeadRegistrationPanel({
   conversionPointOptions: string[]
   savingConversionPoint: boolean
   onConversionPointChange: (v: string) => void
+  celularCor: string
+  savingCelular: boolean
+  onCelularChange: (v: string) => void
   leadSinceLabel: string
   leadSinceRelative?: string
   retrabalhadoEmLabel?: string | null
@@ -103,9 +113,27 @@ export default function LeadRegistrationPanel({
         ) : (
           <>
             {titularMenorLabel && <Field label="Titular Menor" value={titularMenorLabel} />}
-            {bothEmpty ? (
-              <Field label="Empresa · Documento" value="Não informado" />
-            ) : (
+            <div className="flex flex-col gap-1">
+              <FieldLabel>Celular{celularCor ? ` - ${celularCor}` : ''}</FieldLabel>
+              {/* select nativo invisivel por cima do valor: mostra "7531", abre a lista "Azul · 7531" */}
+              <div style={{ position: 'relative', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 14, lineHeight: '20px', fontWeight: celularCor ? 600 : 400, color: celularCor ? 'var(--text-1)' : 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums' }}>
+                  {CELULARES[celularCor] ?? 'Não informado'}
+                </span>
+                <ChevronDown size={12} color="var(--text-subtle)" />
+                <select
+                  value={celularCor}
+                  onChange={e => onCelularChange(e.target.value)}
+                  disabled={savingCelular || locked}
+                  title="Celular de origem do lead"
+                  style={{ position: 'absolute', inset: 0, opacity: 0, cursor: savingCelular || locked ? 'not-allowed' : 'pointer', width: '100%' }}
+                >
+                  <option value="">Não informado</option>
+                  {Object.entries(CELULARES).map(([cor, final]) => <option key={cor} value={cor}>{cor} · {final}</option>)}
+                </select>
+              </div>
+            </div>
+            {!bothEmpty && (
               <>
                 <Field label="Empresa" value={empresaLabel} />
                 <Field label="Documento" value={documentoLabel} />

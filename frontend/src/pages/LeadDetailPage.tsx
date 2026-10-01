@@ -44,6 +44,7 @@ interface LeadItem {
   receita_origem: string | null
   visibility_tag: string | null
   operadoras_enviadas: string | null
+  celular_cor: string | null
   modalidade: string | null
   document: string | null
   created_at: string
@@ -297,9 +298,10 @@ export default function LeadDetailPage() {
       .finally(() => setSavingInfo(false))
   }
 
-  function handleQuickUpdate(field: 'origem' | 'modalidade' | 'conversion_point' | 'perception' | 'operadoras_enviadas', value: string) {
+  const [savingCelular, setSavingCelular] = useState(false)
+  function handleQuickUpdate(field: 'origem' | 'modalidade' | 'conversion_point' | 'perception' | 'operadoras_enviadas' | 'celular_cor', value: string) {
     if (!id) return
-    const setSaving = field === 'origem' ? setSavingOrigin : field === 'modalidade' ? setSavingModalidade : field === 'conversion_point' ? setSavingConvPoint : field === 'operadoras_enviadas' ? setSavingOperadoras : setSavingPerception
+    const setSaving = field === 'origem' ? setSavingOrigin : field === 'modalidade' ? setSavingModalidade : field === 'conversion_point' ? setSavingConvPoint : field === 'operadoras_enviadas' ? setSavingOperadoras : field === 'celular_cor' ? setSavingCelular : setSavingPerception
     const apiField = field === 'origem' ? 'origin' : field
     setSaving(true)
     api.post(`/api/v1/leads/${id}/info`, { [apiField]: value })
@@ -784,6 +786,9 @@ export default function LeadDetailPage() {
             conversionPointOptions={conversionPointOptions}
             savingConversionPoint={savingConvPoint}
             onConversionPointChange={v => handleQuickUpdate('conversion_point', v)}
+            celularCor={lead.celular_cor ?? ''}
+            savingCelular={savingCelular}
+            onCelularChange={v => handleQuickUpdate('celular_cor', v)}
             leadSinceLabel={fmtDateOnly(lead.created_at)}
             leadSinceRelative={fmtRelative(lead.created_at)}
             retrabalhadoEmLabel={lead.retrabalhado_em ? fmtDateOnly(lead.retrabalhado_em) : null}
