@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
+import api from '../api'
 import FieldLabel from './FieldLabel'
 
+// reserva caso o cadastro (Configuracoes > Operadoras) nao carregue
 const OPERADORAS_OPTIONS = [
   'Amil', 'Bradesco', 'SulAmerica', 'Porto', 'Seguros Unimed', 'Unimed',
   'Trasmontano', 'Alice', 'HapVida', 'NotreDame', 'MedSenior', 'Prevent Senior',
@@ -9,7 +11,16 @@ const OPERADORAS_OPTIONS = [
 
 export default function OperadorasField({ value, saving, onChange }: { value: string | null; saving?: boolean; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false)
+  const [cadastro, setCadastro] = useState<string[]>(OPERADORAS_OPTIONS)
+  useEffect(() => {
+    api.get<string[]>('/api/v1/leads/operadoras-emissao')
+      .then(r => { if (r.data.length > 0) setCadastro(r.data) })
+      .catch(() => {})
+  }, [])
   const selected = new Set((value ?? '').split(',').map(s => s.trim()).filter(Boolean))
+  // marcadas num lead antigo com grafia fora do cadastro continuam visiveis
+  const cadastroLower = new Set(cadastro.map(o => o.toLowerCase()))
+  const options = [...cadastro, ...[...selected].filter(o => !cadastroLower.has(o.toLowerCase()))]
   function toggle(op: string) {
     const next = new Set(selected)
     next.has(op) ? next.delete(op) : next.add(op)
@@ -43,7 +54,7 @@ export default function OperadorasField({ value, saving, onChange }: { value: st
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10,
             boxShadow: '0 8px 24px rgba(15,23,42,0.14)', maxHeight: 260, overflowY: 'auto', padding: 6,
           }}>
-            {OPERADORAS_OPTIONS.map(op => {
+            {options.map(op => {
               const active = selected.has(op)
               return (
                 <button
