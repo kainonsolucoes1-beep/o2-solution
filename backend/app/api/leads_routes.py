@@ -628,7 +628,7 @@ def get_lead(
         retrabalhado_em=lead.retrabalhado_em,
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
         modalidade=lead.modalidade, current_plan=lead.current_plan,
-        operadoras_enviadas=lead.operadoras_enviadas, document=lead.document,
+        operadoras_enviadas=lead.operadoras_enviadas, celular_cor=lead.celular_cor, document=lead.document,
         tracking_campaign=lead.tracking_campaign, tracking_medium=lead.tracking_medium,
         tracking_term=lead.tracking_term, tracking_format=lead.tracking_format,
         fbclid=lead.fbclid, gclid=lead.gclid,
@@ -949,7 +949,7 @@ def update_lead_info(
         "attendant": "Atendente", "document": "Documento", "origin": "Origem",
         "modalidade": "Modalidade", "conversion_point": "Ponto de conversão",
         "perception": "Temperatura", "visibility_tag": "Tag de visibilidade",
-        "operadoras_enviadas": "Operadoras enviadas", "current_plan": "Plano atual",
+        "operadoras_enviadas": "Operadoras enviadas", "celular_cor": "Celular", "current_plan": "Plano atual",
         "value_potential": "Valor potencial",
     }
     _before = {f: getattr(lead, f) for f in _labels} if _track_edits else {}
@@ -993,6 +993,8 @@ def update_lead_info(
         lead.visibility_tag = body.visibility_tag.strip() or None
     if body.operadoras_enviadas is not None:
         lead.operadoras_enviadas = body.operadoras_enviadas.strip() or None
+    if body.celular_cor is not None:
+        lead.celular_cor = body.celular_cor.strip() or None
     if body.current_plan is not None:
         lead.current_plan = body.current_plan.strip() or None
     if body.value_potential is not None:
@@ -1018,6 +1020,7 @@ def update_lead_info(
         conversion_point=lead.conversion_point, perception=lead.perception,
         created_at=lead.created_at, visibility_tag=lead.visibility_tag,
         operadoras_enviadas=lead.operadoras_enviadas,
+        celular_cor=lead.celular_cor,
         current_plan=lead.current_plan,
         value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
     )

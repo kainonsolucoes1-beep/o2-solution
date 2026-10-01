@@ -70,6 +70,7 @@ class Lead(Base):
     receita_origem = Column(String(10), nullable=False, server_default='sheet')
     visibility_tag = Column(String(50), nullable=True)
     operadoras_enviadas = Column(Text, nullable=True)  # lista separada por virgula
+    celular_cor = Column(String(20), nullable=True)  # aparelho da empresa de onde o lead veio (Azul, Roxo...)
     receita_data_venda = Column(TIMESTAMP, nullable=True)
     # "Aviso prévio": a venda já fechou, mas o cliente só paga/fatura numa
     # data futura combinada (ex: 28/11) -- so' informativo, nao trava o
