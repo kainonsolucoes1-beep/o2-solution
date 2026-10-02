@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import List, Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import Date, Integer, cast, func, or_
 from sqlalchemy.orm import Session
@@ -374,6 +374,7 @@ def importar_sms_kolmeya(
     envio: UploadFile | None = File(None),
     retorno: UploadFile | None = File(None),
     resposta: UploadFile | None = File(None),
+    data_disparo: str | None = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -398,11 +399,21 @@ def importar_sms_kolmeya(
             if not lote:
                 lote = CampanhaSmsLote(job=r["job"])
                 db.add(lote)
+            # Data informada no modal vale sobre a do arquivo (o export novo
+            # da Kolmeya não traz mais a coluna "criacao").
+            if data_disparo:
+                try:
+                    lote.data_disparo, _ = br_date_to_utc_range(data_disparo)
+                except ValueError:
+                    raise ValueError("Data do disparo inválida.")
+            elif r["data_disparo"]:
+                lote.data_disparo = r["data_disparo"]
+            if not lote.data_disparo:
+                raise ValueError("Este retorno não traz a data — informe a data do disparo.")
             if envio:
                 lote.enviados = sms_kolmeya_import.parse_envio(envio.filename or "envio", envio.file.read())
             lote.retornos = r["retornos"]
             lote.entregues = r["entregues"]
-            lote.data_disparo = r["data_disparo"] or lote.data_disparo
             lote.importado_por_user_id = current_user.id
             db.flush()
 

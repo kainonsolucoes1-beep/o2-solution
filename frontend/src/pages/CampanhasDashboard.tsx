@@ -70,6 +70,7 @@ function fmtDiaCurto(iso: string): string {
 export default function CampanhasDashboard() {
   const { dark } = useTheme()
   const [periodo, setPeriodo] = useState<Periodo>('mes')
+  const [custom, setCustom] = useState(() => rangeFor('mes'))
   const [canal, setCanal] = useState<CanalFiltro>('todos')
   const [filtroAberto, setFiltroAberto] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -81,13 +82,14 @@ export default function CampanhasDashboard() {
   const fetchData = useCallback((p: Periodo, c: CanalFiltro) => {
     setLoading(true)
     setError('')
+    const params = p === 'custom' ? custom : rangeFor(p)
     const req = c === 'sms'
-      ? api.get<SmsData>('/api/v1/campanhas/sms/dashboard', { params: rangeFor(p) }).then(r => setSms(r.data))
-      : api.get<DashboardData>('/api/v1/campanhas/dashboard', { params: rangeFor(p) }).then(r => setData(r.data))
+      ? api.get<SmsData>('/api/v1/campanhas/sms/dashboard', { params }).then(r => setSms(r.data))
+      : api.get<DashboardData>('/api/v1/campanhas/dashboard', { params }).then(r => setData(r.data))
     req
       .catch(() => setError('Não foi possível carregar as métricas.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [custom])
 
   useEffect(() => { fetchData(periodo, canal) }, [periodo, canal, fetchData])
 
@@ -149,7 +151,7 @@ export default function CampanhasDashboard() {
               </div>
             )}
           </div>
-          {([['hoje', 'Hoje'], ['mes', 'Este mês']] as const).map(([p, label]) => (
+          {([['hoje', 'Hoje'], ['mes', 'Este mês'], ['custom', 'Período']] as const).map(([p, label]) => (
             <button
               key={p}
               onClick={() => setPeriodo(p)}
@@ -163,6 +165,21 @@ export default function CampanhasDashboard() {
               {label}
             </button>
           ))}
+          {periodo === 'custom' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text-3b)' }}>
+              {(['date_from', 'date_to'] as const).map((k, i) => (
+                <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {i === 1 && 'até'}
+                  <input
+                    type="date"
+                    value={custom[k]}
+                    onChange={e => e.target.value && setCustom(prev => ({ ...prev, [k]: e.target.value }))}
+                    style={{ fontSize: 12.5, padding: '7px 8px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-1)' }}
+                  />
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

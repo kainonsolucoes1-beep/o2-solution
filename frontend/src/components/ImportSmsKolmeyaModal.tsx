@@ -29,6 +29,7 @@ const btnPrimary = (disabled: boolean): React.CSSProperties => ({
 
 export default function ImportSmsKolmeyaModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
   const [files, setFiles] = useState<Record<Slot, File | null>>({ envio: null, retorno: null, resposta: null })
+  const [dataDisparo, setDataDisparo] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -45,6 +46,7 @@ export default function ImportSmsKolmeyaModal({ onClose, onImported }: { onClose
     setError('')
     const formData = new FormData()
     ;(Object.keys(files) as Slot[]).forEach(k => { if (files[k]) formData.append(k, files[k] as File) })
+    if (files.retorno && dataDisparo) formData.append('data_disparo', dataDisparo)
     try {
       const { data } = await api.post<ImportResult>('/api/v1/campanhas/sms/importar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -96,6 +98,18 @@ export default function ImportSmsKolmeyaModal({ onClose, onImported }: { onClose
                   </div>
                 )
               })}
+              {files.retorno && (
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 5px' }}>Data do disparo</p>
+                  <input
+                    type="date"
+                    value={dataDisparo}
+                    onChange={e => { setDataDisparo(e.target.value); setError('') }}
+                    style={{ fontSize: 13, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border-in)', background: 'var(--bg-card)', color: 'var(--text-1)' }}
+                  />
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0' }}>Obrigatória quando o retorno não traz a data (export novo da Kolmeya). Se preenchida, vale sobre a do arquivo.</p>
+                </div>
+              )}
               {files.envio && !files.retorno && (
                 <p style={{ fontSize: 12, color: '#B45309', margin: 0 }}>A planilha de envio precisa ir junto com a de retorno (é dela que vem o job).</p>
               )}

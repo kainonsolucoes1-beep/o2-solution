@@ -67,7 +67,8 @@ def parse_retorno(filename: str, content: bytes) -> dict:
     return {
         "job": jobs.pop(),
         "retornos": len(rows),
-        "entregues": sum(1 for r in rows if _normalize_header(_cell(r, status_i)) == "entregue"),
+        # export antigo traz o texto "entregue"; o novo traz o código 3 (= entregue)
+        "entregues": sum(1 for r in rows if _normalize_header(_cell(r, status_i)) in ("entregue", "3")),
         "data_disparo": min(datas) if datas else None,
     }
 
