@@ -194,7 +194,7 @@ export default function CampanhasDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {([
               { label: 'Enviados', value: sms.enviados, sub: 'linhas da planilha de envio', accent: 'var(--accent)' },
-              { label: 'Retornos', value: sms.retornos, sub: `${sms.entregues} entregues · ${sms.retornos - sms.entregues} não entregues/pendentes`, accent: CANAL_CFG.sms.color },
+              { label: 'Entregues', value: sms.entregues, sub: `de ${sms.retornos} processados pela Kolmeya${sms.retornos > sms.entregues ? ` · ${sms.retornos - sms.entregues} não entregues` : ''}`, accent: CANAL_CFG.sms.color },
               { label: 'Respostas', value: `${sms.positivos} · ${sms.taxa}%`, sub: `responderam "Sim" · % sobre entregues${sms.respostas > sms.positivos ? ` · ${sms.respostas} respostas no total` : ''}`, accent: 'var(--success)' },
             ] as const).map(k => (
               <div key={k.label} style={{ position: 'relative', overflow: 'hidden', background: 'var(--bg-card)', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
@@ -246,7 +246,7 @@ export default function CampanhasDashboard() {
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ minWidth: 640 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: LOTE_COLS, gap: 10, padding: '0 0 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'center' }}>
-                    <span>Data</span><span>Job</span><span>Enviados</span><span>Retornos</span><span>Entregues</span><span>Respostas</span><span>"Sim"</span><span>%</span><span />
+                    <span>Data</span><span>Job</span><span>Enviados</span><span>Processados</span><span>Entregues</span><span>Respostas</span><span>"Sim"</span><span>%</span><span />
                   </div>
                   {sms.lotes.map(l => (
                     <div key={l.id} style={{ display: 'grid', gridTemplateColumns: LOTE_COLS, gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border-lt)', fontSize: 12.5, fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>
