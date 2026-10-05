@@ -752,12 +752,14 @@ def conversion_points_by_group(
     ]
 
 
-def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None):
-    """Meta do mes corrente pro agente, independente do filtro de periodo da
-    tela (Metas do Mes sempre olha pro mes calendario atual). Casa o nome do
-    agente (qualquer um dos `parts`) contra sdr_metas.nome, sem diferenciar
-    maiusculas/minusculas. `agent_clause` = mesmo recorte de leads da Vida do
-    Agente (origem OU renutricao do agente); sem ele, so' a origem."""
+def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None, ref_date: str | None = None):
+    """Meta do mes pro agente. Sem `ref_date`, o mes calendario atual; com ele
+    (YYYY-MM-DD, o fim do filtro de periodo da tela), o mes dessa data -- limitado
+    ao mes atual. Mes ja' encerrado sai como resultado final (sem ritmo/projecao).
+    Casa o nome do agente (qualquer um dos `parts`) contra sdr_metas.nome, sem
+    diferenciar maiusculas/minusculas. `agent_clause` = mesmo recorte de leads da
+    Vida do Agente (origem OU renutricao do agente); sem ele, so' a origem.
+    sdr_metas nao guarda historico: mes passado usa o valor de meta atual."""
     meta_row = None
     for p in parts:
         meta_row = db.query(SdrMeta).filter(func.lower(SdrMeta.nome) == p.strip().lower()).first()
@@ -767,7 +769,16 @@ def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None):
         return None
 
     nb = now_br()
-    mes_inicio, mes_fim = br_month_utc_range(nb.year, nb.month)
+    year, month = nb.year, nb.month
+    if ref_date:
+        try:
+            ref = datetime.strptime(ref_date[:10], "%Y-%m-%d")
+            if (ref.year, ref.month) < (year, month):
+                year, month = ref.year, ref.month
+        except ValueError:
+            pass
+    encerrado = (year, month) != (nb.year, nb.month)
+    mes_inicio, mes_fim = br_month_utc_range(year, month)
 
     mes_leads = (
         db.query(Lead.status, Lead.value_potential)
@@ -782,8 +793,8 @@ def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None):
         progresso = float(len(mes_leads))
 
     meta_valor = float(meta_row.meta_valor)
-    dias_uteis_mes = business_days_in_month(nb.year, nb.month)
-    dias_uteis_ate_hoje = business_days_in_month(nb.year, nb.month, nb.day)
+    dias_uteis_mes = business_days_in_month(year, month)
+    dias_uteis_ate_hoje = dias_uteis_mes if encerrado else business_days_in_month(year, month, nb.day)
     dias_uteis_restantes = max(0, dias_uteis_mes - dias_uteis_ate_hoje)
     faltam = max(0.0, meta_valor - progresso)
     ritmo_necessario = faltam / dias_uteis_restantes if dias_uteis_restantes > 0 else 0.0
@@ -804,14 +815,15 @@ def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None):
             )
             .scalar()
         )
-        if meta_row.tipo == "clt" else 0.0
+        if meta_row.tipo == "clt" and not encerrado else 0.0
     )
 
     return {
         "tipo": meta_row.tipo,
         "meta_valor": meta_valor,
         "progresso": progresso,
-        "mes_label": f"{MESES_ABREV[nb.month]}/{str(nb.year)[2:]}",
+        "mes_label": f"{MESES_ABREV[month]}/{str(year)[2:]}",
+        "encerrado": encerrado,
         "faltam": faltam,
         "dias_uteis_restantes": dias_uteis_restantes,
         "ritmo_necessario": round(ritmo_necessario, 1),
@@ -907,7 +919,7 @@ def vida_sdr(
         ativo_desde = user_match.created_at
     else:
         ativo_desde = lead_min_created
-    meta = _compute_meta_mes(db, parts, origin_or_owner) if parts else None
+    meta = _compute_meta_mes(db, parts, origin_or_owner, date_to) if parts else None
 
     leads = (
         db.query(
