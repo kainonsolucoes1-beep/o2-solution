@@ -10,7 +10,7 @@ from app.api.auth_routes import get_current_user
 from app.api.gestao_comercial_routes import EFFECTIVE_CAPTACAO, MESES_ABREV, VENDA_STATUSES, agent_leads_clause
 from app.database import get_db
 from app.models.lead import Lead, LeadParcela
-from app.models.sdr_meta import SdrMeta
+from app.models.sdr_meta import SdrMeta, SdrMetaMensal, meta_do_mes
 from app.models.user import User
 from app.schemas.sdr_meta import SdrMetaCreate, SdrMetaProgress, SdrMetasListResponse, SdrMetaUpdate
 from app.security import can_see_financials
@@ -208,11 +208,37 @@ def _is_current_month_range(date_from: Optional[str], date_to: Optional[str]) ->
     return date_from == f"{now.year:04d}-{now.month:02d}-01" and date_to == f"{now.year:04d}-{now.month:02d}-{last_day:02d}"
 
 
+def _ref_month(date_to: Optional[str]) -> tuple[int, int]:
+    """Mes cuja meta vale pro filtro: o da data final (limitado ao mes atual);
+    sem data final (Geral), o mes atual."""
+    now = now_br()
+    if date_to:
+        try:
+            ref = datetime.strptime(date_to[:10], "%Y-%m-%d")
+            if (ref.year, ref.month) < (now.year, now.month):
+                return ref.year, ref.month
+        except ValueError:
+            pass
+    return now.year, now.month
+
+
+def _set_meta_mensal(db: Session, meta: SdrMeta, ano_mes: str, tipo: str, meta_valor: float) -> None:
+    """Grava a meta a partir de `ano_mes` -- substitui os registros desse mes
+    em diante -- e sincroniza sdr_metas com o valor vigente no mes atual."""
+    db.query(SdrMetaMensal).filter(SdrMetaMensal.meta_id == meta.id, SdrMetaMensal.ano_mes >= ano_mes).delete(synchronize_session=False)
+    db.add(SdrMetaMensal(meta_id=meta.id, ano_mes=ano_mes, tipo=tipo, meta_valor=meta_valor))
+    db.flush()
+    now = now_br()
+    meta.tipo, meta.meta_valor = meta_do_mes(db, meta, now.year, now.month)
+
+
 def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], date_to: Optional[str]) -> SdrMetaProgress:
     """Leads captados, vendas realizadas e valor atingido no periodo (todo o
     historico se date_from/date_to nao forem informados), pro operador dessa
     meta -- mesma logica de calculo usada em gestao_comercial_routes (inclui
-    os leads de renutricao do agente e conta pela data de captacao efetiva)."""
+    os leads de renutricao do agente e conta pela data de captacao efetiva).
+    Tipo/valor da meta = os vigentes no mes de referencia do filtro."""
+    tipo, meta_valor = meta_do_mes(db, meta, *_ref_month(date_to))
     owner_ids = [u.id for u in db.query(User.id).filter(or_(User.first_name == meta.nome, User.username == meta.nome)).all()]
     agent = agent_leads_clause([meta.nome], owner_ids)
     filters = [agent]
@@ -228,17 +254,16 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
     leads_count = len(leads_rows)
     vendas_count = sum(1 for status, _ in leads_rows if (status or "").lower() in venda_set)
 
-    if meta.tipo == "clt":
+    if tipo == "clt":
         atingido = sum(float(value or 0) for status, value in leads_rows if (status or "").lower() in venda_set)
     else:
         atingido = float(leads_count)
 
-    meta_valor = float(meta.meta_valor)
     pct = round(atingido / meta_valor * 100, 1) if meta_valor > 0 else 0.0
 
     projecao = None
     if _is_current_month_range(date_from, date_to):
-        if meta.tipo == "clt":
+        if tipo == "clt":
             # projecao = o que ja esta garantido (vendido/aguardando faturamento)
             # + o valor dos leads em emissao (documentacao ja enviada pelo
             # cliente, etapa avancada) -- proposta/negociacao ainda sao
@@ -257,9 +282,26 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
                 projecao = round(atingido / now.day * dias_no_mes, 2)
 
     return SdrMetaProgress(
-        id=meta.id, nome=meta.nome, tipo=meta.tipo, meta_valor=meta_valor,
+        id=meta.id, nome=meta.nome, tipo=tipo, meta_valor=meta_valor,
         leads=leads_count, vendas=vendas_count, atingido=round(atingido, 2), pct=pct, projecao=projecao,
     )
+
+
+def _valid_ano_mes(vigente_desde: Optional[str]) -> str:
+    """'YYYY-MM' a partir do qual a meta vale; padrao = mes atual. Nao aceita
+    mes futuro."""
+    now = now_br()
+    atual = f"{now.year:04d}-{now.month:02d}"
+    if not vigente_desde:
+        return atual
+    try:
+        ref = datetime.strptime(vigente_desde[:7], "%Y-%m")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="vigente_desde deve ser AAAA-MM")
+    ano_mes = f"{ref.year:04d}-{ref.month:02d}"
+    if ano_mes > atual:
+        raise HTTPException(status_code=422, detail="Não dá pra cadastrar meta pra mês futuro")
+    return ano_mes
 
 
 @router.get("/metas", response_model=SdrMetasListResponse)
@@ -272,10 +314,11 @@ def list_metas(
     if not can_see_financials(current_user):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
 
-    now = now_br()
+    year, month = _ref_month(date_to)
     metas_rows = db.query(SdrMeta).order_by(SdrMeta.nome).all()
     return SdrMetasListResponse(
-        mes_label=f"{MESES_ABREV[now.month]}/{str(now.year)[2:]}",
+        mes_label=f"{MESES_ABREV[month]}/{str(year)[2:]}",
+        ano_mes=f"{year:04d}-{month:02d}",
         metas=[_progress_for_meta(db, m, date_from, date_to) for m in metas_rows],
     )
 
@@ -296,8 +339,11 @@ def create_meta(
     if db.query(SdrMeta).filter(func.lower(SdrMeta.nome) == nome.lower()).first():
         raise HTTPException(status_code=409, detail="Já existe uma meta cadastrada para esse nome")
 
+    ano_mes = _valid_ano_mes(body.vigente_desde)
     meta = SdrMeta(nome=nome, tipo=body.tipo, meta_valor=body.meta_valor)
     db.add(meta)
+    db.flush()
+    _set_meta_mensal(db, meta, ano_mes, body.tipo, body.meta_valor)
     db.commit()
     db.refresh(meta)
     return _progress_for_meta(db, meta, None, None)
@@ -325,12 +371,16 @@ def update_meta(
         if db.query(SdrMeta).filter(func.lower(SdrMeta.nome) == nome.lower(), SdrMeta.id != meta.id).first():
             raise HTTPException(status_code=409, detail="Já existe uma meta cadastrada para esse nome")
         meta.nome = nome
-    if body.tipo is not None:
-        if body.tipo not in _TIPOS_VALIDOS:
-            raise HTTPException(status_code=422, detail="tipo deve ser 'clt' ou 'estagiario'")
-        meta.tipo = body.tipo
-    if body.meta_valor is not None:
-        meta.meta_valor = body.meta_valor
+    if body.tipo is not None and body.tipo not in _TIPOS_VALIDOS:
+        raise HTTPException(status_code=422, detail="tipo deve ser 'clt' ou 'estagiario'")
+    if body.tipo is not None or body.meta_valor is not None:
+        ano_mes = _valid_ano_mes(body.vigente_desde)
+        tipo_atual, valor_atual = meta_do_mes(db, meta, int(ano_mes[:4]), int(ano_mes[5:]))
+        novo_tipo = body.tipo if body.tipo is not None else tipo_atual
+        novo_valor = float(body.meta_valor) if body.meta_valor is not None else valor_atual
+        # so' renomear nao mexe no historico de metas
+        if (novo_tipo, novo_valor) != (tipo_atual, valor_atual):
+            _set_meta_mensal(db, meta, ano_mes, novo_tipo, novo_valor)
 
     db.commit()
     db.refresh(meta)

@@ -15,7 +15,7 @@ interface MetaProgress {
   pct: number
   projecao: number | null
 }
-interface MetasResponse { mes_label: string; metas: MetaProgress[] }
+interface MetasResponse { mes_label: string; ano_mes: string; metas: MetaProgress[] }
 
 const ACCENT = '#2563EB'
 const SUCCESS = '#059669'
@@ -47,6 +47,11 @@ const inputStyle: CSSProperties = {
 }
 const labelStyle: CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }
 
+function mesAtualIso() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 export default function FinanceiroMetas() {
   const { dark } = useTheme()
   const [data, setData] = useState<MetasResponse | null>(null)
@@ -60,7 +65,7 @@ export default function FinanceiroMetas() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showCompare, setShowCompare] = useState(false)
   const [editing, setEditing] = useState<MetaProgress | 'new' | null>(null)
-  const [form, setForm] = useState({ nome: '', tipo: 'clt' as 'clt' | 'estagiario', meta_valor: '' })
+  const [form, setForm] = useState({ nome: '', tipo: 'clt' as 'clt' | 'estagiario', meta_valor: '', vigente_desde: mesAtualIso() })
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -88,12 +93,13 @@ export default function FinanceiroMetas() {
   const teamAvgPct = metas.length ? metas.reduce((s, m) => s + m.pct, 0) / metas.length : 0
 
   function openCreate() {
-    setForm({ nome: '', tipo: 'clt', meta_valor: '' })
+    setForm({ nome: '', tipo: 'clt', meta_valor: '', vigente_desde: mesAtualIso() })
     setFormError('')
     setEditing('new')
   }
   function openEdit(m: MetaProgress) {
-    setForm({ nome: m.nome, tipo: m.tipo, meta_valor: String(m.meta_valor) })
+    // abre no mes que esta' na tela -- o valor mostrado e' o vigente nele
+    setForm({ nome: m.nome, tipo: m.tipo, meta_valor: String(m.meta_valor), vigente_desde: data?.ano_mes ?? mesAtualIso() })
     setFormError('')
     setEditing(m)
   }
@@ -104,10 +110,11 @@ export default function FinanceiroMetas() {
     const metaValor = Number(form.meta_valor.replace(',', '.'))
     if (!nome) { setFormError('Informe o nome do operador'); return }
     if (!metaValor || metaValor <= 0) { setFormError('Informe uma meta maior que zero'); return }
+    if (!form.vigente_desde) { setFormError('Informe a partir de qual mês a meta vale'); return }
 
     setSaving(true)
     setFormError('')
-    const body = { nome, tipo: form.tipo, meta_valor: metaValor }
+    const body = { nome, tipo: form.tipo, meta_valor: metaValor, vigente_desde: form.vigente_desde }
     const req = editing === 'new'
       ? api.post<MetaProgress>('/api/v1/financeiro/metas', body)
       : api.put<MetaProgress>(`/api/v1/financeiro/metas/${(editing as MetaProgress).id}`, body)
@@ -263,6 +270,12 @@ export default function FinanceiroMetas() {
                 <label style={labelStyle}>Meta mensal {form.tipo === 'clt' ? '(R$)' : '(quantidade de leads)'}</label>
                 <input type="text" inputMode="decimal" placeholder={form.tipo === 'clt' ? '6000' : '200'} value={form.meta_valor}
                   onChange={e => setForm(f => ({ ...f, meta_valor: e.target.value }))} style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={labelStyle}>Vale a partir de</label>
+                <input type="month" max={mesAtualIso()} value={form.vigente_desde}
+                  onChange={e => setForm(f => ({ ...f, vigente_desde: e.target.value }))} style={inputStyle} />
+                <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>Meses anteriores mantêm a meta que tinham.</span>
               </div>
               {formError && <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{formError}</p>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>

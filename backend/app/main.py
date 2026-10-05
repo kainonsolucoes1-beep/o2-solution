@@ -16,6 +16,7 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
 )
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from app.database import engine, Base, get_db, SessionLocal
 from app.models import User, Lead, LeadNote, LeadStatusHistory, AppSettings
 from app.models.form_user import FormUser
@@ -99,6 +100,21 @@ with SessionLocal() as _seed_db:
         if not _seed_db.query(SdrMeta).filter(SdrMeta.nome == _nome).first():
             _seed_db.add(SdrMeta(nome=_nome, tipo=_tipo, meta_valor=_meta_valor))
     _seed_db.commit()
+
+    # historico mensal de metas: agente sem nenhum registro ganha um a partir do
+    # mes em que a meta foi cadastrada, com o valor atual (unico conhecido)
+    from app.models.sdr_meta import SdrMetaMensal
+    from app.tz_utils import now_br as _now_br
+    _com_hist = {r[0] for r in _seed_db.query(SdrMetaMensal.meta_id).distinct()}
+    for _m in _seed_db.query(SdrMeta).all():
+        if _m.id not in _com_hist:
+            _desde = _m.created_at or _now_br()
+            _seed_db.add(SdrMetaMensal(meta_id=_m.id, ano_mes=f"{_desde.year:04d}-{_desde.month:02d}", tipo=_m.tipo, meta_valor=_m.meta_valor))
+    try:
+        _seed_db.commit()
+    except IntegrityError:
+        # outro worker subindo junto ja' gravou o mesmo backfill
+        _seed_db.rollback()
 
 # /docs, /redoc e /openapi.json expõem o mapa inteiro da API (toda rota,
 # todo campo) pra qualquer um na internet, sem exigir login. Desligado por

@@ -15,7 +15,7 @@ from app.br_calendar import business_days_in_month
 from app.database import get_db
 from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
 from app.models.user import User
-from app.models.sdr_meta import SdrMeta
+from app.models.sdr_meta import SdrMeta, meta_do_mes
 from app.security import can_see_financials, needs_own_origin_filter, team_scope
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, br_month_utc_range, now_br
 
@@ -759,7 +759,7 @@ def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None, ref_date
     Casa o nome do agente (qualquer um dos `parts`) contra sdr_metas.nome, sem
     diferenciar maiusculas/minusculas. `agent_clause` = mesmo recorte de leads da
     Vida do Agente (origem OU renutricao do agente); sem ele, so' a origem.
-    sdr_metas nao guarda historico: mes passado usa o valor de meta atual."""
+    Tipo e valor da meta sao os vigentes naquele mes (sdr_metas_mensais)."""
     meta_row = None
     for p in parts:
         meta_row = db.query(SdrMeta).filter(func.lower(SdrMeta.nome) == p.strip().lower()).first()
@@ -779,6 +779,7 @@ def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None, ref_date
             pass
     encerrado = (year, month) != (nb.year, nb.month)
     mes_inicio, mes_fim = br_month_utc_range(year, month)
+    tipo, meta_valor = meta_do_mes(db, meta_row, year, month)
 
     mes_leads = (
         db.query(Lead.status, Lead.value_potential)
@@ -787,12 +788,11 @@ def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None, ref_date
     )
 
     venda_set = {s.lower() for s in VENDA_STATUSES}
-    if meta_row.tipo == "clt":
+    if tipo == "clt":
         progresso = sum(float(v or 0) for s, v in mes_leads if (s or "").lower() in venda_set)
     else:
         progresso = float(len(mes_leads))
 
-    meta_valor = float(meta_row.meta_valor)
     dias_uteis_mes = business_days_in_month(year, month)
     dias_uteis_ate_hoje = dias_uteis_mes if encerrado else business_days_in_month(year, month, nb.day)
     dias_uteis_restantes = max(0, dias_uteis_mes - dias_uteis_ate_hoje)
@@ -815,11 +815,11 @@ def _compute_meta_mes(db: Session, parts: list[str], agent_clause=None, ref_date
             )
             .scalar()
         )
-        if meta_row.tipo == "clt" and not encerrado else 0.0
+        if tipo == "clt" and not encerrado else 0.0
     )
 
     return {
-        "tipo": meta_row.tipo,
+        "tipo": tipo,
         "meta_valor": meta_valor,
         "progresso": progresso,
         "mes_label": f"{MESES_ABREV[month]}/{str(year)[2:]}",
