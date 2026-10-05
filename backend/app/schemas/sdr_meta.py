@@ -7,12 +7,14 @@ class SdrMetaCreate(BaseModel):
     nome: str
     tipo: str  # 'clt' | 'estagiario'
     meta_valor: float
+    vigente_desde: Optional[str] = None  # 'YYYY-MM'; padrao = mes atual
 
 
 class SdrMetaUpdate(BaseModel):
     nome: Optional[str] = None
     tipo: Optional[str] = None
     meta_valor: Optional[float] = None
+    vigente_desde: Optional[str] = None  # 'YYYY-MM'; padrao = mes atual
 
 
 class SdrMetaProgress(BaseModel):
@@ -32,4 +34,5 @@ class SdrMetaProgress(BaseModel):
 
 class SdrMetasListResponse(BaseModel):
     mes_label: str
+    ano_mes: str
     metas: List[SdrMetaProgress]
