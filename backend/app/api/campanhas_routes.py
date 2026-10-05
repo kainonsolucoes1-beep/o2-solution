@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app import sms_kolmeya_import
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
+from app.api.notificacoes_routes import notificar
 from app.br_calendar import is_business_day
 from app.database import get_db
 from app.models import Lead, LeadNote, CampanhaEvento, CampanhaTemplate, CampanhaSmsLote, CampanhaSmsResposta, User
@@ -210,6 +211,7 @@ def marcar_desfecho(
             lead_id=lead.id, user_id=current_user.id,
             content=f"Respondeu no {canal_label} — distribuído pra {vencedor_label} via rodízio.",
         ))
+        notificar(db, vencedor.id, current_user, f"{lead.name} — respondeu no {canal_label} e caiu pra você no rodízio", lead.id)
 
     else:  # nao_retrabalhar
         lead.is_renutrucao = False

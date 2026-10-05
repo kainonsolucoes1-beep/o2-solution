@@ -11,6 +11,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
+from app.api.notificacoes_routes import notificar
 from app.database import get_db
 from app.lead_utils import extract_base, normalize_conversion_point
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
@@ -877,6 +878,7 @@ def assign_renutricao(
 
     force = set(body.force_ids)
     assigned = 0
+    _recebidos: list = []
     conflicts: list = []
     _owner_label = owner.first_name or owner.username
     _admin_label = current_user.first_name or current_user.username
@@ -908,6 +910,15 @@ def assign_renutricao(
             )
         db.add(LeadNote(lead_id=lead.id, user_id=current_user.id, content=note))
         assigned += 1
+        _recebidos.append(lead)
+
+    # sino de quem recebeu: 1 aviso por lote (não 1 por lead), senão um lote de
+    # 50 leads vira 50 linhas no sino
+    _tipo = "de renutrição " if body.is_renutrucao else ""
+    if len(_recebidos) == 1:
+        notificar(db, owner.id, current_user, f"{_recebidos[0].name} — lead {_tipo}atribuído a você por {_admin_label}", _recebidos[0].id)
+    elif _recebidos:
+        notificar(db, owner.id, current_user, f"{len(_recebidos)} leads {_tipo}atribuídos a você por {_admin_label}")
     db.commit()
     return RenutricaoAssignResponse(assigned=assigned, conflicts=conflicts)
 
@@ -998,6 +1009,10 @@ def update_lead_info(
                     lead_id=lead.id, user_id=current_user.id,
                     content=f"Lead transferido para {lead.attendant} (atendente alterado por {current_user.first_name or current_user.username}).",
                 ))
+                notificar(
+                    db, _contas[0].id, current_user,
+                    f"{lead.name} — lead transferido para você por {current_user.first_name or current_user.username}", lead.id,
+                )
     if body.document is not None:
         lead.document = body.document.strip() or None
     if body.origin is not None:
