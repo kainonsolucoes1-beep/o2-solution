@@ -277,7 +277,7 @@ function getPagesRange(current: number, total: number): (number | '...')[] {
 
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'name',            label: 'Cliente' },
-  { key: 'origem',          label: 'Origem' },
+  { key: 'attendant',       label: 'Atendente' },
   { key: 'modalidade',      label: 'Modalidade' },
   { key: 'value_potential', label: 'Valor' },
   { key: 'perception',      label: 'Temperatura' },
@@ -1079,7 +1079,7 @@ export default function LeadsReport() {
                             </div>
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
-                            {lead.origem ?? '—'}
+                            {lead.attendant ?? '—'}
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
                             {lead.modalidade ?? '—'}
