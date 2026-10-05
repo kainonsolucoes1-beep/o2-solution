@@ -34,6 +34,7 @@ from app.api import public_routes
 from app.api import meta_webhook_routes
 from app.api import financeiro_routes
 from app.api import campanhas_routes
+from app.api import notificacoes_routes
 from app.api import emissao_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
@@ -174,6 +175,7 @@ app.include_router(meta_webhook_routes.router)
 app.include_router(public_routes.router)
 app.include_router(financeiro_routes.router)
 app.include_router(campanhas_routes.router)
+app.include_router(notificacoes_routes.router)
 app.include_router(emissao_routes.router)
 
 _FORM_USERS_SEED = [

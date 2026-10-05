@@ -14,6 +14,15 @@ interface AgendaAlertItem {
   id: string; name: string; phone: string | null; attendant: string | null
   scheduled_at: string; schedule_id: string; bucket: 'overdue' | 'due_soon'
 }
+interface NotificacaoItem { id: string; lead_id: string | null; texto: string; criado_em: string | null; lida: boolean }
+const fmtQuando = (iso: string | null) => {
+  if (!iso) return ''
+  const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z')
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000)
+  if (mins < 60) return `há ${Math.max(mins, 0)} min`
+  if (mins < 24 * 60) return `há ${Math.floor(mins / 60)}h`
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
 const fmtHM = (iso: string) => new Date(iso.endsWith('Z') ? iso : iso + 'Z').toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
 const NAV = [
@@ -138,6 +147,11 @@ export default function Sidebar() {
   // ja' escopa por perfil: usuario comum so' os proprios, demais veem todos).
   const [followupAlerts, setFollowupAlerts] = useState<AgendaAlertItem[]>([])
   const [followupOpen, setFollowupOpen] = useState(false)
+  // Avisos de lead recebido (renutrição, troca de atendente, rodízio) --
+  // ficam no sino até a pessoa abrir.
+  const [notificacoes, setNotificacoes] = useState<NotificacaoItem[]>([])
+  const [naoLidas, setNaoLidas] = useState(0)
+  const notifSeenRef = useRef<Set<string> | null>(null)  // null = 1a carga (sem beep)
   const followupSeenRef = useRef<Set<string> | null>(null)  // null = 1a carga (evita beep de leads ja existentes)
   const audioCtxRef = useRef<AudioContext | null>(null)
   // Expanders da sidebar (Campanhas/Financeiro/Configurações) em modo "sanfona"
@@ -246,6 +260,41 @@ export default function Sidebar() {
     const id = setInterval(loadFollowup, 60 * 1000)
     return () => { cancelled = true; clearInterval(id) }
   }, [user, playFollowupBeep, claimFollowupBeep])
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    function loadNotificacoes() {
+      api.get<{ nao_lidas: number; items: NotificacaoItem[] }>('/api/v1/notificacoes')
+        .then(r => {
+          if (cancelled) return
+          const novas = r.data.items.filter(n => !n.lida).map(n => n.id)
+          const seen = notifSeenRef.current
+          if (seen) {
+            const newIds = novas.filter(id => !seen.has(id))
+            if (newIds.length > 0 && claimFollowupBeep(newIds.map(id => `n:${id}`))) playFollowupBeep()
+          }
+          notifSeenRef.current = new Set(novas)
+          setNotificacoes(r.data.items)
+          setNaoLidas(r.data.nao_lidas)
+        })
+        .catch(() => {})
+    }
+    loadNotificacoes()
+    const id = setInterval(loadNotificacoes, 60 * 1000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [user, playFollowupBeep, claimFollowupBeep])
+
+  function toggleSino() {
+    const abrindo = !followupOpen
+    setFollowupOpen(abrindo)
+    // abriu o sino = viu os avisos; o destaque de "nova" some na próxima abertura
+    if (abrindo && naoLidas > 0) {
+      setNaoLidas(0)
+      api.post('/api/v1/notificacoes/marcar-lidas').catch(() => {})
+    }
+    if (!abrindo) setNotificacoes(ns => ns.map(n => ({ ...n, lida: true })))
+  }
 
   function logout() { localStorage.removeItem('token'); navigate('/login') }
 
@@ -386,41 +435,65 @@ export default function Sidebar() {
     </div>
   )
 
+  const sinoTotal = followupAlerts.length + naoLidas
+  const sinoCor = followupAlerts.length > 0 ? '#F59E0B' : '#3B82F6'
   const followupBell = (
     <div style={{ position: 'fixed', top: 12, right: 16, zIndex: 60 }}>
       <button
-        onClick={() => setFollowupOpen(o => !o)}
-        title="Follow-ups perto de vencer"
+        onClick={toggleSino}
+        title="Notificações"
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: 36, height: 36, borderRadius: '50%', position: 'relative',
-          border: `1px solid ${followupAlerts.length > 0 ? '#F59E0B' : '#1F2937'}`,
-          background: followupAlerts.length > 0 ? 'rgba(245,158,11,0.12)' : '#111827',
-          color: followupAlerts.length > 0 ? '#F59E0B' : '#9CA3AF',
+          border: `1px solid ${sinoTotal > 0 ? sinoCor : '#1F2937'}`,
+          background: sinoTotal > 0 ? (followupAlerts.length > 0 ? 'rgba(245,158,11,0.12)' : 'rgba(59,130,246,0.14)') : '#111827',
+          color: sinoTotal > 0 ? sinoCor : '#9CA3AF',
           cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
         }}
       >
         <Bell size={16} />
-        {followupAlerts.length > 0 && (
+        {sinoTotal > 0 && (
           <span style={{
             position: 'absolute', top: -3, right: -3,
-            background: followupAlerts.some(a => a.bucket === 'overdue') ? '#EF4444' : '#F59E0B',
+            background: followupAlerts.some(a => a.bucket === 'overdue') ? '#EF4444' : sinoCor,
             color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700,
             minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '0 3px', lineHeight: 1,
           }}>
-            {followupAlerts.length}
+            {sinoTotal}
           </span>
         )}
       </button>
       {followupOpen && (
         <>
-          <div onClick={() => setFollowupOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 59 }} />
+          <div onClick={toggleSino} style={{ position: 'fixed', inset: 0, zIndex: 59 }} />
           <div style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 61, width: 300, maxHeight: 360, overflowY: 'auto',
+            position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 61, width: 300, maxHeight: 420, overflowY: 'auto',
             background: '#1F2937', border: '1px solid #374151', borderRadius: 12, padding: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.4)',
           }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '4px 6px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Follow-up</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '4px 6px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Leads recebidos</p>
+            {notificacoes.length === 0 ? (
+              <p style={{ fontSize: 12.5, color: '#6B7280', padding: '4px 6px 8px' }}>Nenhum lead recebido nos últimos 30 dias.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                {notificacoes.map(n => (
+                  <button
+                    key={n.id}
+                    onClick={() => { toggleSino(); navigate(n.lead_id ? `/leads/${n.lead_id}` : '/leads-report') }}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 6px', borderRadius: 8, border: 'none', background: n.lida ? 'transparent' : 'rgba(59,130,246,0.10)', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = n.lida ? 'transparent' : 'rgba(59,130,246,0.10)' }}
+                  >
+                    <UserRound size={14} color={n.lida ? '#6B7280' : '#3B82F6'} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: n.lida ? 500 : 700, color: '#F9FAFB', lineHeight: 1.35 }}>{n.texto}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: '#9CA3AF' }}>{fmtQuando(n.criado_em)}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '4px 6px 10px', textTransform: 'uppercase', letterSpacing: '0.06em', borderTop: '1px solid #374151', paddingTop: 10 }}>Follow-up</p>
             {followupAlerts.length === 0 ? (
               <p style={{ fontSize: 12.5, color: '#6B7280', padding: '4px 6px 8px' }}>Nada vencendo nos próximos 10 minutos.</p>
             ) : (
@@ -428,7 +501,7 @@ export default function Sidebar() {
                 {followupAlerts.map(a => (
                   <button
                     key={a.schedule_id}
-                    onClick={() => { setFollowupOpen(false); navigate(`/leads/${a.id}`) }}
+                    onClick={() => { toggleSino(); navigate(`/leads/${a.id}`) }}
                     style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 6px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', width: '100%' }}
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
