@@ -40,7 +40,7 @@ interface VidaSdrData {
   meta: {
     tipo: 'clt' | 'estagiario'; meta_valor: number; progresso: number; mes_label: string
     faltam: number; dias_uteis_restantes: number; ritmo_necessario: number; ritmo_atual: number; projecao: number
-    em_emissao_valor: number
+    em_emissao_valor: number; encerrado?: boolean
   } | null
   trend: TrendItem[]
   ranking: Ranking | null
@@ -722,7 +722,7 @@ export default function VidaSDR() {
                   const m = data.meta!
                   const pct = m.meta_valor > 0 ? Math.round((m.progresso / m.meta_valor) * 100) : 0
                   const batida = m.progresso >= m.meta_valor
-                  const noRitmo = m.projecao >= m.meta_valor
+                  const noRitmo = !m.encerrado && m.projecao >= m.meta_valor
                   const donutColor = batida || noRitmo ? '#059669' : 'var(--warning)'
                   const fmtN = (n: number) => m.tipo === 'clt' ? fmtBrl(n) : n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
                   const unit = m.tipo === 'clt' ? '' : ' leads'
@@ -748,7 +748,7 @@ export default function VidaSDR() {
                         color: batida || noRitmo ? 'var(--success)' : 'var(--warning)',
                       }}>
                         <span style={{ width: 6, height: 6, borderRadius: 999, background: 'currentColor' }} />
-                        {batida ? 'Meta batida' : noRitmo ? 'No ritmo pra bater' : 'Abaixo do ritmo'}
+                        {batida ? 'Meta batida' : m.encerrado ? 'Meta não batida' : noRitmo ? 'No ritmo pra bater' : 'Abaixo do ritmo'}
                       </span>
 
                       {!batida && (
@@ -756,9 +756,10 @@ export default function VidaSDR() {
                           <div style={{ height: 1, background: 'var(--border)' }} />
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 11, fontVariantNumeric: 'tabular-nums' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                              <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>Faltam</span>
+                              <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>{m.encerrado ? 'Ficaram faltando' : 'Faltam'}</span>
                               <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)' }}>{fmtN(m.faltam)}{unit}</span>
                             </div>
+                            {!m.encerrado && <>
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                               <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>Ritmo necessário</span>
                               <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)' }}>
@@ -769,6 +770,7 @@ export default function VidaSDR() {
                               <span style={{ fontSize: 12.5, color: 'var(--text-3b)', fontWeight: 500 }}>Projeção do mês</span>
                               <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-muted)' }}>~{fmtN(m.projecao)}{unit}</span>
                             </div>
+                            </>}
                           </div>
                           {m.tipo === 'clt' && m.em_emissao_valor > 0 && (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--accent-weak)' }}>
