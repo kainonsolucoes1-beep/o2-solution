@@ -973,7 +973,31 @@ def update_lead_info(
     if body.phone is not None:
         lead.phone = body.phone.strip() or None
     if body.attendant is not None:
+        _prev_attendant = lead.attendant
         lead.attendant = body.attendant.strip() or None
+        # trocar o atendente (admin/coordenador) passa a posse do lead pra
+        # essa pessoa -- só o texto não bastava: Pipeline, Fluxo e KPIs olham
+        # origin/renutricao_owner_id, entao o lead sumia pra nova atendente.
+        # Só transfere se o nome bater com exatamente UMA conta ativa.
+        if (
+            lead.attendant
+            and (lead.attendant or "").lower() != (_prev_attendant or "").strip().lower()
+            and (_is_admin(current_user) or current_user.role == "coordenador")
+        ):
+            _alvo = lead.attendant.lower()
+            _contas = (
+                db.query(User)
+                .filter(User.is_active.is_(True), or_(func.lower(User.first_name) == _alvo, func.lower(User.username) == _alvo))
+                .all()
+            )
+            if len(_contas) == 1:
+                lead.attendant = _contas[0].first_name or lead.attendant  # grafia do cadastro
+            if len(_contas) == 1 and lead.renutricao_owner_id != _contas[0].id:
+                lead.renutricao_owner_id = _contas[0].id
+                db.add(LeadNote(
+                    lead_id=lead.id, user_id=current_user.id,
+                    content=f"Lead transferido para {lead.attendant} (atendente alterado por {current_user.first_name or current_user.username}).",
+                ))
     if body.document is not None:
         lead.document = body.document.strip() or None
     if body.origin is not None:
