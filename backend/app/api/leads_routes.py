@@ -16,7 +16,8 @@ from app.lead_utils import extract_base, normalize_conversion_point
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.operadoras import get_operadoras
 from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads
-from app.tz_utils import br_date_to_utc_range, now_br
+from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
+from app.br_calendar import is_business_day
 from app import storage_r2
 from app import renutricao_import
 from app.schemas.lead import (
@@ -707,16 +708,23 @@ def update_lead_status(
     )
     db.add(history)
 
-    # "proposta enviada" agenda automaticamente um retorno 2 dias depois, no
-    # mesmo horario -- nao chama create_schedule() porque ela tambem bumpa o
-    # status pra "qualificado", o que desfaria o status que acabamos de setar.
+    # "proposta enviada" agenda automaticamente um retorno 2 dias UTEIS depois
+    # (pula fim de semana e feriado nacional, contando no calendario de
+    # Brasilia), no mesmo horario -- nao chama create_schedule() porque ela
+    # tambem bumpa o status pra "qualificado", o que desfaria o status que
+    # acabamos de setar.
     if (body.status or "").strip().lower() in ("proposta", "proposal_sent", "proposal sent"):
         db.query(LeadSchedule).filter(
             LeadSchedule.lead_id == lead.id, LeadSchedule.is_active.is_(True)
         ).update({"is_active": False})
+        retorno, uteis = now, 0
+        while uteis < 2:
+            retorno += timedelta(days=1)
+            if is_business_day((retorno - BR_OFFSET).date()):
+                uteis += 1
         db.add(LeadSchedule(
             lead_id=lead.id,
-            scheduled_at=now + timedelta(days=2),
+            scheduled_at=retorno,
             created_by=actor,
         ))
 
