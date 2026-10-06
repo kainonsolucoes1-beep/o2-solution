@@ -967,7 +967,7 @@ def update_lead_info(
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
 
-    # Rastro da edicao, como nota: nome, empresa e CPF/CNPJ sempre, de qualquer
+    # Rastro da edicao, como nota: nome, empresa, CPF/CNPJ e telefone sempre, de qualquer
     # usuario (dados de identificacao do cliente). Coordenador enxerga e edita
     # a base inteira (fora da propria carteira) -- dele registra todos os campos.
     _is_coord = current_user.role == "coordenador"
@@ -978,7 +978,7 @@ def update_lead_info(
         "perception": "Temperatura", "visibility_tag": "Tag de visibilidade",
         "operadoras_enviadas": "Operadoras enviadas", "celular_cor": "Celular", "current_plan": "Plano atual",
         "value_potential": "Valor potencial",
-    } if _is_coord else {"name": "Nome", "company": "Empresa", "document": "CPF/CNPJ"}
+    } if _is_coord else {"name": "Nome", "company": "Empresa", "document": "CPF/CNPJ", "phone": "Telefone"}
     _before = {f: getattr(lead, f) for f in _labels}
 
     if body.name is not None and body.name.strip():
