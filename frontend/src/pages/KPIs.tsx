@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
+import SinoSlot from '../components/SinoSlot'
 
 interface BreakdownItem {
   label: string
@@ -968,84 +969,87 @@ export default function KPIs() {
           <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text-1)', margin: 0 }}>Performance</h1>
           <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: '5px 0 0' }}>Entenda o resultado do período e investigue os fatores que o explicam.</p>
         </div>
-        <div ref={filtersRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setFiltersOpen(o => !o)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 8,
-              border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-1)',
-              fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            <SlidersHorizontal size={14} />
-            Filtros
-            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>· {periodLabel()}</span>
-          </button>
-          {filtersOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 50, minWidth: 240,
-              background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12,
-              boxShadow: '0 12px 32px rgba(15,23,42,.12)', padding: 12,
-              display: 'flex', flexDirection: 'column', gap: 8,
-            }}>
-              <div style={{ display: 'flex', gap: 4, border: '1px solid var(--border)', borderRadius: 8, padding: 3, background: 'var(--bg-subtle)' }}>
-                {([
-                  { key: 'month', label: 'Mês' },
-                  { key: 'all', label: 'Todo o período' },
-                  { key: 'range', label: 'Entre datas' },
-                ] as const).map(opt => (
-                  <button
-                    key={opt.key}
-                    onClick={() => setPeriod(opt.key)}
-                    style={{
-                      flex: 1, padding: '5px 10px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      background: period === opt.key ? '#DBEAFE' : 'transparent',
-                      color: period === opt.key ? '#2563EB' : 'var(--text-muted)',
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {period === 'month' && (
-                <input
-                  type="month" value={month} onChange={e => setMonth(e.target.value)}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-1)', fontSize: 13 }}
-                />
-              )}
-              {period === 'range' && (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <input type="date" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
-                    style={{ flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-1)', fontSize: 12 }} />
-                  <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>até</span>
-                  <input type="date" value={rangeTo} onChange={e => setRangeTo(e.target.value)}
-                    style={{ flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-1)', fontSize: 12 }} />
-                </div>
-              )}
-              <div style={{ borderTop: '1px solid var(--border-lt)', margin: '2px 0 0', paddingTop: 8 }}>
-                <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 6px' }}>Equipe</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div ref={filtersRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setFiltersOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-1)',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <SlidersHorizontal size={14} />
+              Filtros
+              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>· {periodLabel()}</span>
+            </button>
+            {filtersOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 50, minWidth: 240,
+                background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12,
+                boxShadow: '0 12px 32px rgba(15,23,42,.12)', padding: 12,
+                display: 'flex', flexDirection: 'column', gap: 8,
+              }}>
                 <div style={{ display: 'flex', gap: 4, border: '1px solid var(--border)', borderRadius: 8, padding: 3, background: 'var(--bg-subtle)' }}>
                   {([
-                    { key: 'sp', label: 'São Paulo' },
-                    { key: 'pe', label: 'Recife' },
-                    { key: 'all', label: 'Ambas' },
+                    { key: 'month', label: 'Mês' },
+                    { key: 'all', label: 'Todo o período' },
+                    { key: 'range', label: 'Entre datas' },
                   ] as const).map(opt => (
                     <button
                       key={opt.key}
-                      onClick={() => setTeam(opt.key)}
+                      onClick={() => setPeriod(opt.key)}
                       style={{
                         flex: 1, padding: '5px 10px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                        background: team === opt.key ? '#DBEAFE' : 'transparent',
-                        color: team === opt.key ? '#2563EB' : 'var(--text-muted)',
+                        background: period === opt.key ? '#DBEAFE' : 'transparent',
+                        color: period === opt.key ? '#2563EB' : 'var(--text-muted)',
                       }}
                     >
                       {opt.label}
                     </button>
                   ))}
                 </div>
+                {period === 'month' && (
+                  <input
+                    type="month" value={month} onChange={e => setMonth(e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-1)', fontSize: 13 }}
+                  />
+                )}
+                {period === 'range' && (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input type="date" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
+                      style={{ flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-1)', fontSize: 12 }} />
+                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>até</span>
+                    <input type="date" value={rangeTo} onChange={e => setRangeTo(e.target.value)}
+                      style={{ flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-1)', fontSize: 12 }} />
+                  </div>
+                )}
+                <div style={{ borderTop: '1px solid var(--border-lt)', margin: '2px 0 0', paddingTop: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 6px' }}>Equipe</p>
+                  <div style={{ display: 'flex', gap: 4, border: '1px solid var(--border)', borderRadius: 8, padding: 3, background: 'var(--bg-subtle)' }}>
+                    {([
+                      { key: 'sp', label: 'São Paulo' },
+                      { key: 'pe', label: 'Recife' },
+                      { key: 'all', label: 'Ambas' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.key}
+                        onClick={() => setTeam(opt.key)}
+                        style={{
+                          flex: 1, padding: '5px 10px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          background: team === opt.key ? '#DBEAFE' : 'transparent',
+                          color: team === opt.key ? '#2563EB' : 'var(--text-muted)',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+          <SinoSlot />
         </div>
       </div>
 
