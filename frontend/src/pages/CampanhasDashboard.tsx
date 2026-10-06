@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Filter, Trash2, Upload } from 'lucide-react'
+import { Filter, MessageSquarePlus, Trash2, Upload } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 import ImportSmsKolmeyaModal from '../components/ImportSmsKolmeyaModal'
@@ -9,7 +9,7 @@ type Canal = 'whatsapp' | 'email' | 'sms'
 type CanalFiltro = 'todos' | Canal
 type Periodo = 'hoje' | 'mes' | 'custom'
 
-interface SmsLote { id: string; job: string; data_disparo: string | null; enviados: number; retornos: number; entregues: number; respostas: number; positivos: number; taxa: number }
+interface SmsLote { id: string; job: string; data_disparo: string | null; enviados: number; retornos: number; entregues: number; respostas: number; positivos: number; taxa: number; respostas_importadas_em: string | null }
 interface SmsRitmoDia { dia: string; enviados: number; entregues: number; positivos: number }
 interface SmsData { enviados: number; retornos: number; entregues: number; respostas: number; positivos: number; taxa: number; lotes: SmsLote[]; ritmo_diario: SmsRitmoDia[] }
 
@@ -58,7 +58,15 @@ function fmtAgo(iso: string | null): string {
   if (hrs < 24) return `há ${hrs}h`
   return `há ${Math.floor(hrs / 24)}d`
 }
-const LOTE_COLS = 'repeat(8, minmax(0, 1fr)) 32px'
+const LOTE_COLS = 'repeat(8, minmax(0, 1fr)) 132px'
+
+// "às 14:32" (hoje) ou "05/10 14:32" -- quando as respostas do lote foram
+// atualizadas pela última vez (o backend manda UTC sem fuso)
+function fmtRespostasEm(iso: string) {
+  const d = new Date(iso + 'Z')
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return d.toDateString() === new Date().toDateString() ? `às ${hora}` : `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hora}`
+}
 function fmtDiaMes(iso: string): string {
   const [, m, d] = iso.split('-')
   return `${d}/${m}`
@@ -75,6 +83,7 @@ export default function CampanhasDashboard() {
   const [canal, setCanal] = useState<CanalFiltro>('todos')
   const [filtroAberto, setFiltroAberto] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [respostasLote, setRespostasLote] = useState<SmsLote | null>(null)
   const [data, setData] = useState<DashboardData | null>(null)
   const [sms, setSms] = useState<SmsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -189,6 +198,13 @@ export default function CampanhasDashboard() {
       {error && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}
 
       {importOpen && <ImportSmsKolmeyaModal onClose={() => setImportOpen(false)} onImported={() => fetchData(periodo, canal)} />}
+      {respostasLote && (
+        <ImportSmsKolmeyaModal
+          lote={{ id: respostasLote.id, job: respostasLote.job }}
+          onClose={() => setRespostasLote(null)}
+          onImported={() => fetchData(periodo, canal)}
+        />
+      )}
 
       {loading || (canal === 'sms' ? !sms : !data) ? (
         <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-subtle)', padding: '40px 0' }}>Carregando…</p>
@@ -247,7 +263,7 @@ export default function CampanhasDashboard() {
               <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Nenhum disparo importado no período. Use "Importar planilhas".</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <div style={{ minWidth: 640 }}>
+                <div style={{ minWidth: 740 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: LOTE_COLS, gap: 10, padding: '0 0 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'center' }}>
                     <span>Data</span><span>Job</span><span>Enviados</span><span>Processados</span><span>Entregues</span><span>Respostas</span><span>"Sim"</span><span>%</span><span />
                   </div>
@@ -258,12 +274,26 @@ export default function CampanhasDashboard() {
                       <span style={{ color: 'var(--text-1)' }}>{l.enviados}</span>
                       <span style={{ color: 'var(--text-1)' }}>{l.retornos}</span>
                       <span style={{ color: 'var(--text-1)' }}>{l.entregues}</span>
-                      <span style={{ color: 'var(--text-1)' }}>{l.respostas}</span>
+                      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                        <span style={{ color: 'var(--text-1)' }}>{l.respostas}</span>
+                        <span style={{ fontSize: 10.5, color: 'var(--text-subtle)' }}>
+                          {l.respostas_importadas_em ? `atualizadas ${fmtRespostasEm(l.respostas_importadas_em)}` : l.respostas === 0 ? 'nenhuma importada' : ''}
+                        </span>
+                      </span>
                       <span style={{ color: 'var(--success)', fontWeight: 700 }}>{l.positivos}</span>
                       <span style={{ color: CANAL_CFG.sms.color, fontWeight: 800 }}>{l.taxa}%</span>
-                      <button onClick={() => excluirLote(l)} title="Excluir lote" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4, display: 'flex', justifyContent: 'center' }}>
-                        <Trash2 size={14} />
-                      </button>
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                        <button
+                          onClick={() => setRespostasLote(l)}
+                          title="Importar a planilha de respostas deste disparo"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, padding: '5px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          <MessageSquarePlus size={13} /> Respostas
+                        </button>
+                        <button onClick={() => excluirLote(l)} title="Excluir lote" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4, display: 'flex', justifyContent: 'center' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </span>
                     </div>
                   ))}
                 </div>

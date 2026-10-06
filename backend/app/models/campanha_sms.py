@@ -18,6 +18,9 @@ class CampanhaSmsLote(Base):
     retornos = Column(Integer, nullable=False, default=0)   # linhas da planilha de retorno
     entregues = Column(Integer, nullable=False, default=0)  # retorno com status "entregue"
     importado_por_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # ultima vez que uma planilha de respostas atualizou este lote (UTC naive) --
+    # as respostas chegam ao longo do dia e sao reimportadas varias vezes
+    respostas_importadas_em = Column(TIMESTAMP, nullable=True)
     criado_em = Column(TIMESTAMP, server_default=func.now())
     atualizado_em = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
