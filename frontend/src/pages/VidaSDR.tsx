@@ -519,7 +519,9 @@ export default function VidaSDR() {
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+        {/* flex-end: o seletor de modo nao tem rotulo em cima -- alinhando pela
+            base ele fica na mesma linha das caixas de Agente/Filtros */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 10, padding: 3, height: 40, alignItems: 'center', background: 'var(--bg-card)' }}>
             {(['producao', 'completo'] as const).map(m => (
               <button
