@@ -16,7 +16,7 @@ import {
   buildSmartPreview, fetchSmartPreviewRows, fetchReceitaComposicao, receitaRows, needsRowFetch, MOCK_CUSTO_TOTAL,
   type SmartPreviewId, type SmartPreview, type ReceitaComposicaoResponse, type ReceitaKind,
 } from '../utils/vidaSdrPreview'
-import SinoSlot from '../components/SinoSlot'
+import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 interface TrendItem { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number | null }
 interface RankingEntry { nome: string; receita: number; voce: boolean }
@@ -523,6 +523,7 @@ export default function VidaSDR() {
         {/* flex-end: o seletor de modo nao tem rotulo em cima -- alinhando pela
             base ele fica na mesma linha das caixas de Agente/Filtros */}
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+          <VerComoSlot />
           <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 10, padding: 3, height: 40, alignItems: 'center', background: 'var(--bg-card)' }}>
             {(['producao', 'completo'] as const).map(m => (
               <button

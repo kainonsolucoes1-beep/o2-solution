@@ -12,7 +12,7 @@ import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
 import AssignRenutricaoModal from '../components/AssignRenutricaoModal'
 import LeadPeekDrawer from '../components/LeadPeekDrawer'
 import { useTheme } from '../ThemeContext'
-import SinoSlot from '../components/SinoSlot'
+import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 interface Me {
   id: string
@@ -744,6 +744,7 @@ export default function LeadsReport() {
               <Plus size={15} />
               Novo Lead
             </button>
+            <VerComoSlot />
             <button
               onClick={() => setFilterOpen(true)}
               style={{

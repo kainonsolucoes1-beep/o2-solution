@@ -383,7 +383,8 @@ export default function Sidebar() {
       open={openGroup === 'settings'} onToggle={() => setOpenGroup(g => g === 'settings' ? null : 'settings')}
     />
   )
-  const financeiroGroup = (isAdmin || user?.role === 'coordenador') && (
+  // mesmos papéis de can_see_financials (backend/app/security.py)
+  const financeiroGroup = (isAdmin || ['diretor', 'financeiro', 'coordenador'].includes(user?.role ?? '')) && (
     <ExpandableNavGroup
       label="Financeiro" Icon={DollarSign} basePath="/financeiro" children={FINANCEIRO_CHILDREN} slim={slim} pathname={location.pathname}
       open={openGroup === 'financeiro'} onToggle={() => setOpenGroup(g => g === 'financeiro' ? null : 'financeiro')}

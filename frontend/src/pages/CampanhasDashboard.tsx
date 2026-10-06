@@ -3,7 +3,7 @@ import { Filter, Trash2, Upload } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 import ImportSmsKolmeyaModal from '../components/ImportSmsKolmeyaModal'
-import SinoSlot from '../components/SinoSlot'
+import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 type Canal = 'whatsapp' | 'email' | 'sms'
 type CanalFiltro = 'todos' | Canal
@@ -127,6 +127,7 @@ export default function CampanhasDashboard() {
               <Upload size={14} /> Importar planilhas
             </button>
           )}
+          <VerComoSlot />
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setFiltroAberto(o => !o)}

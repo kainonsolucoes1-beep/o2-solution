@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import api from './api'
+import { useVerComoSlot } from './components/SinoSlot'
 import Login from './pages/Login'
 import ChangePassword from './pages/ChangePassword'
 import AcessoBloqueado from './pages/AcessoBloqueado'
@@ -47,6 +49,9 @@ const PREVIEW_ROLES = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervi
 function RoleSwitcher() {
   const [me, setMe] = useState<{ role: string; real_role: string | null; is_staging: boolean } | null>(null)
   const [switching, setSwitching] = useState(false)
+  // página com <VerComoSlot /> no cabeçalho: o seletor entra ali, à esquerda
+  // do Filtros; sem encaixe, flutua fixo no canto superior direito
+  const slot = useVerComoSlot()
 
   useEffect(() => {
     if (!window.location.hostname.startsWith('staging.') || !localStorage.getItem('token')) return
@@ -64,9 +69,12 @@ function RoleSwitcher() {
 
   const realRole = me!.real_role ?? me!.role
 
-  return (
-    <div style={{ position: 'fixed', top: 8, right: 12, zIndex: 99999, display: 'flex', alignItems: 'center', gap: 6 }}>
+  const el = (
+    <div style={slot
+      ? { display: 'flex', alignItems: 'stretch', height: 34 }
+      : { position: 'fixed', top: 8, right: 12, zIndex: 99999, display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{
+        display: 'flex', alignItems: 'center',
         fontSize: 10.5, fontWeight: 700, color: '#fff', background: '#7C3AED',
         padding: '4px 8px', borderRadius: '8px 0 0 8px', letterSpacing: '0.04em',
       }}>
@@ -87,6 +95,7 @@ function RoleSwitcher() {
       </select>
     </div>
   )
+  return slot ? createPortal(el, slot) : el
 }
 
 export default function App() {

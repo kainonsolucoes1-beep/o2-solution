@@ -9,7 +9,7 @@ import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
 import { useTheme } from '../ThemeContext'
 import EmissaoCard from '../components/EmissaoCard'
-import SinoSlot from '../components/SinoSlot'
+import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 interface FeedItem {
   id: string
@@ -360,6 +360,7 @@ export default function Dashboard() {
               </button>
             </div>
           )}
+          <VerComoSlot />
           <div style={{ position: 'relative' }}>
             <button
               onClick={openFilter}
