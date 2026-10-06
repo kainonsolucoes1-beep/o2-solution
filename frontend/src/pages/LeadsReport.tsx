@@ -349,6 +349,8 @@ export default function LeadsReport() {
 
   function handleCreateLead() {
     if (!newLead.name.trim()) { setNewLeadError('Nome é obrigatório'); return }
+    if (!newLead.phone.trim()) { setNewLeadError('Telefone é obrigatório'); return }
+    if (newLead.phone.replace(/\D/g, '').length < 10) { setNewLeadError('Telefone incompleto — informe o DDD e o número'); return }
     setSavingNewLead(true)
     setNewLeadError('')
     api.post<{ id: string }>('/api/v1/leads', {
@@ -1605,8 +1607,8 @@ export default function LeadsReport() {
                         className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Telefone</label>
-                      <input value={newLead.phone} onChange={e => setNewLead(d => ({ ...d, phone: e.target.value }))}
+                      <label style={labelStyle}>Telefone *</label>
+                      <input value={newLead.phone} inputMode="tel" placeholder="(11) 91234-5678" onChange={e => setNewLead(d => ({ ...d, phone: e.target.value }))}
                         className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{ color: 'var(--text-2)', width: '100%' }} />
                     </div>
                   </div>
