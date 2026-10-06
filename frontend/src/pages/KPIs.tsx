@@ -1243,6 +1243,7 @@ export default function KPIs() {
               />
             ) : (
               <AquisicaoTable
+                total={totalCap}
                 rows={basesDisplay.map(b => ({ label: b.base, captacoes: b.captacoes, vendas: b.vendas, conversao: b.conversao, extra: `${b.pct_cancelamento}% cancel.`, tempoMedioDias: b.tempo_medio_dias, receitaGerada: b.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('base', label, undefined, trigger)}
               />
@@ -1262,6 +1263,7 @@ export default function KPIs() {
               />
             ) : (
               <AquisicaoTable
+                total={totalCap}
                 rows={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.`, tempoMedioDias: f.tempo_medio_dias, receitaGerada: f.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('canal', label, [label], trigger)}
               />
@@ -1291,6 +1293,7 @@ export default function KPIs() {
                 />
               ) : (
                 <AquisicaoTable
+                  total={totalCap}
                   rows={allConvPoints.map(c => ({ label: c.label, captacoes: c.captacoes, vendas: c.vendas, conversao: c.conversao, extra: `${c.cancelados} cancel.`, tempoMedioDias: c.tempo_medio_dias, receitaGerada: c.receita_gerada }))}
                   onOpen={(label, trigger) => {
                     const point = allConvPoints.find(c => c.label === label)
@@ -1314,6 +1317,7 @@ export default function KPIs() {
               />
             ) : (
               <AquisicaoTable
+                total={totalCap}
                 rows={modalidadeData.map(m => ({ label: m.modalidade, captacoes: m.captacoes, vendas: m.vendas, conversao: m.conversao, extra: `${m.cancelados} cancel.`, tempoMedioDias: m.tempo_medio_dias, receitaGerada: m.receita_gerada }))}
                 onOpen={(label, trigger) => openDrawer('modalidade', label, undefined, trigger)}
               />
@@ -1333,6 +1337,7 @@ export default function KPIs() {
               />
             ) : (
               <AquisicaoTable
+                total={totalCap}
                 rows={[{ label: 'Renutrição', captacoes: renutricaoData.captacoes, vendas: renutricaoData.vendas, conversao: renutricaoData.conversao, extra: `${renutricaoData.cancelados} cancel.`, tempoMedioDias: renutricaoData.tempo_medio_dias, receitaGerada: renutricaoData.receita_gerada }]}
                 onOpen={(label, trigger) => openDrawer('renutricao', label, undefined, trigger)}
               />
@@ -2146,11 +2151,15 @@ function ResumoAquisicao({ bases, canais, pontos, modalidades, renutricao, loadi
   )
 }
 
-function AquisicaoTable({ rows, onOpen }: {
+// `total` = leads do periodo inteiro (o numero do topo da pagina) -- a fatia
+// de cada linha e' sobre ele, nao sobre a soma das linhas: Canais, Bases e
+// Renutricao sao so' parte dos leads, e a soma deles nao fecha o total.
+function AquisicaoTable({ rows, total, onOpen }: {
   rows: { label: string; captacoes: number; vendas: number; conversao: number; extra: string; tempoMedioDias?: number | null; receitaGerada?: number | null }[]
+  total: number
   onOpen: (label: string, trigger: HTMLElement) => void
 }) {
-  const totalCaptacoes = Math.max(1, rows.reduce((s, r) => s + r.captacoes, 0))
+  const totalCaptacoes = Math.max(1, total)
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
@@ -2182,7 +2191,10 @@ function AquisicaoTable({ rows, onOpen }: {
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <b style={{ display: 'block', overflow: 'hidden', color: 'var(--text-1)', fontSize: 14, fontWeight: 650, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</b>
                 </div>
-                <span style={{
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                  {r.captacoes.toLocaleString('pt-BR')} {r.captacoes === 1 ? 'lead' : 'leads'}
+                </span>
+                <span title="dos leads do período" style={{
                   fontSize: 13, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums',
                   background: 'var(--bg-subtle)', border: '1px solid var(--border-lt)', borderRadius: 8,
                   padding: '3px 10px', flexShrink: 0,
