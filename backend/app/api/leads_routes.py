@@ -118,6 +118,13 @@ def create_lead(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # cadastro manual exige telefone (DDD + numero) -- lead sem telefone nao
+    # tem como ser contatado. Formularios/webhooks criam por outras rotas.
+    lead_data.phone = (lead_data.phone or "").strip() or None
+    if not lead_data.phone:
+        raise HTTPException(status_code=422, detail="Telefone é obrigatório")
+    if sum(c.isdigit() for c in lead_data.phone) < 10:
+        raise HTTPException(status_code=422, detail="Telefone incompleto — informe o DDD e o número")
     if lead_data.email:
         duplicate = (
             db.query(Lead)
