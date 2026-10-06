@@ -3,7 +3,7 @@ import { Pencil, Plus, X, Columns3 } from 'lucide-react'
 import api from '../api'
 import { type FiltroPeriodo, mesAtualRange } from '../utils/periodoFiltro'
 import { useTheme } from '../ThemeContext'
-import SinoSlot from '../components/SinoSlot'
+import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 interface MetaProgress {
   id: string
@@ -165,6 +165,7 @@ export default function FinanceiroMetas() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
+          <VerComoSlot />
           <button
             onClick={() => setShowCompare(true)}
             disabled={metas.length < 2}

@@ -20,7 +20,7 @@ import TrendChart from '../components/TrendChart'
 import ProgressBarList from '../components/ProgressBarList'
 import SectionTitle from '../components/SectionTitle'
 import { useTheme } from '../ThemeContext'
-import SinoSlot from '../components/SinoSlot'
+import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção', 'Emissão'] as const
 type Tab = typeof TABS[number]
@@ -1793,6 +1793,7 @@ export default function GestaoComercial() {
             Ver comparação
           </button>
         )}
+        <VerComoSlot />
         <button
           onClick={() => setFilterOpen(o => !o)}
           style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}

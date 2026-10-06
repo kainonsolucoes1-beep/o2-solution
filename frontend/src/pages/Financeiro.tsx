@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronUp, ChevronRight, Building2, Layers3, CalendarClock, Filter, Search, ArrowUpRight } from "lucide-react";
 import api from "../api";
 import { useTheme } from "../ThemeContext";
-import SinoSlot from "../components/SinoSlot";
+import SinoSlot, { VerComoSlot } from "../components/SinoSlot";
 
 // ---------------------------------------------------------------------------
 // Design tokens
@@ -365,6 +365,7 @@ export default function FinanceiroDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2.5">
+            <VerComoSlot />
             <div className="relative">
               <button
                 onClick={() => setPeriodOpen((o) => !o)}

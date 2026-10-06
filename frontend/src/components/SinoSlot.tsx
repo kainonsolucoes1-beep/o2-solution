@@ -1,25 +1,30 @@
 import { useSyncExternalStore } from 'react'
 
-// Encaixe do sino de notificações no cabeçalho da página. A página coloca
-// <SinoSlot /> ao lado dos botões do topo (ex: Filtros) e o Sidebar renderiza
-// o sino ali dentro (portal), alinhado com o resto. Página sem encaixe: o sino
-// segue flutuando fixo no canto superior direito.
-let slot: HTMLElement | null = null
-const subs = new Set<() => void>()
-
-function setSlot(el: HTMLElement | null) {
-  if (el === slot) return
-  slot = el
-  subs.forEach(fn => fn())
-}
-
-export function useSinoSlot() {
-  return useSyncExternalStore(
+// Encaixes no cabeçalho da página pra elementos globais que antes flutuavam
+// fixos no canto superior direito e ficavam por cima dos botões do topo:
+// - <SinoSlot />: à direita do Filtros -- o Sidebar renderiza o sino ali (portal)
+// - <VerComoSlot />: à esquerda do Filtros -- o seletor "Ver como" (só staging)
+// Página sem encaixe: o elemento segue flutuando fixo no canto.
+function createSlot() {
+  let slot: HTMLElement | null = null
+  const subs = new Set<() => void>()
+  const setSlot = (el: HTMLElement | null) => {
+    if (el === slot) return
+    slot = el
+    subs.forEach(fn => fn())
+  }
+  const useSlot = () => useSyncExternalStore(
     cb => { subs.add(cb); return () => { subs.delete(cb) } },
     () => slot,
   )
+  const Slot = () => <div ref={setSlot} style={{ position: 'relative', display: 'flex', alignItems: 'center' }} />
+  return { useSlot, Slot }
 }
 
-export default function SinoSlot() {
-  return <div ref={setSlot} style={{ position: 'relative', display: 'flex', alignItems: 'center' }} />
-}
+const sino = createSlot()
+const verComo = createSlot()
+
+export const useSinoSlot = sino.useSlot
+export const useVerComoSlot = verComo.useSlot
+export const VerComoSlot = verComo.Slot
+export default sino.Slot

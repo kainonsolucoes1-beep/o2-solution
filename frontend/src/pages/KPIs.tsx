@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
-import SinoSlot from '../components/SinoSlot'
+import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 interface BreakdownItem {
   label: string
@@ -970,6 +970,7 @@ export default function KPIs() {
           <p style={{ fontSize: 13, color: 'var(--text-subtle)', margin: '5px 0 0' }}>Entenda o resultado do período e investigue os fatores que o explicam.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <VerComoSlot />
           <div ref={filtersRef} style={{ position: 'relative' }}>
             <button
               onClick={() => setFiltersOpen(o => !o)}
