@@ -967,9 +967,10 @@ def update_lead_info(
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
 
-    # coordenador enxerga e edita a base inteira (fora da própria carteira) --
-    # mantém rastro do que ele muda na ficha, como nota, pro admin poder auditar.
-    _track_edits = current_user.role == "coordenador"
+    # Rastro da edicao, como nota: nome, empresa e CPF/CNPJ sempre, de qualquer
+    # usuario (dados de identificacao do cliente). Coordenador enxerga e edita
+    # a base inteira (fora da propria carteira) -- dele registra todos os campos.
+    _is_coord = current_user.role == "coordenador"
     _labels = {
         "name": "Nome", "company": "Empresa", "titular_menor": "Titular Menor", "email": "E-mail", "phone": "Telefone",
         "attendant": "Atendente", "document": "Documento", "origin": "Origem",
@@ -977,8 +978,8 @@ def update_lead_info(
         "perception": "Temperatura", "visibility_tag": "Tag de visibilidade",
         "operadoras_enviadas": "Operadoras enviadas", "celular_cor": "Celular", "current_plan": "Plano atual",
         "value_potential": "Valor potencial",
-    }
-    _before = {f: getattr(lead, f) for f in _labels} if _track_edits else {}
+    } if _is_coord else {"name": "Nome", "company": "Empresa", "document": "CPF/CNPJ"}
+    _before = {f: getattr(lead, f) for f in _labels}
 
     if body.name is not None and body.name.strip():
         lead.name = body.name.strip()
@@ -1054,17 +1055,16 @@ def update_lead_info(
     if body.value_potential is not None:
         lead.value_potential = body.value_potential
 
-    if _track_edits:
-        changes = [
-            f"{label}: '{_before[field] or '—'}' → '{getattr(lead, field) or '—'}'"
-            for field, label in _labels.items()
-            if _before[field] != getattr(lead, field)
-        ]
-        if changes:
-            db.add(LeadNote(
-                lead_id=lead.id, user_id=current_user.id,
-                content=f"Ficha editada por {current_user.first_name or current_user.username} (coordenador): " + "; ".join(changes),
-            ))
+    changes = [
+        f"{label}: '{_before[field] or '—'}' → '{getattr(lead, field) or '—'}'"
+        for field, label in _labels.items()
+        if _before[field] != getattr(lead, field)
+    ]
+    if changes:
+        db.add(LeadNote(
+            lead_id=lead.id, user_id=current_user.id,
+            content=f"Ficha editada por {current_user.first_name or current_user.username}{' (coordenador)' if _is_coord else ''}: " + "; ".join(changes),
+        ))
 
     db.commit()
     return LeadInfoUpdateResponse(

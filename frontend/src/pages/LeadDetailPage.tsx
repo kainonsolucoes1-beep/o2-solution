@@ -293,6 +293,8 @@ export default function LeadDetailPage() {
         setLead(prev => prev ? { ...prev, ...infoDraft } : prev)
         setEditingInfo(false)
         setToast({ msg: 'Informações atualizadas com sucesso', ok: true })
+        // a edição pode ter gerado nota de rastro (nome/empresa/CPF-CNPJ alterados)
+        api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`).then(r => setNotes(r.data.notes)).catch(() => {})
       })
       .catch(() => setToast({ msg: 'Erro ao atualizar informações', ok: false }))
       .finally(() => setSavingInfo(false))
