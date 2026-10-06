@@ -9,6 +9,7 @@ interface ImportResult {
   respostas_novas: number
   respostas_repetidas: number
   jobs_nao_encontrados: string[]
+  lote_alvo: { job: string; novas: number } | null
 }
 
 const SLOTS: { key: Slot; label: string; hint: string }[] = [
@@ -27,14 +28,19 @@ const btnPrimary = (disabled: boolean): React.CSSProperties => ({
   color: disabled ? 'var(--text-subtle)' : '#fff', cursor: disabled ? 'not-allowed' : 'pointer',
 })
 
-export default function ImportSmsKolmeyaModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+// `lote` (botão "+ Respostas" de um lote): modo só respostas -- as respostas
+// chegam ao longo do dia e a planilha é reimportada várias vezes, sem duplicar.
+export default function ImportSmsKolmeyaModal({ onClose, onImported, lote }: {
+  onClose: () => void; onImported: () => void; lote?: { id: string; job: string }
+}) {
   const [files, setFiles] = useState<Record<Slot, File | null>>({ envio: null, retorno: null, resposta: null })
   const [dataDisparo, setDataDisparo] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<ImportResult | null>(null)
 
-  const pronto = (files.envio && files.retorno) || (!files.envio && (files.retorno || files.resposta))
+  const pronto = lote ? !!files.resposta : (files.envio && files.retorno) || (!files.envio && (files.retorno || files.resposta))
+  const slots = lote ? SLOTS.filter(s => s.key === 'resposta').map(s => ({ ...s, label: 'Resposta' })) : SLOTS
 
   function pick(slot: Slot, f: File | null) {
     setFiles(prev => ({ ...prev, [slot]: f }))
@@ -47,6 +53,7 @@ export default function ImportSmsKolmeyaModal({ onClose, onImported }: { onClose
     const formData = new FormData()
     ;(Object.keys(files) as Slot[]).forEach(k => { if (files[k]) formData.append(k, files[k] as File) })
     if (files.retorno && dataDisparo) formData.append('data_disparo', dataDisparo)
+    if (lote) formData.append('lote_id', lote.id)
     try {
       const { data } = await api.post<ImportResult>('/api/v1/campanhas/sms/importar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -66,9 +73,13 @@ export default function ImportSmsKolmeyaModal({ onClose, onImported }: { onClose
 
         <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border-lt)', flexShrink: 0 }}>
           <div>
-            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Importar planilhas · SMS Kolmeya</p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
+              {lote ? `Atualizar respostas · Job ${lote.job}` : 'Importar planilhas · SMS Kolmeya'}
+            </p>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-              {result ? 'Concluído' : 'Envio + retorno criam o lote do disparo. A resposta pode vir junto ou depois.'}
+              {result ? 'Concluído'
+                : lote ? 'Exporte de novo a planilha de respostas da Kolmeya e importe aqui — pode repetir ao longo do dia, o que já entrou não duplica.'
+                : 'Envio + retorno criam o lote do disparo. A resposta pode vir junto ou depois.'}
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 4 }}><X size={18} /></button>
@@ -77,7 +88,7 @@ export default function ImportSmsKolmeyaModal({ onClose, onImported }: { onClose
         <div style={{ padding: '22px 24px', overflowY: 'auto', minHeight: 0 }}>
           {!result ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {SLOTS.map(s => {
+              {slots.map(s => {
                 const f = files[s.key]
                 return (
                   <div key={s.key}>
@@ -120,6 +131,11 @@ export default function ImportSmsKolmeyaModal({ onClose, onImported }: { onClose
               <span style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(5,150,105,0.1)', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <Check size={24} />
               </span>
+              {result.lote_alvo && (
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
+                  Job {result.lote_alvo.job}: {result.lote_alvo.novas} resposta{result.lote_alvo.novas !== 1 ? 's' : ''} nova{result.lote_alvo.novas !== 1 ? 's' : ''}
+                </p>
+              )}
               {result.lote && (
                 <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
                   Job {result.lote.job}: {result.lote.enviados} enviados · {result.lote.retornos} retornos · {result.lote.entregues} entregues

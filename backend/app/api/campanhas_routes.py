@@ -377,13 +377,16 @@ def importar_sms_kolmeya(
     retorno: UploadFile | None = File(None),
     resposta: UploadFile | None = File(None),
     data_disparo: str | None = Form(None),
+    lote_id: str | None = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Importa as planilhas da Kolmeya (SMS em massa, disparado fora do
     sistema). Envio + retorno criam/atualizam o lote do job; resposta é
     opcional e pode vir depois -- cada linha cai no lote pelo job e não
-    duplica se a mesma planilha for importada de novo."""
+    duplica se a mesma planilha for importada de novo. `lote_id` (botão
+    "+ Respostas" do lote): marca esse lote como atualizado mesmo que a
+    planilha ainda não traga nenhuma resposta dele."""
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Apenas administradores podem importar campanhas de SMS")
     if not (envio or retorno or resposta):
@@ -420,9 +423,17 @@ def importar_sms_kolmeya(
             db.flush()
 
         novas, repetidas, jobs_nao_encontrados = 0, 0, set()
+        lote_alvo, novas_alvo = None, 0
+        if lote_id:
+            lote_alvo = db.query(CampanhaSmsLote).filter(CampanhaSmsLote.id == lote_id).first()
+            if not lote_alvo:
+                raise HTTPException(status_code=404, detail="Lote não encontrado")
         if resposta:
             linhas = sms_kolmeya_import.parse_resposta(resposta.filename or "resposta", resposta.file.read())
             lotes = {l.job: l for l in db.query(CampanhaSmsLote).filter(CampanhaSmsLote.job.in_({x["job"] for x in linhas})).all()}
+            agora = datetime.now(timezone.utc).replace(tzinfo=None)
+            for l in [*lotes.values(), *([lote_alvo] if lote_alvo else [])]:
+                l.respostas_importadas_em = agora
             ja_tem = {
                 (lote_id, tel, receb)
                 for lote_id, tel, receb in db.query(CampanhaSmsResposta.lote_id, CampanhaSmsResposta.telefone, CampanhaSmsResposta.recebido_em)
@@ -443,6 +454,8 @@ def importar_sms_kolmeya(
                     resposta=x["resposta"], recebido_em=x["recebido_em"], positivo=x["positivo"],
                 ))
                 novas += 1
+                if lote_alvo and alvo.id == lote_alvo.id:
+                    novas_alvo += 1
     except ValueError as e:
         db.rollback()
         raise HTTPException(status_code=422, detail=str(e))
@@ -453,6 +466,7 @@ def importar_sms_kolmeya(
         "respostas_novas": novas,
         "respostas_repetidas": repetidas,
         "jobs_nao_encontrados": sorted(jobs_nao_encontrados),
+        "lote_alvo": {"job": lote_alvo.job, "novas": novas_alvo} if lote_alvo else None,
     }
 
 
@@ -523,6 +537,7 @@ def sms_dashboard(
             "respostas": respostas,
             "positivos": positivos,
             "taxa": taxa(positivos, l.entregues),
+            "respostas_importadas_em": l.respostas_importadas_em.isoformat() if l.respostas_importadas_em else None,
         })
 
     tot = {k: sum(i[k] for i in itens) for k in ("enviados", "retornos", "entregues", "respostas", "positivos")}
