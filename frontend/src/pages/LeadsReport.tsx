@@ -12,6 +12,7 @@ import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
 import AssignRenutricaoModal from '../components/AssignRenutricaoModal'
 import LeadPeekDrawer from '../components/LeadPeekDrawer'
 import { useTheme } from '../ThemeContext'
+import SinoSlot from '../components/SinoSlot'
 
 interface Me {
   id: string
@@ -774,6 +775,7 @@ export default function LeadsReport() {
                 Importar Renutrição
               </button>
             )}
+            <SinoSlot />
           </div>
         </div>
 

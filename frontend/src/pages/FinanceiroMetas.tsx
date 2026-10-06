@@ -3,6 +3,7 @@ import { Pencil, Plus, X, Columns3 } from 'lucide-react'
 import api from '../api'
 import { type FiltroPeriodo, mesAtualRange } from '../utils/periodoFiltro'
 import { useTheme } from '../ThemeContext'
+import SinoSlot from '../components/SinoSlot'
 
 interface MetaProgress {
   id: string
@@ -179,6 +180,7 @@ export default function FinanceiroMetas() {
             <Plus size={15} />
             Novo operador
           </button>
+          <SinoSlot />
         </div>
       </div>
 

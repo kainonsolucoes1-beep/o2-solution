@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type MouseEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
+import { useSinoSlot } from './SinoSlot'
 
 interface UserInfo { username: string; first_name: string | null; role: string; is_campanha_operador?: boolean }
 interface AgendaAlerts { overdue: number; today: number }
@@ -436,9 +438,13 @@ export default function Sidebar() {
   )
 
   const sinoTotal = followupAlerts.length + naoLidas
+  // página com <SinoSlot /> no cabeçalho: o sino entra ali, ao lado dos botões
+  // do topo; sem encaixe (ou no celular), flutua fixo no canto superior direito
+  const sinoSlot = useSinoSlot()
+  const sinoNoSlot = !!sinoSlot && !isMobile
   const sinoCor = followupAlerts.length > 0 ? '#F59E0B' : '#3B82F6'
-  const followupBell = (
-    <div style={{ position: 'fixed', top: 12, right: 16, zIndex: 60 }}>
+  const followupBellEl = (
+    <div style={sinoNoSlot ? { position: 'relative', zIndex: 60 } : { position: 'fixed', top: 12, right: 16, zIndex: 60 }}>
       <button
         onClick={toggleSino}
         title="Notificações"
@@ -524,6 +530,7 @@ export default function Sidebar() {
       )}
     </div>
   )
+  const followupBell = sinoNoSlot ? createPortal(followupBellEl, sinoSlot!) : followupBellEl
 
   if (isMobile) {
     return (

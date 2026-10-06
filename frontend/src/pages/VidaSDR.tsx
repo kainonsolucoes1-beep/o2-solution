@@ -16,6 +16,7 @@ import {
   buildSmartPreview, fetchSmartPreviewRows, fetchReceitaComposicao, receitaRows, needsRowFetch, MOCK_CUSTO_TOTAL,
   type SmartPreviewId, type SmartPreview, type ReceitaComposicaoResponse, type ReceitaKind,
 } from '../utils/vidaSdrPreview'
+import SinoSlot from '../components/SinoSlot'
 
 interface TrendItem { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number | null }
 interface RankingEntry { nome: string; receita: number; voce: boolean }
@@ -580,6 +581,7 @@ export default function VidaSDR() {
               </label>
             </>
           )}
+          <SinoSlot />
         </div>
       </div>
 

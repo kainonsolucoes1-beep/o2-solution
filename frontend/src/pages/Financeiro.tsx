@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Wallet, Clock3, TrendingUp, ChevronDown, ChevronUp, ChevronRight, Building2, Layers3, CalendarClock, Filter, Search, ArrowUpRight } from "lucide-react";
 import api from "../api";
 import { useTheme } from "../ThemeContext";
+import SinoSlot from "../components/SinoSlot";
 
 // ---------------------------------------------------------------------------
 // Design tokens
@@ -363,143 +364,146 @@ export default function FinanceiroDashboard() {
               Valores consolidados por contrato, promotora e modalidade
             </p>
           </div>
-          <div className="relative">
-            <button
-              onClick={() => setPeriodOpen((o) => !o)}
-              className="flex items-center gap-2 rounded-lg border border-[#E4E7EE] bg-white px-3.5 py-2 text-[13px] font-medium text-[#39415C] shadow-sm hover:bg-[#FAFBFC]"
-            >
-              <Filter size={14} />
-              Filtros
-              <ChevronDown size={14} />
-            </button>
-            {periodOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setPeriodOpen(false)} />
-                <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-[#E4E7EE] bg-white p-4 shadow-lg flex flex-col gap-4">
-                  {/* Busca */}
-                  <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1">
-                      Buscar
-                    </label>
-                    <div className="relative">
-                      <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8891AC]" />
-                      <input
-                        type="text"
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        placeholder="Nome, telefone, email, CPF/CNPJ"
-                        className="w-full rounded-lg border border-[#E4E7EE] pl-8 pr-2.5 py-1.5 text-[13px] text-[#10142B]"
-                      />
+          <div className="flex items-center gap-2.5">
+            <div className="relative">
+              <button
+                onClick={() => setPeriodOpen((o) => !o)}
+                className="flex items-center gap-2 rounded-lg border border-[#E4E7EE] bg-white px-3.5 py-2 text-[13px] font-medium text-[#39415C] shadow-sm hover:bg-[#FAFBFC]"
+              >
+                <Filter size={14} />
+                Filtros
+                <ChevronDown size={14} />
+              </button>
+              {periodOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setPeriodOpen(false)} />
+                  <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-[#E4E7EE] bg-white p-4 shadow-lg flex flex-col gap-4">
+                    {/* Busca */}
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1">
+                        Buscar
+                      </label>
+                      <div className="relative">
+                        <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8891AC]" />
+                        <input
+                          type="text"
+                          value={searchInput}
+                          onChange={(e) => setSearchInput(e.target.value)}
+                          placeholder="Nome, telefone, email, CPF/CNPJ"
+                          className="w-full rounded-lg border border-[#E4E7EE] pl-8 pr-2.5 py-1.5 text-[13px] text-[#10142B]"
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Período */}
-                  <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1.5">
-                      Período
-                    </label>
-                    <div className="flex rounded-lg border border-[#E4E7EE] bg-[#F6F7FB] p-0.5">
-                      {([
-                        { key: "mes", label: "Este mês" },
-                        { key: "entre", label: "Entre datas" },
-                        { key: "todo", label: "Todo o período" },
-                      ] as const).map((opt) => (
-                        <button
-                          key={opt.key}
-                          onClick={() => {
-                            if (opt.key === "mes") { setPeriodMode("mes"); setDateFrom(_monthStart); setDateTo(_monthEnd); }
-                            else if (opt.key === "todo") { setPeriodMode("todo"); setDateFrom(""); setDateTo(""); }
-                            else setPeriodMode("entre");
-                          }}
-                          className={`flex-1 rounded-md px-2 py-1.5 text-[12px] font-medium transition ${
-                            periodMode === opt.key ? "bg-white text-[#2563EB] shadow-sm" : "text-[#626A85] hover:text-[#39415C]"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                    {periodMode === "entre" && (
-                      <div className="mt-2 flex flex-col gap-2">
-                        <div>
-                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">De</label>
-                          <input
-                            type="date"
-                            value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-[#E4E7EE] px-2.5 py-1.5 text-[13px] text-[#10142B]"
-                          />
+                    {/* Período */}
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1.5">
+                        Período
+                      </label>
+                      <div className="flex rounded-lg border border-[#E4E7EE] bg-[#F6F7FB] p-0.5">
+                        {([
+                          { key: "mes", label: "Este mês" },
+                          { key: "entre", label: "Entre datas" },
+                          { key: "todo", label: "Todo o período" },
+                        ] as const).map((opt) => (
+                          <button
+                            key={opt.key}
+                            onClick={() => {
+                              if (opt.key === "mes") { setPeriodMode("mes"); setDateFrom(_monthStart); setDateTo(_monthEnd); }
+                              else if (opt.key === "todo") { setPeriodMode("todo"); setDateFrom(""); setDateTo(""); }
+                              else setPeriodMode("entre");
+                            }}
+                            className={`flex-1 rounded-md px-2 py-1.5 text-[12px] font-medium transition ${
+                              periodMode === opt.key ? "bg-white text-[#2563EB] shadow-sm" : "text-[#626A85] hover:text-[#39415C]"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                      {periodMode === "entre" && (
+                        <div className="mt-2 flex flex-col gap-2">
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">De</label>
+                            <input
+                              type="date"
+                              value={dateFrom}
+                              onChange={(e) => setDateFrom(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-[#E4E7EE] px-2.5 py-1.5 text-[13px] text-[#10142B]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">Até</label>
+                            <input
+                              type="date"
+                              value={dateTo}
+                              onChange={(e) => setDateTo(e.target.value)}
+                              className="mt-1 w-full rounded-lg border border-[#E4E7EE] px-2.5 py-1.5 text-[13px] text-[#10142B]"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC]">Até</label>
-                          <input
-                            type="date"
-                            value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
-                            className="mt-1 w-full rounded-lg border border-[#E4E7EE] px-2.5 py-1.5 text-[13px] text-[#10142B]"
-                          />
+                      )}
+                    </div>
+
+                    {/* Canal da venda */}
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1.5">
+                        Canal da venda
+                      </label>
+                      <div className="flex gap-2">
+                        {([
+                          { key: "adm", label: "Adm" },
+                          { key: "equipe", label: "Equipe" },
+                        ] as const).map((opt) => (
+                          <button
+                            key={opt.key}
+                            onClick={() => setCanal((c) => (c === opt.key ? "" : opt.key))}
+                            className={`flex-1 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition ${
+                              canal === opt.key
+                                ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                                : "border-[#E4E7EE] text-[#626A85] hover:bg-[#FAFBFC]"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Status do contrato -- só faz sentido na visão por data de
+                        venda; a previsão de período mostra parcelas, não contratos. */}
+                    {!forecastActive && (
+                      <div>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1.5">
+                          Status do contrato
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {(Object.keys(CONTRACT_STATUS_STYLE) as ContractStatus[]).map((key) => {
+                            const s = CONTRACT_STATUS_STYLE[key];
+                            const active = statusFilter === key;
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => setStatusFilter((v) => (v === key ? "" : key))}
+                                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition ${
+                                  active
+                                    ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                                    : "border-[#E4E7EE] text-[#626A85] hover:bg-[#FAFBFC]"
+                                }`}
+                              >
+                                <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+                                {s.label}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
                   </div>
-
-                  {/* Canal da venda */}
-                  <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1.5">
-                      Canal da venda
-                    </label>
-                    <div className="flex gap-2">
-                      {([
-                        { key: "adm", label: "Adm" },
-                        { key: "equipe", label: "Equipe" },
-                      ] as const).map((opt) => (
-                        <button
-                          key={opt.key}
-                          onClick={() => setCanal((c) => (c === opt.key ? "" : opt.key))}
-                          className={`flex-1 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition ${
-                            canal === opt.key
-                              ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
-                              : "border-[#E4E7EE] text-[#626A85] hover:bg-[#FAFBFC]"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Status do contrato -- só faz sentido na visão por data de
-                      venda; a previsão de período mostra parcelas, não contratos. */}
-                  {!forecastActive && (
-                    <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#8891AC] mb-1.5">
-                        Status do contrato
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {(Object.keys(CONTRACT_STATUS_STYLE) as ContractStatus[]).map((key) => {
-                          const s = CONTRACT_STATUS_STYLE[key];
-                          const active = statusFilter === key;
-                          return (
-                            <button
-                              key={key}
-                              onClick={() => setStatusFilter((v) => (v === key ? "" : key))}
-                              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition ${
-                                active
-                                  ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
-                                  : "border-[#E4E7EE] text-[#626A85] hover:bg-[#FAFBFC]"
-                              }`}
-                            >
-                              <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
-                              {s.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
+            <SinoSlot />
           </div>
         </div>
 

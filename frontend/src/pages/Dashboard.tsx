@@ -9,6 +9,7 @@ import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
 import { useTheme } from '../ThemeContext'
 import EmissaoCard from '../components/EmissaoCard'
+import SinoSlot from '../components/SinoSlot'
 
 interface FeedItem {
   id: string
@@ -408,6 +409,7 @@ export default function Dashboard() {
               </>
             )}
           </div>
+          <SinoSlot />
         </div>
       </div>
 

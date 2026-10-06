@@ -20,6 +20,7 @@ import TrendChart from '../components/TrendChart'
 import ProgressBarList from '../components/ProgressBarList'
 import SectionTitle from '../components/SectionTitle'
 import { useTheme } from '../ThemeContext'
+import SinoSlot from '../components/SinoSlot'
 
 const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção', 'Emissão'] as const
 type Tab = typeof TABS[number]
@@ -1902,6 +1903,7 @@ export default function GestaoComercial() {
             </div>
           </>
         )}
+        <SinoSlot />
       </div>
       )}
 
