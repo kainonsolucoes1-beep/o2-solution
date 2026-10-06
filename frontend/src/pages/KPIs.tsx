@@ -849,6 +849,30 @@ export default function KPIs() {
   // que importa é o total de captação por origem crua de SDR, então continua
   // batendo em `data` (por origem), não na posse por renutrição.
   const sdrFontes = data.filter(d => isSdr(d.fonte)).sort((a, b) => b.captacoes - a.captacoes)
+  // Aquisição › Canais: a captação via SDR também é um canal -- entra como
+  // uma linha só ("Prospecção SDR", somando todos os operadores), pra aba
+  // fechar com o total de leads. O detalhe por base fica em Bases.
+  const canaisDisplay: (FonteData & { _origens?: string[] })[] = (() => {
+    if (sdrFontes.length === 0) return organicFontes
+    const cap = sdrFontes.reduce((s, f) => s + f.captacoes, 0)
+    const ven = sdrFontes.reduce((s, f) => s + f.vendas, 0)
+    const can = sdrFontes.reduce((s, f) => s + f.cancelados, 0)
+    const tempoRows = sdrFontes.filter(f => f.tempo_medio_dias != null && f.vendas > 0)
+    const tempoPeso = tempoRows.reduce((s, f) => s + f.vendas, 0)
+    return [...organicFontes, {
+      fonte: 'Prospecção SDR',
+      captacoes: cap, vendas: ven, cancelados: can,
+      conversao: cap > 0 ? +(ven / cap * 100).toFixed(1) : 0,
+      tempo_medio_dias: tempoPeso > 0
+        ? Math.round((tempoRows.reduce((s, f) => s + (f.tempo_medio_dias as number) * f.vendas, 0) / tempoPeso) * 10) / 10
+        : null,
+      receita_gerada: sdrFontes.every(f => f.receita_gerada != null)
+        ? Math.round(sdrFontes.reduce((s, f) => s + (f.receita_gerada ?? 0), 0) * 100) / 100
+        : null,
+      breakdown: [],
+      _origens: sdrFontes.map(f => f.fonte),
+    }].sort((a, b) => b.captacoes - a.captacoes)
+  })()
   // Aba Agentes / Ranking: quem está com a posse do lead agora (dono de
   // renutrição > origem), não quem só captou um dia — senão quem só faz
   // renutrição (ex: Pamela) nunca aparece, e gente desligada reaparece por
@@ -1221,7 +1245,7 @@ export default function KPIs() {
           {aquisicaoView === 'resumo' && (
             <ResumoAquisicao
               bases={basesDisplay.map(b => ({ label: b.base, captacoes: b.captacoes, conversao: b.conversao }))}
-              canais={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, conversao: f.conversao }))}
+              canais={canaisDisplay.map(f => ({ label: f.fonte, captacoes: f.captacoes, conversao: f.conversao }))}
               pontos={allConvPoints.map(c => ({ label: c.label, captacoes: c.captacoes, conversao: c.conversao }))}
               modalidades={modalidadeData.map(m => ({ label: m.modalidade, captacoes: m.captacoes, conversao: m.conversao }))}
               renutricao={renutricaoData}
@@ -1255,17 +1279,17 @@ export default function KPIs() {
               <StateBox kind="loading" height={140} />
             ) : dataError ? (
               <StateBox kind="error" height={140} message="Não foi possível carregar os canais." onRetry={fetchMain} />
-            ) : organicFontes.length === 0 ? (
+            ) : canaisDisplay.length === 0 ? (
               <StateBox kind="empty" height={140} message="Nenhum canal encontrado neste período." />
             ) : aquisicaoLayout === 'quadrante' ? (
               <AquisicaoQuadrant
-                rows={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.`, receitaGerada: f.receita_gerada }))}
+                rows={canaisDisplay.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.`, receitaGerada: f.receita_gerada }))}
               />
             ) : (
               <AquisicaoTable
                 total={totalCap}
-                rows={organicFontes.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.`, tempoMedioDias: f.tempo_medio_dias, receitaGerada: f.receita_gerada }))}
-                onOpen={(label, trigger) => openDrawer('canal', label, [label], trigger)}
+                rows={canaisDisplay.map(f => ({ label: f.fonte, captacoes: f.captacoes, vendas: f.vendas, conversao: f.conversao, extra: `${f.cancelados} cancel.`, tempoMedioDias: f.tempo_medio_dias, receitaGerada: f.receita_gerada }))}
+                onOpen={(label, trigger) => openDrawer('canal', label, canaisDisplay.find(c => c.fonte === label)?._origens ?? [label], trigger)}
               />
             )
           )}
