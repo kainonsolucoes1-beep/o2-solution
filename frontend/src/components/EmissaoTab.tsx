@@ -183,10 +183,10 @@ export default function EmissaoTab() {
               <p style={{ margin: '10px 0 4px', fontSize: 36, fontWeight: 800, color: data.declinados ? '#B91C1C' : 'var(--text-1)', letterSpacing: '-0.02em', lineHeight: 1 }}>{data.declinados}</p>
               <p style={{ margin: 0, fontSize: 12.5, color: data.declinados ? '#991B1B' : 'var(--text-muted)' }}>{data.declinados ? `${fmtBrl(data.declinados_valor)} em contratos declinados` : 'nenhum declinado no período'}</p>
             </div>
-            <div style={{ ...card, padding: '18px 20px', ...(data.parados.length ? { background: 'rgba(245,158,11,0.10)', borderColor: 'rgba(245,158,11,0.40)' } : {}) }}>
-              <span style={{ ...eyebrow, color: data.parados.length ? '#92400E' : 'var(--text-muted)' }}>Parados há mais de 3 dias</span>
-              <p style={{ margin: '10px 0 4px', fontSize: 36, fontWeight: 800, color: data.parados.length ? '#B45309' : 'var(--text-1)', letterSpacing: '-0.02em', lineHeight: 1 }}>{data.parados.length}</p>
-              <p style={{ margin: 0, fontSize: 12.5, color: data.parados.length ? '#92400E' : 'var(--text-muted)' }}>{data.parados.length ? `${fmtBrl(data.parados_valor)} aguardando a operadora` : 'nenhum contrato parado'}</p>
+            <div style={{ ...card, padding: '18px 20px', ...(data.parados.length ? { background: 'var(--stale-bg)', borderColor: 'var(--stale-border)' } : {}) }}>
+              <span style={{ ...eyebrow, color: data.parados.length ? 'var(--stale-text)' : 'var(--text-muted)' }}>Parados há mais de 3 dias</span>
+              <p style={{ margin: '10px 0 4px', fontSize: 36, fontWeight: 800, color: data.parados.length ? 'var(--stale-num)' : 'var(--text-1)', letterSpacing: '-0.02em', lineHeight: 1 }}>{data.parados.length}</p>
+              <p style={{ margin: 0, fontSize: 12.5, color: data.parados.length ? 'var(--stale-text)' : 'var(--text-muted)' }}>{data.parados.length ? `${fmtBrl(data.parados_valor)} aguardando a operadora` : 'nenhum contrato parado'}</p>
             </div>
           </div>
 

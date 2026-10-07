@@ -38,6 +38,12 @@ body {
   --warning-weak:#FFFBEB;
   --info:        #8B5CF6;
   --info-weak:   #F5F3FF;
+
+  /* card "Parados há mais de 3 dias" (Emissão) */
+  --stale-bg:     rgba(245,158,11,0.10);
+  --stale-border: rgba(245,158,11,0.40);
+  --stale-text:   #92400E;
+  --stale-num:    #B45309;
 }
 
 html.dark {
@@ -69,6 +75,11 @@ html.dark {
   --warning-weak:#2A2113;
   --info:        #A78BFA;
   --info-weak:   #241E33;
+
+  --stale-bg:     rgba(253,230,138,0.08);
+  --stale-border: rgba(253,230,138,0.35);
+  --stale-text:   #FDE68A;
+  --stale-num:    #FEF08A;
 }
 
 body { background: var(--bg-page); }
