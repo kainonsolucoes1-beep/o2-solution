@@ -20,6 +20,7 @@ import TrendChart from '../components/TrendChart'
 import ProgressBarList from '../components/ProgressBarList'
 import SectionTitle from '../components/SectionTitle'
 import { useTheme } from '../ThemeContext'
+import { grupoCanal, GOOGLE_COLOR, type GrupoCanal } from '../utils/canal'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 const TABS = ['Visão Geral', 'Pipeline', 'Performance', 'Projeção', 'Emissão'] as const
@@ -35,7 +36,7 @@ interface OrigemItem  { origem: string; captacoes: number; pct: number }
 interface ModalidadeItem { modalidade: string; captacoes: number; vendas: number; conversao: number; pct: number }
 interface MensalItem  { mes: string; mes_label: string; captacoes: number; vendas: number; receita: number }
 interface DrillRawRow { origem: string; status: string; total_value: number; count: number }
-interface DrillRow extends DrillRawRow { grupo: 'SDR' | 'Orgânico'; operador: string }
+interface DrillRow extends DrillRawRow { grupo: GrupoCanal; operador: string }
 interface ContractItem { nome: string; origem: string; status: string; valor: number; motivo?: string | null }
 type DrillTipo = 'receita_potencial' | 'vendas' | 'perda'
 
@@ -83,8 +84,6 @@ function computeBottleneckFromStage(ov: PipelineOverview): string {
 
 // ── Grouping constants ───────────────────────────────────────────────────────
 const O2_NAMES       = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
-const ORGANICO_EXTRA = new Set(['site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp', 'meta ads'])
-const isOrganico     = (o: string) => o.toLowerCase().includes('org') || ORGANICO_EXTRA.has(o.toLowerCase())
 const TEAM_OPTIONS   = [
   { label: 'São Paulo', value: 'Equipe São Paulo' },
   { label: 'Recife',    value: 'Equipe Pernambuco' },
@@ -98,21 +97,28 @@ function groupOrigens(origens: OrigemItem[]): GrupoOrigem[] {
   const sdrSubs: Record<string, number> = {}
   let o2total = 0
   const orgSubs: Record<string, number> = {}
+  const googleSubs: Record<string, number> = {}
   for (const o of origens) {
     const lower = o.origem.toLowerCase()
-    if (isOrganico(o.origem)) { orgSubs[o.origem] = (orgSubs[o.origem] ?? 0) + o.captacoes }
+    const grupo = grupoCanal(o.origem)
+    if (grupo === 'Google') { googleSubs[o.origem] = (googleSubs[o.origem] ?? 0) + o.captacoes }
+    else if (grupo === 'Orgânico') { orgSubs[o.origem] = (orgSubs[o.origem] ?? 0) + o.captacoes }
     else if (O2_NAMES.has(lower)) { o2total += o.captacoes }
     else { sdrSubs[o.origem] = (sdrSubs[o.origem] ?? 0) + o.captacoes }
   }
   if (o2total > 0) sdrSubs['o2 Solution'] = (sdrSubs['o2 Solution'] ?? 0) + o2total
   const sdrTotal = Object.values(sdrSubs).reduce((a, b) => a + b, 0)
   const orgTotal = Object.values(orgSubs).reduce((a, b) => a + b, 0)
-  const total = sdrTotal + orgTotal || 1
+  const googleTotal = Object.values(googleSubs).reduce((a, b) => a + b, 0)
+  const total = sdrTotal + orgTotal + googleTotal || 1
   const toSubs = (map: Record<string, number>, gt: number) =>
     Object.entries(map).map(([nome, captacoes]) => ({ nome, captacoes, pct: gt > 0 ? Math.round(captacoes / gt * 100) : 0 })).sort((a, b) => b.captacoes - a.captacoes)
   return [
     { nome: 'SDR',      captacoes: sdrTotal, pct: Math.round(sdrTotal / total * 100), color: '#3B82F6', subs: toSubs(sdrSubs, sdrTotal) },
     { nome: 'Orgânico', captacoes: orgTotal, pct: Math.round(orgTotal / total * 100), color: '#10B981', subs: toSubs(orgSubs, orgTotal) },
+    // sem captação, o Google não aparece: abrir o grupo vazio buscaria pontos
+    // de conversão sem filtro de origem (de todos os leads)
+    ...(googleTotal > 0 ? [{ nome: 'Google', captacoes: googleTotal, pct: Math.round(googleTotal / total * 100), color: GOOGLE_COLOR, subs: toSubs(googleSubs, googleTotal) }] : []),
   ]
 }
 
@@ -158,7 +164,7 @@ const stageSpellings = (canon: string) => (STAGE_SPELLINGS[canon] ?? [canon]).jo
 function normalizeDrill(raw: DrillRawRow[]): DrillRow[] {
   return raw.map(r => ({
     ...r,
-    grupo: isOrganico(r.origem) ? 'Orgânico' : 'SDR',
+    grupo: grupoCanal(r.origem),
     operador: O2_NAMES.has(r.origem.toLowerCase()) ? 'o2 Solution' : r.origem,
   }))
 }
@@ -225,7 +231,7 @@ const DRILL_CFG: Record<DrillTipo, { title: string; desc: string; totalColor: st
   perda:             { title: 'Perda Financeira',   desc: 'Leads perdidos com valor potencial',       totalColor: '#EF4444' },
 }
 
-const GROUP_COLORS: Record<string, string> = { SDR: '#3B82F6', 'Orgânico': '#10B981' }
+const GROUP_COLORS: Record<string, string> = { SDR: '#3B82F6', 'Orgânico': '#10B981', Google: GOOGLE_COLOR }
 const STAGE_COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#06B6D4']
 const CONV_COLORS  = ['#3B82F6', '#10B981', '#F59E0B', '#059669']
 
@@ -1440,7 +1446,7 @@ function MonthPanel({ month, untilDay }: { month: string; untilDay?: number }) {
               <button onClick={() => {
                 const isOpening = expandedGrupo !== g.nome
                 setExpandedGrupo(isOpening ? g.nome : null)
-                if (isOpening && g.nome === 'Orgânico') {
+                if (isOpening && g.nome !== 'SDR') {
                   setOrgConvPoints([]); setOrgConvPointsLoading(true)
                   const origensStr = g.subs.map(s => s.nome).join(',')
                   const p = new URLSearchParams({ month })
@@ -1467,7 +1473,7 @@ function MonthPanel({ month, untilDay }: { month: string; untilDay?: number }) {
               </button>
               {open && (
                 <div style={{ marginTop: 5, padding: '8px 10px', background: '#F8FAFC', borderRadius: 8, border: '1px solid var(--border)' }}>
-                  {g.nome === 'Orgânico' ? (
+                  {g.nome !== 'SDR' ? (
                     orgConvPointsLoading ? (
                       <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0', textAlign: 'center' }}>Carregando...</p>
                     ) : orgConvPoints.length === 0 ? (
@@ -1742,7 +1748,7 @@ export default function GestaoComercial() {
 
   const navItems: { key: string; label: string; total: number; color: string }[] = (() => {
     if (drillPath.length === 0)
-      return ['SDR', 'Orgânico'].map(g => ({ key: g, label: g, total: drillRows.filter(r => r.grupo === g).reduce((s, r) => s + r.total_value, 0), color: GROUP_COLORS[g] })).filter(i => i.total > 0)
+      return ['SDR', 'Orgânico', 'Google'].map(g => ({ key: g, label: g, total: drillRows.filter(r => r.grupo === g).reduce((s, r) => s + r.total_value, 0), color: GROUP_COLORS[g] })).filter(i => i.total > 0)
     if (drillPath.length === 1)
       return sumByKey(filterDrill(drillRows, drillPath), r => r.operador, r => r.total_value).map(({ key, total }) => ({ key, label: key, total, color: GROUP_COLORS[drillPath[0]] ?? '#8B5CF6' }))
     return []
@@ -1960,7 +1966,7 @@ export default function GestaoComercial() {
                 onToggle: () => {
                   const isOpening = expandedGrupo !== g.nome
                   setExpandedGrupo(isOpening ? g.nome : null); setStagePopup(null)
-                  if (isOpening && g.nome === 'Orgânico') {
+                  if (isOpening && g.nome !== 'SDR') {
                     setOrgConvPoints([]); setOrgConvPointsLoading(true)
                     const origensStr = g.subs.map(s => s.nome).join(',')
                     const p = new URLSearchParams({ month })
@@ -1973,7 +1979,7 @@ export default function GestaoComercial() {
                 },
                 renderExpanded: () => {
                   const subMax = g.subs.reduce((m, s) => Math.max(m, s.captacoes), 1)
-                  if (g.nome === 'Orgânico') {
+                  if (g.nome !== 'SDR') {
                     if (orgConvPointsLoading) return <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Carregando...</p>
                     if (orgConvPoints.length === 0) return <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', textAlign: 'center' }}>Nenhum ponto de conversão registrado</p>
                     const maxCount = orgConvPoints[0].count

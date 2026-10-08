@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
+import { grupoCanal, GOOGLE_COLOR } from '../utils/canal'
 
 interface Kpis {
   captacoes: number; vendas: number; conversao: number; qualificados: number
@@ -17,20 +18,20 @@ interface Kpis {
 interface DiarioItem { dia: number; data: string; captacoes: number; vendas: number }
 interface OrigemItem { origem: string; captacoes: number; pct: number }
 
-const ORGANICO_EXTRA = new Set(['site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp'])
-const isOrganico     = (o: string) => o.toLowerCase().includes('org') || ORGANICO_EXTRA.has(o.toLowerCase())
-
 interface GrupoOrigem { nome: string; captacoes: number; pct: number; color: string }
 function groupOrigens(origens: OrigemItem[]): GrupoOrigem[] {
-  let sdrTotal = 0, orgTotal = 0
+  let sdrTotal = 0, orgTotal = 0, googleTotal = 0
   for (const o of origens) {
-    if (isOrganico(o.origem)) orgTotal += o.captacoes
+    const g = grupoCanal(o.origem)
+    if (g === 'Google') googleTotal += o.captacoes
+    else if (g === 'Orgânico') orgTotal += o.captacoes
     else sdrTotal += o.captacoes
   }
-  const total = sdrTotal + orgTotal || 1
+  const total = sdrTotal + orgTotal + googleTotal || 1
   return [
-    { nome: 'SDR',      captacoes: sdrTotal, pct: Math.round(sdrTotal / total * 100), color: '#3B82F6' },
-    { nome: 'Orgânico', captacoes: orgTotal, pct: Math.round(orgTotal / total * 100), color: '#10B981' },
+    { nome: 'SDR',      captacoes: sdrTotal,    pct: Math.round(sdrTotal / total * 100),    color: '#3B82F6' },
+    { nome: 'Orgânico', captacoes: orgTotal,    pct: Math.round(orgTotal / total * 100),    color: '#10B981' },
+    { nome: 'Google',   captacoes: googleTotal, pct: Math.round(googleTotal / total * 100), color: GOOGLE_COLOR },
   ]
 }
 

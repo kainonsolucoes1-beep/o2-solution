@@ -10,7 +10,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.api.dashboard_routes import _operador_do_lead, _owner_names, _person_name_set
 from app.lead_utils import extract_base as _extract_base
-from app.lead_utils import normalize_modalidade, modalidade_raw_variants, is_organico, normalize_conversion_point
+from app.lead_utils import normalize_modalidade, modalidade_raw_variants, is_google, is_organico, normalize_conversion_point
 from app.models.lead import Lead
 from app.models.user import User
 from app.security import can_see_financials, needs_own_origin_filter
@@ -272,7 +272,7 @@ def agentes_performance(
     data: dict = defaultdict(_new_acc)
     for origin, owner_id, campanha_status, conv_point, status, created_at, receita_data_venda, receita_real_recebida, retrabalhado_em in leads:
         operador = _operador_do_lead(origin, owner_id, owner_names, person_names, conv_point, campanha_status, retrabalhado_em, status)
-        if operador in ("Orgânico", "Outros canais"):
+        if operador in ("Google", "Orgânico", "Outros canais"):
             continue
         _accumulate(data[operador], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
 
@@ -415,7 +415,7 @@ def renutrucao_detalhe(
             cancelados += 1
 
         # de onde veio o lead retrabalhado (origem/ponto de conversao originais)
-        canal = "Orgânico" if is_organico(origin, conv_point) else ((origin or "").strip() or "Sem origem")
+        canal = "Google" if is_google(origin) else "Orgânico" if is_organico(origin, conv_point) else ((origin or "").strip() or "Sem origem")
         por_canal[canal] += 1
         por_ponto[normalize_conversion_point(conv_point)] += 1
 

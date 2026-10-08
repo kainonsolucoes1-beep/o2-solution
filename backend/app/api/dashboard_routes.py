@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.br_calendar import business_days_in_month
-from app.lead_utils import extract_base, is_organico, normalize_conversion_point
+from app.lead_utils import extract_base, is_google, is_organico, normalize_conversion_point
 from app.models.lead import Lead, LeadStatusHistory
 from app.models.user import User
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, today_utc_range
@@ -98,7 +98,7 @@ def _canal_label(origin) -> str:
 def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_point=None, campanha_status=None, retrabalhado_em=None, status=None, attendant=None):
     """Quem está com a posse do lead pro ranking do Dashboard, nesta ordem:
     dono de renutrição > SDR que prospectou (origem = pessoa) > atendente
-    atribuído (rodízio de Meta Ads/site) > "Orgânico" / "Outros canais".
+    atribuído (rodízio de Meta Ads/site) > "Google" / "Orgânico" / "Outros canais".
     Atribuir um lead de renutrição não é trabalhá-lo -- só conta pro dono
     quando ele de fato reativou (`retrabalhado_em` preenchido) OU já avançou
     o status, senão um lote só atribuído e nunca tocado infla a captação da
@@ -116,6 +116,8 @@ def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_po
     a = (attendant or "").strip()
     if a and a.lower() != "sem atendente":
         return a
+    if is_google(origin):
+        return "Google"
     if is_organico(origin, conversion_point):
         return "Orgânico"
     return "Outros canais"
