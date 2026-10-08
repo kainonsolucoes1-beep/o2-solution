@@ -240,7 +240,7 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
     Tipo/valor da meta = os vigentes no mes de referencia do filtro."""
     tipo, meta_valor = meta_do_mes(db, meta, *_ref_month(date_to))
     owner_ids = [u.id for u in db.query(User.id).filter(or_(User.first_name == meta.nome, User.username == meta.nome)).all()]
-    agent = agent_leads_clause([meta.nome], owner_ids)
+    agent = agent_leads_clause(db, [meta.nome], owner_ids)
     filters = [agent]
     if date_from:
         dt_from, _ = br_date_to_utc_range(date_from)

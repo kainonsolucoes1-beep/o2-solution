@@ -10,7 +10,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
-from app.api.dashboard_routes import _owner_names
+from app.api.dashboard_routes import _owner_names, _person_name_set
 from app.br_calendar import business_days_in_month
 from app.database import get_db
 from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
@@ -65,12 +65,33 @@ _STAGE_LABELS = {
 EFFECTIVE_CAPTACAO = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
 
 
-def agent_leads_clause(parts: list[str], owner_ids: list):
-    """Leads de um agente: origem = nome dele OU renutricao dele (usado pela
-    Vida do Agente e pelas Metas Mensais do Financeiro, pra baterem)."""
+def agent_leads_clause(db: Session, parts: list[str], owner_ids: list):
+    """Leads de um agente: origem = nome dele OU renutricao dele OU atendente
+    do rodizio (usado pela Vida do Agente e pelas Metas Mensais do Financeiro,
+    pra baterem). Mesma ordem de posse do Ranking do Dashboard
+    (_operador_do_lead): dono de renutricao > SDR na origem > atendente."""
     clause = Lead.origin.in_(parts)
+    _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
+
+    # Atendente: lead do rodizio (Google, site, Meta Ads...) atribuido a ele.
+    # So' conta quando ninguem tem posse antes dele -- origem nao e' uma
+    # pessoa (SDR) e nenhum dono de renutricao ja' trabalhou o lead -- senao
+    # o mesmo lead contaria pra duas pessoas.
+    _dono_trabalhou = and_(
+        Lead.renutricao_owner_id.isnot(None), _nao_em_disparo,
+        or_(Lead.retrabalhado_em.isnot(None), func.lower(Lead.status).notin_(STATUS_NAO_TRABALHADO)),
+    )
+    _sem_dono_na_frente = func.coalesce(_dono_trabalhou, False).is_(False)
     if owner_ids:
-        _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
+        _sem_dono_na_frente = or_(Lead.renutricao_owner_id.in_(owner_ids), _sem_dono_na_frente)
+    attendant_match = and_(
+        func.lower(func.trim(Lead.attendant)).in_([p.lower() for p in parts]),
+        or_(Lead.origin.is_(None), func.lower(func.trim(Lead.origin)).notin_(list(_person_name_set(db)))),
+        _sem_dono_na_frente,
+    )
+    clause = or_(clause, attendant_match)
+
+    if owner_ids:
         # Atribuir não é trabalhar: só conta pro dono quando ele de fato
         # reativou o lead (retrabalhado_em preenchido) OU já avançou o status
         # (prova de trabalho real, ex: lead de Meta Ads atribuído direto sem
@@ -901,7 +922,7 @@ def vida_sdr(
         db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).all()
         if parts else []
     )
-    origin_or_owner = agent_leads_clause(parts, [u.id for u in matched_users]) if parts else None
+    origin_or_owner = agent_leads_clause(db, parts, [u.id for u in matched_users]) if parts else None
     filters = [origin_or_owner, *date_filters] if parts else []
 
     # tenure do agente ("Desde X - N meses ativo") independe do filtro de
@@ -1224,19 +1245,7 @@ def vida_sdr_receita_composicao(
 
     matched_users = db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).all()
     owner_ids = [u.id for u in matched_users]
-    origin_or_owner = Lead.origin.in_(parts)
-    if owner_ids:
-        _nao_em_disparo = or_(Lead.campanha_status.is_(None), Lead.campanha_status.notin_(CAMPANHA_ATIVA_STATUSES))
-        # Atribuir não é trabalhar: só conta pro dono quando ele de fato
-        # reativou o lead (retrabalhado_em preenchido) OU já avançou o status
-        # (prova de trabalho real, ex: lead de Meta Ads atribuído direto sem
-        # nunca ter sido perdido) -- senão um lote atribuído e nunca tocado
-        # infla a captação dele.
-        owner_match = and_(
-            Lead.renutricao_owner_id.in_(owner_ids), _nao_em_disparo,
-            or_(Lead.retrabalhado_em.isnot(None), func.lower(Lead.status).notin_(STATUS_NAO_TRABALHADO)),
-        )
-        origin_or_owner = or_(origin_or_owner, owner_match)
+    origin_or_owner = agent_leads_clause(db, parts, owner_ids)
     tem_receita = or_(Lead.receita_real_recebida > 0, Lead.receita_real_a_receber > 0)
     total_expr = func.coalesce(Lead.receita_real_recebida, 0) + func.coalesce(Lead.receita_real_a_receber, 0)
 
