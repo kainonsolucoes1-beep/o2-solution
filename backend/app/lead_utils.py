@@ -125,6 +125,16 @@ def is_organico(origin: str | None, conversion_point: str | None = None) -> bool
     return 'org' in o or o in ORGANICO_EXTRA
 
 
+# Google tem grupo próprio nas contagens (SDR / Orgânico / Google), mas
+# continua fora de SDR: is_organico segue True pra ele (visibilidade do
+# comercial, ranking de operadores etc. tratam "não é SDR" do mesmo jeito).
+GOOGLE_ORIGENS = {'google'}
+
+
+def is_google(origin: str | None) -> bool:
+    return (origin or '').strip().lower() in GOOGLE_ORIGENS
+
+
 # Sinonimos de "nao tenho plano de saude" usados em diferentes formularios
 # (site publico e formulario de lead ads do Meta) que devem cair no mesmo
 # sentinela usado pelos KPIs.

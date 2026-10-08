@@ -8,6 +8,7 @@ import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
 import { useTheme } from '../ThemeContext'
+import { isGoogle, GOOGLE_COLOR } from '../utils/canal'
 import EmissaoCard from '../components/EmissaoCard'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
@@ -129,8 +130,9 @@ function ZoneHeader({ children }: { children: React.ReactNode }) {
   )
 }
 
-// cores dos quadros de canal orgânico no "De onde vieram" (SDR fica em âmbar)
-const CANAL_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#EC4899', '#14B8A6', '#6366F1']
+// cores dos quadros de canal orgânico no "De onde vieram" (SDR fica em âmbar,
+// Google sempre em GOOGLE_COLOR, igual às outras telas)
+const CANAL_COLORS = ['#3B82F6', '#10B981', '#EC4899', '#14B8A6', '#6366F1']
 
 const H2_STYLE: React.CSSProperties ={ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }
 const fmtBrlShort = (n: number) => n > 0 ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''
@@ -443,7 +445,7 @@ export default function Dashboard() {
               const grupos = [
                 ...data.captacao_hoje_origem.canais.map((c, i) => ({
                   key: c.label, label: c.label, count: c.count, items: c.conversion_points,
-                  color: CANAL_COLORS[i % CANAL_COLORS.length], openLabel: `${c.label} · pontos de conversão`,
+                  color: isGoogle(c.label) ? GOOGLE_COLOR : CANAL_COLORS[i % CANAL_COLORS.length], openLabel: `${c.label} · pontos de conversão`,
                 })),
                 ...(bases.length ? [{
                   key: 'base', label: 'SDR', count: bases.reduce((s, it) => s + it.count, 0), items: bases,
