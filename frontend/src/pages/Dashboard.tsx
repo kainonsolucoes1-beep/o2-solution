@@ -44,6 +44,7 @@ interface PerformanceData {
   captacao_hoje_origem: {
     bases: { label: string; count: number }[]
     conversion_points: { label: string; count: number }[]
+    canais: { label: string; count: number; conversion_points: { label: string; count: number }[] }[]
   }
   captacao_hoje_origem_por_operador: Record<string, {
     bases: { label: string; count: number }[]
@@ -128,7 +129,10 @@ function ZoneHeader({ children }: { children: React.ReactNode }) {
   )
 }
 
-const H2_STYLE: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }
+// cores dos quadros de canal orgânico no "De onde vieram" (SDR fica em âmbar)
+const CANAL_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#EC4899', '#14B8A6', '#6366F1']
+
+const H2_STYLE: React.CSSProperties ={ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }
 const fmtBrlShort = (n: number) => n > 0 ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''
 
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -225,7 +229,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<{ from: string; to: string } | null>(null)
-  const [origemOpen, setOrigemOpen] = useState<'conv' | 'base' | null>(null)
+  // 'base' = SDR; senão, o nome do canal orgânico aberto (Google, Orgânico...)
+  const [origemOpen, setOrigemOpen] = useState<string | null>(null)
   const [operadorOrigemOpen, setOperadorOrigemOpen] = useState<string | null>(null)
   const [rankMonthOrigemOpen, setRankMonthOrigemOpen] = useState<string | null>(null)
   const [filterOpen, setFilterOpen] = useState(false)
@@ -433,18 +438,26 @@ export default function Dashboard() {
               De onde vieram
             </p>
             {(() => {
-              const conv = data.captacao_hoje_origem.conversion_points
               const bases = data.captacao_hoje_origem.bases
-              if (conv.length === 0 && bases.length === 0) {
+              // um quadro por canal orgânico (Origem da ficha) + um quadro SDR
+              const grupos = [
+                ...data.captacao_hoje_origem.canais.map((c, i) => ({
+                  key: c.label, label: c.label, count: c.count, items: c.conversion_points,
+                  color: CANAL_COLORS[i % CANAL_COLORS.length], openLabel: `${c.label} · pontos de conversão`,
+                })),
+                ...(bases.length ? [{
+                  key: 'base', label: 'SDR', count: bases.reduce((s, it) => s + it.count, 0), items: bases,
+                  color: '#F59E0B', openLabel: 'SDR',
+                }] : []),
+              ]
+              if (grupos.length === 0) {
                 return <p style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Sem captações {filter && !single ? 'no período' : 'no dia'}.</p>
               }
-              const convTotal = conv.reduce((s, it) => s + it.count, 0)
-              const sdrTotal = bases.reduce((s, it) => s + it.count, 0)
-              const total = convTotal + sdrTotal
-              const convPct = total > 0 ? (convTotal / total) * 100 : 0
-              const openItems = origemOpen === 'conv' ? conv : origemOpen === 'base' ? bases : []
-              const openDot = origemOpen === 'conv' ? '#3B82F6' : '#F59E0B'
-              const openLabel = origemOpen === 'conv' ? 'Pontos de conversão' : 'SDR'
+              const total = grupos.reduce((s, g) => s + g.count, 0)
+              const aberto = grupos.find(g => g.key === origemOpen)
+              const openItems = aberto?.items ?? []
+              const openDot = aberto?.color ?? '#F59E0B'
+              const openLabel = aberto?.openLabel ?? ''
               const openMax = Math.max(...openItems.map(it => it.count), 1)
               return (
                 <>
@@ -453,46 +466,30 @@ export default function Dashboard() {
                       <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.02em' }}>{total}</span>
                       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-subtle)', marginLeft: 6 }}>lead{total !== 1 ? 's' : ''} {filter && !single ? 'no período' : 'hoje'}</span>
                     </p>
-                    {convTotal > 0 && sdrTotal > 0 && (
+                    {grupos.length > 1 && (
                       <div style={{ display: 'flex', height: 10, borderRadius: 999, overflow: 'hidden', background: 'var(--bg-subtle)', marginTop: 9 }}>
-                        <span style={{ width: `${convPct}%`, background: '#3B82F6' }} />
-                        <span style={{ width: `${100 - convPct}%`, background: '#F59E0B' }} />
+                        {grupos.map(g => <span key={g.key} style={{ width: `${(g.count / total) * 100}%`, background: g.color }} />)}
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
-                    {convTotal > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 2 }}>
+                    {grupos.map(g => (
                       <button
-                        onClick={() => setOrigemOpen(o => o === 'conv' ? null : 'conv')}
+                        key={g.key}
+                        onClick={() => setOrigemOpen(o => o === g.key ? null : g.key)}
                         style={{
-                          flex: 1, textAlign: 'left', cursor: 'pointer', padding: '12px 14px', borderRadius: 10,
-                          border: `1px solid ${origemOpen === 'conv' ? '#3B82F6' : 'var(--border-lt)'}`,
-                          background: origemOpen === 'conv' ? 'rgba(59,130,246,0.08)' : 'var(--bg-subtle)',
+                          flex: '1 1 110px', textAlign: 'left', cursor: 'pointer', padding: '12px 14px', borderRadius: 10,
+                          border: `1px solid ${origemOpen === g.key ? g.color : 'var(--border-lt)'}`,
+                          background: origemOpen === g.key ? `${g.color}14` : 'var(--bg-subtle)',
                         }}
                       >
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                          <span style={{ width: 7, height: 7, borderRadius: 2, background: '#3B82F6', flexShrink: 0 }} />Orgânico
+                          <span style={{ width: 7, height: 7, borderRadius: 2, background: g.color, flexShrink: 0 }} />{g.label}
                         </span>
-                        <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: 'var(--text-1)', marginTop: 4 }}>{convTotal}</span>
-                        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 1 }}>{conv.length} font{conv.length !== 1 ? 'es' : 'e'}</span>
+                        <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: 'var(--text-1)', marginTop: 4 }}>{g.count}</span>
+                        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 1 }}>{g.items.length} font{g.items.length !== 1 ? 'es' : 'e'}</span>
                       </button>
-                    )}
-                    {sdrTotal > 0 && (
-                      <button
-                        onClick={() => setOrigemOpen(o => o === 'base' ? null : 'base')}
-                        style={{
-                          flex: 1, textAlign: 'left', cursor: 'pointer', padding: '12px 14px', borderRadius: 10,
-                          border: `1px solid ${origemOpen === 'base' ? '#F59E0B' : 'var(--border-lt)'}`,
-                          background: origemOpen === 'base' ? 'rgba(245,158,11,0.08)' : 'var(--bg-subtle)',
-                        }}
-                      >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 650, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                          <span style={{ width: 7, height: 7, borderRadius: 2, background: '#F59E0B', flexShrink: 0 }} />SDR
-                        </span>
-                        <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: 'var(--text-1)', marginTop: 4 }}>{sdrTotal}</span>
-                        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 1 }}>{bases.length} font{bases.length !== 1 ? 'es' : 'e'}</span>
-                      </button>
-                    )}
+                    ))}
                   </div>
                   {origemOpen && (
                     <div style={{

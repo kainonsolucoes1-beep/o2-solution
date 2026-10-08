@@ -86,6 +86,15 @@ _CAMPANHA_ATIVA_STATUSES = {"fila", "disparado_sem_resposta"}
 _STATUS_NAO_TRABALHADO = {"novo", "new", "pending", "sale_not_performed"}
 
 
+def _canal_label(origin) -> str:
+    """Nome do canal orgânico pra exibir: variações de "orgânico" (e origem
+    vazia) viram "Orgânico"; o resto mantém a Origem da ficha (google -> Google)."""
+    o = (origin or "").strip()
+    if not o or "org" in o.lower():
+        return "Orgânico"
+    return o[0].upper() + o[1:].lower()
+
+
 def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_point=None, campanha_status=None, retrabalhado_em=None, status=None, attendant=None):
     """Quem está com a posse do lead pro ranking do Dashboard, nesta ordem:
     dono de renutrição > SDR que prospectou (origem = pessoa) > atendente
@@ -590,10 +599,14 @@ def dashboard_performance(
     )
     bases_count: dict = defaultdict(int)
     conv_points_count: dict = defaultdict(int)
+    # orgânico separado pela Origem da ficha (Google, Site, Orgânico...), cada
+    # canal com os próprios pontos de conversão -- um quadro por canal no card
+    canais_count: dict = defaultdict(lambda: defaultdict(int))
     for origin, notes, conversion_point in hoje_origem_rows:
         if is_organico(origin, conversion_point):
             cp = normalize_conversion_point(conversion_point)
             conv_points_count[cp] += 1
+            canais_count[_canal_label(origin)][cp] += 1
         else:
             bases_count[_drilldown_base_label(conversion_point, notes)] += 1
     captacao_hoje_origem = {
@@ -605,6 +618,17 @@ def dashboard_performance(
             {"label": k, "count": v}
             for k, v in sorted(conv_points_count.items(), key=lambda kv: kv[1], reverse=True)
         ],
+        "canais": sorted(
+            [
+                {
+                    "label": canal,
+                    "count": sum(cps.values()),
+                    "conversion_points": [{"label": k, "count": v} for k, v in sorted(cps.items(), key=lambda kv: kv[1], reverse=True)],
+                }
+                for canal, cps in canais_count.items()
+            ],
+            key=lambda c: c["count"], reverse=True,
+        ),
     }
 
     return {
