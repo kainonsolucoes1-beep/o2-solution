@@ -579,6 +579,8 @@ def update_user(
             # só um operador de Campanhas por vez -- tira a flag de quem tinha
             db.query(User).filter(User.id != user.id, User.is_campanha_operador.is_(True)).update({"is_campanha_operador": False})
         user.is_campanha_operador = body.is_campanha_operador
+    if body.pode_editar_scripts is not None:
+        user.pode_editar_scripts = body.pode_editar_scripts
     db.commit()
     db.refresh(user)
     return user
