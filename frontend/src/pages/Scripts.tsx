@@ -3,6 +3,7 @@ import { Archive, ArchiveRestore, Check, Copy, History, Pencil, Plus, RotateCcw,
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 import { parseUTC } from '../utils/date'
+import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 interface Script {
   id: string
@@ -180,7 +181,8 @@ export default function Scripts() {
             Textos de atendimento da equipe. Toda criação e edição fica registrada no histórico.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <VerComoSlot />
           {data?.is_admin && (
             <button onClick={() => setArquivados(a => !a)} style={btnSec}>
               {arquivados ? <><X size={13} /> Voltar aos ativos</> : <><Archive size={13} /> Ver arquivados</>}
@@ -189,6 +191,7 @@ export default function Scripts() {
           {podeEditar && (
             <button onClick={() => setSelId(NOVO)} style={btnPri}><Plus size={14} /> Novo script</button>
           )}
+          <SinoSlot />
         </div>
       </div>
 
