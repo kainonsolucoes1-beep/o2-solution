@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.api.notificacoes_routes import notificar_novo_lead
 from app.models import Lead, LeadNote, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAMS, team_key_setting, team_rr_index_setting, team_attendant_names
@@ -195,6 +196,7 @@ def create_public_lead(
     # (sem autor: aparece como "Sistema", nao com o nome de um usuario real).
     if lead.notes:
         db.add(LeadNote(lead_id=lead.id, user_id=None, content=lead.notes))
+    notificar_novo_lead(db, lead)
     db.commit()
     db.refresh(lead)
     return {"success": True, "lead_id": str(lead.id)}

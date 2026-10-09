@@ -8,6 +8,7 @@ import requests
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
+from app.api.notificacoes_routes import notificar_novo_lead
 from app.models import Lead, LeadNote, LeadStatusHistory, User
 
 logger = logging.getLogger(__name__)
@@ -366,8 +367,10 @@ def _parse_lead_fields(raw: dict) -> dict:
     return {"name": name, "email": email, "phone": phone, "company": company, "status": status, "attendant": attendant, "origin": origin, "conversion_point": conversion_point, "created_at": created_at, "value_potential": value_potential, "perception": perception, "lost_reason": lost_reason, "lost_message": lost_message, "notes": notes, "ages_raw": ages_raw, "modalidade": modalidade, "categoria": categoria, "current_plan": current_plan, "document": document, "tracking_campaign": tracking_campaign, "tracking_medium": tracking_medium, "tracking_term": tracking_term, "tracking_format": tracking_format, "fbclid": fbclid, "gclid": gclid, "lgpd_processing_opt_in": lgpd_processing_opt_in, "lgpd_communication_opt_in": lgpd_communication_opt_in, "first_interaction_at": first_interaction_at, "last_interaction_at": last_interaction_at, "team": team}
 
 
-def _upsert_lead(db: Session, raw: dict, user_id) -> str:
+def _upsert_lead(db: Session, raw: dict, user_id, avisar: bool = False) -> str:
     """Insere ou atualiza um lead. Retorna 'inserted', 'updated' ou 'skipped'.
+    Com `avisar` (só o sync normal, não o backfill), lead inserido criado nos
+    últimos 2 dias gera o aviso de "novo lead" no sino de todo mundo.
 
     Lead em renutrição (is_renutrucao) ou já trabalhado no o2 Sig (sig_locked) é pulado: o o2 Sig passou a ser o dono
     dele, então o sync não pode mais sobrescrever status/temperatura/notas com
@@ -523,6 +526,8 @@ def _upsert_lead(db: Session, raw: dict, user_id) -> str:
         changed_at=fields["created_at"] or now,
         changed_by="Followize",
     ))
+    if avisar and (fields["created_at"] or now) >= now - timedelta(days=2):
+        notificar_novo_lead(db, lead)
     return "inserted"
 
 
@@ -573,7 +578,7 @@ async def sync_leads_from_followize() -> None:
 
         inserted = updated = skipped = 0
         for raw in raw_leads:
-            result = _upsert_lead(db, raw, default_user.id)
+            result = _upsert_lead(db, raw, default_user.id, avisar=True)
             if result == "inserted":
                 inserted += 1
             elif result == "skipped":

@@ -11,6 +11,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.api.notificacoes_routes import notificar_novo_lead
 from app.models import Lead, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAM_BY_SLUG, team_rr_index_setting, team_attendant_names
@@ -153,6 +154,8 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         user_id=default_user.id if default_user else None,
     )
     db.add(lead)
+    db.flush()
+    notificar_novo_lead(db, lead)
     db.commit()
     logger.info("Lead criado a partir do webhook Meta — leadgen_id=%s lead_id=%s", leadgen_id, lead.id)
 
