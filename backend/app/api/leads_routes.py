@@ -11,7 +11,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
-from app.api.notificacoes_routes import notificar
+from app.api.notificacoes_routes import notificar, notificar_novo_lead
 from app.database import get_db
 from app.lead_utils import extract_base, normalize_conversion_point
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
@@ -136,6 +136,8 @@ def create_lead(
 
     lead = Lead(**lead_data.model_dump(), user_id=current_user.id)
     db.add(lead)
+    db.flush()
+    notificar_novo_lead(db, lead, current_user)
     db.commit()
     db.refresh(lead)
     return lead

@@ -18,6 +18,20 @@ def notificar(db: Session, destinatario_id, por: User, texto: str, lead_id=None)
     db.add(Notificacao(user_id=destinatario_id, lead_id=lead_id, texto=texto[:300]))
 
 
+def notificar_novo_lead(db: Session, lead, por: User | None = None) -> None:
+    """Avisa todos os usuários ativos que entrou um lead novo (site, Meta,
+    Followize ou cadastro manual). Quem cadastrou na mão não recebe. Não faz
+    commit -- vai junto com a criação do lead (que precisa ter id)."""
+    texto = f"Novo lead: {lead.name} — {(lead.origin or '').strip() or 'sem origem'}"
+    if (lead.attendant or "").strip():
+        texto += f" · atendente {lead.attendant.strip()}"
+    ids = [uid for (uid,) in db.query(User.id).filter(User.is_active.is_(True)).all()]
+    db.add_all([
+        Notificacao(user_id=uid, lead_id=lead.id, texto=texto[:300])
+        for uid in ids if not por or uid != por.id
+    ])
+
+
 @router.get("")
 def listar_notificacoes(
     current_user: User = Depends(get_current_user),
