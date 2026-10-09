@@ -19,16 +19,23 @@ def notificar(db: Session, destinatario_id, por: User, texto: str, lead_id=None)
 
 
 def notificar_novo_lead(db: Session, lead, por: User | None = None) -> None:
-    """Avisa todos os usuários ativos que entrou um lead novo (site, Meta,
-    Followize ou cadastro manual). Quem cadastrou na mão não recebe. Não faz
-    commit -- vai junto com a criação do lead (que precisa ter id)."""
+    """Avisa que entrou um lead novo (site, Meta, Followize ou cadastro manual).
+    Gestão (admin, diretor, financeiro, coordenador, supervisor) recebe de todo
+    lead; usuario/comercial só do próprio -- atendente ou origem com o nome
+    dele. Quem cadastrou na mão não recebe. Não faz commit -- vai junto com a
+    criação do lead (que precisa ter id)."""
     texto = f"Novo lead: {lead.name} — {(lead.origin or '').strip() or 'sem origem'}"
     if (lead.attendant or "").strip():
         texto += f" · atendente {lead.attendant.strip()}"
-    ids = [uid for (uid,) in db.query(User.id).filter(User.is_active.is_(True)).all()]
+    do_lead = {(lead.attendant or "").strip().lower(), (lead.origin or "").strip().lower()} - {""}
+    users = db.query(User.id, User.role, User.first_name, User.username).filter(User.is_active.is_(True)).all()
     db.add_all([
         Notificacao(user_id=uid, lead_id=lead.id, texto=texto[:300])
-        for uid in ids if not por or uid != por.id
+        for uid, role, first_name, username in users
+        if (not por or uid != por.id) and (
+            role not in ("usuario", "comercial")
+            or {(first_name or "").strip().lower(), (username or "").strip().lower()} & do_lead
+        )
     ])
 
 
