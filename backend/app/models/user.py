@@ -34,5 +34,8 @@ class User(Base):
     # ("Isaac"), pra funcionar em qualquer ambiente e sobreviver a troca de
     # pessoa/conta sem precisar mexer em código.
     is_campanha_operador = Column(Boolean, nullable=False, server_default='false', default=False)
+    # exceção pro perfil 'usuario' poder editar a aba Scripts (os outros perfis
+    # já editam) -- ver scripts_routes.pode_editar_scripts
+    pode_editar_scripts = Column(Boolean, nullable=False, server_default='false', default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())

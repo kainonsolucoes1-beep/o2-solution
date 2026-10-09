@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, UserRound, Megaphone, Bell, Clock, AlertTriangle,
+  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, ScrollText, UserRound, Megaphone, Bell, Clock, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
@@ -32,6 +32,7 @@ const NAV = [
   { to: '/leads-report',     label: 'Relatório',        Icon: FileText,        adminOnly: false },
   { to: '/gestao-comercial', label: 'Gestão Comercial', Icon: Briefcase,       adminOnly: false },
   { to: '/agenda',           label: 'Agenda',           Icon: CalendarDays,    adminOnly: false },
+  { to: '/scripts',          label: 'Scripts',          Icon: ScrollText,      adminOnly: false },
   { to: '/kpis',             label: 'Performance',      Icon: TrendingUp,      adminOnly: false },
   { to: '/telefonia',        label: 'Telefonia',        Icon: Phone,           adminOnly: true  },
 ]

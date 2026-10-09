@@ -22,6 +22,7 @@ from app.models import User, Lead, LeadNote, LeadStatusHistory, AppSettings
 from app.models.form_user import FormUser
 from app.schemas.lead import LeadCreate, LeadResponse
 from app.api import auth_routes
+from app.api import scripts_routes
 from app.api import leads_routes
 from app.api import dashboard_routes
 from app.api import pipeline_routes
@@ -81,6 +82,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS campanha_canal VARCHAR(20)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS campanha_status VARCHAR(30)"))
     _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_campanha_operador BOOLEAN NOT NULL DEFAULT false"))
+    _conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS pode_editar_scripts BOOLEAN NOT NULL DEFAULT false"))
     _conn.execute(text("CREATE INDEX IF NOT EXISTS idx_login_events_user_created ON login_events(user_id, created_at DESC)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS aviso_previo BOOLEAN NOT NULL DEFAULT false"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_faturamento_previsto TIMESTAMP"))
@@ -194,6 +196,7 @@ app.include_router(financeiro_routes.router)
 app.include_router(campanhas_routes.router)
 app.include_router(notificacoes_routes.router)
 app.include_router(emissao_routes.router)
+app.include_router(scripts_routes.router)
 
 _FORM_USERS_SEED = [
     ("isaac",        "Isaac",        "",           "isaac@equipe.com",         "$2b$12$nNCX6xqvp1CPBWT2VmQQxeRymHfesflUbRrRt5CTo5Je0TKnKnOTS"),
@@ -235,6 +238,7 @@ def _seed_form_users(db_session):
 async def startup_event():
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS conversion_point VARCHAR(255)"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS pode_editar_scripts BOOLEAN NOT NULL DEFAULT false"))
         conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS celular_cor VARCHAR(20)"))
         conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS descricao VARCHAR(255)"))
         conn.execute(text("ALTER TABLE lead_parcelas ADD COLUMN IF NOT EXISTS manual BOOLEAN NOT NULL DEFAULT false"))
