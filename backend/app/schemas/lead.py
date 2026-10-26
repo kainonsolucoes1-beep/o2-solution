@@ -328,6 +328,8 @@ class ScheduleItem(BaseModel):
     is_active: bool
     created_by: Optional[str] = None
     created_at: datetime
+    concluido_em: Optional[datetime] = None
+    concluido_por: Optional[str] = None
 
     class Config:
         from_attributes = True

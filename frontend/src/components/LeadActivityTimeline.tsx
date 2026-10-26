@@ -258,7 +258,9 @@ export default function LeadActivityTimeline({
                     <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
                       <b style={{ color: 'var(--text-1)', fontWeight: 700 }}>{ev.by ?? 'Sistema'}</b> agendou um retorno para{' '}
                       <b style={{ color: '#2563EB', fontWeight: 700 }}>{fmtDate(ev.scheduledAt)}</b>
-                      {!ev.active && <span style={{ color: 'var(--text-subtle)', fontStyle: 'normal' }}> (substituído)</span>}
+                      {ev.concluidoEm
+                        ? <span style={{ color: 'var(--success)', fontWeight: 600 }}> · ✓ concluído por {ev.concluidoPor ?? '—'} em {fmtDate(ev.concluidoEm)}</span>
+                        : !ev.active && <span style={{ color: 'var(--text-subtle)', fontStyle: 'normal' }}> (substituído)</span>}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginTop: 5 }}>{fmtDate(ev.at)}</div>
                   </div>
