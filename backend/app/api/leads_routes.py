@@ -101,6 +101,21 @@ def _assert_renutricao_unlocked(lead, user: User) -> None:
     lead.sig_locked = True
 
 
+def _concluir_agendamento_vencido(db: Session, lead_id, user: User) -> None:
+    """Tratativa feita: a partir do dia agendado (inclusive atrasado), uma ação
+    da pessoa no lead -- nota, status, ficha ou reagendar -- conclui o
+    agendamento e ele sai da agenda, com quem/quando. Antes do dia não mexe
+    (o retorno ainda não chegou). Só rotas de usuário chamam isto: sync do
+    Followize e rodízio nunca concluem."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    hoje_br = (now - BR_OFFSET).date()
+    for s in db.query(LeadSchedule).filter(LeadSchedule.lead_id == lead_id, LeadSchedule.is_active.is_(True)).all():
+        if (s.scheduled_at - BR_OFFSET).date() <= hoje_br:
+            s.is_active = False
+            s.concluido_em = now
+            s.concluido_por = user.first_name or user.username
+
+
 @router.get("/leads", response_model=List[LeadResponse])
 def list_leads(
     current_user: User = Depends(get_current_user),
@@ -662,6 +677,7 @@ def update_lead_status(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
+    _concluir_agendamento_vencido(db, lead.id, current_user)
     prev_status = lead.status
     actor = current_user.first_name or current_user.username
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -968,6 +984,7 @@ def update_lead_info(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
+    _concluir_agendamento_vencido(db, lead.id, current_user)
 
     # Rastro da edicao, como nota: nome, empresa, CPF/CNPJ e telefone sempre, de qualquer
     # usuario (dados de identificacao do cliente). Coordenador enxerga e edita
@@ -1263,6 +1280,7 @@ def registrar_venda(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
+    _concluir_agendamento_vencido(db, lead.id, current_user)
     try:
         data_venda, _ = br_date_to_utc_range(body.data_venda)
     except ValueError:
@@ -1295,6 +1313,7 @@ def faturar_venda(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
+    _concluir_agendamento_vencido(db, lead.id, current_user)
     pendente = lead.receita_real_a_receber or 0
     lead.receita_real_recebida = (lead.receita_real_recebida or 0) + pendente
     lead.receita_real_a_receber = 0
@@ -1424,6 +1443,7 @@ def create_schedule(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
+    _concluir_agendamento_vencido(db, lead.id, current_user)
     db.query(LeadSchedule).filter(
         LeadSchedule.lead_id == lead_id, LeadSchedule.is_active.is_(True)
     ).update({"is_active": False})
@@ -1708,6 +1728,7 @@ def create_lead_note(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
     _assert_renutricao_unlocked(lead, current_user)
+    _concluir_agendamento_vencido(db, lead.id, current_user)
     note = LeadNote(lead_id=lead.id, user_id=current_user.id, content=body.content)
     db.add(note)
     if 'renutrição' in body.content.lower():

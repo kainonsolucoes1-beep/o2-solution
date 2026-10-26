@@ -139,6 +139,11 @@ class LeadSchedule(Base):
     is_active = Column(Boolean, default=True, nullable=False, server_default='true')
     created_by = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    # tratativa feita: do dia agendado em diante, mexer no lead (nota, status,
+    # ficha) conclui o agendamento -- is_active vira False e grava quem/quando.
+    # Vazio + is_active False = cancelado/substituído por outro agendamento.
+    concluido_em = Column(TIMESTAMP, nullable=True)
+    concluido_por = Column(String(255), nullable=True)
 
 
 class LeadAttachment(Base):

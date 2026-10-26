@@ -79,6 +79,8 @@ interface ScheduleItem {
   is_active: boolean
   created_by: string | null
   created_at: string
+  concluido_em?: string | null
+  concluido_por?: string | null
 }
 
 export interface Me {
@@ -92,7 +94,7 @@ export interface Me {
 export type ActivityEvent =
   | { kind: 'status'; historyId: string | null; at: string; status: string | null; by: string | null; isCreation: boolean; durationMs: number; ongoing: boolean }
   | { kind: 'note'; id: string; userId: string | null; at: string; content: string; by: string; editedAt: string | null; editedBy: string | null }
-  | { kind: 'schedule'; at: string; scheduledAt: string; by: string | null; active: boolean }
+  | { kind: 'schedule'; at: string; scheduledAt: string; by: string | null; active: boolean; concluidoEm: string | null; concluidoPor: string | null }
 
 export type ActivityFilter = 'Todos' | 'Status' | 'Notas'
 
@@ -188,6 +190,21 @@ export default function LeadDetailPage() {
       .finally(() => { if (!cancelled) setLoadingSchedules(false) })
     return () => { cancelled = true }
   }, [id])
+
+  // Agendamento vencido (hoje ou atrasado) é concluído no backend quando a
+  // pessoa salva nota, status ou dados do lead -- recarrega pra ele sair do
+  // "Agendado para" sem precisar recarregar a página.
+  useEffect(() => {
+    const ativo = schedules.find(s => s.is_active)
+    if (!id || !ativo) return
+    const fimDeHoje = new Date()
+    fimDeHoje.setHours(23, 59, 59, 999)
+    if (parseUTC(ativo.scheduled_at) > fimDeHoje.getTime()) return
+    api.get<{ schedules: ScheduleItem[] }>(`/api/v1/leads/${id}/schedule-history`)
+      .then(r => setSchedules(r.data.schedules))
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes, status, lead])
 
   useEffect(() => {
     if (!toast) return
@@ -522,7 +539,7 @@ export default function LeadDetailPage() {
   const activity: ActivityEvent[] = [
     ...timeline.map(t => ({ kind: 'status' as const, historyId: t.historyId, at: t.at, status: t.status, by: t.by, isCreation: t.isCreation, durationMs: t.durationMs, ongoing: t.ongoing })),
     ...notes.map(n => ({ kind: 'note' as const, id: n.id, userId: n.user_id, at: n.created_at, content: n.content, by: n.created_by, editedAt: n.edited_at, editedBy: n.edited_by })),
-    ...schedules.map(s => ({ kind: 'schedule' as const, at: s.created_at, scheduledAt: s.scheduled_at, by: s.created_by, active: s.is_active })),
+    ...schedules.map(s => ({ kind: 'schedule' as const, at: s.created_at, scheduledAt: s.scheduled_at, by: s.created_by, active: s.is_active, concluidoEm: s.concluido_em ?? null, concluidoPor: s.concluido_por ?? null })),
   ].sort((a, b) => parseUTC(b.at) - parseUTC(a.at))
 
   const visibleActivity = activityFilter === 'Todos' ? activity
