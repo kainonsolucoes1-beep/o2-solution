@@ -112,7 +112,7 @@ ORGANICO_EXTRA  = {"site", "chatgpt.com", "chatgpt", "google", "instagram", "fac
 
 def _is_organico(origin: str) -> bool:
     lower = origin.lower()
-    return "org" in lower or lower in ORGANICO_EXTRA
+    return "org" in lower or lower in ORGANICO_EXTRA or lower.strip().startswith("site")
 
 
 def _ranking_bucket(origin: str) -> str | None:

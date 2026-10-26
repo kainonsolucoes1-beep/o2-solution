@@ -78,6 +78,7 @@ def _apply_lead_visibility_filter(orm_execute_state):
                 cls.origin.in_(select(User.first_name).where(User.role == "usuario", User.first_name.isnot(None))),
                 cls.origin.in_(select(User.username).where(User.role == "usuario")),
                 func.lower(cls.origin).like("%org%"),
+                func.lower(func.trim(cls.origin)).like("site%"),
                 func.lower(cls.origin).in_(organico_values),
                 func.lower(cls.conversion_point) == "chatgpt.com",
                 cls.origin == own_name,
