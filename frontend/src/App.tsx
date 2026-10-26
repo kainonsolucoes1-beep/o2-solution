@@ -26,6 +26,7 @@ import CampanhasFila from './pages/CampanhasFila'
 import CampanhasTemplates from './pages/CampanhasTemplates'
 import CampanhasDashboard from './pages/CampanhasDashboard'
 import Layout from './components/Layout'
+import NovaVersaoAviso from './components/NovaVersaoAviso'
 import { ThemeProvider } from './ThemeContext'
 
 // tarja fixa quando rodando em staging.o2sig.com.br — não afeta produção
@@ -103,6 +104,7 @@ export default function App() {
   return (
     <ThemeProvider>
     <StagingBanner />
+    <NovaVersaoAviso />
     <RoleSwitcher />
     <BrowserRouter>
       <Routes>
