@@ -3,7 +3,8 @@
 // próprio nas contagens, mas não é SDR.
 const ORGANICO_EXTRA = new Set(['site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'facebook', 'whatsapp', 'meta ads'])
 
-export const isOrganico = (o: string) => o.toLowerCase().includes('org') || ORGANICO_EXTRA.has(o.toLowerCase())
+// "Site - Porto Saúde Linha Bairro" etc.: formulário de site é orgânico
+export const isOrganico = (o: string) => o.toLowerCase().includes('org') || ORGANICO_EXTRA.has(o.toLowerCase()) || o.trim().toLowerCase().startsWith('site')
 export const isGoogle   = (o: string) => o.trim().toLowerCase() === 'google'
 
 export type GrupoCanal = 'SDR' | 'Orgânico' | 'Google'

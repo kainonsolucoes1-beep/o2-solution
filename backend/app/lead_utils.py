@@ -121,8 +121,9 @@ ORGANICO_EXTRA = {'site', 'chatgpt.com', 'chatgpt', 'google', 'instagram', 'face
 def is_organico(origin: str | None, conversion_point: str | None = None) -> bool:
     if (conversion_point or '').strip().lower() == 'chatgpt.com':
         return True
-    o = (origin or '').lower()
-    return 'org' in o or o in ORGANICO_EXTRA
+    o = (origin or '').strip().lower()
+    # "Site - Porto Saúde Linha Bairro" etc.: formulário de site é orgânico
+    return 'org' in o or o in ORGANICO_EXTRA or o.startswith('site')
 
 
 # Google tem grupo próprio nas contagens (SDR / Orgânico / Google), mas

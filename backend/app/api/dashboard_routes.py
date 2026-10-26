@@ -92,7 +92,9 @@ def _canal_label(origin) -> str:
     o = (origin or "").strip()
     if not o or "org" in o.lower():
         return "Orgânico"
-    return o[0].upper() + o[1:].lower()
+    # só padroniza grafia toda minúscula (google -> Google); nome já escrito
+    # com maiúsculas fica como veio ("Site - Porto Saúde Linha Bairro")
+    return o[0].upper() + o[1:] if o == o.lower() else o
 
 
 def _operador_do_lead(origin, owner_id, owner_names, person_names, conversion_point=None, campanha_status=None, retrabalhado_em=None, status=None, attendant=None):
