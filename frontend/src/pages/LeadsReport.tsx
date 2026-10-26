@@ -480,7 +480,7 @@ export default function LeadsReport() {
     else if (renutFilter === 'fora') params.sem_renutricao = true
     if (statusFilter) params.status = closedSubStatus || statusFilter
     if (perceptionFilter) params.perception = perceptionFilter
-    if (isAdmin && modalidadeFilter) params.modalidade = modalidadeFilter
+    if (modalidadeFilter) params.modalidade = modalidadeFilter
     if (conversionPointFilter) params.conversion_point = conversionPointFilter
     if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
     if (teamFilter) params.team = teamFilter
@@ -1317,22 +1317,22 @@ export default function LeadsReport() {
                       )}
                     </div>
 
-                    {isAdmin && (
-                      <div className="flex flex-col gap-1">
-                        <label style={labelStyle}>Modalidade</label>
-                        <select
-                          value={modalidadeFilter}
-                          onChange={e => setModalidadeFilter(e.target.value)}
-                          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          style={{ color: 'var(--text-2)', width: '100%' }}
-                        >
-                          <option value="">Todas</option>
-                          {modalidades.map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Modalidade</label>
+                      <select
+                        value={modalidadeFilter}
+                        onChange={e => setModalidadeFilter(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', width: '100%' }}
+                      >
+                        <option value="">Todas</option>
+                        {/* valor vindo de um clique (ex.: "Não informado" em Gestão
+                            Comercial) que não está na lista fixa também aparece */}
+                        {(modalidadeFilter && !modalidades.includes(modalidadeFilter) ? [...modalidades, modalidadeFilter] : modalidades).map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
 
                     {isAdmin && (
                       <div className="flex flex-col gap-1">
