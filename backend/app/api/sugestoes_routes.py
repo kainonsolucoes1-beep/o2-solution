@@ -89,7 +89,7 @@ def _dict(s: Sugestao, imagens: list[SugestaoImagem], eventos: list[SugestaoEven
         "pode_editar": _pode_editar(s, user),
         "imagens": [
             {
-                "id": str(i.id), "nome": i.file_name,
+                "id": str(i.id), "nome": i.file_name, "tipo": i.content_type, "tamanho": i.file_size,
                 # link temporário, aberto no navegador (miniatura e ampliação)
                 "url": storage_r2.presigned_download_url(i.storage_key, i.file_name, expires_in=3600, inline=True),
             }

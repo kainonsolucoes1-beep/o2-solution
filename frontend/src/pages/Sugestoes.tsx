@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Circle, History, ImagePlus, Loader, Pencil, Send, Trash2, X } from 'lucide-react'
+import { CheckCircle2, Circle, History, Image as ImageIcon, ImagePlus, Loader, Pencil, Send, Trash2, X } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 import { parseUTC } from '../utils/date'
@@ -7,7 +7,7 @@ import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 type Status = 'pendente' | 'andamento' | 'concluido'
 
-interface Imagem { id: string; nome: string; url: string }
+interface Imagem { id: string; nome: string; tipo: string; tamanho: number; url: string }
 interface Evento { acao: 'criada' | 'editada' | 'status'; detalhe: string | null; por: string | null; em: string | null }
 interface Sugestao {
   id: string
@@ -50,6 +50,33 @@ function validarArquivos(files: File[], jaTem: number): string | null {
   const grande = files.find(f => f.size > MAX_BYTES)
   if (grande) return `"${grande.name}" passa de 10 MB.`
   return null
+}
+
+const fmtTamanho = (b: number) => b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`
+const fmtTipo = (tipo: string, nome: string) => (tipo === 'image/png' || nome.toLowerCase().endsWith('.png')) ? 'PNG' : 'JPG'
+
+// Anexo em linha compacta (nome · tipo · tamanho): clicar abre a imagem
+// ampliada; o × (quando pode) remove. Usado nos cards e antes de enviar.
+function AnexoLinha({ nome, tipo, tamanho, onAbrir, onRemover }: {
+  nome: string; tipo: string; tamanho: number; onAbrir: () => void; onRemover?: () => void
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 9, border: '1px solid var(--border-lt)', background: 'var(--bg-subtle)', maxWidth: 520 }}>
+      <ImageIcon size={15} style={{ flexShrink: 0, color: 'var(--accent)' }} />
+      <button onClick={onAbrir} title="Abrir imagem"
+        style={{ flex: 1, minWidth: 0, padding: 0, border: 'none', background: 'none', textAlign: 'left', cursor: 'zoom-in', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {nome}
+      </button>
+      <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>{fmtTipo(tipo, nome)}</span>
+      <span style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-subtle)', minWidth: 48, textAlign: 'right' }}>{fmtTamanho(tamanho)}</span>
+      {onRemover && (
+        <button onClick={onRemover} aria-label={`Remover ${nome}`} title="Remover"
+          style={{ flexShrink: 0, display: 'flex', padding: 2, border: 'none', background: 'none', color: 'var(--text-subtle)', cursor: 'pointer' }}>
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  )
 }
 
 const card: React.CSSProperties = { background: 'var(--bg-card)', borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
@@ -141,16 +168,12 @@ export default function Sugestoes() {
           placeholder="Descreva o que você precisa, onde no sistema e por quê. Se ajudar, anexe prints de exemplo."
           style={textareaStyle}
         />
-        {previews.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {previews.map((u, i) => (
-              <div key={u} style={{ position: 'relative' }}>
-                <img src={u} alt={arquivos[i]?.name ?? ''} style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 9, border: '1px solid var(--border)' }} />
-                <button onClick={() => setArquivos(a => a.filter((_, j) => j !== i))} aria-label={`Remover ${arquivos[i]?.name ?? 'imagem'}`}
-                  style={{ position: 'absolute', top: -7, right: -7, width: 22, height: 22, borderRadius: 999, border: 'none', background: '#0F172A', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <X size={12} />
-                </button>
-              </div>
+        {arquivos.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {arquivos.map((f, i) => (
+              <AnexoLinha key={previews[i] ?? f.name + i} nome={f.name} tipo={f.type} tamanho={f.size}
+                onAbrir={() => previews[i] && setAmpliada(previews[i])}
+                onRemover={() => setArquivos(a => a.filter((_, j) => j !== i))} />
             ))}
           </div>
         )}
@@ -269,20 +292,13 @@ function SugestaoCard({ s, isAdmin, onChange, onRemovida, onAmpliar }: {
       )}
 
       {s.imagens.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {s.imagens.map(img => (
-            <div key={img.id} style={{ position: 'relative' }}>
-              <button onClick={() => onAmpliar(img.url)} aria-label={`Ampliar ${img.nome}`} style={{ padding: 0, border: 'none', background: 'none', cursor: 'zoom-in' }}>
-                <img src={img.url} alt={img.nome} style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 9, border: '1px solid var(--border)', display: 'block' }} />
-              </button>
-              {s.pode_editar && (
-                <button onClick={() => window.confirm('Remover esta imagem?') && acao(api.delete<Sugestao>(`/api/v1/sugestoes/${s.id}/imagens/${img.id}`), 'Não foi possível remover.')}
-                  aria-label={`Remover ${img.nome}`}
-                  style={{ position: 'absolute', top: -7, right: -7, width: 22, height: 22, borderRadius: 999, border: 'none', background: '#0F172A', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <X size={12} />
-                </button>
-              )}
-            </div>
+            <AnexoLinha key={img.id} nome={img.nome} tipo={img.tipo} tamanho={img.tamanho}
+              onAbrir={() => onAmpliar(img.url)}
+              onRemover={s.pode_editar
+                ? () => { if (window.confirm('Remover esta imagem?')) acao(api.delete<Sugestao>(`/api/v1/sugestoes/${s.id}/imagens/${img.id}`), 'Não foi possível remover.') }
+                : undefined} />
           ))}
         </div>
       )}
