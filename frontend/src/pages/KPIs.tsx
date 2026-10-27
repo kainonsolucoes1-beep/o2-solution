@@ -850,30 +850,44 @@ export default function KPIs() {
   // que importa é o total de captação por origem crua de SDR, então continua
   // batendo em `data` (por origem), não na posse por renutrição.
   const sdrFontes = data.filter(d => isSdr(d.fonte)).sort((a, b) => b.captacoes - a.captacoes)
-  // Aquisição › Canais: a captação via SDR também é um canal -- entra como
-  // uma linha só ("Prospecção SDR", somando todos os operadores), pra aba
-  // fechar com o total de leads. O detalhe por base fica em Bases.
-  const canaisDisplay: (FonteData & { _origens?: string[] })[] = (() => {
-    if (sdrFontes.length === 0) return organicFontes
-    const cap = sdrFontes.reduce((s, f) => s + f.captacoes, 0)
-    const ven = sdrFontes.reduce((s, f) => s + f.vendas, 0)
-    const can = sdrFontes.reduce((s, f) => s + f.cancelados, 0)
-    const tempoRows = sdrFontes.filter(f => f.tempo_medio_dias != null && f.vendas > 0)
+  // Soma várias origens numa linha só da aba Canais, guardando as origens em
+  // _origens pro detalhamento (clique) trazer os leads de todas elas.
+  const somarFontes = (fonte: string, rows: FonteData[]): FonteData & { _origens: string[] } => {
+    const cap = rows.reduce((s, f) => s + f.captacoes, 0)
+    const ven = rows.reduce((s, f) => s + f.vendas, 0)
+    const can = rows.reduce((s, f) => s + f.cancelados, 0)
+    const tempoRows = rows.filter(f => f.tempo_medio_dias != null && f.vendas > 0)
     const tempoPeso = tempoRows.reduce((s, f) => s + f.vendas, 0)
-    return [...organicFontes, {
-      fonte: 'Prospecção SDR',
+    return {
+      fonte,
       captacoes: cap, vendas: ven, cancelados: can,
       conversao: cap > 0 ? +(ven / cap * 100).toFixed(1) : 0,
       tempo_medio_dias: tempoPeso > 0
         ? Math.round((tempoRows.reduce((s, f) => s + (f.tempo_medio_dias as number) * f.vendas, 0) / tempoPeso) * 10) / 10
         : null,
-      receita_gerada: sdrFontes.every(f => f.receita_gerada != null)
-        ? Math.round(sdrFontes.reduce((s, f) => s + (f.receita_gerada ?? 0), 0) * 100) / 100
+      receita_gerada: rows.every(f => f.receita_gerada != null)
+        ? Math.round(rows.reduce((s, f) => s + (f.receita_gerada ?? 0), 0) * 100) / 100
         : null,
       breakdown: [],
-      _origens: sdrFontes.map(f => f.fonte),
-    }].sort((a, b) => b.captacoes - a.captacoes)
+      _origens: rows.map(f => f.fonte),
+    }
+  }
+  // Aquisição › Canais: a captação via SDR também é um canal -- entra como
+  // uma linha só ("Prospecção SDR", somando todos os operadores), pra aba
+  // fechar com o total de leads. O detalhe por base fica em Bases. Formulário
+  // de site ("Site", "Site - Porto Saúde Linha Bairro"...) é fonte do Orgânico,
+  // não canal à parte -- entra somado na linha "Orgânico".
+  const canaisOrganicos: (FonteData & { _origens?: string[] })[] = (() => {
+    const ehOrganicoSite = (f: FonteData) => { const l = f.fonte.trim().toLowerCase(); return l.startsWith('site') || l.includes('org') }
+    const organicoRows = organicFontes.filter(ehOrganicoSite)
+    return organicoRows.length > 0
+      ? [...organicFontes.filter(f => !ehOrganicoSite(f)), somarFontes('Orgânico', organicoRows)]
+      : [...organicFontes]
   })()
+  const canaisDisplay: (FonteData & { _origens?: string[] })[] = [
+    ...canaisOrganicos,
+    ...(sdrFontes.length > 0 ? [somarFontes('Prospecção SDR', sdrFontes)] : []),
+  ].sort((a, b) => b.captacoes - a.captacoes)
   // Aba Agentes / Ranking: quem está com a posse do lead agora (dono de
   // renutrição > origem), não quem só captou um dia — senão quem só faz
   // renutrição (ex: Pamela) nunca aparece, e gente desligada reaparece por
@@ -898,7 +912,7 @@ export default function KPIs() {
   })()
 
   const rankingPool = [
-    ...organicFontes.map(f => ({ ...f, tipo: 'canal' as const })),
+    ...canaisOrganicos.map(f => ({ ...f, tipo: 'canal' as const })),
     ...sdrDisplayFontes.map(f => ({ ...f, tipo: 'operador' as const })),
   ].sort((a, b) => b.captacoes - a.captacoes)
 
@@ -933,7 +947,7 @@ export default function KPIs() {
 
   function openRankRow(row: typeof rankingPool[number], e: React.MouseEvent<HTMLElement>) {
     if (row.tipo === 'canal') {
-      openDrawer('canal', row.fonte, [row.fonte], e.currentTarget)
+      openDrawer('canal', row.fonte, (row as { _origens?: string[] })._origens ?? [row.fonte], e.currentTarget)
     } else {
       const origens = (row as AgenteRow & { _o2Origens?: string[] })._o2Origens?.join(',') ?? row.fonte
       navigate(`/vida-sdr/${encodeURIComponent(origens)}?nome=${encodeURIComponent(row.fonte)}`)
