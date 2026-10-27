@@ -1,5 +1,5 @@
-import { useEffect, useState, type CSSProperties } from 'react'
-import { X, CalendarClock, Clock3, StickyNote, ArrowRight, RotateCcw } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { X, CalendarClock, Clock3, StickyNote, ArrowRight, RotateCcw, Plus, Pencil } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { statusColor, PERCEPTION_STYLE } from '../utils/leadStatus'
@@ -29,7 +29,8 @@ interface TimelineEvent {
 
 interface Peek {
   agendamento: string | null
-  ultima_nota: { text: string; by: string | null; at: string | null } | null
+  ultima_nota: { id: string; text: string; by: string | null; at: string | null; edited_by: string | null; pode_editar: boolean } | null
+  pode_anotar: boolean
   timeline: TimelineEvent[]
   dias_sem_interacao: number | null
   dias_no_status: number | null
@@ -63,28 +64,65 @@ function fmtBRL0(n: number | null) {
 }
 
 const LABEL: CSSProperties = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }
+const LINK_BTN: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 4px', border: 'none', background: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
 
 export default function LeadPeekDrawer({ lead, onClose, onOpenFull }: { lead: PeekLead; onClose: () => void; onOpenFull: () => void }) {
   const [peek, setPeek] = useState<Peek | null>(null)
   const [loading, setLoading] = useState(true)
   const [entered, setEntered] = useState(false)
+  // anotar/editar sem abrir a ficha: 'nova' = nota nova, 'editar' = última nota
+  const [notaModo, setNotaModo] = useState<'nova' | 'editar' | null>(null)
+  const [notaTexto, setNotaTexto] = useState('')
+  const [notaSalvando, setNotaSalvando] = useState(false)
+  const [notaErro, setNotaErro] = useState('')
+  const notaModoRef = useRef(notaModo)
+  notaModoRef.current = notaModo
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setEntered(true))
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    // Esc com o campo de anotação aberto só fecha o campo, não o painel
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (notaModoRef.current) { setNotaModo(null); setNotaErro('') } else onClose()
+    }
     document.addEventListener('keydown', onKey)
     return () => { cancelAnimationFrame(raf); document.removeEventListener('keydown', onKey) }
   }, [onClose])
 
-  useEffect(() => {
+  const carregar = useCallback((silencioso = false) => {
     let alive = true
-    setLoading(true)
+    if (!silencioso) setLoading(true)
     api.get<Peek>(`/api/v1/leads/${lead.id}/peek`)
       .then(r => { if (alive) setPeek(r.data) })
-      .catch(() => { if (alive) setPeek(null) })
+      .catch(() => { if (alive && !silencioso) setPeek(null) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [lead.id])
+
+  useEffect(() => carregar(), [carregar])
+
+  function abrirNota(modo: 'nova' | 'editar') {
+    setNotaModo(modo)
+    setNotaTexto(modo === 'editar' ? (peek?.ultima_nota?.text ?? '') : '')
+    setNotaErro('')
+  }
+
+  function salvarNota() {
+    const content = notaTexto.trim()
+    if (!content || !notaModo) return
+    setNotaSalvando(true)
+    setNotaErro('')
+    const req = notaModo === 'editar' && peek?.ultima_nota
+      ? api.patch(`/api/v1/leads/${lead.id}/notes/${peek.ultima_nota.id}`, { content })
+      : api.post(`/api/v1/leads/${lead.id}/notes`, { content })
+    req
+      .then(() => { setNotaModo(null); setNotaTexto(''); carregar(true) })
+      .catch(err => {
+        const d = err?.response?.data?.detail
+        setNotaErro(typeof d === 'string' ? d : 'Não foi possível salvar a anotação.')
+      })
+      .finally(() => setNotaSalvando(false))
+  }
 
   const sc = statusColor(lead.status)
   const pc = lead.perception ? PERCEPTION_STYLE[lead.perception] : null
@@ -165,17 +203,53 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull }: { lead: Pe
                 </div>
               </div>
 
-              {/* última nota */}
+              {/* última nota -- dá pra anotar e editar a última sem abrir a ficha */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
                   <StickyNote size={13} style={{ color: 'var(--text-muted)' }} />
                   <span style={LABEL}>Última anotação</span>
+                  {peek.pode_anotar && !notaModo && (
+                    <button onClick={() => abrirNota('nova')} style={{ ...LINK_BTN, marginLeft: 'auto' }}>
+                      <Plus size={13} /> Anotar
+                    </button>
+                  )}
                 </div>
-                {peek.ultima_nota ? (
-                  <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5, padding: '10px 12px', borderRadius: 10, background: 'var(--bg-subtle)' }}>
+                {notaModo ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <textarea
+                      autoFocus value={notaTexto} onChange={e => setNotaTexto(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) salvarNota() }}
+                      placeholder={notaModo === 'nova' ? 'Escreva a anotação…' : ''}
+                      aria-label={notaModo === 'nova' ? 'Nova anotação' : 'Editar anotação'}
+                      style={{ width: '100%', minHeight: 90, padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-1)', fontSize: 12.5, lineHeight: 1.5, resize: 'vertical', fontFamily: 'inherit' }}
+                    />
+                    {notaErro && <p style={{ margin: 0, fontSize: 11.5, color: 'var(--danger)' }}>{notaErro}</p>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        onClick={salvarNota} disabled={notaSalvando || !notaTexto.trim()}
+                        style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#2563EB', color: '#fff', fontSize: 12, fontWeight: 700, cursor: notaSalvando || !notaTexto.trim() ? 'not-allowed' : 'pointer', opacity: notaSalvando || !notaTexto.trim() ? 0.5 : 1, fontFamily: 'inherit' }}
+                      >
+                        {notaSalvando ? 'Salvando…' : notaModo === 'nova' ? 'Salvar anotação' : 'Salvar edição'}
+                      </button>
+                      <button onClick={() => { setNotaModo(null); setNotaErro('') }} style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Cancelar
+                      </button>
+                      <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text-subtle)' }}>Ctrl+Enter salva</span>
+                    </div>
+                  </div>
+                ) : peek.ultima_nota ? (
+                  <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5, padding: '10px 12px', borderRadius: 10, background: 'var(--bg-subtle)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                     {peek.ultima_nota.text}
-                    <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 6 }}>
-                      {[peek.ultima_nota.by, peek.ultima_nota.at ? ago(peek.ultima_nota.at) : null].filter(Boolean).join(' · ')}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 6, whiteSpace: 'normal' }}>
+                      <span>
+                        {[peek.ultima_nota.by, peek.ultima_nota.at ? ago(peek.ultima_nota.at) : null].filter(Boolean).join(' · ')}
+                        {peek.ultima_nota.edited_by && <span title={`Editado por ${peek.ultima_nota.edited_by}`} style={{ fontStyle: 'italic' }}> · editado</span>}
+                      </span>
+                      {peek.pode_anotar && peek.ultima_nota.pode_editar && (
+                        <button onClick={() => abrirNota('editar')} style={{ ...LINK_BTN, marginLeft: 'auto', fontSize: 11 }}>
+                          <Pencil size={11} /> Editar
+                        </button>
+                      )}
                     </div>
                   </div>
                 ) : (
