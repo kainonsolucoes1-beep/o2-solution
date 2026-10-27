@@ -23,6 +23,7 @@ from app.models.form_user import FormUser
 from app.schemas.lead import LeadCreate, LeadResponse
 from app.api import auth_routes
 from app.api import scripts_routes
+from app.api import sugestoes_routes
 from app.api import leads_routes
 from app.api import dashboard_routes
 from app.api import pipeline_routes
@@ -199,6 +200,7 @@ app.include_router(campanhas_routes.router)
 app.include_router(notificacoes_routes.router)
 app.include_router(emissao_routes.router)
 app.include_router(scripts_routes.router)
+app.include_router(sugestoes_routes.router)
 
 _FORM_USERS_SEED = [
     ("isaac",        "Isaac",        "",           "isaac@equipe.com",         "$2b$12$nNCX6xqvp1CPBWT2VmQQxeRymHfesflUbRrRt5CTo5Je0TKnKnOTS"),

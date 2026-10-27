@@ -22,6 +22,7 @@ import VidaSDR from './pages/VidaSDR'
 import RelatorioProducao from './pages/RelatorioProducao'
 import Agenda from './pages/Agenda'
 import Scripts from './pages/Scripts'
+import Sugestoes from './pages/Sugestoes'
 import CampanhasFila from './pages/CampanhasFila'
 import CampanhasTemplates from './pages/CampanhasTemplates'
 import CampanhasDashboard from './pages/CampanhasDashboard'
@@ -134,6 +135,7 @@ export default function App() {
           <Route path="/relatorio-producao" element={<RelatorioProducao />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/scripts" element={<Scripts />} />
+          <Route path="/sugestoes" element={<Sugestoes />} />
         </Route>
       </Routes>
     </BrowserRouter>

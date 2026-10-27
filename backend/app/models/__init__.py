@@ -9,3 +9,4 @@ from app.models.sdr_meta import SdrMeta, SdrMetaMensal
 from app.models.login_event import LoginEvent
 from app.models.trusted_device import TrustedDevice
 from app.models.script import Script, ScriptVersao
+from app.models.sugestao import Sugestao, SugestaoImagem, SugestaoEvento
