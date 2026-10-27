@@ -14,6 +14,7 @@ from app.api.auth_routes import get_current_user
 from app.api.notificacoes_routes import notificar, notificar_novo_lead
 from app.database import get_db
 from app.lead_utils import extract_base, normalize_conversion_point
+from app.lead_scope import own_leads_clause
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.operadoras import get_operadoras
 from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads
@@ -194,6 +195,7 @@ def leads_by_period(
     renutricao: bool = Query(False),
     sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
     stale_days: int = Query(0, ge=0, le=365, description="só leads ainda ativos e sem movimento há N+ dias"),
+    estrito: bool = Query(False, description="aberto por um clique na Gestão Comercial: mesmo recorte dela"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=10000),
     ids_only: bool = Query(False, description="Retorna só {ids, total} de TODOS os leads do filtro (sem paginar) — pra 'selecionar tudo'"),
@@ -243,11 +245,15 @@ def leads_by_period(
             # lead de renutrição ainda não retrabalhado (só atribuído) tem data
             # efetiva antiga -- pra quem trabalha a carteira (fila) ou no modo
             # renutrição, mostra mesmo assim.
-            if renutricao or needs_own_origin_filter(current_user) or restrict_to_usuario_leads(current_user):
+            # Aberto por um clique na Gestão Comercial (estrito), usa o mesmo
+            # recorte dela -- só o período -- pra lista bater com o número clicado.
+            if not estrito and (renutricao or needs_own_origin_filter(current_user) or restrict_to_usuario_leads(current_user)):
                 q = q.filter(or_(date_clause, Lead.is_renutrucao.is_(True)))
             else:
                 q = q.filter(date_clause)
-        if needs_own_origin_filter(current_user):
+        if needs_own_origin_filter(current_user) and estrito:
+            q = q.filter(own_leads_clause(current_user))
+        elif needs_own_origin_filter(current_user):
             _own_clause = or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id)
             # perfil usuario tambem enxerga o que estiver atribuido a ele como
             # atendente (Lead.attendant) -- cobre leads de origem "Meta Ads" /
@@ -375,6 +381,7 @@ def leads_report_stats(
     renutricao: bool = Query(False),
     sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
     stale_days: int = Query(0, ge=0, le=365, description="só leads ainda ativos e sem movimento há N+ dias"),
+    estrito: bool = Query(False, description="aberto por um clique na Gestão Comercial: mesmo recorte dela"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -423,11 +430,15 @@ def leads_report_stats(
             # lead de renutrição ainda não retrabalhado (só atribuído) tem data
             # efetiva antiga -- pra quem trabalha a carteira (fila) ou no modo
             # renutrição, mostra mesmo assim.
-            if renutricao or needs_own_origin_filter(current_user) or restrict_to_usuario_leads(current_user):
+            # Aberto por um clique na Gestão Comercial (estrito), usa o mesmo
+            # recorte dela -- só o período -- pra lista bater com o número clicado.
+            if not estrito and (renutricao or needs_own_origin_filter(current_user) or restrict_to_usuario_leads(current_user)):
                 q = q.filter(or_(date_clause, Lead.is_renutrucao.is_(True)))
             else:
                 q = q.filter(date_clause)
-        if needs_own_origin_filter(current_user):
+        if needs_own_origin_filter(current_user) and estrito:
+            q = q.filter(own_leads_clause(current_user))
+        elif needs_own_origin_filter(current_user):
             _own_clause = or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id)
             # perfil usuario tambem enxerga o que estiver atribuido a ele como
             # atendente (Lead.attendant) -- cobre leads de origem "Meta Ads" /

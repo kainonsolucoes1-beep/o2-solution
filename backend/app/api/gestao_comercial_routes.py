@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
 from app.api.dashboard_routes import _owner_names, _person_name_set
+from app.lead_scope import own_leads_clause
 from app.br_calendar import business_days_in_month
 from app.database import get_db
 from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
@@ -173,9 +174,9 @@ def _scope_clause(team: str | None, current_user: User):
     time/periodo informado na tela."""
     clause = _team_clause(team)
     if needs_own_origin_filter(current_user):
-        my_name = current_user.first_name or current_user.username
-        # inclui os leads de renutrição atribuídos a ele (origem é a original)
-        clause = [*clause, or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id)]
+        # origem = nome dele, renutrição dele e (perfil usuario) lead novo do
+        # rodízio em que ele é o atendente -- ver lead_scope.own_leads_clause
+        clause = [*clause, own_leads_clause(current_user)]
     return clause
 
 
