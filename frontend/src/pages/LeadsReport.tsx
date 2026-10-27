@@ -324,6 +324,9 @@ export default function LeadsReport() {
     return (q || (cameFromUrlFilters ? '' : storedFilters.renutFilter ?? '')) as '' | 'em' | 'fora'
   })
   const vencidosFilter = searchParams.get('vencidos') === '1'
+  // aberto por um clique na Gestão Comercial: mesmo recorte dela (só o período,
+  // sem a carteira inteira de renutrição) pra lista bater com o número clicado
+  const [estrito, setEstrito] = useState(() => searchParams.get('estrito') === '1')
   const [staleDays, setStaleDays] = useState(0)
   const [peekLead, setPeekLead]   = useState<LeadItem | null>(null)
   const [searched, setSearched]   = useState(false)
@@ -406,6 +409,7 @@ export default function LeadsReport() {
     setTeamFilter('')
     setRenutFilter('')
     setStaleDays(0)
+    setEstrito(false)
     setFilterOpen(false)
     setClearTrigger(c => c + 1)
   }
@@ -454,6 +458,10 @@ export default function LeadsReport() {
     if (searched) fetchReport(1)
   }, [staleDays]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (searched) fetchReport(1)
+  }, [estrito]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Busca da barra rápida: filtra sozinha com um respiro de digitação.
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>()
   useEffect(() => {
@@ -475,6 +483,7 @@ export default function LeadsReport() {
   const reportFilterParams = useCallback((): Record<string, string | number | boolean> => {
     const params: Record<string, string | number | boolean> = { date_from: dateFrom, date_to: dateTo }
     if (vencidosFilter) params.vencidos = true
+    if (estrito) params.estrito = true
     if (canFilterOperador && origem) params.origem = origem
     if (renutFilter === 'em') params.renutricao = true
     else if (renutFilter === 'fora') params.sem_renutricao = true
@@ -487,7 +496,7 @@ export default function LeadsReport() {
     if (staleDays > 0) params.stale_days = staleDays
     if (search.trim()) params.search = search.trim()
     return params
-  }, [dateFrom, dateTo, vencidosFilter, canFilterOperador, origem, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, staleDays, search])
+  }, [dateFrom, dateTo, vencidosFilter, estrito, canFilterOperador, origem, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, staleDays, search])
 
   const [selectingAll, setSelectingAll] = useState(false)
   async function selectAllFiltered() {
@@ -696,6 +705,14 @@ export default function LeadsReport() {
             )}
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {estrito && (
+              <div title="Mesma contagem da Gestão Comercial: só leads captados no período. Feche para ver a carteira completa." style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--accent-weak)', border: '1px solid var(--border)', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>Recorte da Gestão Comercial</span>
+                <button onClick={() => setEstrito(false)} aria-label="Ver carteira completa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center', padding: 0 }}>
+                  <X size={13} />
+                </button>
+              </div>
+            )}
             {conversionPointFilter && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#7C3AED' }}>Ponto de conversão: {conversionPointFilter}</span>

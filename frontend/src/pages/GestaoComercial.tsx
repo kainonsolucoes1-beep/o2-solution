@@ -313,7 +313,8 @@ function PipelineTab({ dateFrom, dateTo, selectedSources, teamParam }: { dateFro
   }
 
   const cardNav = (params: Record<string, string>) => {
-    const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...params })
+    // estrito: Relatório usa o mesmo recorte da Gestão (só o período), pra lista bater com o número clicado
+    const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, estrito: '1', ...params })
     if (selectedSources.length > 0) p.set('origem', selectedSources.join(','))
     if (teamParam) p.set('team', teamParam)
     return `?${p.toString()}`
@@ -882,7 +883,7 @@ function PerformanceTab({ dateFrom, dateTo, teamParam }: { dateFrom: string; dat
   }
 
   function goToLeadsReportFromPopup() {
-    const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo })
+    const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, estrito: '1' })
     if (perfPopupOrigens) params.set('origem', perfPopupOrigens)
     if (perfPopupStatusGroup === 'venda') params.set('status', 'waiting_billing,sale_performed,fechado,closed,won,convertido')
     if (teamParam) params.set('team', teamParam)
@@ -1711,7 +1712,7 @@ export default function GestaoComercial() {
   function goToLeadsReport(convPoint?: string, origens?: string) {
     const [y1, m1] = month.split('-').map(Number)
     const lastDay = new Date(y1, m1, 0).getDate()
-    const params = new URLSearchParams({ date_from: `${month}-01`, date_to: `${month}-${String(lastDay).padStart(2, '0')}` })
+    const params = new URLSearchParams({ date_from: `${month}-01`, date_to: `${month}-${String(lastDay).padStart(2, '0')}`, estrito: '1' })
     if (convPoint) params.set('conversion_point', convPoint)
     else if (origens) params.set('origem', origens)
     if (teamParam) params.set('team', teamParam)
@@ -1719,7 +1720,7 @@ export default function GestaoComercial() {
   }
 
   function goToLeadsReportModalidade(modalidade: string) {
-    const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, modalidade })
+    const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, modalidade, estrito: '1' })
     if (teamParam) params.set('team', teamParam)
     navigate(`/leads-report?${params}`)
   }
@@ -1924,7 +1925,7 @@ export default function GestaoComercial() {
               const prevValue = key === 'qualificados' ? prevQualificados : (prevKpis ? (prevKpis as Record<string, number>)[key] : undefined)
               const trend = canCompare && prevValue !== undefined ? pctDiff(value, prevValue) : null
               const onCardClick = !clickable ? undefined
-                : key === 'qualificados' ? () => navigate(`/leads-report?date_from=${dateFrom}&date_to=${dateTo}&perception=${encodeURIComponent('Quente,Morno')}`)
+                : key === 'qualificados' ? () => navigate(`/leads-report?date_from=${dateFrom}&date_to=${dateTo}&perception=${encodeURIComponent('Quente,Morno')}&estrito=1`)
                 : () => openDrill(KEY_TO_TIPO[key])
               return (
                 <MetricCard
