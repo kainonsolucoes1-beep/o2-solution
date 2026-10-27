@@ -36,13 +36,15 @@ def delete_file(key: str) -> None:
     _get_client().delete_object(Bucket=_BUCKET, Key=key)
 
 
-def presigned_download_url(key: str, file_name: str, expires_in: int = 300) -> str:
+def presigned_download_url(key: str, file_name: str, expires_in: int = 300, inline: bool = False) -> str:
+    """`inline` abre no navegador (ex.: imagem exibida na tela) em vez de baixar."""
+    disposicao = "inline" if inline else "attachment"
     return _get_client().generate_presigned_url(
         "get_object",
         Params={
             "Bucket": _BUCKET,
             "Key": key,
-            "ResponseContentDisposition": f'attachment; filename="{file_name}"',
+            "ResponseContentDisposition": f'{disposicao}; filename="{file_name}"',
         },
         ExpiresIn=expires_in,
     )
