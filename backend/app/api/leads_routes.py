@@ -1578,14 +1578,21 @@ def lead_peek(
     if notes:
         n, u = notes[0]
         ultima_nota = {
+            "id": str(n.id),
             "text": n.content,
             "by": (u.first_name or u.username) if u else None,
             "at": n.created_at.isoformat() if n.created_at else None,
+            "edited_by": n.edited_by,
+            # mesma regra de update_lead_note: autor, ou admin/coordenador
+            "pode_editar": n.user_id == current_user.id or current_user.role in ("admin", "coordenador"),
         }
 
     return {
         "agendamento": prox.scheduled_at.isoformat() if prox and prox.scheduled_at else None,
         "ultima_nota": ultima_nota,
+        # mesma trava de _assert_renutricao_unlocked: renutrição de outra
+        # pessoa só o dono ou admin mexem (o painel esconde "Anotar"/"Editar")
+        "pode_anotar": not (lead.renutricao_owner_id and lead.renutricao_owner_id != current_user.id and not _is_admin(current_user)),
         "timeline": timeline[:6],
         "dias_sem_interacao": dias_sem_interacao,
         "dias_no_status": dias_no_status,
