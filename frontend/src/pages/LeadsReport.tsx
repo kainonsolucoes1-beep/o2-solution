@@ -143,6 +143,7 @@ interface StoredFilters {
   dateFrom: string
   dateTo: string
   origem: string
+  canal: string
   modalidadeFilter: string
   statusFilter: string
   perceptionFilter: string
@@ -294,6 +295,8 @@ export default function LeadsReport() {
   const fetchReportGenRef = useRef(0)
   const [me, setMe]               = useState<Me | null>(null)
   const [operators, setOperators] = useState<Operator[]>([])
+  // /leads/origins mistura pessoas e canais; o Relatório separa em Operador e Origem
+  const [canais, setCanais] = useState<string[]>([])
   const [modalidades, setModalidades] = useState<string[]>([])
   const [conversionPoints, setConversionPoints] = useState<string[]>([])
   const [lostReasons, setLostReasons] = useState<string[]>([])
@@ -305,6 +308,7 @@ export default function LeadsReport() {
   const [dateFrom, setDateFrom]   = useState(() => searchParams.get('date_from') ?? (cameFromUrlFilters ? monthStart : storedFilters.dateFrom ?? monthStart))
   const [dateTo, setDateTo]       = useState(() => searchParams.get('date_to') ?? (cameFromUrlFilters ? today : storedFilters.dateTo ?? today))
   const [origem, setOrigem]       = useState(() => searchParams.get('origem') ?? (cameFromUrlFilters ? '' : storedFilters.origem ?? ''))
+  const [canal, setCanal]         = useState(() => searchParams.get('canal') ?? (cameFromUrlFilters ? '' : storedFilters.canal ?? ''))
   const [modalidadeFilter, setModalidadeFilter] = useState(() => searchParams.get('modalidade') ?? (cameFromUrlFilters ? '' : storedFilters.modalidadeFilter ?? ''))
   const [conversionPointFilter, setConversionPointFilter] = useState(() => searchParams.get('conversion_point') ?? '')
   const [search, setSearch]       = useState(() => searchParams.get('search') ?? (cameFromUrlFilters ? '' : storedFilters.search ?? ''))
@@ -389,9 +393,9 @@ export default function LeadsReport() {
   }, [filterOpen])
 
   useEffect(() => {
-    const toStore: StoredFilters = { dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter }
+    const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter }
     localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore))
-  }, [dateFrom, dateTo, origem, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter])
+  }, [dateFrom, dateTo, origem, canal, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter])
 
   const [clearTrigger, setClearTrigger] = useState(0)
 
@@ -399,6 +403,7 @@ export default function LeadsReport() {
     setDateFrom(monthStart)
     setDateTo(today)
     setOrigem('')
+    setCanal('')
     setModalidadeFilter('')
     setStatusFilter('')
     setPerceptionFilter('')
@@ -419,7 +424,15 @@ export default function LeadsReport() {
     api.get<Me>('/api/v1/auth/me')
       .then(r => {
         setMe(r.data)
-        api.get<string[]>('/api/v1/leads/origins').then(u => setOperators(u.data))
+        api.get<{ operadores: string[]; origens: string[] }>('/api/v1/leads/origins/split').then(u => {
+          setOperators(u.data.operadores)
+          setCanais(u.data.origens)
+          // filtro salvo / link antigo com um canal no Operador (ex: origem=Instagram) passa pro campo Origem
+          setOrigem(o => {
+            if (o && u.data.origens.includes(o)) { setCanal(o); return '' }
+            return o
+          })
+        })
         api.get<string[]>('/api/v1/leads/modalidades').then(u => setModalidades(u.data))
         api.get<string[]>('/api/v1/leads/conversion-points').then(u => setConversionPoints(u.data))
         if (r.data.role === 'admin' || r.data.username === 'lucas@o2solution.com.br') {
@@ -485,6 +498,7 @@ export default function LeadsReport() {
     if (vencidosFilter) params.vencidos = true
     if (estrito) params.estrito = true
     if (canFilterOperador && origem) params.origem = origem
+    if (canal) params.canal = canal
     if (renutFilter === 'em') params.renutricao = true
     else if (renutFilter === 'fora') params.sem_renutricao = true
     if (statusFilter) params.status = closedSubStatus || statusFilter
@@ -496,7 +510,7 @@ export default function LeadsReport() {
     if (staleDays > 0) params.stale_days = staleDays
     if (search.trim()) params.search = search.trim()
     return params
-  }, [dateFrom, dateTo, vencidosFilter, estrito, canFilterOperador, origem, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, staleDays, search])
+  }, [dateFrom, dateTo, vencidosFilter, estrito, canFilterOperador, origem, canal, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, staleDays, search])
 
   const [selectingAll, setSelectingAll] = useState(false)
   async function selectAllFiltered() {
@@ -1238,7 +1252,7 @@ export default function LeadsReport() {
                   {(() => {
                     const activeCount = [
                       dateFrom !== monthStart || dateTo !== today,
-                      !!origem, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '',
+                      !!origem, !!canal, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '',
                     ].filter(Boolean).length
                     return activeCount > 0 ? (
                       <span style={{ fontFamily: 'inherit', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(37,99,235,0.12)', color: '#2563EB' }}>
@@ -1332,6 +1346,21 @@ export default function LeadsReport() {
                           style={{ color: 'var(--text-muted)', width: '100%' }}
                         />
                       )}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Origem</label>
+                      <select
+                        value={canal}
+                        onChange={e => setCanal(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', width: '100%' }}
+                      >
+                        <option value="">Todas</option>
+                        {(canal && !canais.includes(canal) ? [...canais, canal] : canais).map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="flex flex-col gap-1">
@@ -1639,7 +1668,7 @@ export default function LeadsReport() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Origem</label>
-                      <Combobox value={newLead.origin} onChange={v => setNewLead(d => ({ ...d, origin: v }))} options={operators} formatOption={titleCase} />
+                      <Combobox value={newLead.origin} onChange={v => setNewLead(d => ({ ...d, origin: v }))} options={[...operators, ...canais].sort()}formatOption={titleCase} />
                     </div>
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Modalidade</label>
