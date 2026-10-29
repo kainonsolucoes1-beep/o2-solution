@@ -145,6 +145,7 @@ interface StoredFilters {
   origem: string
   canal: string
   conversionPointFilter: string
+  campanhaFilter: string
   modalidadeFilter: string
   statusFilter: string
   perceptionFilter: string
@@ -300,6 +301,7 @@ export default function LeadsReport() {
   const [canais, setCanais] = useState<string[]>([])
   const [modalidades, setModalidades] = useState<string[]>([])
   const [conversionPoints, setConversionPoints] = useState<string[]>([])
+  const [campanhasMidia, setCampanhasMidia] = useState<string[]>([])
   const [lostReasons, setLostReasons] = useState<string[]>([])
   const storedFilters = loadStoredFilters()
   // Se a URL chegou com filtros (ex: clique num card do Pipeline), ela representa uma
@@ -310,6 +312,7 @@ export default function LeadsReport() {
   const [dateTo, setDateTo]       = useState(() => searchParams.get('date_to') ?? (cameFromUrlFilters ? today : storedFilters.dateTo ?? today))
   const [origem, setOrigem]       = useState(() => searchParams.get('origem') ?? (cameFromUrlFilters ? '' : storedFilters.origem ?? ''))
   const [canal, setCanal]         = useState(() => searchParams.get('canal') ?? (cameFromUrlFilters ? '' : storedFilters.canal ?? ''))
+  const [campanhaFilter, setCampanhaFilter] = useState(() => searchParams.get('campanha_midia') ?? (cameFromUrlFilters ? '' : storedFilters.campanhaFilter ?? ''))
   const [modalidadeFilter, setModalidadeFilter] = useState(() => searchParams.get('modalidade') ?? (cameFromUrlFilters ? '' : storedFilters.modalidadeFilter ?? ''))
   const [conversionPointFilter, setConversionPointFilter] = useState(() => searchParams.get('conversion_point') ?? (cameFromUrlFilters ? '' : storedFilters.conversionPointFilter ?? ''))
   const [search, setSearch]       = useState(() => searchParams.get('search') ?? (cameFromUrlFilters ? '' : storedFilters.search ?? ''))
@@ -394,9 +397,9 @@ export default function LeadsReport() {
   }, [filterOpen])
 
   useEffect(() => {
-    const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, conversionPointFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter }
+    const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter }
     localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore))
-  }, [dateFrom, dateTo, origem, canal, conversionPointFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter])
+  }, [dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter])
 
   const [clearTrigger, setClearTrigger] = useState(0)
 
@@ -405,6 +408,7 @@ export default function LeadsReport() {
     setDateTo(today)
     setOrigem('')
     setCanal('')
+    setCampanhaFilter('')
     setModalidadeFilter('')
     setStatusFilter('')
     setPerceptionFilter('')
@@ -436,6 +440,7 @@ export default function LeadsReport() {
         })
         api.get<string[]>('/api/v1/leads/modalidades').then(u => setModalidades(u.data))
         api.get<string[]>('/api/v1/leads/conversion-points').then(u => setConversionPoints(u.data))
+        api.get<string[]>('/api/v1/leads/campanhas-midia').then(u => setCampanhasMidia(u.data))
         if (r.data.role === 'admin' || r.data.username === 'lucas@o2solution.com.br') {
           api.get<string[]>('/api/v1/leads/lost-reasons').then(u => setLostReasons(u.data))
         }
@@ -511,12 +516,13 @@ export default function LeadsReport() {
     if (perceptionFilter) params.perception = perceptionFilter
     if (modalidadeFilter) params.modalidade = modalidadeFilter
     if (conversionPointFilter) params.conversion_point = conversionPointFilter
+    if (campanhaFilter) params.campanha_midia = campanhaFilter
     if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
     if (teamFilter) params.team = teamFilter
     if (staleDays > 0) params.stale_days = staleDays
     if (search.trim()) params.search = search.trim()
     return params
-  }, [dateFrom, dateTo, vencidosFilter, estrito, canFilterOperador, origem, canal, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, lostReasonFilter, teamFilter, staleDays, search])
+  }, [dateFrom, dateTo, vencidosFilter, estrito, canFilterOperador, origem, canal, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, campanhaFilter, lostReasonFilter, teamFilter, staleDays, search])
 
   const [selectingAll, setSelectingAll] = useState(false)
   async function selectAllFiltered() {
@@ -1258,7 +1264,7 @@ export default function LeadsReport() {
                   {(() => {
                     const activeCount = [
                       dateFrom !== monthStart || dateTo !== today,
-                      !!origem, !!canal, !!conversionPointFilter, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '',
+                      !!origem, !!canal, !!conversionPointFilter, !!campanhaFilter, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '',
                     ].filter(Boolean).length
                     return activeCount > 0 ? (
                       <span style={{ fontFamily: 'inherit', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(37,99,235,0.12)', color: '#2563EB' }}>
@@ -1380,6 +1386,22 @@ export default function LeadsReport() {
                         <option value="">Todos</option>
                         {(conversionPointFilter && !sitePoints.includes(conversionPointFilter) ? [...sitePoints, conversionPointFilter] : sitePoints).map(p => (
                           <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Campanha</label>
+                      <select
+                        value={campanhaFilter}
+                        onChange={e => setCampanhaFilter(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', width: '100%' }}
+                      >
+                        <option value="">Todas</option>
+                        <option value="Sem campanha">Sem campanha</option>
+                        {(campanhaFilter && campanhaFilter !== 'Sem campanha' && !campanhasMidia.includes(campanhaFilter) ? [...campanhasMidia, campanhaFilter] : campanhasMidia).map(c => (
+                          <option key={c} value={c}>{c}</option>
                         ))}
                       </select>
                     </div>

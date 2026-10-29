@@ -69,6 +69,7 @@ class LeadReportItem(BaseModel):
     current_plan: Optional[str] = None
     operadoras_enviadas: Optional[str] = None
     celular_cor: Optional[str] = None
+    campanha_midia: Optional[str] = None
     document: Optional[str] = None
     tracking_campaign: Optional[str] = None
     tracking_medium: Optional[str] = None
@@ -131,6 +132,7 @@ class LeadInfoUpdateRequest(BaseModel):
     visibility_tag: Optional[str] = None  # "ADM" restringe a visualizacao do lead
     operadoras_enviadas: Optional[str] = None  # lista separada por virgula
     celular_cor: Optional[str] = None
+    campanha_midia: Optional[str] = None
     current_plan: Optional[str] = None
     value_potential: Optional[float] = None
 
@@ -154,6 +156,7 @@ class LeadInfoUpdateResponse(BaseModel):
     created_at: Optional[datetime] = None
     operadoras_enviadas: Optional[str] = None
     celular_cor: Optional[str] = None
+    campanha_midia: Optional[str] = None
     visibility_tag: Optional[str] = None
 
 

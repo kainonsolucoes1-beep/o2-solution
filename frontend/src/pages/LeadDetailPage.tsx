@@ -45,6 +45,7 @@ interface LeadItem {
   visibility_tag: string | null
   operadoras_enviadas: string | null
   celular_cor: string | null
+  campanha_midia: string | null
   modalidade: string | null
   document: string | null
   created_at: string
@@ -150,6 +151,7 @@ export default function LeadDetailPage() {
   const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', titular_menor: '', email: '', phone: '', attendant: '', document: '', visibility_tag: '' })
   const [origins, setOrigins]             = useState<string[]>([])
   const [conversionPoints, setConversionPoints] = useState<string[]>([])
+  const [campanhasMidia, setCampanhasMidia] = useState<string[]>(['Google', 'Meta'])
   const [modalidades, setModalidades]     = useState<string[]>(['PF', 'PME'])
   const [savingOrigin, setSavingOrigin]   = useState(false)
   const [savingModalidade, setSavingModalidade] = useState(false)
@@ -178,6 +180,7 @@ export default function LeadDetailPage() {
     api.get<Me>('/api/v1/auth/me').then(r => { if (!cancelled) setMe(r.data) }).catch(() => {})
     api.get<string[]>('/api/v1/leads/origins').then(r => { if (!cancelled) setOrigins(r.data) }).catch(() => {})
     api.get<string[]>('/api/v1/leads/conversion-points').then(r => { if (!cancelled) setConversionPoints(r.data) }).catch(() => {})
+    api.get<string[]>('/api/v1/leads/campanhas-midia').then(r => { if (!cancelled) setCampanhasMidia(r.data) }).catch(() => {})
     api.get<string[]>('/api/v1/leads/modalidades').then(r => { if (!cancelled) setModalidades(r.data) }).catch(() => {})
     api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`)
       .then(r => { if (!cancelled) setNotes(r.data.notes) })
@@ -318,14 +321,18 @@ export default function LeadDetailPage() {
   }
 
   const [savingCelular, setSavingCelular] = useState(false)
-  function handleQuickUpdate(field: 'origem' | 'modalidade' | 'conversion_point' | 'perception' | 'operadoras_enviadas' | 'celular_cor', value: string) {
+  const [savingCampanha, setSavingCampanha] = useState(false)
+  function handleQuickUpdate(field: 'origem' | 'modalidade' | 'conversion_point' | 'perception' | 'operadoras_enviadas' | 'celular_cor' | 'campanha_midia', value: string) {
     if (!id) return
-    const setSaving = field === 'origem' ? setSavingOrigin : field === 'modalidade' ? setSavingModalidade : field === 'conversion_point' ? setSavingConvPoint : field === 'operadoras_enviadas' ? setSavingOperadoras : field === 'celular_cor' ? setSavingCelular : setSavingPerception
+    const setSaving = field === 'origem' ? setSavingOrigin : field === 'modalidade' ? setSavingModalidade : field === 'conversion_point' ? setSavingConvPoint : field === 'operadoras_enviadas' ? setSavingOperadoras : field === 'celular_cor' ? setSavingCelular : field === 'campanha_midia' ? setSavingCampanha : setSavingPerception
     const apiField = field === 'origem' ? 'origin' : field
     setSaving(true)
     api.post(`/api/v1/leads/${id}/info`, { [apiField]: value })
       .then(() => {
         setLead(prev => prev ? { ...prev, [field]: value } : prev)
+        if (field === 'campanha_midia' && value && !campanhasMidia.some(c => c.toLowerCase() === value.toLowerCase())) {
+          setCampanhasMidia(prev => [...prev, value].sort())
+        }
         setToast({ msg: 'Atualizado com sucesso', ok: true })
       })
       .catch(() => setToast({ msg: 'Erro ao atualizar', ok: false }))
@@ -805,6 +812,10 @@ export default function LeadDetailPage() {
             conversionPointOptions={conversionPointOptions}
             savingConversionPoint={savingConvPoint}
             onConversionPointChange={v => handleQuickUpdate('conversion_point', v)}
+            campanha={lead.campanha_midia ?? ''}
+            campanhaOptions={campanhasMidia}
+            savingCampanha={savingCampanha}
+            onCampanhaChange={v => handleQuickUpdate('campanha_midia', v)}
             celularCor={lead.celular_cor ?? ''}
             savingCelular={savingCelular}
             onCelularChange={v => handleQuickUpdate('celular_cor', v)}
