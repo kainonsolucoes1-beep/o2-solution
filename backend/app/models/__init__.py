@@ -10,3 +10,4 @@ from app.models.login_event import LoginEvent
 from app.models.trusted_device import TrustedDevice
 from app.models.script import Script, ScriptVersao
 from app.models.sugestao import Sugestao, SugestaoImagem, SugestaoEvento
+from app.models.lead_sinal import LeadSinalPendente
