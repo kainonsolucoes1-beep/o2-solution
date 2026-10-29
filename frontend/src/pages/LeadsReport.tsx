@@ -144,6 +144,7 @@ interface StoredFilters {
   dateTo: string
   origem: string
   canal: string
+  conversionPointFilter: string
   modalidadeFilter: string
   statusFilter: string
   perceptionFilter: string
@@ -310,7 +311,7 @@ export default function LeadsReport() {
   const [origem, setOrigem]       = useState(() => searchParams.get('origem') ?? (cameFromUrlFilters ? '' : storedFilters.origem ?? ''))
   const [canal, setCanal]         = useState(() => searchParams.get('canal') ?? (cameFromUrlFilters ? '' : storedFilters.canal ?? ''))
   const [modalidadeFilter, setModalidadeFilter] = useState(() => searchParams.get('modalidade') ?? (cameFromUrlFilters ? '' : storedFilters.modalidadeFilter ?? ''))
-  const [conversionPointFilter, setConversionPointFilter] = useState(() => searchParams.get('conversion_point') ?? '')
+  const [conversionPointFilter, setConversionPointFilter] = useState(() => searchParams.get('conversion_point') ?? (cameFromUrlFilters ? '' : storedFilters.conversionPointFilter ?? ''))
   const [search, setSearch]       = useState(() => searchParams.get('search') ?? (cameFromUrlFilters ? '' : storedFilters.search ?? ''))
   const [page, setPage]           = useState(1)
   const [jumpPage, setJumpPage]   = useState('')
@@ -393,9 +394,9 @@ export default function LeadsReport() {
   }, [filterOpen])
 
   useEffect(() => {
-    const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter }
+    const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, conversionPointFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter }
     localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore))
-  }, [dateFrom, dateTo, origem, canal, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter])
+  }, [dateFrom, dateTo, origem, canal, conversionPointFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter])
 
   const [clearTrigger, setClearTrigger] = useState(0)
 
@@ -491,6 +492,11 @@ export default function LeadsReport() {
   // comercial (ex: Julia) enxerga a carteira de toda a equipe 'usuario'
   // (visibilidade ampla, ver database.py) -- por isso também pode filtrar
   // por Operador, diferente de 'usuario' que só vê a própria carteira mesmo.
+  // filtro "Ponto de conversão": só os sites ("Site ...", "www...." ou "....com.br"),
+  // sem repetir a mesma URL com maiúsculas diferentes
+  const sitePoints = conversionPoints
+    .filter(p => /^(site|www\.|https?:\/\/)/i.test(p.trim()) || /\.com\.br\/?$/i.test(p.trim()))
+    .filter((p, i, all) => all.findIndex(q => q.toLowerCase() === p.toLowerCase()) === i)
   const canFilterOperador = isAdmin || (me !== null && me.role === 'comercial')
 
   const reportFilterParams = useCallback((): Record<string, string | number | boolean> => {
@@ -1252,7 +1258,7 @@ export default function LeadsReport() {
                   {(() => {
                     const activeCount = [
                       dateFrom !== monthStart || dateTo !== today,
-                      !!origem, !!canal, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '',
+                      !!origem, !!canal, !!conversionPointFilter, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '',
                     ].filter(Boolean).length
                     return activeCount > 0 ? (
                       <span style={{ fontFamily: 'inherit', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(37,99,235,0.12)', color: '#2563EB' }}>
@@ -1359,6 +1365,21 @@ export default function LeadsReport() {
                         <option value="">Todas</option>
                         {(canal && !canais.includes(canal) ? [...canais, canal] : canais).map(c => (
                           <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label style={labelStyle}>Ponto de conversão</label>
+                      <select
+                        value={conversionPointFilter}
+                        onChange={e => setConversionPointFilter(e.target.value)}
+                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'var(--text-2)', width: '100%' }}
+                      >
+                        <option value="">Todos</option>
+                        {(conversionPointFilter && !sitePoints.includes(conversionPointFilter) ? [...sitePoints, conversionPointFilter] : sitePoints).map(p => (
+                          <option key={p} value={p}>{p}</option>
                         ))}
                       </select>
                     </div>
