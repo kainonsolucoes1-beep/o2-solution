@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { User, RotateCcw, ChevronDown } from 'lucide-react'
 import SectionCard from './SectionCard'
 import EditPencil from './EditPencil'
@@ -28,6 +29,7 @@ const isEmpty = (v: string) => !v || v === '—' || v === 'Não informado' || v 
 export default function LeadRegistrationPanel({
   origem, origemOptions, savingOrigem, onOrigemChange,
   conversionPoint, conversionPointOptions, savingConversionPoint, onConversionPointChange,
+  campanha, campanhaOptions, savingCampanha, onCampanhaChange,
   celularCor, savingCelular, onCelularChange,
   leadSinceLabel, leadSinceRelative, retrabalhadoEmLabel, documentoLabel, empresaLabel, titularMenorLabel, visibilityTag,
   editingInfo, savingInfo, infoDraft, onDraftChange, onStartEdit, onCancelEdit, onSaveEdit, locked,
@@ -40,6 +42,10 @@ export default function LeadRegistrationPanel({
   conversionPointOptions: string[]
   savingConversionPoint: boolean
   onConversionPointChange: (v: string) => void
+  campanha: string
+  campanhaOptions: string[]
+  savingCampanha: boolean
+  onCampanhaChange: (v: string) => void
   celularCor: string
   savingCelular: boolean
   onCelularChange: (v: string) => void
@@ -60,6 +66,9 @@ export default function LeadRegistrationPanel({
   locked?: boolean
 }) {
   const bothEmpty = isEmpty(empresaLabel) && isEmpty(documentoLabel)
+  // "Outra…" na lista de Campanha abre um campo pra digitar uma nova (ex: TikTok)
+  const [novaCampanha, setNovaCampanha] = useState<string | null>(null)
+  const campanhaBusy = savingCampanha || !!locked
   return (
     <SectionCard title="Cadastro" icon={User} iconColor="#7C3AED" action={
       locked ? null : editingInfo ? (
@@ -98,6 +107,42 @@ export default function LeadRegistrationPanel({
       <div className="flex flex-col gap-4">
         <SelectField label="Origem" value={origem} options={origemOptions} saving={savingOrigem || locked} onChange={onOrigemChange} formatOption={titleCase} />
         <SelectField label="Ponto de Conversão" value={conversionPoint} options={conversionPointOptions} saving={savingConversionPoint || locked} onChange={onConversionPointChange} formatOption={titleCase} />
+        <div className="flex flex-col gap-1">
+          <FieldLabel>Campanha</FieldLabel>
+          {novaCampanha === null ? (
+            <select
+              value={campanha}
+              disabled={campanhaBusy}
+              onChange={e => e.target.value === '__outra__' ? setNovaCampanha('') : onCampanhaChange(e.target.value)}
+              style={{ fontSize: 14, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', width: '100%', boxSizing: 'border-box', height: 34, cursor: campanhaBusy ? 'not-allowed' : 'pointer', opacity: campanhaBusy ? 0.6 : 1 }}
+            >
+              <option value="">Nenhuma</option>
+              {campanha && !campanhaOptions.includes(campanha) && <option value={campanha}>{campanha}</option>}
+              {campanhaOptions.map(o => <option key={o} value={o}>{o}</option>)}
+              <option value="__outra__">Outra…</option>
+            </select>
+          ) : (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                autoFocus
+                value={novaCampanha}
+                placeholder="Nome da campanha"
+                onChange={e => setNovaCampanha(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && novaCampanha.trim()) { onCampanhaChange(novaCampanha.trim()); setNovaCampanha(null) }
+                  else if (e.key === 'Escape') setNovaCampanha(null)
+                }}
+                style={{ fontSize: 14, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-in)', background: 'var(--bg-input)', color: 'var(--text-2)', flex: 1, minWidth: 0, height: 34, boxSizing: 'border-box' }}
+              />
+              <button
+                onClick={() => { if (novaCampanha.trim()) onCampanhaChange(novaCampanha.trim()); setNovaCampanha(null) }}
+                style={{ fontSize: 12, fontWeight: 600, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                {novaCampanha.trim() ? 'Salvar' : 'Cancelar'}
+              </button>
+            </div>
+          )}
+        </div>
 
         {editingInfo ? (
           <>

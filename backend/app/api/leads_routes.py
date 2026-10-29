@@ -185,6 +185,7 @@ def leads_by_period(
     date_to: str = Query(..., description="YYYY-MM-DD"),
     origem: Optional[str] = Query(None),
     canal: Optional[str] = Query(None, description="filtro de Origem (canal: Instagram, Meta Ads...), separado do Operador"),
+    campanha_midia: Optional[str] = Query(None, description="campanha marcada na ficha (Google, Meta...); 'Sem campanha' = vazio"),
     status: Optional[str] = Query(None),
     perception: Optional[str] = Query(None),
     modalidade: Optional[str] = Query(None),
@@ -270,6 +271,11 @@ def leads_by_period(
         if canal:
             parts = [s.strip() for s in canal.split(',') if s.strip()]
             q = q.filter(Lead.origin.in_(parts))
+        if campanha_midia:
+            if campanha_midia.strip().lower() == "sem campanha":
+                q = q.filter(or_(Lead.campanha_midia.is_(None), Lead.campanha_midia == ""))
+            else:
+                q = q.filter(func.lower(Lead.campanha_midia) == campanha_midia.strip().lower())
         if status:
             statuses = [s.strip().lower() for s in status.split(',')]
             q = q.filter(func.lower(Lead.status).in_(statuses))
@@ -375,6 +381,7 @@ def leads_report_stats(
     date_to: str = Query(..., description="YYYY-MM-DD"),
     origem: Optional[str] = Query(None),
     canal: Optional[str] = Query(None, description="filtro de Origem (canal: Instagram, Meta Ads...), separado do Operador"),
+    campanha_midia: Optional[str] = Query(None, description="campanha marcada na ficha (Google, Meta...); 'Sem campanha' = vazio"),
     status: Optional[str] = Query(None),
     perception: Optional[str] = Query(None),
     modalidade: Optional[str] = Query(None),
@@ -459,6 +466,11 @@ def leads_report_stats(
         if canal:
             parts = [s.strip() for s in canal.split(',') if s.strip()]
             q = q.filter(Lead.origin.in_(parts))
+        if campanha_midia:
+            if campanha_midia.strip().lower() == "sem campanha":
+                q = q.filter(or_(Lead.campanha_midia.is_(None), Lead.campanha_midia == ""))
+            else:
+                q = q.filter(func.lower(Lead.campanha_midia) == campanha_midia.strip().lower())
         if status:
             statuses = [s.strip().lower() for s in status.split(',')]
             q = q.filter(func.lower(Lead.status).in_(statuses))
@@ -593,6 +605,20 @@ def list_origins_split(
     return {"operadores": operadores, "origens": [o for o in origins if o not in operadores]}
 
 
+@router.get("/leads/campanhas-midia", response_model=List[str])
+def list_campanhas_midia(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Google e Meta sempre aparecem; outras entram quando alguem digita na ficha
+    rows = db.query(Lead.campanha_midia).filter(Lead.campanha_midia.isnot(None), Lead.campanha_midia != "").distinct().all()
+    opts = {"Google", "Meta"}
+    for (c,) in rows:
+        if c.strip().lower() not in {o.lower() for o in opts}:
+            opts.add(c.strip())
+    return sorted(opts)
+
+
 @router.get("/leads/conversion-points", response_model=List[str])
 def list_conversion_points(
     current_user: User = Depends(get_current_user),
@@ -693,7 +719,7 @@ def get_lead(
         retrabalhado_em=lead.retrabalhado_em,
         lost_reason=lead.lost_reason, lost_message=lead.lost_message,
         modalidade=lead.modalidade, current_plan=lead.current_plan,
-        operadoras_enviadas=lead.operadoras_enviadas, celular_cor=lead.celular_cor, document=lead.document,
+        operadoras_enviadas=lead.operadoras_enviadas, celular_cor=lead.celular_cor, campanha_midia=lead.campanha_midia, document=lead.document,
         tracking_campaign=lead.tracking_campaign, tracking_medium=lead.tracking_medium,
         tracking_term=lead.tracking_term, tracking_format=lead.tracking_format,
         fbclid=lead.fbclid, gclid=lead.gclid,
@@ -1034,7 +1060,7 @@ def update_lead_info(
         "attendant": "Atendente", "document": "Documento", "origin": "Origem",
         "modalidade": "Modalidade", "conversion_point": "Ponto de conversão",
         "perception": "Temperatura", "visibility_tag": "Tag de visibilidade",
-        "operadoras_enviadas": "Operadoras enviadas", "celular_cor": "Celular", "current_plan": "Plano atual",
+        "operadoras_enviadas": "Operadoras enviadas", "celular_cor": "Celular", "campanha_midia": "Campanha", "current_plan": "Plano atual",
         "value_potential": "Valor potencial",
     } if _is_coord else {"name": "Nome", "company": "Empresa", "document": "CPF/CNPJ", "phone": "Telefone"}
     _before = {f: getattr(lead, f) for f in _labels}
@@ -1108,6 +1134,8 @@ def update_lead_info(
         lead.operadoras_enviadas = body.operadoras_enviadas.strip() or None
     if body.celular_cor is not None:
         lead.celular_cor = body.celular_cor.strip() or None
+    if body.campanha_midia is not None:
+        lead.campanha_midia = body.campanha_midia.strip() or None
     if body.current_plan is not None:
         lead.current_plan = body.current_plan.strip() or None
     if body.value_potential is not None:
@@ -1133,6 +1161,7 @@ def update_lead_info(
         created_at=lead.created_at, visibility_tag=lead.visibility_tag,
         operadoras_enviadas=lead.operadoras_enviadas,
         celular_cor=lead.celular_cor,
+        campanha_midia=lead.campanha_midia,
         current_plan=lead.current_plan,
         value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
     )
