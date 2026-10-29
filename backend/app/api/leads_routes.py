@@ -184,6 +184,7 @@ def leads_by_period(
     date_from: str = Query(..., description="YYYY-MM-DD"),
     date_to: str = Query(..., description="YYYY-MM-DD"),
     origem: Optional[str] = Query(None),
+    canal: Optional[str] = Query(None, description="filtro de Origem (canal: Instagram, Meta Ads...), separado do Operador"),
     status: Optional[str] = Query(None),
     perception: Optional[str] = Query(None),
     modalidade: Optional[str] = Query(None),
@@ -266,6 +267,9 @@ def leads_by_period(
             _oc = _origem_clause(db, origem)
             if _oc is not None:
                 q = q.filter(_oc)
+        if canal:
+            parts = [s.strip() for s in canal.split(',') if s.strip()]
+            q = q.filter(Lead.origin.in_(parts))
         if status:
             statuses = [s.strip().lower() for s in status.split(',')]
             q = q.filter(func.lower(Lead.status).in_(statuses))
@@ -370,6 +374,7 @@ def leads_report_stats(
     date_from: str = Query(..., description="YYYY-MM-DD"),
     date_to: str = Query(..., description="YYYY-MM-DD"),
     origem: Optional[str] = Query(None),
+    canal: Optional[str] = Query(None, description="filtro de Origem (canal: Instagram, Meta Ads...), separado do Operador"),
     status: Optional[str] = Query(None),
     perception: Optional[str] = Query(None),
     modalidade: Optional[str] = Query(None),
@@ -451,6 +456,9 @@ def leads_report_stats(
             _oc = _origem_clause(db, origem)
             if _oc is not None:
                 q = q.filter(_oc)
+        if canal:
+            parts = [s.strip() for s in canal.split(',') if s.strip()]
+            q = q.filter(Lead.origin.in_(parts))
         if status:
             statuses = [s.strip().lower() for s in status.split(',')]
             q = q.filter(func.lower(Lead.status).in_(statuses))
@@ -563,6 +571,24 @@ def list_origins(
     for fn, un in owner_rows:
         origins.add(fn or un)
     return sorted(origins)
+
+
+@router.get("/leads/origins/split")
+def list_origins_split(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mesma lista de /leads/origins, separada pro Relatório: "operadores" é
+    quem é usuário do sistema (nome/usuário, ativo ou não); o resto
+    (Instagram, Meta Ads, Orgânico...) vai pra "origens"."""
+    origins = list_origins(current_user, db)
+    people = set()
+    for fn, ln, un in db.query(User.first_name, User.last_name, User.username).all():
+        for v in (fn, un, f"{fn or ''} {ln or ''}"):
+            if v and v.strip():
+                people.add(v.strip().lower())
+    operadores = [o for o in origins if o.strip().lower() in people]
+    return {"operadores": operadores, "origens": [o for o in origins if o not in operadores]}
 
 
 @router.get("/leads/conversion-points", response_model=List[str])
