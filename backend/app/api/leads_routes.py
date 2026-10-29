@@ -582,7 +582,8 @@ def list_origins_split(
     quem é usuário do sistema (nome/usuário, ativo ou não); o resto
     (Instagram, Meta Ads, Orgânico...) vai pra "origens"."""
     origins = list_origins(current_user, db)
-    people = set()
+    # ex-operadores que seguem como origem nos leads antigos, sem usuário que bata o nome
+    people = {"anny", "clara", "emily", "gabrieli", "guilherme", "kauany", "leticia", "livia", "maria eduarda", "pedro", "rodolfo"}
     for fn, ln, un in db.query(User.first_name, User.last_name, User.username).all():
         for v in (fn, un, f"{fn or ''} {ln or ''}"):
             if v and v.strip():
