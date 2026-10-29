@@ -1,16 +1,20 @@
 import hmac
+import json
 import logging
+import re
 import time
 from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.api.notificacoes_routes import notificar_novo_lead
-from app.models import Lead, LeadNote, User
+from app.models import Lead, LeadNote, LeadSinalPendente, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAMS, team_key_setting, team_rr_index_setting, team_attendant_names
 from app.lead_utils import normalize_current_plan as _normalize_current_plan
@@ -137,6 +141,79 @@ def _match_team(db: Session, x_team_key: str) -> Optional[dict]:
     return None
 
 
+_SINAL_JANELA = timedelta(minutes=30)
+_CLICK_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{10,250}$")
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _marcar_google_ads(db: Session, lead: Lead, click_id: str) -> None:
+    """Campanha = Google (se ninguém marcou outra) e guarda o click id do anúncio."""
+    if not lead.campanha_midia:
+        lead.campanha_midia = "Google"
+    if not lead.gclid:
+        lead.gclid = click_id
+    db.add(LeadNote(lead_id=lead.id, user_id=None, content="Veio de um clique no anúncio do Google Ads (aviso da tag do site). Campanha: Google."))
+
+
+@router.post("/lead-sinal", status_code=204)
+async def lead_sinal(request: Request, db: Session = Depends(get_db)):
+    """Aviso da tag do GTM no envio do formulário do site: "este lead clicou
+    num anúncio do Google Ads". Vem do navegador via sendBeacon (text/plain,
+    sem chave -- uma chave no GTM ficaria pública). Por isso só faz uma coisa:
+    marca Campanha = Google em lead do mesmo site criado há menos de 30 min,
+    casando por telefone ou e-mail. Se o lead ainda não chegou, guarda o aviso
+    e o /public/leads aplica quando ele entrar. Responde 204 sempre que o
+    corpo é válido (não revela se o lead existe)."""
+    ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(ip)
+    try:
+        data = json.loads((await request.body())[:4000] or b"{}")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="JSON inválido")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="JSON inválido")
+
+    host = str(data.get("host") or "").strip().lower()[:255]
+    phone = re.sub(r"\D", "", str(data.get("phone") or ""))[:20]
+    email = str(data.get("email") or "").strip().lower()[:255]
+    click_id = None
+    for key in ("gclid", "gbraid", "wbraid"):
+        v = str(data.get(key) or "").strip()
+        if v and _CLICK_ID_RE.match(v):
+            click_id = v if key == "gclid" else f"{key}:{v}"
+            break
+    if not host or not click_id or (len(phone) < 10 and "@" not in email):
+        raise HTTPException(status_code=400, detail="Aviso incompleto")
+
+    agora = _utcnow()
+    db.query(LeadSinalPendente).filter(LeadSinalPendente.created_at < agora - timedelta(hours=1)).delete()
+
+    conds = []
+    if len(phone) >= 10:
+        conds.append(func.regexp_replace(Lead.phone, r"\D", "", "g") == phone)
+    if "@" in email:
+        conds.append(func.lower(Lead.email) == email)
+    lead = (
+        db.query(Lead)
+        .filter(
+            or_(*conds),
+            func.lower(func.trim(Lead.conversion_point)) == host,
+            Lead.created_at >= agora - _SINAL_JANELA,
+        )
+        .order_by(Lead.created_at.desc())
+        .first()
+    )
+    if lead:
+        if not lead.gclid:  # gclid já gravado = aviso repetido, não duplica a nota
+            _marcar_google_ads(db, lead, click_id)
+    else:
+        db.add(LeadSinalPendente(host=host, phone_digits=phone if len(phone) >= 10 else None, email=email if "@" in email else None, click_id=click_id))
+    db.commit()
+
+
 @router.post("/leads", status_code=201)
 def create_public_lead(
     body: PublicLeadCreate,
@@ -191,6 +268,26 @@ def create_public_lead(
     )
     db.add(lead)
     db.flush()
+    # aviso da tag do GTM que chegou antes do lead (clique no Google Ads)
+    _phone = re.sub(r"\D", "", body.phone or "")
+    _email = (body.email or "").strip().lower()
+    _conds = [LeadSinalPendente.phone_digits == _phone] if len(_phone) >= 10 else []
+    if _email:
+        _conds.append(LeadSinalPendente.email == _email)
+    if _conds and lead.conversion_point:
+        sinal = (
+            db.query(LeadSinalPendente)
+            .filter(
+                or_(*_conds),
+                func.lower(LeadSinalPendente.host) == lead.conversion_point.strip().lower(),
+                LeadSinalPendente.created_at >= _utcnow() - _SINAL_JANELA,
+            )
+            .order_by(LeadSinalPendente.created_at.desc())
+            .first()
+        )
+        if sinal:
+            _marcar_google_ads(db, lead, sinal.click_id)
+            db.delete(sinal)
     # Lead.notes nao aparece na ficha (so a linha do tempo, que le LeadNote) --
     # espelha as observacoes (mensagem + idades) como nota pra ficarem visiveis
     # (sem autor: aparece como "Sistema", nao com o nome de um usuario real).
