@@ -386,6 +386,44 @@ function FilterableLeadsModal({ title, subtitle, loading, leads, total, statusFi
 
 type DrawerKind = 'base' | 'canal' | 'conversao' | 'modalidade' | 'renutricao'
 
+// Recorte próprio do drawer: o período da página ou um mês / semana (seg–dom) / dia
+// em volta de uma data âncora, navegável com ‹ ›.
+type DrawerGran = 'pagina' | 'mes' | 'semana' | 'dia'
+const DRAWER_GRANS: { key: DrawerGran; label: string }[] = [
+  { key: 'pagina', label: 'Período da página' },
+  { key: 'mes', label: 'Mês' },
+  { key: 'semana', label: 'Semana' },
+  { key: 'dia', label: 'Dia' },
+]
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function parseIso(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+function brDate(d: Date): string {
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+function drawerRange(gran: Exclude<DrawerGran, 'pagina'>, anchor: string): { from: Date; to: Date } {
+  const a = parseIso(anchor)
+  if (gran === 'dia') return { from: a, to: a }
+  if (gran === 'semana') {
+    const from = new Date(a); from.setDate(a.getDate() - ((a.getDay() + 6) % 7))
+    const to = new Date(from); to.setDate(from.getDate() + 6)
+    return { from, to }
+  }
+  return { from: new Date(a.getFullYear(), a.getMonth(), 1), to: new Date(a.getFullYear(), a.getMonth() + 1, 0) }
+}
+function shiftAnchor(gran: Exclude<DrawerGran, 'pagina'>, anchor: string, dir: 1 | -1): string {
+  const a = parseIso(anchor)
+  if (gran === 'dia') a.setDate(a.getDate() + dir)
+  else if (gran === 'semana') a.setDate(a.getDate() + 7 * dir)
+  else return isoDate(new Date(a.getFullYear(), a.getMonth() + dir, 1))
+  return isoDate(a)
+}
+
 const TEAM_VALUES: Record<'sp' | 'pe', string> = { sp: 'Equipe São Paulo', pe: 'Equipe Pernambuco' }
 const TEAM_LABELS: Record<'sp' | 'pe', string> = { sp: 'São Paulo', pe: 'Recife' }
 
@@ -496,6 +534,39 @@ export default function KPIs() {
   const [drawerLoading, setDrawerLoading] = useState(false)
   const drawerTriggerRef = useRef<HTMLElement | null>(null)
   const drawerRef = useRef<HTMLDivElement>(null)
+  const [drawerGran, setDrawerGran] = useState<DrawerGran>('pagina')
+  const [drawerAnchor, setDrawerAnchor] = useState(isoDate(now))
+  const drawerGenRef = useRef(0)
+
+  // data âncora inicial: hoje se cair no período da página, senão o fim dele
+  function defaultAnchor(): string {
+    const today = isoDate(now)
+    if (period === 'range' && rangeTo) return rangeTo < today ? rangeTo : today
+    if (period === 'month' && month !== currentMonth) {
+      const [y, m] = month.split('-').map(Number)
+      return isoDate(new Date(y, m, 0))
+    }
+    return today
+  }
+
+  function drawerParams(): Record<string, string> {
+    if (drawerGran === 'pagina') return periodParams()
+    const { from, to } = drawerRange(drawerGran, drawerAnchor)
+    const p: Record<string, string> = { period: 'range', date_from: isoDate(from), date_to: isoDate(to) }
+    if (team !== 'all') p.team = TEAM_VALUES[team]
+    return p
+  }
+
+  function drawerPeriodLabel(): string {
+    if (drawerGran === 'pagina') return periodLabel()
+    const { from, to } = drawerRange(drawerGran, drawerAnchor)
+    const txt = drawerGran === 'dia'
+      ? `${brDate(from)}/${from.getFullYear()}`
+      : drawerGran === 'semana'
+      ? `Semana de ${brDate(from)} a ${brDate(to)}/${to.getFullYear()}`
+      : `${MESES_FULL[from.getMonth()]}/${from.getFullYear()}`
+    return team === 'all' ? txt : `${txt} · ${TEAM_LABELS[team]}`
+  }
 
   function periodParams(): Record<string, string> {
     const base: Record<string, string> = period === 'all'
@@ -519,10 +590,19 @@ export default function KPIs() {
 
   function openDrawer(kind: DrawerKind, label: string, origens: string[] | undefined, trigger: HTMLElement) {
     drawerTriggerRef.current = trigger
+    setDrawerGran('pagina')
+    setDrawerAnchor(defaultAnchor())
     setDrawer({ kind, label, origens })
+  }
+
+  // recarrega o drawer quando abre ou quando muda o recorte (dia/semana/mês)
+  useEffect(() => {
+    if (!drawer) return
+    const { kind, label, origens } = drawer
+    const gen = ++drawerGenRef.current
     setDrawerData(null)
     setDrawerLoading(true)
-    const qp = new URLSearchParams(periodParams())
+    const qp = new URLSearchParams(drawerParams())
     let url: string
     if (kind === 'base') {
       qp.set('base', label)
@@ -543,12 +623,14 @@ export default function KPIs() {
     }
     api.get<Record<string, unknown>>(url)
       .then(r => {
+        if (gen !== drawerGenRef.current) return
         const raw = r.data as unknown as (DetalheComum & { pct_cancelamento?: number; pct_perda?: number })
         setDrawerData({ ...raw, pct_perda: raw.pct_perda ?? raw.pct_cancelamento ?? 0 })
       })
-      .catch(() => setDrawerData(null))
-      .finally(() => setDrawerLoading(false))
-  }
+      .catch(() => { if (gen === drawerGenRef.current) setDrawerData(null) })
+      .finally(() => { if (gen === drawerGenRef.current) setDrawerLoading(false) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawer, drawerGran, drawerAnchor])
 
   function closeDrawer() {
     setDrawer(null)
@@ -562,7 +644,7 @@ export default function KPIs() {
       setBaseStatusFilter(null)
       setBaseLeadsLoading(true)
       setBaseLeads([])
-      api.get<OrgLead[]>(`/api/v1/kpis/leads-base?${new URLSearchParams({ ...periodParams(), base: drawer.label })}`)
+      api.get<OrgLead[]>(`/api/v1/kpis/leads-base?${new URLSearchParams({ ...drawerParams(), base: drawer.label })}`)
         .then(r => setBaseLeads(r.data)).catch(() => setBaseLeads([]))
         .finally(() => setBaseLeadsLoading(false))
     } else {
@@ -571,7 +653,7 @@ export default function KPIs() {
       setOrgLeadsLoading(true)
       setOrgLeads([])
       setOrgLeadsTotal(0)
-      const qp = new URLSearchParams(periodParams())
+      const qp = new URLSearchParams(drawerParams())
       if (drawer.kind === 'conversao') qp.set('conv_point', drawer.label)
       else if (drawer.kind === 'modalidade') qp.set('modalidade', drawer.label)
       else if (drawer.kind === 'renutricao') qp.set('renutrucao', 'true')
@@ -1642,11 +1724,53 @@ export default function KPIs() {
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
                 <p id="perf-drawer-title" style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{drawer.label}</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{periodLabel()}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{drawerPeriodLabel()}</p>
               </div>
               <button data-drawer-close onClick={closeDrawer} aria-label="Fechar análise" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
                 <X size={20} />
               </button>
+            </div>
+
+            {/* Recorte do drawer: período da página, mês, semana ou dia, com ‹ › */}
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
+              <div role="group" aria-label="Recorte do período" style={{ display: 'inline-flex', background: 'var(--bg-subtle)', borderRadius: 8, padding: 3, gap: 2 }}>
+                {DRAWER_GRANS.map(g => {
+                  const active = drawerGran === g.key
+                  return (
+                    <button
+                      key={g.key}
+                      onClick={() => setDrawerGran(g.key)}
+                      aria-pressed={active}
+                      style={{
+                        border: 'none', cursor: 'pointer', borderRadius: 6, padding: '5px 10px', fontSize: 12.5,
+                        fontWeight: active ? 600 : 500,
+                        background: active ? 'var(--bg-card)' : 'transparent',
+                        color: active ? '#2563eb' : 'var(--text-muted)',
+                        boxShadow: active ? '0 1px 2px rgba(15,23,42,.08)' : 'none',
+                      }}
+                    >{g.label}</button>
+                  )
+                })}
+              </div>
+              {drawerGran !== 'pagina' && (() => {
+                const g = drawerGran
+                const nextDisabled = isoDate(drawerRange(g, shiftAnchor(g, drawerAnchor, 1)).from) > isoDate(now)
+                const navBtn = { border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: 6, width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, lineHeight: 1 } as const
+                return (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <button aria-label="Período anterior" onClick={() => setDrawerAnchor(shiftAnchor(g, drawerAnchor, -1))} style={{ ...navBtn, cursor: 'pointer', color: 'var(--text-1)' }}>‹</button>
+                    <input
+                      type="date"
+                      aria-label="Escolher data"
+                      value={drawerAnchor}
+                      max={isoDate(now)}
+                      onChange={e => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value) && e.target.value >= '2000-01-01') setDrawerAnchor(e.target.value) }}
+                      style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '3px 6px', fontSize: 12.5, background: 'var(--bg-card)', color: 'var(--text-1)', height: 28 }}
+                    />
+                    <button aria-label="Próximo período" disabled={nextDisabled} onClick={() => setDrawerAnchor(shiftAnchor(g, drawerAnchor, 1))} style={{ ...navBtn, cursor: nextDisabled ? 'default' : 'pointer', color: nextDisabled ? 'var(--text-muted)' : 'var(--text-1)', opacity: nextDisabled ? 0.4 : 1 }}>›</button>
+                  </div>
+                )
+              })()}
             </div>
 
             <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
@@ -1920,7 +2044,7 @@ export default function KPIs() {
 
       {basePopup && (
         <FilterableLeadsModal
-          title={basePopup} subtitle={`Leads captados nesta base · ${periodLabel()}`}
+          title={basePopup} subtitle={`Leads captados nesta base · ${drawer ? drawerPeriodLabel() : periodLabel()}`}
           loading={baseLeadsLoading} leads={baseLeads}
           statusFilter={baseStatusFilter} onFilter={setBaseStatusFilter}
           onClose={() => setBasePopup(null)}
@@ -1928,7 +2052,7 @@ export default function KPIs() {
       )}
       {orgPopup && (
         <FilterableLeadsModal
-          title={orgPopup} subtitle={`Leads relacionados · ${periodLabel()}`}
+          title={orgPopup} subtitle={`Leads relacionados · ${drawer ? drawerPeriodLabel() : periodLabel()}`}
           loading={orgLeadsLoading} leads={orgLeads} total={orgLeadsTotal}
           statusFilter={orgStatusFilter} onFilter={setOrgStatusFilter}
           onClose={() => setOrgPopup(null)}
