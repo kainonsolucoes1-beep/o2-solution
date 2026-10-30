@@ -31,7 +31,7 @@ export default function LeadRegistrationPanel({
   conversionPoint, conversionPointOptions, savingConversionPoint, onConversionPointChange,
   campanha, campanhaOptions, savingCampanha, onCampanhaChange,
   celularCor, savingCelular, onCelularChange,
-  leadSinceLabel, leadSinceRelative, retrabalhadoEmLabel, documentoLabel, empresaLabel, titularMenorLabel, visibilityTag,
+  leadSinceLabel, retrabalhadoEmLabel, documentoLabel, empresaLabel, titularMenorLabel, visibilityTag,
   editingInfo, savingInfo, infoDraft, onDraftChange, onStartEdit, onCancelEdit, onSaveEdit, locked,
 }: {
   origem: string
@@ -50,7 +50,6 @@ export default function LeadRegistrationPanel({
   savingCelular: boolean
   onCelularChange: (v: string) => void
   leadSinceLabel: string
-  leadSinceRelative?: string
   retrabalhadoEmLabel?: string | null
   documentoLabel: string
   empresaLabel: string
@@ -91,9 +90,6 @@ export default function LeadRegistrationPanel({
         </span>
         <span style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
           {leadSinceLabel}
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          {[leadSinceRelative?.toLowerCase(), origem && !isEmpty(origem) ? titleCase(origem) : null].filter(Boolean).join(' · ')}
         </span>
       </div>
       {retrabalhadoEmLabel && (
