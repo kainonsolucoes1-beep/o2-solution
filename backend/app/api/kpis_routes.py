@@ -107,6 +107,17 @@ def _scope_filter(team: str | None, current_user: User) -> list:
     return clause
 
 
+def _campanha_filter(campanha_midia: str | None) -> list:
+    """Filtro do campo Campanha da ficha (Google, Meta, outra ou "Sem campanha"),
+    o mesmo do Relatório de leads."""
+    if not campanha_midia or not campanha_midia.strip():
+        return []
+    alvo = campanha_midia.strip().lower()
+    if alvo == "sem campanha":
+        return [or_(Lead.campanha_midia.is_(None), func.trim(Lead.campanha_midia) == "")]
+    return [func.lower(func.trim(Lead.campanha_midia)) == alvo]
+
+
 def _new_acc() -> dict:
     return {"captacoes": 0, "vendas": 0, "cancelados": 0, "tempo_sum": 0, "tempo_count": 0, "receita_sum": 0.0}
 
@@ -372,6 +383,7 @@ def renutrucao_detalhe(
     date_from: str = Query(None),
     date_to: str = Query(None),
     team: str = Query(None),
+    campanha_midia: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -386,7 +398,7 @@ def renutrucao_detalhe(
             Lead.is_renutrucao == True,
             EFFECTIVE_CAPTACAO >= dt_from,
             EFFECTIVE_CAPTACAO <= dt_to,
-            *_scope_filter(team, current_user),
+            *_scope_filter(team, current_user), *_campanha_filter(campanha_midia),
         )
         .all()
     )
@@ -542,12 +554,13 @@ def leads_conv_point(
     status_group: str = Query(None),
     renutrucao: bool = Query(False),
     team: str = Query(None),
+    campanha_midia: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
-    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user)]
+    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user), *_campanha_filter(campanha_midia)]
     if renutrucao:
         filters.append(Lead.is_renutrucao == True)
     if conv_point:
@@ -616,6 +629,7 @@ def conv_point_detalhe(
     conv_point: str = Query(...),
     origens: str = Query(None),
     team: str = Query(None),
+    campanha_midia: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -625,7 +639,7 @@ def conv_point_detalhe(
         EFFECTIVE_CAPTACAO >= dt_from,
         EFFECTIVE_CAPTACAO <= dt_to,
         Lead.conversion_point.ilike(conv_point),
-        *_scope_filter(team, current_user),
+        *_scope_filter(team, current_user), *_campanha_filter(campanha_midia),
     ]
     if origens:
         parts = [s.strip() for s in origens.split(',') if s.strip()]
@@ -767,6 +781,7 @@ def sdr_detalhe(
     nome: str = Query(...),
     origens: str = Query(...),
     team: str = Query(None),
+    campanha_midia: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -780,7 +795,7 @@ def sdr_detalhe(
             EFFECTIVE_CAPTACAO >= dt_from,
             EFFECTIVE_CAPTACAO <= dt_to,
             Lead.origin.in_(parts),
-            *_scope_filter(team, current_user),
+            *_scope_filter(team, current_user), *_campanha_filter(campanha_midia),
         )
         .all()
     )
@@ -942,6 +957,7 @@ def modalidade_detalhe(
     date_to: str = Query(None),
     modalidade: str = Query(...),
     team: str = Query(None),
+    campanha_midia: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -951,7 +967,7 @@ def modalidade_detalhe(
     filters = [
         EFFECTIVE_CAPTACAO >= dt_from,
         EFFECTIVE_CAPTACAO <= dt_to,
-        *_scope_filter(team, current_user),
+        *_scope_filter(team, current_user), *_campanha_filter(campanha_midia),
     ]
     if target == "não informado":
         filters.append(or_(Lead.modalidade.is_(None), func.trim(Lead.modalidade) == ""))
@@ -1027,13 +1043,14 @@ def base_detalhe(
     date_to: str = Query(None),
     base: str = Query(...),
     team: str = Query(None),
+    campanha_midia: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     sem_base = base.strip().lower() == SEM_BASE_LABEL.lower()
-    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user)]
+    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user), *_campanha_filter(campanha_midia)]
     if sem_base:
         filters.append(func.lower(func.trim(Lead.origin)).in_(_SDR_NAMES))
     else:
@@ -1122,13 +1139,14 @@ def leads_base(
     date_to: str = Query(None),
     base: str = Query(None),
     team: str = Query(None),
+    campanha_midia: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     dt_from, dt_to = _resolve_period(month, period, date_from, date_to)
 
     sem_base = (base or '').strip().lower() == SEM_BASE_LABEL.lower()
-    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user)]
+    filters = [EFFECTIVE_CAPTACAO >= dt_from, EFFECTIVE_CAPTACAO <= dt_to, *_scope_filter(team, current_user), *_campanha_filter(campanha_midia)]
     if sem_base:
         filters.append(func.lower(func.trim(Lead.origin)).in_(_SDR_NAMES))
     else:

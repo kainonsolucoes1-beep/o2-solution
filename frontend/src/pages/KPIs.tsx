@@ -536,7 +536,12 @@ export default function KPIs() {
   const drawerRef = useRef<HTMLDivElement>(null)
   const [drawerGran, setDrawerGran] = useState<DrawerGran>('pagina')
   const [drawerAnchor, setDrawerAnchor] = useState(isoDate(now))
+  const [drawerCampanha, setDrawerCampanha] = useState('')
+  const [campanhasMidia, setCampanhasMidia] = useState<string[]>(['Google', 'Meta'])
   const drawerGenRef = useRef(0)
+  useEffect(() => {
+    api.get<string[]>('/api/v1/leads/campanhas-midia').then(r => setCampanhasMidia(r.data)).catch(() => {})
+  }, [])
 
   // data âncora inicial: hoje se cair no período da página, senão o fim dele
   function defaultAnchor(): string {
@@ -550,10 +555,14 @@ export default function KPIs() {
   }
 
   function drawerParams(): Record<string, string> {
-    if (drawerGran === 'pagina') return periodParams()
-    const { from, to } = drawerRange(drawerGran, drawerAnchor)
-    const p: Record<string, string> = { period: 'range', date_from: isoDate(from), date_to: isoDate(to) }
-    if (team !== 'all') p.team = TEAM_VALUES[team]
+    let p: Record<string, string>
+    if (drawerGran === 'pagina') p = periodParams()
+    else {
+      const { from, to } = drawerRange(drawerGran, drawerAnchor)
+      p = { period: 'range', date_from: isoDate(from), date_to: isoDate(to) }
+      if (team !== 'all') p.team = TEAM_VALUES[team]
+    }
+    if (drawerCampanha) p.campanha_midia = drawerCampanha
     return p
   }
 
@@ -566,6 +575,9 @@ export default function KPIs() {
       ? `Semana de ${brDate(from)} a ${brDate(to)}/${to.getFullYear()}`
       : `${MESES_FULL[from.getMonth()]}/${from.getFullYear()}`
     return team === 'all' ? txt : `${txt} · ${TEAM_LABELS[team]}`
+  }
+  function drawerSubtitle(): string {
+    return drawerCampanha ? `${drawerPeriodLabel()} · Campanha: ${drawerCampanha}` : drawerPeriodLabel()
   }
 
   function periodParams(): Record<string, string> {
@@ -592,6 +604,7 @@ export default function KPIs() {
     drawerTriggerRef.current = trigger
     setDrawerGran('pagina')
     setDrawerAnchor(defaultAnchor())
+    setDrawerCampanha('')
     setDrawer({ kind, label, origens })
   }
 
@@ -630,7 +643,7 @@ export default function KPIs() {
       .catch(() => { if (gen === drawerGenRef.current) setDrawerData(null) })
       .finally(() => { if (gen === drawerGenRef.current) setDrawerLoading(false) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawer, drawerGran, drawerAnchor])
+  }, [drawer, drawerGran, drawerAnchor, drawerCampanha])
 
   function closeDrawer() {
     setDrawer(null)
@@ -1724,34 +1737,32 @@ export default function KPIs() {
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
                 <p id="perf-drawer-title" style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{drawer.label}</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{drawerPeriodLabel()}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{drawerSubtitle()}</p>
               </div>
               <button data-drawer-close onClick={closeDrawer} aria-label="Fechar análise" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
                 <X size={20} />
               </button>
             </div>
 
-            {/* Recorte do drawer: período da página, mês, semana ou dia, com ‹ › */}
-            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
-              <div role="group" aria-label="Recorte do período" style={{ display: 'inline-flex', background: 'var(--bg-subtle)', borderRadius: 8, padding: 3, gap: 2 }}>
-                {DRAWER_GRANS.map(g => {
-                  const active = drawerGran === g.key
-                  return (
-                    <button
-                      key={g.key}
-                      onClick={() => setDrawerGran(g.key)}
-                      aria-pressed={active}
-                      style={{
-                        border: 'none', cursor: 'pointer', borderRadius: 6, padding: '5px 10px', fontSize: 12.5,
-                        fontWeight: active ? 600 : 500,
-                        background: active ? 'var(--bg-card)' : 'transparent',
-                        color: active ? '#2563eb' : 'var(--text-muted)',
-                        boxShadow: active ? '0 1px 2px rgba(15,23,42,.08)' : 'none',
-                      }}
-                    >{g.label}</button>
-                  )
-                })}
-              </div>
+            {/* Recorte do drawer: período (página / mês / semana / dia, com ‹ ›) e Campanha */}
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+              {(() => {
+                const selStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '0 8px', fontSize: 12.5, background: 'var(--bg-card)', color: 'var(--text-1)', height: 30, cursor: 'pointer' } as const
+                const campanhaOpts = drawerCampanha && drawerCampanha !== 'Sem campanha' && !campanhasMidia.includes(drawerCampanha) ? [...campanhasMidia, drawerCampanha] : campanhasMidia
+                return (
+                  <>
+                    <select aria-label="Período" value={drawerGran} onChange={e => setDrawerGran(e.target.value as DrawerGran)} style={selStyle}>
+                      {DRAWER_GRANS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
+                    </select>
+                    <select aria-label="Campanha" value={drawerCampanha} onChange={e => setDrawerCampanha(e.target.value)} style={{ ...selStyle, ...(drawerCampanha ? { borderColor: '#2563eb', color: '#2563eb', fontWeight: 600 } : {}) }}>
+                      <option value="">Campanha: todas</option>
+                      <option value="Sem campanha">Sem campanha</option>
+                      {campanhaOpts.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <span style={{ flex: 1 }} />
+                  </>
+                )
+              })()}
               {drawerGran !== 'pagina' && (() => {
                 const g = drawerGran
                 const nextDisabled = isoDate(drawerRange(g, shiftAnchor(g, drawerAnchor, 1)).from) > isoDate(now)
@@ -2044,7 +2055,7 @@ export default function KPIs() {
 
       {basePopup && (
         <FilterableLeadsModal
-          title={basePopup} subtitle={`Leads captados nesta base · ${drawer ? drawerPeriodLabel() : periodLabel()}`}
+          title={basePopup} subtitle={`Leads captados nesta base · ${drawer ? drawerSubtitle() : periodLabel()}`}
           loading={baseLeadsLoading} leads={baseLeads}
           statusFilter={baseStatusFilter} onFilter={setBaseStatusFilter}
           onClose={() => setBasePopup(null)}
@@ -2052,7 +2063,7 @@ export default function KPIs() {
       )}
       {orgPopup && (
         <FilterableLeadsModal
-          title={orgPopup} subtitle={`Leads relacionados · ${drawer ? drawerPeriodLabel() : periodLabel()}`}
+          title={orgPopup} subtitle={`Leads relacionados · ${drawer ? drawerSubtitle() : periodLabel()}`}
           loading={orgLeadsLoading} leads={orgLeads} total={orgLeadsTotal}
           statusFilter={orgStatusFilter} onFilter={setOrgStatusFilter}
           onClose={() => setOrgPopup(null)}
