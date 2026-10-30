@@ -820,7 +820,6 @@ export default function LeadDetailPage() {
             savingCelular={savingCelular}
             onCelularChange={v => handleQuickUpdate('celular_cor', v)}
             leadSinceLabel={fmtDateOnly(lead.created_at)}
-            leadSinceRelative={fmtRelative(lead.created_at)}
             retrabalhadoEmLabel={lead.retrabalhado_em ? fmtDateOnly(lead.retrabalhado_em) : null}
             documentoLabel={lead.document ?? 'Não informado'}
             empresaLabel={lead.company ?? 'Não informado'}
