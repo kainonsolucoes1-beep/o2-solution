@@ -424,6 +424,37 @@ function shiftAnchor(gran: Exclude<DrawerGran, 'pagina'>, anchor: string, dir: 1
   return isoDate(a)
 }
 
+const DRAWER_KIND_META: Record<DrawerKind, { label: string; icon: typeof Target }> = {
+  base: { label: 'Base', icon: LayoutGrid },
+  canal: { label: 'Canal', icon: Share2 },
+  conversao: { label: 'Ponto de conversão', icon: Target },
+  modalidade: { label: 'Modalidade', icon: Tag },
+  renutricao: { label: 'Renutrição', icon: RefreshCw },
+}
+
+const fmtPct = (v: number) => `${v.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+
+// Variação contra o período anterior: % para contagens, p.p. para taxas.
+// invert = subir é ruim (cancelamento).
+function DrawerDelta({ cur, prev, tipo, invert }: { cur: number; prev: number | undefined; tipo: 'count' | 'pp'; invert?: boolean }) {
+  if (prev === undefined) return null
+  const muted = { fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 500 }
+  if (tipo === 'count' && prev === 0) return <span style={muted}>{cur > 0 ? 'sem base anterior' : 'igual'}</span>
+  const diff = tipo === 'count' ? (cur - prev) / prev * 100 : cur - prev
+  if (Math.abs(diff) < 0.05) return <span style={muted}>estável</span>
+  const up = diff > 0
+  const good = invert ? !up : up
+  const Icon = up ? ArrowUp : ArrowDown
+  const txt = tipo === 'count'
+    ? `${Math.abs(diff).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`
+    : `${Math.abs(diff).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} p.p.`
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11.5, fontWeight: 600, color: good ? '#15803D' : '#B91C1C' }}>
+      <Icon size={11} strokeWidth={2.5} />{txt}
+    </span>
+  )
+}
+
 const TEAM_VALUES: Record<'sp' | 'pe', string> = { sp: 'Equipe São Paulo', pe: 'Equipe Pernambuco' }
 const TEAM_LABELS: Record<'sp' | 'pe', string> = { sp: 'São Paulo', pe: 'Recife' }
 
@@ -537,6 +568,8 @@ export default function KPIs() {
   const [drawerGran, setDrawerGran] = useState<DrawerGran>('pagina')
   const [drawerAnchor, setDrawerAnchor] = useState(isoDate(now))
   const [drawerCampanha, setDrawerCampanha] = useState('')
+  const [drawerPrev, setDrawerPrev] = useState<DetalheComum | null>(null)
+  const [drawerPrevLabel, setDrawerPrevLabel] = useState('')
   const [campanhasMidia, setCampanhasMidia] = useState<string[]>(['Google', 'Meta'])
   const drawerGenRef = useRef(0)
   useEffect(() => {
@@ -608,14 +641,70 @@ export default function KPIs() {
     setDrawer({ kind, label, origens })
   }
 
+  // Período anterior equivalente, para comparar os indicadores do drawer:
+  // mês/semana/dia anterior ou intervalo do mesmo tamanho logo antes. Se o recorte
+  // atual ainda está em andamento, compara só a mesma quantidade de dias corridos
+  // (ex.: 1–30/10 contra 1–30/09), senão o mês corrente sempre pareceria pior.
+  function prevDrawerRange(): { from: Date; to: Date } | null {
+    let cur: { from: Date; to: Date }
+    let prev: { from: Date; to: Date }
+    if (drawerGran !== 'pagina') {
+      cur = drawerRange(drawerGran, drawerAnchor)
+      prev = drawerRange(drawerGran, shiftAnchor(drawerGran, drawerAnchor, -1))
+    } else if (period === 'all') {
+      return null
+    } else if (period === 'range' && debRangeFrom && debRangeTo) {
+      const f = parseIso(debRangeFrom), t = parseIso(debRangeTo)
+      const dias = Math.round((t.getTime() - f.getTime()) / 86400000) + 1
+      const pt = new Date(f); pt.setDate(f.getDate() - 1)
+      const pf = new Date(pt); pf.setDate(pt.getDate() - dias + 1)
+      cur = { from: f, to: t }
+      prev = { from: pf, to: pt }
+    } else {
+      const [y, m] = month.split('-').map(Number)
+      cur = { from: new Date(y, m - 1, 1), to: new Date(y, m, 0) }
+      prev = { from: new Date(y, m - 2, 1), to: new Date(y, m - 1, 0) }
+    }
+    const hoje = parseIso(isoDate(now))
+    if (cur.to > hoje && cur.from <= hoje) {
+      const decorridos = Math.round((hoje.getTime() - cur.from.getTime()) / 86400000)
+      const to = new Date(prev.from); to.setDate(prev.from.getDate() + decorridos)
+      if (to < prev.to) prev = { from: prev.from, to }
+    }
+    return prev
+  }
+
   // recarrega o drawer quando abre ou quando muda o recorte (dia/semana/mês)
   useEffect(() => {
     if (!drawer) return
     const { kind, label, origens } = drawer
     const gen = ++drawerGenRef.current
     setDrawerData(null)
+    setDrawerPrev(null)
     setDrawerLoading(true)
-    const qp = new URLSearchParams(drawerParams())
+    const prevRange = prevDrawerRange()
+    setDrawerPrevLabel(prevRange ? `${brDate(prevRange.from)}/${prevRange.from.getFullYear()} – ${brDate(prevRange.to)}/${prevRange.to.getFullYear()}` : '')
+    if (prevRange) {
+      const pp: Record<string, string> = { period: 'range', date_from: isoDate(prevRange.from), date_to: isoDate(prevRange.to) }
+      if (team !== 'all') pp.team = TEAM_VALUES[team]
+      if (drawerCampanha) pp.campanha_midia = drawerCampanha
+      api.get<DetalheComum & { pct_cancelamento?: number }>(detalheUrl(kind, label, origens, pp))
+        .then(r => { if (gen === drawerGenRef.current) setDrawerPrev({ ...r.data, pct_perda: r.data.pct_perda ?? r.data.pct_cancelamento ?? 0 }) })
+        .catch(() => {})
+    }
+    api.get<Record<string, unknown>>(detalheUrl(kind, label, origens, drawerParams()))
+      .then(r => {
+        if (gen !== drawerGenRef.current) return
+        const raw = r.data as unknown as (DetalheComum & { pct_cancelamento?: number; pct_perda?: number })
+        setDrawerData({ ...raw, pct_perda: raw.pct_perda ?? raw.pct_cancelamento ?? 0 })
+      })
+      .catch(() => { if (gen === drawerGenRef.current) setDrawerData(null) })
+      .finally(() => { if (gen === drawerGenRef.current) setDrawerLoading(false) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawer, drawerGran, drawerAnchor, drawerCampanha])
+
+  function detalheUrl(kind: DrawerKind, label: string, origens: string[] | undefined, params: Record<string, string>): string {
+    const qp = new URLSearchParams(params)
     let url: string
     if (kind === 'base') {
       qp.set('base', label)
@@ -634,16 +723,8 @@ export default function KPIs() {
       qp.set('origens', origens?.length ? origens.join(',') : label)
       url = `/api/v1/kpis/sdr-detalhe?${qp}`
     }
-    api.get<Record<string, unknown>>(url)
-      .then(r => {
-        if (gen !== drawerGenRef.current) return
-        const raw = r.data as unknown as (DetalheComum & { pct_cancelamento?: number; pct_perda?: number })
-        setDrawerData({ ...raw, pct_perda: raw.pct_perda ?? raw.pct_cancelamento ?? 0 })
-      })
-      .catch(() => { if (gen === drawerGenRef.current) setDrawerData(null) })
-      .finally(() => { if (gen === drawerGenRef.current) setDrawerLoading(false) })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawer, drawerGran, drawerAnchor, drawerCampanha])
+    return url
+  }
 
   function closeDrawer() {
     setDrawer(null)
@@ -1719,134 +1800,178 @@ export default function KPIs() {
         )
       )}
 
-      {/* ── Drawer unificado: Base / Canal / Ponto de conversão ── */}
-      {drawer && (
+      {/* ── Drawer unificado: Base / Canal / Ponto de conversão / Modalidade / Renutrição ──
+          Cabeçalho (tipo, nome, recorte) · indicadores com variação vs. período anterior ·
+          funil · potencial · perfil · rodapé fixo com a lista de leads. */}
+      {drawer && (() => {
+        const meta = DRAWER_KIND_META[drawer.kind]
+        const KindIcon = meta.icon
+        const d = drawerData
+        const p = drawerPrev ?? undefined
+        const isRenut = drawer.kind === 'renutricao'
+        const sectionTitle = { fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 14px' } as const
+        const card = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' } as const
+        const selStyle = { border: '1px solid var(--border)', borderRadius: 8, padding: '0 10px', fontSize: 12.5, background: 'var(--bg-card)', color: 'var(--text-1)', height: 32, cursor: 'pointer' } as const
+        const campanhaOpts = drawerCampanha && drawerCampanha !== 'Sem campanha' && !campanhasMidia.includes(drawerCampanha) ? [...campanhasMidia, drawerCampanha] : campanhasMidia
+        const pctDe = (n: number) => d && d.captacoes > 0 ? n / d.captacoes * 100 : 0
+        return (
         <>
-          <div onClick={closeDrawer} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 100 }} />
+          <div onClick={closeDrawer} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(2px)', zIndex: 100 }} />
           <div
             ref={drawerRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="perf-drawer-title"
             style={{
-              position: 'fixed', top: 0, right: 0, bottom: 0, width: 600, maxWidth: '100vw', zIndex: 101,
-              background: 'var(--bg-card)', boxShadow: '-8px 0 32px rgba(15,23,42,.16)',
+              position: 'fixed', top: 0, right: 0, bottom: 0, width: 640, maxWidth: '100vw', zIndex: 101,
+              background: 'var(--bg-subtle)', boxShadow: '-12px 0 40px rgba(15,23,42,.18)',
               display: 'flex', flexDirection: 'column',
             }}
           >
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div>
-                <p id="perf-drawer-title" style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{drawer.label}</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{drawerSubtitle()}</p>
-              </div>
-              <button data-drawer-close onClick={closeDrawer} aria-label="Fechar análise" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Recorte do drawer: período (página / mês / semana / dia, com ‹ ›) e Campanha */}
-            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
-              {(() => {
-                const selStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '0 8px', fontSize: 12.5, background: 'var(--bg-card)', color: 'var(--text-1)', height: 30, cursor: 'pointer' } as const
-                const campanhaOpts = drawerCampanha && drawerCampanha !== 'Sem campanha' && !campanhasMidia.includes(drawerCampanha) ? [...campanhasMidia, drawerCampanha] : campanhasMidia
-                return (
-                  <>
-                    <select aria-label="Período" value={drawerGran} onChange={e => setDrawerGran(e.target.value as DrawerGran)} style={selStyle}>
-                      {DRAWER_GRANS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
-                    </select>
-                    <select aria-label="Campanha" value={drawerCampanha} onChange={e => setDrawerCampanha(e.target.value)} style={{ ...selStyle, ...(drawerCampanha ? { borderColor: '#2563eb', color: '#2563eb', fontWeight: 600 } : {}) }}>
-                      <option value="">Campanha: todas</option>
-                      <option value="Sem campanha">Sem campanha</option>
-                      {campanhaOpts.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    <span style={{ flex: 1 }} />
-                  </>
-                )
-              })()}
-              {drawerGran !== 'pagina' && (() => {
-                const g = drawerGran
-                const nextDisabled = isoDate(drawerRange(g, shiftAnchor(g, drawerAnchor, 1)).from) > isoDate(now)
-                const navBtn = { border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: 6, width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, lineHeight: 1 } as const
-                return (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <button aria-label="Período anterior" onClick={() => setDrawerAnchor(shiftAnchor(g, drawerAnchor, -1))} style={{ ...navBtn, cursor: 'pointer', color: 'var(--text-1)' }}>‹</button>
-                    <input
-                      type="date"
-                      aria-label="Escolher data"
-                      value={drawerAnchor}
-                      max={isoDate(now)}
-                      onChange={e => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value) && e.target.value >= '2000-01-01') setDrawerAnchor(e.target.value) }}
-                      style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '3px 6px', fontSize: 12.5, background: 'var(--bg-card)', color: 'var(--text-1)', height: 28 }}
-                    />
-                    <button aria-label="Próximo período" disabled={nextDisabled} onClick={() => setDrawerAnchor(shiftAnchor(g, drawerAnchor, 1))} style={{ ...navBtn, cursor: nextDisabled ? 'default' : 'pointer', color: nextDisabled ? 'var(--text-muted)' : 'var(--text-1)', opacity: nextDisabled ? 0.4 : 1 }}>›</button>
-                  </div>
-                )
-              })()}
-            </div>
-
-            <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
-              {drawerLoading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                  <div style={{ height: 64, background: 'var(--bg-subtle)', borderRadius: 12 }} />
-                  <div style={{ height: 48, background: 'var(--bg-subtle)', borderRadius: 12 }} />
-                  <div style={{ height: 120, background: 'var(--bg-subtle)', borderRadius: 12 }} />
+            {/* Cabeçalho */}
+            <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '18px 24px 16px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <span aria-hidden="true" style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(37,99,235,0.10)', color: '#2563EB', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <KindIcon size={18} />
+                </span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>{meta.label}</p>
+                  <p id="perf-drawer-title" title={drawer.label} style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drawer.label}</p>
                 </div>
-              ) : !drawerData ? (
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px 0' }}>Não foi possível carregar os dados desta análise.</p>
+                <button data-drawer-close onClick={closeDrawer} aria-label="Fechar análise" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, flexShrink: 0, display: 'inline-flex' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Recorte: período (página / mês / semana / dia, com ‹ ›) e Campanha */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+                <select aria-label="Período" value={drawerGran} onChange={e => setDrawerGran(e.target.value as DrawerGran)} style={selStyle}>
+                  {DRAWER_GRANS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
+                </select>
+                <select aria-label="Campanha" value={drawerCampanha} onChange={e => setDrawerCampanha(e.target.value)} style={{ ...selStyle, ...(drawerCampanha ? { borderColor: '#2563eb', color: '#2563eb', fontWeight: 600 } : {}) }}>
+                  <option value="">Campanha: todas</option>
+                  <option value="Sem campanha">Sem campanha</option>
+                  {campanhaOpts.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <span style={{ flex: 1 }} />
+                {drawerGran !== 'pagina' && (() => {
+                  const g = drawerGran
+                  const nextDisabled = isoDate(drawerRange(g, shiftAnchor(g, drawerAnchor, 1)).from) > isoDate(now)
+                  const navBtn = { border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: 8, width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, lineHeight: 1 } as const
+                  return (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <button aria-label="Período anterior" onClick={() => setDrawerAnchor(shiftAnchor(g, drawerAnchor, -1))} style={{ ...navBtn, cursor: 'pointer', color: 'var(--text-1)' }}>‹</button>
+                      <input
+                        type="date"
+                        aria-label="Escolher data"
+                        value={drawerAnchor}
+                        max={isoDate(now)}
+                        onChange={e => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value) && e.target.value >= '2000-01-01') setDrawerAnchor(e.target.value) }}
+                        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '0 8px', fontSize: 12.5, background: 'var(--bg-card)', color: 'var(--text-1)', height: 32 }}
+                      />
+                      <button aria-label="Próximo período" disabled={nextDisabled} onClick={() => setDrawerAnchor(shiftAnchor(g, drawerAnchor, 1))} style={{ ...navBtn, cursor: nextDisabled ? 'default' : 'pointer', color: nextDisabled ? 'var(--text-muted)' : 'var(--text-1)', opacity: nextDisabled ? 0.4 : 1 }}>›</button>
+                    </div>
+                  )
+                })()}
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '10px 0 0' }}>{drawerSubtitle()}</p>
+            </div>
+
+            {/* Corpo */}
+            <div style={{ padding: '20px 24px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {drawerLoading ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                    {[0, 1, 2, 3].map(i => <div key={i} style={{ height: 86, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }} />)}
+                  </div>
+                  <div style={{ height: 150, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }} />
+                  <div style={{ height: 110, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12 }} />
+                </>
+              ) : !d ? (
+                <div style={{ ...card, textAlign: 'center', color: 'var(--text-muted)', padding: '40px 18px' }}>Não foi possível carregar os dados desta análise.</div>
+              ) : d.captacoes === 0 ? (
+                <div style={{ ...card, textAlign: 'center', padding: '44px 18px' }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Nenhum lead neste recorte</p>
+                  <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '6px 0 0' }}>Troque o período ou a campanha acima.</p>
+                </div>
               ) : (
                 <>
-                  {/* Do captado à venda: funil (captados → em aberto → vendas), com
-                      conversão/cancelamento numa linha discreta abaixo. Antes eram
-                      3 números + 3 chips cinza com o mesmo peso visual. */}
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>{drawer.kind === 'renutricao' ? 'Do retrabalho à venda' : 'Do captado à venda'}</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* Indicadores */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))', gap: 10 }}>
                     {([
-                      [drawer.kind === 'renutricao' ? 'Retrabalhados' : 'Captados', drawerData.captacoes, 100,                    'rgba(37,99,235,0.16)'],
-                      ['Em aberto', drawerData.base_liquida, drawerData.captacoes > 0 ? Math.round(drawerData.base_liquida / drawerData.captacoes * 100) : 0, 'rgba(37,99,235,0.55)'],
-                      ['Vendas',    drawerData.vendas,       drawerData.captacoes > 0 ? Math.round(drawerData.vendas / drawerData.captacoes * 100) : 0,       'rgba(21,128,61,0.30)'],
-                    ] as const).map(([label, count, width, fill]) => (
-                      <div key={label} style={{ display: 'grid', gridTemplateColumns: '76px 1fr 26px', alignItems: 'center', gap: 14 }}>
-                        <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{label}</span>
-                        <div style={{ height: 26, borderRadius: 7, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
-                          {width > 0 && <div style={{ width: `${width}%`, height: '100%', borderRadius: 7, background: fill }} />}
-                        </div>
-                        <span style={{ fontSize: 13.5, fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: count > 0 ? 'var(--text-1)' : 'var(--text-muted)' }}>{count}</span>
+                      [isRenut ? 'Retrabalhados' : 'Captados', d.captacoes.toLocaleString('pt-BR'), <DrawerDelta key="c" cur={d.captacoes} prev={p?.captacoes} tipo="count" />],
+                      ['Vendas', d.vendas.toLocaleString('pt-BR'), <DrawerDelta key="v" cur={d.vendas} prev={p?.vendas} tipo="count" />],
+                      ['Conversão', fmtPct(d.conversao), <DrawerDelta key="cv" cur={d.conversao} prev={p?.conversao} tipo="pp" />],
+                      ['Cancelamento', fmtPct(d.pct_perda), <DrawerDelta key="cn" cur={d.pct_perda} prev={p?.pct_perda} tipo="pp" invert />],
+                    ] as const).map(([label, valor, delta]) => (
+                      <div key={label} style={{ ...card, padding: '14px 16px' }}>
+                        <p style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, margin: 0 }}>{label}</p>
+                        <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 2px', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}>{valor}</p>
+                        <div style={{ minHeight: 16 }}>{delta}</div>
                       </div>
                     ))}
                   </div>
-                  <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '14px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <svg width={11} height={11} viewBox="0 0 24 24" fill="#B91C1C" aria-hidden="true"><path d="M12 21 3 6h18z" /></svg>
-                    Conversão {drawerData.conversao}% · <span style={{ color: '#B91C1C', fontWeight: 600 }}>cancelamento {drawerData.pct_perda}%</span>
-                  </p>
+                  {drawerPrevLabel && (
+                    <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '-4px 2px 0' }}>
+                      Variação comparada a {drawerPrevLabel}{!p ? ' (carregando…)' : ''}
+                    </p>
+                  )}
 
-                  <button onClick={openDrawerLeads} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#2563EB', fontSize: 13, fontWeight: 600, marginTop: 18 }}>
-                    Ver {drawerData.captacoes === 1 ? 'o lead' : `os ${drawerData.captacoes} leads`} →
-                  </button>
-
-                  <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border)', marginBottom: 22 }}>
-                    <div>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>Receita potencial <span style={{ fontWeight: 400 }}>· estimada</span></p>
-                      <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(drawerData.receita_potencial)}</p>
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, margin: '0 0 4px' }}>Ticket médio <span style={{ fontWeight: 400 }}>· estimado</span></p>
-                      <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(drawerData.ticket_medio)}</p>
+                  {/* Funil */}
+                  <div style={card}>
+                    <p style={sectionTitle}>{isRenut ? 'Do retrabalho à venda' : 'Do captado à venda'}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {([
+                        [isRenut ? 'Retrabalhados' : 'Captados', d.captacoes, '#93B4F5'],
+                        ['Em aberto', d.base_liquida - d.vendas, '#3B82F6'],
+                        ['Vendas', d.vendas, '#15803D'],
+                        ['Cancelados', d.cancelados, '#DC2626'],
+                      ] as const).map(([label, count, fill]) => {
+                        const pct = pctDe(count)
+                        return (
+                          <div key={label} style={{ display: 'grid', gridTemplateColumns: '92px 1fr 44px 52px', alignItems: 'center', gap: 12 }}>
+                            <span style={{ fontSize: 12.5, color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                              <i style={{ width: 8, height: 8, borderRadius: 3, background: fill, flexShrink: 0 }} />{label}
+                            </span>
+                            <div style={{ height: 10, borderRadius: 9999, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
+                              {pct > 0 && <div style={{ width: `${Math.max(pct, 1.5)}%`, height: '100%', borderRadius: 9999, background: fill }} />}
+                            </div>
+                            <span style={{ fontSize: 13.5, fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: count > 0 ? 'var(--text-1)' : 'var(--text-muted)' }}>{count.toLocaleString('pt-BR')}</span>
+                            <span style={{ fontSize: 12, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>{fmtPct(Math.round(pct * 10) / 10)}</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
 
-                  {/* De onde vieram: só no drawer de renutrição — os leads retrabalhados
+                  {/* Potencial */}
+                  <div style={{ ...card, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                    <div>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, margin: 0 }}>Receita potencial</p>
+                      <p style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 2px', fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(d.receita_potencial)}</p>
+                      <DrawerDelta cur={d.receita_potencial} prev={p?.receita_potencial} tipo="count" />
+                    </div>
+                    <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 18 }}>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500, margin: 0 }}>Ticket médio</p>
+                      <p style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', margin: '4px 0 2px', fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(d.ticket_medio)}</p>
+                      <DrawerDelta cur={d.ticket_medio} prev={p?.ticket_medio} tipo="count" />
+                    </div>
+                    <p style={{ gridColumn: '1 / -1', fontSize: 11.5, color: 'var(--text-muted)', margin: 0 }}>Estimativa sobre os leads não cancelados (valor potencial da ficha).</p>
+                  </div>
+
+                  {/* De onde vieram: só na renutrição — os leads retrabalhados
                       guardam a origem e o ponto de conversão originais */}
-                  {drawer.kind === 'renutricao' && !!(drawerData.por_canal?.length || drawerData.por_ponto_conversao?.length) && (
-                    <div style={{ paddingTop: 20, borderTop: '1px solid var(--border)', marginBottom: 22 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px' }}>De onde vieram</p>
+                  {isRenut && !!(d.por_canal?.length || d.por_ponto_conversao?.length) && (
+                    <div style={card}>
+                      <p style={sectionTitle}>De onde vieram</p>
                       {([
-                        ['Por canal', drawerData.por_canal],
-                        ['Por ponto de conversão', drawerData.por_ponto_conversao],
+                        ['Por canal', d.por_canal],
+                        ['Por ponto de conversão', d.por_ponto_conversao],
                       ] as const).map(([sub, rows]) => !rows || rows.length === 0 ? null : (
-                        <div key={sub} style={{ marginBottom: 18 }}>
+                        <div key={sub} style={{ marginBottom: 14 }}>
                           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 9px' }}>{sub}</p>
                           {rows.slice(0, 6).map((r, i) => (
-                            <div key={r.nome} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 22px', alignItems: 'center', gap: 12, marginTop: i === 0 ? 0 : 7 }}>
+                            <div key={r.nome} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 30px', alignItems: 'center', gap: 12, marginTop: i === 0 ? 0 : 7 }}>
                               <span title={r.nome} style={{ fontSize: 12.5, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.nome}</span>
                               <div style={{ height: 6, borderRadius: 9999, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
                                 <div style={{ width: `${rows[0].count > 0 ? Math.round(r.count / rows[0].count * 100) : 0}%`, height: '100%', borderRadius: 9999, background: '#2563EB' }} />
@@ -1854,69 +1979,90 @@ export default function KPIs() {
                               <span style={{ fontSize: 12.5, fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }}>{r.count}</span>
                             </div>
                           ))}
-                          {rows.length > 6 && (
-                            <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '8px 0 0' }}>+{rows.length - 6} outros</p>
-                          )}
+                          {rows.length > 6 && <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '8px 0 0' }}>+{rows.length - 6} outros</p>}
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* Perfil dos leads: modalidade + plano, uma linha cada
-                      (rótulo · barra segmentada · legenda inline com bolinha) */}
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 12px', paddingTop: 20, borderTop: '1px solid var(--border)' }}>Perfil dos leads</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '86px minmax(40px,1fr) auto', alignItems: 'center', gap: 14 }}>
-                      <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>Modalidade</span>
-                      {drawerData.modalidades.length === 0 ? (
-                        <span style={{ gridColumn: '2 / 4', fontSize: 12.5, color: 'var(--text-muted)' }}>sem dados</span>
-                      ) : (
-                        <>
-                          <div style={{ display: 'flex', gap: 2, height: 8, borderRadius: 9999, overflow: 'hidden', background: 'var(--bg-subtle)' }}>
-                            {drawerData.modalidades.map((m, i) => (
-                              <div key={m.nome} style={{ flex: m.pct || 0.001, background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                            ))}
+                  {/* Perfil dos leads */}
+                  <div style={card}>
+                    <p style={sectionTitle}>Perfil dos leads</p>
+                    <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 10px' }}>Modalidade</p>
+                    {d.modalidades.length === 0 ? (
+                      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>Sem dados.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {d.modalidades.map((m, i) => (
+                          <div key={m.nome} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 34px 48px', alignItems: 'center', gap: 12 }}>
+                            <span title={m.nome} style={{ fontSize: 12.5, color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                              <i style={{ width: 8, height: 8, borderRadius: 3, flexShrink: 0, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.nome}</span>
+                            </span>
+                            <div style={{ height: 8, borderRadius: 9999, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
+                              <div style={{ width: `${m.pct}%`, height: '100%', borderRadius: 9999, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-1)' }}>{m.count}</span>
+                            <span style={{ fontSize: 12, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>{fmtPct(m.pct)}</span>
                           </div>
-                          <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '4px 10px', fontSize: 12, color: 'var(--text-muted)' }}>
-                            {drawerData.modalidades.map((m, i) => (
-                              <span key={m.nome} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
-                                <i style={{ width: 7, height: 7, borderRadius: 9999, flexShrink: 0, background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                                {m.nome} <b style={{ color: 'var(--text-1)', fontWeight: 600 }}>{m.count}</b>
-                              </span>
-                            ))}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '86px minmax(40px,1fr) auto', alignItems: 'center', gap: 14 }}>
-                      <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>Já tem plano</span>
-                      <div style={{ display: 'flex', gap: 2, height: 8, borderRadius: 9999, overflow: 'hidden', background: 'var(--bg-subtle)' }}>
-                        <div style={{ flex: drawerData.plano.pct_possui || 0.001, background: '#15803D' }} />
-                        <div style={{ flex: drawerData.plano.pct_nao_possui || 0.001, background: '#B91C1C' }} />
+                        ))}
                       </div>
-                      <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '4px 10px', fontSize: 12, color: 'var(--text-muted)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
-                          <i style={{ width: 7, height: 7, borderRadius: 9999, flexShrink: 0, background: '#15803D' }} />
-                          Possui <b style={{ color: 'var(--text-1)', fontWeight: 600 }}>{drawerData.plano.possui}</b>
-                        </span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
-                          <i style={{ width: 7, height: 7, borderRadius: 9999, flexShrink: 0, background: '#B91C1C' }} />
-                          Não <b style={{ color: 'var(--text-1)', fontWeight: 600 }}>{drawerData.plano.nao_possui}</b>
-                        </span>
-                      </span>
-                    </div>
+                    )}
+
+                    <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0 14px' }} />
+                    <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 10px' }}>Já tem plano de saúde?</p>
+                    {d.plano.possui + d.plano.nao_possui === 0 ? (
+                      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>Nenhum lead com essa informação.</p>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', gap: 2, height: 10, borderRadius: 9999, overflow: 'hidden', background: 'var(--bg-subtle)' }}>
+                          {d.plano.possui > 0 && <div style={{ flex: d.plano.possui, background: '#15803D' }} />}
+                          {d.plano.nao_possui > 0 && <div style={{ flex: d.plano.nao_possui, background: '#F59E0B' }} />}
+                        </div>
+                        <div style={{ display: 'flex', gap: 18, marginTop: 9, fontSize: 12.5, color: 'var(--text-2)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <i style={{ width: 8, height: 8, borderRadius: 3, background: '#15803D' }} />
+                            Possui <b style={{ color: 'var(--text-1)' }}>{d.plano.possui}</b> <span style={{ color: 'var(--text-muted)' }}>({fmtPct(d.plano.pct_possui)})</span>
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <i style={{ width: 8, height: 8, borderRadius: 3, background: '#F59E0B' }} />
+                            Não possui <b style={{ color: 'var(--text-1)' }}>{d.plano.nao_possui}</b> <span style={{ color: 'var(--text-muted)' }}>({fmtPct(d.plano.pct_nao_possui)})</span>
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {d.plano.sem_informacao > 0 && (
+                      <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '10px 0 0' }}>
+                        {d.plano.sem_informacao} lead(s) sem essa informação ficam fora da proporção.
+                      </p>
+                    )}
                   </div>
-                  {drawerData.plano.sem_informacao > 0 && (
-                    <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '10px 0 0' }}>
-                      {drawerData.plano.sem_informacao} lead(s) sem essa informação não entram na proporção.
-                    </p>
-                  )}
                 </>
               )}
             </div>
+
+            {/* Rodapé fixo */}
+            <div style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {d && !drawerLoading ? `${d.captacoes.toLocaleString('pt-BR')} lead${d.captacoes === 1 ? '' : 's'} no recorte` : ''}
+              </span>
+              <button
+                onClick={openDrawerLeads}
+                disabled={!d || drawerLoading || d.captacoes === 0}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 8, padding: '9px 16px',
+                  fontSize: 13, fontWeight: 600, color: '#fff', background: '#2563EB',
+                  cursor: !d || drawerLoading || d.captacoes === 0 ? 'default' : 'pointer',
+                  opacity: !d || drawerLoading || d.captacoes === 0 ? 0.5 : 1,
+                }}
+              >
+                Ver {d?.captacoes === 1 ? 'o lead' : 'os leads'} <ChevronRight size={15} />
+              </button>
+            </div>
           </div>
         </>
-      )}
+        )
+      })()}
 
       {/* ── Modal: Comparação entre pontos de conversão ── */}
       {convCompare && (
