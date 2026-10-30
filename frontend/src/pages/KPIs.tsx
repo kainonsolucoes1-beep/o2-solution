@@ -9,6 +9,7 @@ import {
   BarChart, Bar, LineChart, Line, ComposedChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import api from '../api'
+import { fmtDateShort } from '../utils/leadFormat'
 import { useTheme } from '../ThemeContext'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
@@ -126,6 +127,7 @@ interface OrgLead {
   status: string
   valor: number | null
   tipo: 'venda' | 'perda' | 'ativo'
+  entrada?: string | null
 }
 
 interface AgeLead {
@@ -302,83 +304,185 @@ function SimpleLeadsModal({ title, subtitle, loading, leads, ageMode, onClose }:
 }
 
 // ─── Modal de leads com filtro de status (base / canal / ponto de conversão) ─
+// Tabela: busca por nome, filtro de status, ordenação, resumo no topo e
+// linha inteira clicável (Ctrl/⌘ + clique abre a ficha em outra aba).
+const NOME_MINUSCULO = new Set(['da', 'das', 'de', 'do', 'dos', 'e'])
+function nomeProprio(s: string): string {
+  return s.trim().toLowerCase().split(/\s+/)
+    .map((w, i) => i > 0 && NOME_MINUSCULO.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+function statusTom(l: OrgLead): { cor: string; fundo: string } {
+  if (l.tipo === 'venda') return { cor: '#15803D', fundo: 'rgba(21,128,61,0.10)' }
+  if (l.tipo === 'perda') return { cor: '#B91C1C', fundo: 'rgba(185,28,28,0.09)' }
+  const s = l.status.toLowerCase()
+  if (s.startsWith('proposta') || s.includes('negocia')) return { cor: '#1D4ED8', fundo: 'rgba(37,99,235,0.10)' }
+  if (s.includes('emiss') || s.includes('faturamento') || s.includes('documenta') || s.includes('pend')) return { cor: '#7C3AED', fundo: 'rgba(124,58,237,0.10)' }
+  if (s.includes('agend') || s.includes('aguardando')) return { cor: '#B45309', fundo: 'rgba(217,119,6,0.11)' }
+  return { cor: 'var(--text-muted)', fundo: 'var(--bg-subtle)' }
+}
+
+type OrdemLista = 'recentes' | 'valor' | 'nome'
+
 function FilterableLeadsModal({ title, subtitle, loading, leads, total, statusFilter, onFilter, onClose }: {
   title: string; subtitle: string; loading: boolean; leads: OrgLead[]; total?: number
   statusFilter: string | null; onFilter: (s: string | null) => void; onClose: () => void
 }) {
   const navigate = useNavigate()
-  const statusList = [...new Set(leads.map(l => l.status))]
-  const filtered = statusFilter ? leads.filter(l => l.status === statusFilter) : leads
+  const [busca, setBusca] = useState('')
+  const [ordem, setOrdem] = useState<OrdemLista>('recentes')
+
+  const contagem = new Map<string, number>()
+  for (const l of leads) contagem.set(l.status, (contagem.get(l.status) ?? 0) + 1)
+  const statusList = [...contagem.entries()].sort((a, b) => b[1] - a[1])
+
+  const termo = busca.trim().toLowerCase()
+  const filtered = leads
+    .filter(l => !statusFilter || l.status === statusFilter)
+    .filter(l => !termo || l.nome.toLowerCase().includes(termo))
+  const ordenados = ordem === 'recentes' ? filtered
+    : [...filtered].sort((a, b) => ordem === 'valor'
+      ? (b.valor ?? 0) - (a.valor ?? 0)
+      : nomeProprio(a.nome).localeCompare(nomeProprio(b.nome), 'pt-BR'))
+
+  const vendas = leads.filter(l => l.tipo === 'venda').length
+  const perdas = leads.filter(l => l.tipo === 'perda').length
+  const andamento = leads.length - vendas - perdas
+  const potencial = leads.filter(l => l.tipo !== 'perda').reduce((acc, l) => acc + (l.valor ?? 0), 0)
+  const somaFiltrada = filtered.reduce((acc, l) => acc + (l.valor ?? 0), 0)
+  const temEntrada = leads.some(l => l.entrada)
+  const temOrigem = leads.some(l => l.origem && l.origem !== '—')
+  const cols = ['minmax(0,1fr)', temEntrada ? '92px' : null, temOrigem ? '120px' : null, '150px', '104px', '20px'].filter(Boolean).join(' ')
+
+  const ctrl = { border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--bg-card)', color: 'var(--text-1)', height: 34 } as const
+  const th = { fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' } as const
+
+  function abrir(e: { ctrlKey: boolean; metaKey: boolean }, id?: string) {
+    if (!id) return
+    if (e.ctrlKey || e.metaKey) window.open(`/leads/${id}`, '_blank')
+    else navigate(`/leads/${id}`)
+  }
+
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: 24 }}>
-      <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title} style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: 'var(--shadow-md, 0 12px 32px rgba(15,23,42,.16))' }}>
-        <div style={{ padding: '20px 24px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
-          <div>
-            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{title}</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{subtitle}</p>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title} style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 880, height: 'min(86vh, 820px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 64px rgba(15,23,42,.28)' }}>
+        {/* Cabeçalho */}
+        <div style={{ padding: '20px 24px 0', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Leads</p>
+              <p title={title} style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-1)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>{subtitle}</p>
+            </div>
+            <button onClick={onClose} aria-label="Fechar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, flexShrink: 0, display: 'inline-flex' }}>
+              <X size={20} />
+            </button>
           </div>
-          <button onClick={onClose} aria-label="Fechar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, marginLeft: 12, flexShrink: 0 }}>
-            <X size={18} />
-          </button>
+
+          {/* Resumo */}
+          {!loading && leads.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', border: '1px solid var(--border)', borderRadius: 12, marginTop: 16, overflow: 'hidden' }}>
+              {([
+                ['Leads', (total ?? leads.length).toLocaleString('pt-BR'), 'var(--text-1)'],
+                ['Em andamento', andamento.toLocaleString('pt-BR'), 'var(--text-1)'],
+                ['Vendas', vendas.toLocaleString('pt-BR'), '#15803D'],
+                ['Cancelados', perdas.toLocaleString('pt-BR'), '#B91C1C'],
+                ['Valor potencial', fmtBrl(potencial), 'var(--text-1)'],
+              ] as const).map(([rotulo, valor, cor], i) => (
+                <div key={rotulo} style={{ padding: '10px 14px', borderLeft: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                  <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0 }}>{rotulo}</p>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: cor, margin: '2px 0 0', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{valor}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Ferramentas */}
+          {!loading && leads.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0' }}>
+              <input
+                type="search"
+                value={busca}
+                onChange={e => setBusca(e.target.value)}
+                placeholder="Buscar pelo nome…"
+                aria-label="Buscar lead pelo nome"
+                style={{ ...ctrl, flex: '1 1 220px', padding: '0 12px' }}
+              />
+              <select aria-label="Status" value={statusFilter ?? ''} onChange={e => onFilter(e.target.value || null)}
+                style={{ ...ctrl, padding: '0 10px', cursor: 'pointer', ...(statusFilter ? { borderColor: '#2563EB', color: '#2563EB', fontWeight: 600 } : {}) }}>
+                <option value="">Todos os status ({leads.length})</option>
+                {statusList.map(([st, n]) => <option key={st} value={st}>{st} ({n})</option>)}
+              </select>
+              <select aria-label="Ordenar" value={ordem} onChange={e => setOrdem(e.target.value as OrdemLista)} style={{ ...ctrl, padding: '0 10px', cursor: 'pointer' }}>
+                <option value="recentes">Mais recentes</option>
+                <option value="valor">Maior valor</option>
+                <option value="nome">Nome (A–Z)</option>
+              </select>
+            </div>
+          )}
         </div>
-        <div style={{ padding: '16px 24px 24px' }}>
+
+        {/* Tabela */}
+        <div style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid var(--border)' }}>
           {loading ? (
-            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Carregando…</p>
+            <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {Array.from({ length: 8 }).map((_, i) => <div key={i} style={{ height: 40, borderRadius: 8, background: 'var(--bg-subtle)' }} />)}
+            </div>
           ) : leads.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px 0' }}>Nenhum lead encontrado</p>
+            <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '48px 0', margin: 0 }}>Nenhum lead encontrado neste recorte.</p>
           ) : (
             <>
-              {total !== undefined && total > leads.length && (
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-subtle)', borderRadius: 8, padding: '8px 12px', margin: '0 0 14px' }}>
-                  Exibindo os {leads.length} mais recentes de {total} leads.
-                </p>
-              )}
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-                <button onClick={() => onFilter(null)}
-                  style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: statusFilter === null ? '#2563EB' : 'var(--bg-subtle)', color: statusFilter === null ? '#fff' : 'var(--text-muted)' }}>
-                  Todos ({leads.length})
-                </button>
-                {statusList.map(st => {
-                  const count = leads.filter(l => l.status === st).length
-                  const active = statusFilter === st
-                  return (
-                    <button key={st} onClick={() => onFilter(active ? null : st)}
-                      style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', background: active ? '#2563EB' : 'var(--bg-subtle)', color: active ? '#fff' : 'var(--text-muted)' }}>
-                      {st} ({count})
-                    </button>
-                  )
-                })}
+              <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 12, alignItems: 'center', padding: '9px 24px', position: 'sticky', top: 0, background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)', zIndex: 1 }}>
+                <span style={th}>Lead</span>
+                {temEntrada && <span style={th}>Entrada</span>}
+                {temOrigem && <span style={th}>Atendente</span>}
+                <span style={th}>Status</span>
+                <span style={{ ...th, textAlign: 'right' }}>Valor</span>
+                <span />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {filtered.map((l, i) => {
-                  const tipoCor = l.tipo === 'venda' ? '#15803D' : l.tipo === 'perda' ? '#B91C1C' : '#6B7280'
-                  const tipoBg  = l.tipo === 'venda' ? '#DCFCE7' : l.tipo === 'perda' ? '#FEE2E2' : 'var(--border-lt)'
-                  return (
-                    <div key={i} style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                        <span style={{ fontSize: 10, background: tipoBg, color: tipoCor, borderRadius: 4, padding: '2px 7px', fontWeight: 600, flexShrink: 0 }}>{l.status}</span>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>{l.nome}</p>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 8 }}>
-                        {l.valor ? <span style={{ fontSize: 13, fontWeight: 600, color: '#15803D', fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(l.valor)}</span> : null}
-                        {l.id && (
-                          <button
-                            onClick={() => navigate(`/leads/${l.id}`)}
-                            title="Ver ficha do lead"
-                            aria-label="Ver ficha do lead"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', padding: 2, display: 'flex' }}
-                          >
-                            <ExternalLink size={13} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              {ordenados.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', margin: 0, fontSize: 13 }}>Nenhum lead com esses filtros.</p>
+              ) : ordenados.map((l, i) => {
+                const tom = statusTom(l)
+                return (
+                  <div
+                    key={l.id ?? i}
+                    className="kpi-lead-row"
+                    role={l.id ? 'button' : undefined}
+                    tabIndex={l.id ? 0 : undefined}
+                    onClick={e => abrir(e, l.id)}
+                    onKeyDown={e => { if (e.key === 'Enter') abrir(e, l.id) }}
+                    title={l.id ? 'Abrir ficha do lead (Ctrl + clique abre em outra aba)' : undefined}
+                    style={{ display: 'grid', gridTemplateColumns: cols, gap: 12, alignItems: 'center', padding: '11px 24px', borderBottom: '1px solid var(--border)', cursor: l.id ? 'pointer' : 'default' }}
+                  >
+                    <span title={l.nome} style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nomeProprio(l.nome)}</span>
+                    {temEntrada && <span style={{ fontSize: 12.5, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{l.entrada ? fmtDateShort(l.entrada) : '—'}</span>}
+                    {temOrigem && <span title={l.origem} style={{ fontSize: 12.5, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origem && l.origem !== '—' ? nomeProprio(l.origem) : '—'}</span>}
+                    <span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: tom.cor, background: tom.fundo, borderRadius: 999, padding: '3px 10px', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <i style={{ width: 6, height: 6, borderRadius: 9999, background: tom.cor, flexShrink: 0 }} />{l.status}
+                      </span>
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: l.valor ? 'var(--text-1)' : 'var(--text-muted)' }}>{l.valor ? fmtBrl(l.valor) : '—'}</span>
+                    <ChevronRight size={15} style={{ color: 'var(--text-muted)', opacity: l.id ? 1 : 0 }} />
+                  </div>
+                )
+              })}
             </>
           )}
         </div>
+
+        {/* Rodapé */}
+        {!loading && leads.length > 0 && (
+          <div style={{ padding: '11px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexShrink: 0, fontSize: 12, color: 'var(--text-muted)' }}>
+            <span>
+              Mostrando {ordenados.length.toLocaleString('pt-BR')} de {leads.length.toLocaleString('pt-BR')}
+              {total !== undefined && total > leads.length ? ` (os ${leads.length} mais recentes de ${total.toLocaleString('pt-BR')})` : ''}
+            </span>
+            <span>Valor somado: <b style={{ color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{fmtBrl(somaFiltrada)}</b></span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1145,6 +1249,7 @@ export default function KPIs() {
         .perf-tab-btn:hover { color: var(--text-1); }
         .perf-drawer-trigger:hover { box-shadow: var(--shadow-sm, 0 4px 12px rgba(15,23,42,.07)); border-color: rgba(37,99,235,.35); }
         .perf-drawer-trigger { transition: box-shadow 180ms ease, border-color 180ms ease; }
+        .kpi-lead-row:hover, .kpi-lead-row:focus-visible { background: var(--bg-subtle); outline: none; }
         @media (prefers-reduced-motion: reduce) { .perf-drawer-trigger { transition: none; } }
         .perf-skeleton { animation: perf-pulse 1.4s ease-in-out infinite; }
         @keyframes perf-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }

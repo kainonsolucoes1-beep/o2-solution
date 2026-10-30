@@ -587,7 +587,7 @@ def leads_conv_point(
     total = db.query(func.count(Lead.id)).filter(*filters).scalar()
 
     rows = (
-        db.query(Lead.id, Lead.name, Lead.origin, Lead.status, Lead.value_potential)
+        db.query(Lead.id, Lead.name, Lead.origin, Lead.status, Lead.value_potential, EFFECTIVE_CAPTACAO.label("entrada"))
         .filter(*filters)
         .order_by(EFFECTIVE_CAPTACAO.desc())
         .limit(500)
@@ -616,6 +616,7 @@ def leads_conv_point(
             "status": STATUS_PT.get(s, l.status or "—"),
             "valor":  float(l.value_potential) if l.value_potential else None,
             "tipo":   tipo,
+            "entrada": l.entrada.isoformat() if l.entrada else None,
         })
     return {"leads": result, "total": total}
 
@@ -1152,8 +1153,9 @@ def leads_base(
     else:
         filters += [Lead.notes.isnot(None), Lead.notes.ilike('%Base%')]
     leads = (
-        db.query(Lead.id, Lead.name, Lead.notes, Lead.status, Lead.value_potential)
+        db.query(Lead.id, Lead.name, Lead.notes, Lead.status, Lead.value_potential, Lead.origin, EFFECTIVE_CAPTACAO.label("entrada"))
         .filter(*filters)
+        .order_by(EFFECTIVE_CAPTACAO.desc())
         .all()
     )
 
@@ -1170,7 +1172,7 @@ def leads_base(
     target = (base or '').strip().lower()
 
     result = []
-    for lead_id, name, notes, status, value in leads:
+    for lead_id, name, notes, status, value, origin, entrada in leads:
         b = _extract_base(notes)
         if sem_base:
             if b:
@@ -1180,11 +1182,13 @@ def leads_base(
         s = (status or '').lower()
         tipo = "venda" if s in venda_set else "perda" if s in cancelado_set else "ativo"
         result.append({
-            "id":     str(lead_id),
-            "nome":   name or "Sem nome",
-            "status": STATUS_PT.get(s, status or "—"),
-            "valor":  float(value) if value else None,
-            "tipo":   tipo,
+            "id":      str(lead_id),
+            "nome":    name or "Sem nome",
+            "origem":  origin or "—",
+            "status":  STATUS_PT.get(s, status or "—"),
+            "valor":   float(value) if value else None,
+            "tipo":    tipo,
+            "entrada": entrada.isoformat() if entrada else None,
         })
     return result
 
