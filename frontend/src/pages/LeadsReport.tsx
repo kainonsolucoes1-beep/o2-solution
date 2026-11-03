@@ -98,7 +98,7 @@ const STATUS_PILLS: { value: string; label: string; color: string; bg: string; b
   { value: '',                label: 'Todos',        color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
   { value: STATUS_PENDENTE,   label: 'Pendente',      color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
   { value: STATUS_AGUARDANDO_DADOS, label: 'Aguardando dados', color: '#6366F1', bg: '#EEF2FF', border: '#C7D2FE' },
-  { value: STATUS_SEM_RETORNO, label: 'Sem retorno',  color: '#DB2777', bg: '#FDF2F8', border: '#FBCFE8' },
+  { value: STATUS_SEM_RETORNO, label: 'Sem retorno',  color: '#475569', bg: '#F1F5F9', border: '#CBD5E1' },
   { value: STATUS_AGENDADO,   label: 'Agendado',      color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
   { value: STATUS_PROPOSTA,   label: 'Proposta',      color: '#9333EA', bg: '#FAF5FF', border: '#E9D5FF' },
   { value: STATUS_PENDENCIA,  label: 'Pendência',     color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
@@ -170,7 +170,7 @@ const STATUS_STYLE: Record<string, { color: string }> = {
   new: { color: '#3B82F6' },
   pending: { color: '#3B82F6' },
   aguardando_dados: { color: '#6366F1' },
-  sem_retorno: { color: '#DB2777' },
+  sem_retorno: { color: 'var(--status-sem-retorno)' },
   qualificado: { color: '#7C3AED' },
   qualified: { color: '#7C3AED' },
   scheduled: { color: '#7C3AED' },
@@ -213,7 +213,7 @@ function TonalPill({ color, children }: { color: string; children: React.ReactNo
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
       fontSize: 11.5, fontWeight: 700, padding: '3px 9px', borderRadius: 7,
-      background: color + '1f', color,
+      background: `color-mix(in srgb, ${color} 12%, transparent)`, color,
     }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }} />
       {children}
