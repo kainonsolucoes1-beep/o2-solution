@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API de Leads · O2 Solution</title>
+<meta name="description" content="Documentação da API de Leads do o2sig (O2 Solution): envio e consulta de leads por integrações externas.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F7F8FA; --card: #FFFFFF; --subtle: #F1F3F6; --border: #E3E6EB;
+  --text: #111827; --text-2: #374151; --muted: #6B7280;
+  --accent: #2563EB; --accent-weak: rgba(37,99,235,.09);
+  --get: #047857; --get-bg: rgba(4,120,87,.10);
+  --post: #1D4ED8; --post-bg: rgba(29,78,216,.10);
+  --warn: #B45309; --warn-bg: rgba(217,119,6,.10);
+  --err: #B91C1C;
+  --code-bg: #0F172A; --code-text: #E2E8F0; --code-muted: #94A3B8; --code-key: #93C5FD; --code-str: #86EFAC;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B0F17; --card: #111827; --subtle: #1A2230; --border: #263042;
+    --text: #F3F4F6; --text-2: #D1D5DB; --muted: #9CA3AF;
+    --accent: #60A5FA; --accent-weak: rgba(96,165,250,.12);
+    --get: #34D399; --get-bg: rgba(52,211,153,.12);
+    --post: #93C5FD; --post-bg: rgba(147,197,253,.12);
+    --warn: #FBBF24; --warn-bg: rgba(251,191,36,.12);
+    --err: #F87171;
+    --code-bg: #0A0E16;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B0F17; --card: #111827; --subtle: #1A2230; --border: #263042;
+  --text: #F3F4F6; --text-2: #D1D5DB; --muted: #9CA3AF;
+  --accent: #60A5FA; --accent-weak: rgba(96,165,250,.12);
+  --get: #34D399; --get-bg: rgba(52,211,153,.12);
+  --post: #93C5FD; --post-bg: rgba(147,197,253,.12);
+  --warn: #FBBF24; --warn-bg: rgba(251,191,36,.12);
+  --err: #F87171;
+  --code-bg: #0A0E16;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 Inter, system-ui, -apple-system, Segoe UI, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; }
+:not(pre) > code { font-size: .86em; background: var(--subtle); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; color: var(--text); word-break: break-word; }
+
+.layout { max-width: 1180px; margin: 0 auto; padding: 0 16px; display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 40px; }
+nav.toc { position: sticky; top: 0; align-self: start; padding: 36px 0; max-height: 100vh; overflow-y: auto; }
+nav.toc p { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 18px 0 6px; }
+nav.toc a { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 13.5px; padding: 5px 10px; border-radius: 7px; }
+nav.toc a:hover { background: var(--subtle); text-decoration: none; }
+main { padding: 36px 0 80px; min-width: 0; }
+
+header.hero { padding-bottom: 28px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0; }
+h1 { font-size: 34px; line-height: 1.15; letter-spacing: -.02em; margin: 8px 0 12px; }
+.lead { font-size: 16.5px; color: var(--text-2); max-width: 720px; margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 16px; font-size: 13px; color: var(--muted); }
+
+section { padding-top: 40px; }
+h2 { font-size: 22px; letter-spacing: -.01em; margin: 0 0 6px; scroll-margin-top: 20px; }
+h3 { font-size: 16px; margin: 26px 0 8px; }
+p { margin: 0 0 12px; color: var(--text-2); }
+ul, ol { color: var(--text-2); padding-left: 20px; margin: 0 0 12px; }
+li { margin: 4px 0; }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin: 14px 0; }
+.baseurl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 14px 0; }
+.baseurl .label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.baseurl code { font-size: 15px; background: none; border: none; padding: 0; font-weight: 500; flex: 1; min-width: 0; word-break: break-all; }
+
+.callout { border-radius: 10px; padding: 12px 16px; margin: 14px 0; font-size: 14px; border: 1px solid transparent; }
+.callout p { margin: 0; color: inherit; }
+.callout.info { background: var(--accent-weak); color: var(--text); border-color: rgba(37,99,235,.18); }
+.callout.warn { background: var(--warn-bg); color: var(--text); border-color: rgba(217,119,6,.22); }
+.callout strong { color: var(--text); }
+
+.endpoint { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin: 18px 0 8px; overflow: hidden; }
+.endpoint-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--subtle); }
+.method { font: 600 12px/1 "JetBrains Mono", monospace; padding: 5px 9px; border-radius: 6px; letter-spacing: .03em; }
+.method.get { color: var(--get); background: var(--get-bg); }
+.method.post { color: var(--post); background: var(--post-bg); }
+.path { font: 500 14.5px "JetBrains Mono", monospace; color: var(--text); word-break: break-all; }
+.endpoint-body { padding: 16px 18px 6px; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; margin: 10px 0 16px; background: var(--card); }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--subtle); padding: 9px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text-2); }
+tr:last-child td { border-bottom: none; }
+td:first-child code { white-space: nowrap; }
+.req { font-size: 11px; font-weight: 600; color: var(--err); margin-left: 6px; white-space: nowrap; }
+.opt { font-size: 11px; color: var(--muted); margin-left: 6px; }
+.type { font: 12px "JetBrains Mono", monospace; color: var(--muted); white-space: nowrap; }
+.status { font: 600 12.5px "JetBrains Mono", monospace; white-space: nowrap; }
+.s2 { color: var(--get); } .s4 { color: var(--warn); } .s5 { color: var(--err); }
+
+.code { position: relative; background: var(--code-bg); border-radius: 10px; margin: 10px 0 16px; overflow: hidden; }
+.code-head { display: flex; justify-content: space-between; align-items: center; padding: 7px 8px 7px 14px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.code-head span { font-size: 11.5px; color: var(--code-muted); font-weight: 500; letter-spacing: .03em; }
+.copy { font: 500 11.5px Inter, sans-serif; color: var(--code-muted); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+.copy:hover { color: #fff; }
+pre { margin: 0; padding: 14px 16px; overflow-x: auto; color: var(--code-text); font-size: 13px; line-height: 1.6; }
+pre .k { color: var(--code-key); } pre .s { color: var(--code-str); } pre .c { color: var(--code-muted); }
+
+.tabs { display: flex; gap: 4px; margin: 10px 0 -6px; flex-wrap: wrap; }
+.tab { font: 500 12.5px Inter, sans-serif; border: 1px solid var(--border); background: var(--card); color: var(--muted); border-radius: 7px; padding: 5px 11px; cursor: pointer; }
+.tab[aria-selected="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-weak); }
+.tabpanel[hidden] { display: none; }
+
+.steps { counter-reset: s; list-style: none; padding: 0; }
+.steps li { counter-increment: s; position: relative; padding: 2px 0 10px 40px; }
+.steps li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-weak); color: var(--accent); font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.brand img { width: 46px; height: 46px; object-fit: contain; background: #fff; border-radius: 10px; padding: 4px; border: 1px solid var(--border); }
+.brand span { font-size: 13px; color: var(--muted); line-height: 1.3; }
+.brand strong { display: block; color: var(--text); font-size: 14px; }
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 0; }
+  nav.toc { display: none; }
+  h1 { font-size: 28px; }
+  main { padding-top: 24px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc" aria-label="Sumário">
+    <p>Começo</p>
+    <a href="#visao-geral">Visão geral</a>
+    <a href="#url-base">URL base</a>
+    <a href="#autenticacao">Autenticação</a>
+    <p>Endpoints</p>
+    <a href="#ping"><span class="method get">GET</span> /ping</a>
+    <a href="#criar-lead"><span class="method post">POST</span> /leads</a>
+    <a href="#consultar-lead"><span class="method get">GET</span> /leads/{id}</a>
+    <p>Referência</p>
+    <a href="#campos">Campos do lead</a>
+    <a href="#meta-ads">Mapeamento Meta Ads</a>
+    <a href="#respostas">Respostas e erros</a>
+    <a href="#limites">Limites e duplicidade</a>
+    <a href="#homologacao">Homologação</a>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div class="brand"><img src="/integracao/logo-o2.png" alt="O2 Solution"><span><strong>O2 Solution</strong>o2sig · CRM</span></div>
+      <p class="eyebrow">O2 Solution · Documentação de integração</p>
+      <h1>API de Leads do o2sig</h1>
+      <p class="lead">Como enviar leads de campanhas (Meta Ads, formulários, automações) direto para o CRM o2sig e consultar o andamento de cada lead enviado.</p>
+      <div class="meta"><span>Versão v1</span><span>Formato JSON · UTF-8</span><span>Somente HTTPS</span></div>
+    </header>
+
+    <section id="visao-geral">
+      <h2>Visão geral</h2>
+      <p>A API pública do o2sig recebe leads de sistemas externos. Cada lead enviado entra no CRM com status <strong>Novo</strong>, é distribuído automaticamente para um atendente da equipe (rodízio) e o atendente é avisado na hora.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Método</th><th>Caminho</th><th>Para que serve</th></tr></thead>
+        <tbody>
+          <tr><td><span class="method get">GET</span></td><td><code>/ping</code></td><td>Testar as chaves de acesso, sem criar nada.</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/leads</code></td><td>Cadastrar um lead novo.</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/leads/{lead_id}</code></td><td>Consultar o status de um lead enviado por você.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="url-base">
+      <h2>URL base</h2>
+      <p>Todos os caminhos desta página são relativos a esta URL:</p>
+      <div class="baseurl">
+        <span class="label">Base</span>
+        <code id="base-url">https://o2sig.com.br/api/v1/public</code>
+        <button class="copy" style="background:var(--subtle);color:var(--text-2);border-color:var(--border)" data-copy-text="https://o2sig.com.br/api/v1/public">Copiar</button>
+      </div>
+      <p>Para cadastrar leads, o endereço completo é <code>https://o2sig.com.br/api/v1/public/leads</code> (método <strong>POST</strong>).</p>
+    </section>
+
+    <section id="autenticacao">
+      <h2>Autenticação</h2>
+      <p>Toda requisição precisa de dois cabeçalhos. As chaves são enviadas pela O2 Solution por um canal separado; elas <strong>não</strong> aparecem nesta documentação.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Cabeçalho</th><th>Valor</th></tr></thead>
+        <tbody>
+          <tr><td><code>X-API-Key</code></td><td>Chave da conta O2 Solution.</td></tr>
+          <tr><td><code>X-Team-Key</code></td><td>Chave da equipe que vai receber os leads. Define para qual equipe e para qual rodízio de atendentes o lead vai.</td></tr>
+          <tr><td><code>Content-Type</code></td><td><code>application/json</code> (no POST).</td></tr>
+        </tbody>
+      </table></div>
+      <div class="callout warn"><p><strong>Use as chaves só no servidor.</strong> Não coloque as chaves em código que roda no navegador, em pixel, em tag do Google Tag Manager ou em formulário público: quem vê o código-fonte da página passaria a ter acesso à API.</p></div>
+    </section>
+
+    <section id="ping">
+      <h2>Testar credenciais</h2>
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="path">/ping</span></div>
+        <div class="endpoint-body">
+          <p>Confere se as duas chaves estão corretas e qual equipe elas representam. Não cria nem altera nada; use para validar a configuração antes de ligar a integração.</p>
+          <div class="code"><div class="code-head"><span>Requisição · cURL</span><button class="copy">Copiar</button></div>
+<pre>curl https://o2sig.com.br/api/v1/public/ping \
+  -H <span class="s">"X-API-Key: SUA_CHAVE_DA_CONTA"</span> \
+  -H <span class="s">"X-Team-Key: SUA_CHAVE_DA_EQUIPE"</span></pre></div>
+          <div class="code"><div class="code-head"><span>Resposta · 200 OK</span><button class="copy">Copiar</button></div>
+<pre>{
+  <span class="k">"success"</span>: true,
+  <span class="k">"equipe"</span>: <span class="s">"Equipe São Paulo"</span>
+}</pre></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="criar-lead">
+      <h2>Cadastrar lead</h2>
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method post">POST</span><span class="path">/leads</span></div>
+        <div class="endpoint-body">
+          <p>Cria um lead no o2sig. Obrigatórios: <code>name</code> e <code>phone</code>. Todos os campos estão em <a href="#campos">Campos do lead</a>.</p>
+
+          <div class="tabs" role="tablist" aria-label="Linguagem do exemplo">
+            <button class="tab" role="tab" aria-selected="true" aria-controls="ex-curl" id="t-curl">cURL</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="ex-node" id="t-node">JavaScript (Node)</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="ex-py" id="t-py">Python</button>
+          </div>
+
+          <div class="tabpanel" id="ex-curl" role="tabpanel" aria-labelledby="t-curl">
+            <div class="code"><div class="code-head"><span>Requisição · cURL</span><button class="copy">Copiar</button></div>
+<pre>curl -X POST https://o2sig.com.br/api/v1/public/leads \
+  -H <span class="s">"Content-Type: application/json"</span> \
+  -H <span class="s">"X-API-Key: SUA_CHAVE_DA_CONTA"</span> \
+  -H <span class="s">"X-Team-Key: SUA_CHAVE_DA_EQUIPE"</span> \
+  -d <span class="s">'{
+    "name": "Maria da Silva",
+    "phone": "11987654321",
+    "email": "maria@exemplo.com",
+    "origin": "Meta Ads",
+    "campanha": "Meta",
+    "conversion_point": "Formulário Amil PF - Outubro",
+    "modalidade": "PF",
+    "current_plan": "Não possui plano",
+    "faixa_29_33": 1,
+    "faixa_0_18": 2,
+    "message": "Prefere contato à tarde",
+    "utm_source": "facebook",
+    "utm_medium": "paid_social",
+    "utm_campaign": "amil-pf-outubro",
+    "utm_content": "video-15s",
+    "fbclid": "IwAR2xYz..."
+  }'</span></pre></div>
+          </div>
+
+          <div class="tabpanel" id="ex-node" role="tabpanel" aria-labelledby="t-node" hidden>
+            <div class="code"><div class="code-head"><span>Requisição · Node 18+</span><button class="copy">Copiar</button></div>
+<pre><span class="k">const</span> resp = <span class="k">await</span> fetch(<span class="s">"https://o2sig.com.br/api/v1/public/leads"</span>, {
+  method: <span class="s">"POST"</span>,
+  headers: {
+    <span class="s">"Content-Type"</span>: <span class="s">"application/json"</span>,
+    <span class="s">"X-API-Key"</span>: process.env.O2SIG_API_KEY,
+    <span class="s">"X-Team-Key"</span>: process.env.O2SIG_TEAM_KEY,
+  },
+  body: JSON.stringify({
+    name: <span class="s">"Maria da Silva"</span>,
+    phone: <span class="s">"11987654321"</span>,
+    email: <span class="s">"maria@exemplo.com"</span>,
+    origin: <span class="s">"Meta Ads"</span>,
+    campanha: <span class="s">"Meta"</span>,
+    conversion_point: <span class="s">"Formulário Amil PF - Outubro"</span>,
+    utm_campaign: <span class="s">"amil-pf-outubro"</span>,
+  }),
+  signal: AbortSignal.timeout(15000),
+});
+
+<span class="k">if</span> (resp.status === 201) {
+  <span class="k">const</span> { lead_id } = <span class="k">await</span> resp.json();   <span class="c">// guarde para consultar depois</span>
+} <span class="k">else if</span> (resp.status === 409) {
+  <span class="c">// lead já existe no o2sig: não reenviar</span>
+} <span class="k">else</span> {
+  <span class="c">// 4xx: corrigir o envio · 429/5xx: tentar de novo mais tarde</span>
+}</pre></div>
+          </div>
+
+          <div class="tabpanel" id="ex-py" role="tabpanel" aria-labelledby="t-py" hidden>
+            <div class="code"><div class="code-head"><span>Requisição · Python (requests)</span><button class="copy">Copiar</button></div>
+<pre><span class="k">import</span> os, requests
+
+resp = requests.post(
+    <span class="s">"https://o2sig.com.br/api/v1/public/leads"</span>,
+    headers={
+        <span class="s">"X-API-Key"</span>: os.environ[<span class="s">"O2SIG_API_KEY"</span>],
+        <span class="s">"X-Team-Key"</span>: os.environ[<span class="s">"O2SIG_TEAM_KEY"</span>],
+    },
+    json={
+        <span class="s">"name"</span>: <span class="s">"Maria da Silva"</span>,
+        <span class="s">"phone"</span>: <span class="s">"11987654321"</span>,
+        <span class="s">"email"</span>: <span class="s">"maria@exemplo.com"</span>,
+        <span class="s">"origin"</span>: <span class="s">"Meta Ads"</span>,
+        <span class="s">"campanha"</span>: <span class="s">"Meta"</span>,
+        <span class="s">"conversion_point"</span>: <span class="s">"Formulário Amil PF - Outubro"</span>,
+    },
+    timeout=15,
+)
+<span class="k">if</span> resp.status_code == 201:
+    lead_id = resp.json()[<span class="s">"lead_id"</span>]
+<span class="k">elif</span> resp.status_code == 409:
+    <span class="k">pass</span>  <span class="c"># lead já existe: não reenviar</span></pre></div>
+          </div>
+
+          <div class="code"><div class="code-head"><span>Resposta · 201 Created</span><button class="copy">Copiar</button></div>
+<pre>{
+  <span class="k">"success"</span>: true,
+  <span class="k">"lead_id"</span>: <span class="s">"3f2c9a1e-7b4d-4c1a-9e2f-6a8b0c1d2e3f"</span>
+}</pre></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="consultar-lead">
+      <h2>Consultar lead</h2>
+      <div class="endpoint">
+        <div class="endpoint-head"><span class="method get">GET</span><span class="path">/leads/{lead_id}</span></div>
+        <div class="endpoint-body">
+          <p>Devolve o status atual de um lead, usando o <code>lead_id</code> recebido no cadastro. Só enxerga leads da equipe da sua chave e traz apenas dados de acompanhamento; os dados internos da ficha não são expostos.</p>
+          <div class="code"><div class="code-head"><span>Requisição · cURL</span><button class="copy">Copiar</button></div>
+<pre>curl https://o2sig.com.br/api/v1/public/leads/3f2c9a1e-7b4d-4c1a-9e2f-6a8b0c1d2e3f \
+  -H <span class="s">"X-API-Key: SUA_CHAVE_DA_CONTA"</span> \
+  -H <span class="s">"X-Team-Key: SUA_CHAVE_DA_EQUIPE"</span></pre></div>
+          <div class="code"><div class="code-head"><span>Resposta · 200 OK</span><button class="copy">Copiar</button></div>
+<pre>{
+  <span class="k">"lead_id"</span>: <span class="s">"3f2c9a1e-7b4d-4c1a-9e2f-6a8b0c1d2e3f"</span>,
+  <span class="k">"name"</span>: <span class="s">"Maria da Silva"</span>,
+  <span class="k">"status"</span>: <span class="s">"proposal_sent"</span>,
+  <span class="k">"status_label"</span>: <span class="s">"Proposta enviada"</span>,
+  <span class="k">"origin"</span>: <span class="s">"Meta Ads"</span>,
+  <span class="k">"campanha"</span>: <span class="s">"Meta"</span>,
+  <span class="k">"equipe"</span>: <span class="s">"Equipe São Paulo"</span>,
+  <span class="k">"created_at"</span>: <span class="s">"2026-11-03T14:22:05Z"</span>
+}</pre></div>
+          <h3>Status possíveis</h3>
+          <div class="table-wrap"><table>
+            <thead><tr><th><code>status</code></th><th><code>status_label</code></th><th>Etapa</th></tr></thead>
+            <tbody>
+              <tr><td><code>novo</code></td><td>Novo</td><td>Recebido, ainda sem contato</td></tr>
+              <tr><td><code>qualificado</code> / <code>scheduled</code></td><td>Agendado</td><td>Em atendimento</td></tr>
+              <tr><td><code>aguardando_dados</code></td><td>Aguardando dados</td><td>Em atendimento</td></tr>
+              <tr><td><code>sem_retorno</code></td><td>Sem retorno</td><td>Em atendimento</td></tr>
+              <tr><td><code>proposta</code> / <code>proposal_sent</code></td><td>Proposta / Proposta enviada</td><td>Proposta</td></tr>
+              <tr><td><code>negociacao</code></td><td>Em negociação</td><td>Proposta</td></tr>
+              <tr><td><code>pendencia</code> / <code>documentacao_pendente</code></td><td>Pendência / Documentação pendente</td><td>Fechamento</td></tr>
+              <tr><td><code>emissao</code></td><td>Emissão</td><td>Fechamento</td></tr>
+              <tr><td><code>waiting_billing</code></td><td>Aguardando faturamento</td><td>Venda</td></tr>
+              <tr><td><code>sale_performed</code></td><td>Venda realizada</td><td>Venda</td></tr>
+              <tr><td><code>sale_not_performed</code></td><td>Cancelado</td><td>Perdido</td></tr>
+            </tbody>
+          </table></div>
+          <p>Trate valores desconhecidos de <code>status</code> de forma genérica e exiba o <code>status_label</code>: novos status podem ser criados no CRM.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="campos">
+      <h2>Campos do lead</h2>
+      <p>Corpo JSON do <code>POST /leads</code>. Campos fora desta lista são ignorados. Texto em UTF-8, com acentos normalmente.</p>
+      <h3>Contato</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><code>name</code><span class="req">obrigatório</span></td><td class="type">string</td><td>Nome completo.</td></tr>
+          <tr><td><code>phone</code><span class="req">obrigatório</span></td><td class="type">string</td><td>Celular com DDD. Prefira só dígitos: <code>11987654321</code>. Sem <code>+55</code> é o formato recomendado.</td></tr>
+          <tr><td><code>email</code><span class="opt">opcional</span></td><td class="type">string</td><td>E-mail. Usado também para evitar lead duplicado.</td></tr>
+          <tr><td><code>company</code><span class="opt">opcional</span></td><td class="type">string</td><td>Empresa (planos PME).</td></tr>
+          <tr><td><code>message</code><span class="opt">opcional</span></td><td class="type">string</td><td>Texto livre do lead. Aparece na linha do tempo da ficha.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Origem e campanha</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><code>origin</code><span class="opt">recomendado</span></td><td class="type">string</td><td>Canal de origem. <strong>Para Meta Ads envie <code>"Meta Ads"</code>.</strong> Se omitido, o lead entra como <code>"Orgânico"</code> e fica fora das métricas da campanha.</td></tr>
+          <tr><td><code>campanha</code><span class="opt">recomendado</span></td><td class="type">string</td><td>Campo “Campanha” da ficha. Use <code>"Meta"</code> para Meta Ads ou <code>"Google"</code> para Google Ads. Máx. 50 caracteres.</td></tr>
+          <tr><td><code>conversion_point</code><span class="opt">recomendado</span></td><td class="type">string</td><td>Ponto de conversão: nome do formulário, da landing page ou do anúncio. Vira filtro nos relatórios do CRM.</td></tr>
+          <tr><td><code>utm_source</code><span class="opt">opcional</span></td><td class="type">string</td><td>Aceito sem erro, mas não é gravado: o canal oficial é o <code>origin</code>.</td></tr>
+          <tr><td><code>utm_medium</code><span class="opt">opcional</span></td><td class="type">string</td><td>Mídia (ex.: <code>paid_social</code>).</td></tr>
+          <tr><td><code>utm_campaign</code><span class="opt">opcional</span></td><td class="type">string</td><td>Nome ou ID da campanha.</td></tr>
+          <tr><td><code>utm_term</code><span class="opt">opcional</span></td><td class="type">string</td><td>Conjunto de anúncios / público.</td></tr>
+          <tr><td><code>utm_content</code><span class="opt">opcional</span></td><td class="type">string</td><td>Criativo / anúncio.</td></tr>
+          <tr><td><code>fbclid</code><span class="opt">opcional</span></td><td class="type">string</td><td>Identificador do clique no Meta, quando houver.</td></tr>
+          <tr><td><code>gclid</code><span class="opt">opcional</span></td><td class="type">string</td><td>Identificador do clique no Google Ads, quando houver.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Perfil do plano</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><code>modalidade</code><span class="opt">opcional</span></td><td class="type">string</td><td>Tipo de plano. Valores usados no CRM: <code>PF</code>, <code>Familiar</code>, <code>PME</code>, <code>Adesão</code>. <code>"individual"</code> é convertido para <code>PF</code>.</td></tr>
+          <tr><td><code>current_plan</code><span class="opt">opcional</span></td><td class="type">string</td><td>Plano de saúde atual. Para quem não tem, envie <code>"Não possui plano"</code>; senão, o nome da operadora (ex.: <code>"Bradesco"</code>).</td></tr>
+          <tr><td><code>faixa_0_18</code> … <code>faixa_59_mais</code><span class="opt">opcional</span></td><td class="type">inteiro</td><td>Quantidade de vidas por faixa etária. Campos: <code>faixa_0_18</code>, <code>faixa_19_23</code>, <code>faixa_24_28</code>, <code>faixa_29_33</code>, <code>faixa_34_38</code>, <code>faixa_39_43</code>, <code>faixa_44_48</code>, <code>faixa_49_53</code>, <code>faixa_54_58</code>, <code>faixa_59_mais</code>. Padrão <code>0</code>.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="meta-ads">
+      <h2>Mapeamento sugerido para Meta Ads</h2>
+      <p>De/para entre o formulário de cadastro do Meta (Lead Ads) e os campos da API:</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Meta Lead Ads</th><th>Campo na API</th></tr></thead>
+        <tbody>
+          <tr><td><code>full_name</code></td><td><code>name</code></td></tr>
+          <tr><td><code>phone_number</code></td><td><code>phone</code> (só dígitos, com DDD, sem +55)</td></tr>
+          <tr><td><code>email</code></td><td><code>email</code></td></tr>
+          <tr><td>Nome do formulário</td><td><code>conversion_point</code></td></tr>
+          <tr><td>Nome da campanha</td><td><code>utm_campaign</code></td></tr>
+          <tr><td>Nome do conjunto de anúncios</td><td><code>utm_term</code></td></tr>
+          <tr><td>Nome do anúncio</td><td><code>utm_content</code></td></tr>
+          <tr><td>(fixo)</td><td><code>origin</code> = <code>"Meta Ads"</code> · <code>campanha</code> = <code>"Meta"</code></td></tr>
+          <tr><td>Perguntas personalizadas (plano, vidas, modalidade)</td><td><code>current_plan</code>, <code>faixa_*</code>, <code>modalidade</code>; o que não tiver campo próprio pode ir em <code>message</code></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="respostas">
+      <h2>Respostas e erros</h2>
+      <p>Os erros vêm em JSON com o campo <code>detail</code>, por exemplo: <code>{"detail": "Chave da equipe inválida"}</code>.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Código</th><th>Quando acontece</th><th>O que fazer</th></tr></thead>
+        <tbody>
+          <tr><td class="status s2">200</td><td><code>GET</code> com sucesso.</td><td>—</td></tr>
+          <tr><td class="status s2">201</td><td>Lead cadastrado. Traz o <code>lead_id</code>.</td><td>Guardar o <code>lead_id</code> se for consultar depois.</td></tr>
+          <tr><td class="status s4">403</td><td>Chave da conta ou da equipe inválida.</td><td>Conferir os cabeçalhos. Não repetir automaticamente.</td></tr>
+          <tr><td class="status s4">404</td><td>Lead não encontrado (ou de outra equipe).</td><td>Conferir o <code>lead_id</code>.</td></tr>
+          <tr><td class="status s4">409</td><td>Lead já cadastrado (ver <a href="#limites">duplicidade</a>).</td><td>Tratar como sucesso: o lead já está no CRM. <strong>Não reenviar.</strong></td></tr>
+          <tr><td class="status s4">422</td><td>Corpo inválido: falta <code>name</code>/<code>phone</code>, tipo errado ou JSON mal formado.</td><td>Corrigir o envio. Não repetir sem corrigir.</td></tr>
+          <tr><td class="status s4">429</td><td>Limite de requisições excedido.</td><td>Aguardar 60 segundos e tentar de novo.</td></tr>
+          <tr><td class="status s5">5xx</td><td>Falha temporária do servidor.</td><td>Tentar de novo com espera crescente (ex.: 30 s, 2 min, 10 min).</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="limites">
+      <h2>Limites e duplicidade</h2>
+      <ul>
+        <li><strong>Limite de envio:</strong> 30 requisições por minuto por IP. Em envios em lote, espace as chamadas.</li>
+        <li><strong>Duplicidade:</strong> o lead é recusado com <code>409</code> quando já existe outro com o mesmo <strong>e-mail</strong>, ou com o mesmo <strong>telefone e nome</strong>. Por isso, reenviar um lead é seguro: não cria cópia.</li>
+        <li><strong>Distribuição:</strong> ao entrar, o lead vai para o próximo atendente ativo da equipe (rodízio), que recebe o aviso no CRM na hora.</li>
+        <li><strong>Tempo de resposta:</strong> normalmente abaixo de 1 segundo. Use um timeout de 15 segundos.</li>
+      </ul>
+    </section>
+
+    <section id="homologacao">
+      <h2>Roteiro de homologação</h2>
+      <ol class="steps">
+        <li>Chame <code>GET /ping</code> com as chaves recebidas. Esperado: <code>200</code> com o nome da equipe.</li>
+        <li>Envie <strong>um</strong> lead de teste com <code>POST /leads</code>, com nome começando por <code>TESTE</code> (ex.: <code>"TESTE Integração Meta"</code>) e <code>origin</code> = <code>"Meta Ads"</code>. Esperado: <code>201</code> com <code>lead_id</code>.</li>
+        <li>Envie o mesmo lead de novo. Esperado: <code>409</code>, sem criar cópia.</li>
+        <li>Consulte com <code>GET /leads/{lead_id}</code>. Esperado: <code>200</code> com <code>status</code> = <code>novo</code>.</li>
+        <li>Avise a O2 Solution para conferir o lead no CRM e removê-lo antes de ligar a campanha.</li>
+      </ol>
+    </section>
+
+    <footer>O2 Solution · API de Leads o2sig v1. Dúvidas sobre a integração ou novas chaves de acesso: fale com o time da O2 Solution.</footer>
+  </main>
+</div>
+
+<script>
+document.querySelectorAll('.code .copy').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var pre = btn.closest('.code').querySelector('pre');
+    copiar(pre.innerText, btn);
+  });
+});
+document.querySelectorAll('[data-copy-text]').forEach(function (btn) {
+  btn.addEventListener('click', function () { copiar(btn.getAttribute('data-copy-text'), btn); });
+});
+function copiar(texto, btn) {
+  var original = btn.textContent;
+  try {
+    navigator.clipboard.writeText(texto).then(function () {
+      btn.textContent = 'Copiado';
+      setTimeout(function () { btn.textContent = original; }, 1500);
+    }, function () { btn.textContent = 'Selecione e copie'; });
+  } catch (e) { btn.textContent = 'Selecione e copie'; }
+}
+var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+tabs.forEach(function (tab) {
+  tab.addEventListener('click', function () {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+  });
+});
+</script>
+</body>
+</html>
