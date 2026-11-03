@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import time
+import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/api/v1/public", tags=["public"])
 logger = logging.getLogger(__name__)
 
 _RATE_LIMIT_WINDOW = 60
-_RATE_LIMIT_MAX = 10
+_RATE_LIMIT_MAX = 30  # por IP e por minuto; integrações (Meta Ads, Make...) mandam em rajada
 _rate_limit_hits: dict[str, deque] = defaultdict(deque)
 
 
@@ -57,6 +58,14 @@ class PublicLeadCreate(BaseModel):
     faixa_49_53: Optional[int] = 0
     faixa_54_58: Optional[int] = 0
     faixa_59_mais: Optional[int] = 0
+    # rastreio de campanha paga (todos opcionais)
+    campanha: Optional[str] = None  # campo "Campanha" da ficha: Google, Meta...
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    utm_term: Optional[str] = None
+    utm_content: Optional[str] = None
+    fbclid: Optional[str] = None
+    gclid: Optional[str] = None
 
 
 # Sinônimos de modalidade usados por integrações externas (ex: Make.com) que
@@ -214,6 +223,85 @@ async def lead_sinal(request: Request, db: Session = Depends(get_db)):
     db.commit()
 
 
+def _autenticar(db: Session, request: Request, x_api_key: str, x_team_key: str) -> dict:
+    """Valida a chave da conta (X-API-Key) e a da equipe (X-Team-Key), com
+    limite de requisições por IP. Retorna o dict da equipe casada."""
+    ip = request.client.host if request.client else "unknown"
+    _check_rate_limit(ip)
+
+    expected = db.query(AppSettings).filter(AppSettings.key == "public_leads_api_key").first()
+    if not expected or not expected.value or not hmac.compare_digest(x_api_key, expected.value):
+        logger.warning("Tentativa de chave de conta inválida em %s — ip=%s key_prefix=%s", request.url.path, ip, x_api_key[:6])
+        raise HTTPException(status_code=403, detail="Chave da conta inválida")
+
+    team = _match_team(db, x_team_key)
+    if not team:
+        logger.warning("Tentativa de chave de equipe inválida em %s — ip=%s key_prefix=%s", request.url.path, ip, x_team_key[:6])
+        raise HTTPException(status_code=403, detail="Chave da equipe inválida")
+    return team
+
+
+# Rótulos dos status pra quem consulta o lead de fora (GET /public/leads/{id})
+_STATUS_PUBLICO = {
+    "novo": "Novo", "pending": "Novo", "qualificado": "Agendado", "scheduled": "Agendado",
+    "aguardando_dados": "Aguardando dados", "sem_retorno": "Sem retorno",
+    "proposta": "Proposta", "proposal_sent": "Proposta enviada", "negociacao": "Em negociação",
+    "pendencia": "Pendência", "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
+    "waiting_billing": "Aguardando faturamento", "sale_performed": "Venda realizada",
+    "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
+    "sale_not_performed": "Cancelado",
+}
+
+
+def _corta(v: Optional[str], n: int) -> Optional[str]:
+    v = (v or "").strip()
+    return v[:n] if v else None
+
+
+@router.get("/ping")
+def ping_public(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_api_key: str = Header(..., alias="X-API-Key"),
+    x_team_key: str = Header(..., alias="X-Team-Key"),
+):
+    """Testa as credenciais sem criar nada: 200 com a equipe se as chaves
+    estiverem certas, 403 se não."""
+    team = _autenticar(db, request, x_api_key, x_team_key)
+    return {"success": True, "equipe": team["name"]}
+
+
+@router.get("/leads/{lead_id}")
+def get_public_lead(
+    lead_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    x_api_key: str = Header(..., alias="X-API-Key"),
+    x_team_key: str = Header(..., alias="X-Team-Key"),
+):
+    """Consulta um lead pelo lead_id devolvido no POST. Só enxerga leads da
+    equipe da chave e devolve só o básico (status e datas), nada da ficha."""
+    team = _autenticar(db, request, x_api_key, x_team_key)
+    try:
+        lead_uuid = uuid.UUID(lead_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    lead = db.query(Lead).filter(Lead.id == lead_uuid, Lead.team == team["name"]).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    status = (lead.status or "").lower()
+    return {
+        "lead_id": str(lead.id),
+        "name": lead.name,
+        "status": status,
+        "status_label": _STATUS_PUBLICO.get(status, lead.status or ""),
+        "origin": lead.origin,
+        "campanha": lead.campanha_midia,
+        "equipe": lead.team,
+        "created_at": lead.created_at.isoformat() + "Z" if lead.created_at else None,
+    }
+
+
 @router.post("/leads", status_code=201)
 def create_public_lead(
     body: PublicLeadCreate,
@@ -222,18 +310,7 @@ def create_public_lead(
     x_api_key: str = Header(..., alias="X-API-Key"),
     x_team_key: str = Header(..., alias="X-Team-Key"),
 ):
-    ip = request.client.host if request.client else "unknown"
-    _check_rate_limit(ip)
-
-    expected = db.query(AppSettings).filter(AppSettings.key == "public_leads_api_key").first()
-    if not expected or not expected.value or not hmac.compare_digest(x_api_key, expected.value):
-        logger.warning("Tentativa de chave de conta inválida em /public/leads — ip=%s key_prefix=%s", ip, x_api_key[:6])
-        raise HTTPException(status_code=403, detail="Chave da conta inválida")
-
-    team = _match_team(db, x_team_key)
-    if not team:
-        logger.warning("Tentativa de chave de equipe inválida em /public/leads — ip=%s key_prefix=%s", ip, x_team_key[:6])
-        raise HTTPException(status_code=403, detail="Chave da equipe inválida")
+    team = _autenticar(db, request, x_api_key, x_team_key)
 
     name = body.name.strip()
     if not name:
@@ -265,6 +342,13 @@ def create_public_lead(
         team=team["name"],
         status="novo",
         user_id=default_user.id if default_user else None,
+        campanha_midia=_corta(body.campanha, 50),
+        tracking_campaign=_corta(body.utm_campaign, 255),
+        tracking_medium=_corta(body.utm_medium, 255),
+        tracking_term=_corta(body.utm_term, 255),
+        tracking_format=_corta(body.utm_content, 255),
+        fbclid=_corta(body.fbclid, 255),
+        gclid=_corta(body.gclid, 255),
     )
     db.add(lead)
     db.flush()
