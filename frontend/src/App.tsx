@@ -17,6 +17,7 @@ import Telefonia from './pages/Telefonia'
 import KPIs from './pages/KPIs'
 import Financeiro from './pages/Financeiro'
 import FinanceiroMetas from './pages/FinanceiroMetas'
+import FinanceiroTrafego from './pages/FinanceiroTrafego'
 import GestaoComercial from './pages/GestaoComercial'
 import VidaSDR from './pages/VidaSDR'
 import RelatorioProducao from './pages/RelatorioProducao'
@@ -127,6 +128,7 @@ export default function App() {
           <Route path="/financeiro" element={<Navigate to="/financeiro/visao-geral" replace />} />
           <Route path="/financeiro/visao-geral" element={<Financeiro />} />
           <Route path="/financeiro/metas" element={<FinanceiroMetas />} />
+          <Route path="/financeiro/trafego" element={<FinanceiroTrafego />} />
           <Route path="/gestao-comercial" element={<GestaoComercial />} />
           <Route path="/vida-sdr/:origens" element={<VidaSDR />} />
           <Route path="/campanhas" element={<CampanhasFila />} />
