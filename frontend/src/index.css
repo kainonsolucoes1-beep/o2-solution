@@ -39,9 +39,6 @@ body {
   --info:        #8B5CF6;
   --info-weak:   #F5F3FF;
 
-  /* status "Sem retorno" (slate) -- mais claro no escuro pra manter contraste */
-  --status-sem-retorno: #475569;
-
   /* card "Parados há mais de 3 dias" (Emissão) */
   --stale-bg:     rgba(245,158,11,0.10);
   --stale-border: rgba(245,158,11,0.40);
@@ -78,8 +75,6 @@ html.dark {
   --warning-weak:#2A2113;
   --info:        #A78BFA;
   --info-weak:   #241E33;
-
-  --status-sem-retorno: #94A3B8;
 
   --stale-bg:     rgba(253,230,138,0.08);
   --stale-border: rgba(253,230,138,0.35);
