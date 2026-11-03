@@ -252,7 +252,7 @@ def agentes_performance(
 ):
     """Desempenho por agente no período — quem está com a posse de cada lead
     (dono de renutrição > SDR que prospectou), mesma regra do Ranking do
-    Dashboard (_operador_do_lead). Ao contrário de /conversao-fonte (que agrupa
+    Dashboard (_operador_do_lead), mais o atendente do rodízio. Ao contrário de /conversao-fonte (que agrupa
     por origem crua, pra canal/ponto de conversão), aqui um lead reatribuído
     via renutrição conta pra quem está trabalhando ele agora, não pra quem
     captou originalmente — senão quem só faz renutrição (ex: Pamela) nunca
@@ -269,6 +269,7 @@ def agentes_performance(
         db.query(
             Lead.origin, Lead.renutricao_owner_id, Lead.campanha_status, Lead.conversion_point,
             Lead.status, Lead.created_at, Lead.receita_data_venda, Lead.receita_real_recebida, Lead.retrabalhado_em,
+            Lead.attendant,
         )
         .filter(*base_filter)
         .all()
@@ -280,9 +281,23 @@ def agentes_performance(
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
     show_fin = can_see_financials(current_user)
 
+    # Atendente do rodizio (Google, site, Meta Ads...) tambem conta pro agente,
+    # mesma regra da Vida do Agente (agent_leads_clause): so' lead que entrou
+    # depois da contratacao (ou da criacao da conta) -- atendente antigo vindo
+    # do Followize nao e' trabalho dessa pessoa.
+    inicio_por_nome: dict = {}
+    for first_name, hire_date, user_created in db.query(User.first_name, User.hire_date, User.created_at).all():
+        nome = (first_name or "").strip().lower()
+        inicio = br_date_to_utc_range(hire_date.isoformat())[0] if hire_date else user_created
+        if nome and inicio:
+            inicio_por_nome[nome] = min(inicio, inicio_por_nome.get(nome, inicio))
+
     data: dict = defaultdict(_new_acc)
-    for origin, owner_id, campanha_status, conv_point, status, created_at, receita_data_venda, receita_real_recebida, retrabalhado_em in leads:
-        operador = _operador_do_lead(origin, owner_id, owner_names, person_names, conv_point, campanha_status, retrabalhado_em, status)
+    for origin, owner_id, campanha_status, conv_point, status, created_at, receita_data_venda, receita_real_recebida, retrabalhado_em, attendant in leads:
+        att = (attendant or "").strip()
+        inicio = inicio_por_nome.get(att.lower())
+        att = att if inicio and not owner_id and created_at and created_at >= inicio else None
+        operador = _operador_do_lead(origin, owner_id, owner_names, person_names, conv_point, campanha_status, retrabalhado_em, status, att)
         if operador in ("Google", "Orgânico", "Outros canais"):
             continue
         _accumulate(data[operador], status, created_at, receita_data_venda, receita_real_recebida, venda_set, cancelado_set)
