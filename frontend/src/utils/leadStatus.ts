@@ -4,7 +4,7 @@ export const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   new:                  { bg: '#EFF6FF', color: '#3B82F6' },
   pending:              { bg: '#EFF6FF', color: '#3B82F6' },
   aguardando_dados:     { bg: '#EEF2FF', color: '#6366F1' },
-  sem_retorno:          { bg: '#F7FEE7', color: '#65A30D' },
+  sem_retorno:          { bg: 'var(--status-sem-retorno-bg)', color: 'var(--status-sem-retorno)' },
   qualificado:          { bg: '#ECFDF5', color: '#10B981' },
   qualified:            { bg: '#ECFDF5', color: '#10B981' },
   scheduled:            { bg: '#ECFDF5', color: '#10B981' },
