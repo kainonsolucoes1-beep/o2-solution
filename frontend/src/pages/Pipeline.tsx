@@ -100,7 +100,7 @@ export default function Pipeline() {
   const overviewCards = [
     { label: 'Pendente',    value: overview.novo,        color: '#3B82F6', bg: '#EFF6FF', icon: '📥', nav: cardNav({ status: 'pending,novo,new' }) },
     { label: 'Aguardando dados', value: overview.aguardando_dados, color: '#6366F1', bg: '#EEF2FF', icon: '📋', nav: cardNav({ status: 'aguardando_dados' }) },
-    { label: 'Sem retorno', value: overview.sem_retorno, color: '#DB2777', bg: '#FDF2F8', icon: '📵', nav: cardNav({ status: 'sem_retorno' }) },
+    { label: 'Sem retorno', value: overview.sem_retorno, color: '#475569', bg: '#F1F5F9', icon: '📵', nav: cardNav({ status: 'sem_retorno' }) },
     { label: 'Agendado', value: overview.qualificado, color: '#10B981', bg: '#ECFDF5', icon: '✅', nav: cardNav({ status: 'scheduled,qualificado,qualified' }) },
     { label: 'Enviada',    value: overview.proposta,    color: '#F59E0B', bg: '#FFFBEB', icon: '📄', nav: cardNav({ status: 'proposal_sent' }) },
     // Pendência/Emissão só aparecem quando tem lead nesse status -- etapas
@@ -116,7 +116,7 @@ export default function Pipeline() {
   const distStages = [
     { stage: 'Pendente',    value: overview.novo_value,        color: '#3B82F6' },
     { stage: 'Aguardando dados', value: overview.aguardando_dados_value, color: '#6366F1' },
-    { stage: 'Sem retorno', value: overview.sem_retorno_value, color: '#DB2777' },
+    { stage: 'Sem retorno', value: overview.sem_retorno_value, color: '#475569' },
     { stage: 'Agendado', value: overview.qualificado_value, color: '#10B981' },
     { stage: 'Enviada',     value: overview.proposta_value,    color: '#F59E0B' },
     ...(overview.pendencia > 0 ? [{ stage: 'Pendência', value: overview.pendencia_value, color: '#D97706' }] : []),
