@@ -156,7 +156,7 @@ export default function AssignRenutricaoModal({ leadIds, onClose, onAssigned }: 
                   })}
                 </div>
                 <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 10, lineHeight: 1.45 }}>
-                  O lead fica com o Isaac e some da sua lista até ele marcar um desfecho. Se responder, entra no rodízio (Pamela / Isaac / Julia).
+                  O lead fica com o Isaac e some da sua lista até ele marcar um desfecho. Se responder, entra no rodízio da Equipe São Paulo (só quem está ativo).
                 </p>
               </>
             )}
