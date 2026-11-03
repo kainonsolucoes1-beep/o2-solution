@@ -24,16 +24,12 @@ CANAIS: tuple[Canal, ...] = ("whatsapp", "email", "sms")
 FILA_ATIVA = ("fila", "disparado_sem_resposta")
 DISPARO_ACOES = ("disparado_sem_resposta", "respondeu")
 
-# rodízio fixo, nesta ordem, contador simples e global (guardado em AppSettings)
-RODIZIO_NOMES = ["Pamela", "Isaac", "Julia"]
-
-
-def _find_user_by_name(db: Session, nome: str) -> User | None:
-    return (
-        db.query(User)
-        .filter(or_(func.lower(User.first_name) == nome.lower(), func.lower(User.username) == nome.lower()))
-        .first()
-    )
+# Rodízio de quem respondeu: a mesma fila dos leads do site/Meta Ads — usuários
+# ATIVOS da Equipe São Paulo, em ordem de cadastro. Quem é desativado sai e quem
+# entra na equipe passa a receber, sem mexer em código. Contador simples e
+# global (guardado em AppSettings). Antes era a lista fixa Pamela/Isaac/Julia,
+# que seguia mandando lead para quem já tinha sido desativado.
+RODIZIO_EQUIPE = "Equipe São Paulo"
 
 
 def _operador_campanha(db: Session) -> User:
@@ -55,14 +51,25 @@ def _pode_trabalhar_fila(current_user: User, operador: User) -> bool:
 
 
 def _proximo_rodizio(db: Session) -> User:
-    """Contador simples e global, girando entre Pamela/Isaac/Julia."""
+    """Contador simples e global, girando entre os usuários ativos da equipe do
+    rodízio (mesmo critério de app.teams.team_attendant_names)."""
     from app.models.app_settings import AppSettings
-    row = db.query(AppSettings).filter(AppSettings.key == "campanha_rodizio_idx").first()
+    fila = (
+        db.query(User)
+        .filter(User.team == RODIZIO_EQUIPE, User.is_active.is_(True), func.trim(func.coalesce(User.first_name, "")) != "")
+        .order_by(User.created_at.asc())
+        .all()
+    )
+    if not fila:
+        raise HTTPException(status_code=409, detail=f"Nenhum usuário ativo na {RODIZIO_EQUIPE} para receber o lead do rodízio.")
+    row = (
+        db.query(AppSettings)
+        .filter(AppSettings.key == "campanha_rodizio_idx")
+        .with_for_update()
+        .first()
+    )
     idx = int(row.value) if row and row.value and row.value.lstrip("-").isdigit() else 0
-    nome = RODIZIO_NOMES[idx % len(RODIZIO_NOMES)]
-    vencedor = _find_user_by_name(db, nome)
-    if not vencedor:
-        raise HTTPException(status_code=500, detail=f"Usuário do rodízio '{nome}' não encontrado.")
+    vencedor = fila[idx % len(fila)]
     if row:
         row.value = str(idx + 1)
     else:
@@ -175,7 +182,7 @@ def marcar_desfecho(
     db: Session = Depends(get_db),
 ):
     """Isaac marca o resultado da tentativa naquele canal. 'Respondeu' sorteia
-    o próximo do rodízio (Pamela/Isaac/Julia) e transfere a posse do lead pra
+    o próximo do rodízio (ativos da Equipe São Paulo) e transfere a posse do lead pra
     ele, recontando a captação (retrabalhado_em). 'Não retrabalhar' solta o
     lead de volta (sem dono de renutrição). Ambos saem da fila e limpam o
     canal ativo -- o histórico completo já está gravado em campanha_eventos."""
