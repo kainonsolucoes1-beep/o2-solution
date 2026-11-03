@@ -466,8 +466,8 @@ html.dark .apidoc { --get: #34D399; --get-bg: rgba(52,211,153,.12); --post: #93C
 .apidoc a:hover { text-decoration: underline; }
 
 .apidoc-toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; padding-top: 4px; }
-.apidoc-toc p { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); margin: 16px 0 6px; }
-.apidoc-toc > div:first-child p { margin-top: 0; }
+.apidoc .apidoc-toc p { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); margin: 22px 0 4px 10px; }
+.apidoc .apidoc-toc > div:first-child p { margin-top: 0; }
 .apidoc-toc button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: none; cursor: pointer;
   color: var(--text-3); font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 7px; }
 .apidoc-toc button:hover { background: var(--bg-subtle); }
