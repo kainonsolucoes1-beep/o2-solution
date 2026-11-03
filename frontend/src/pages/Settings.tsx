@@ -9,6 +9,7 @@ import { parseUTC } from '../utils/date'
 import { useTheme } from '../ThemeContext'
 import Accordion from '../components/Accordion'
 import OperadorasEmissaoTab from '../components/OperadorasEmissaoTab'
+import ApiDocsTab from '../components/ApiDocsTab'
 
 // ── Configurações tab ────────────────────────────────────────────────────────
 interface SyncHealth {
@@ -59,8 +60,6 @@ function ConfiguracoesTab() {
   const [teamKeysLoading, setTeamKeysLoading] = useState(true)
   const [teamKeyCopiedSlug, setTeamKeyCopiedSlug] = useState<string | null>(null)
   const [rotatingTeamSlug, setRotatingTeamSlug] = useState<string | null>(null)
-  const [docsTeamSlug, setDocsTeamSlug] = useState<string | null>(null)
-  const [curlCopied, setCurlCopied] = useState(false)
   const [apiTab, setApiTab] = useState<'chaves' | 'docs' | 'sync'>('chaves')
   // chaves ficam mascaradas na tela (Mostrar/Ocultar); Copiar sempre leva o valor real
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set())
@@ -138,32 +137,6 @@ function ConfiguracoesTab() {
     }
   }
 
-  const activeDocsTeamSlug = docsTeamSlug ?? Object.keys(teamKeys)[0] ?? null
-
-  function buildCurlExample(masked = false): string {
-    const apiBase = import.meta.env.VITE_API_URL || window.location.origin
-    const accountValue = masked ? '<chave-da-conta>' : (publicApiKey ?? '<chave-da-conta>')
-    const teamValue = masked ? '<chave-da-equipe>' : (activeDocsTeamSlug ? (teamKeys[activeDocsTeamSlug]?.value ?? '<chave-da-equipe>') : '<chave-da-equipe>')
-    return `curl -X POST ${apiBase}/api/v1/public/leads \\
-  -H "X-API-Key: ${accountValue}" \\
-  -H "X-Team-Key: ${teamValue}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "Lucas Teste",
-    "email": "lucas@teste.com",
-    "phone": "11999999999",
-    "origin": "Site Institucional",
-    "conversion_point": "{embed_url}",
-    "modalidade": "Empresarial",
-    "faixa_29_33": 1,
-    "faixa_34_38": 2
-  }'`
-  }
-
-  function copyCurl() {
-    navigator.clipboard.writeText(buildCurlExample()).then(() => { setCurlCopied(true); setTimeout(() => setCurlCopied(false), 2000) })
-  }
-
   async function handleSave() {
     if (!accessToken.trim() || !refreshToken.trim()) { setErrorMsg('Preencha os dois campos.'); setStatus('error'); return }
     setStatus('loading'); setErrorMsg('')
@@ -209,7 +182,7 @@ function ConfiguracoesTab() {
   const eyebrowStyle = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: 'var(--text-muted)', margin: '0 0 4px 2px' }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 720 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: apiTab === 'docs' ? 1120 : 720 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 1, border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--border)' }}>
         <HealthCell dot={syncDot} label="Sync automático" value={syncVal} sub={syncSub} />
         <HealthCell dot={healthLoading ? 'var(--text-subtle)' : health?.tokens_configured ? '#10B981' : '#EF4444'} label="Tokens Followize" value={health?.tokens_configured ? 'Configurados' : 'Não encontrados'} sub="renovação automática" />
@@ -304,123 +277,7 @@ function ConfiguracoesTab() {
       )}
 
       {apiTab === 'docs' && (
-      <Accordion defaultOpen title="Documentação da API — leads públicos" summary="endpoint, campos e exemplo de payload">
-        <div className="flex flex-col gap-4">
-        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Referência para integrar sites e automações (Gravity Forms, Make.com, etc.) direto com o o2-solution.</p>
-
-        <div className="flex items-center" style={{ gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: '#2563EB', padding: '3px 9px', borderRadius: 5, letterSpacing: '0.03em' }}>POST</span>
-          <span style={{ fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>/api/v1/public/leads</span>
-        </div>
-
-        <div>
-          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Headers obrigatórios</p>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: '5px 8px 5px 0', borderBottom: '1px solid var(--border-in)' }}><code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>X-API-Key</code></td>
-                <td style={{ padding: '5px 0', borderBottom: '1px solid var(--border-in)', color: 'var(--text-2)' }}>Chave da conta (seção "Conta" acima)</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '5px 8px 5px 0', borderBottom: '1px solid var(--border-in)' }}><code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>X-Team-Key</code></td>
-                <td style={{ padding: '5px 0', borderBottom: '1px solid var(--border-in)', color: 'var(--text-2)' }}>Chave da equipe de destino do lead (seção "Equipes" acima)</td>
-              </tr>
-              <tr>
-                <td style={{ padding: '5px 8px 0 0' }}><code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>Content-Type</code></td>
-                <td style={{ padding: '5px 0 0', color: 'var(--text-2)' }}><code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>application/json</code></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div>
-          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Campos do corpo (JSON)</p>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <tbody>
-              {[
-                { field: 'name', required: true, desc: 'Nome do lead' },
-                { field: 'phone', required: true, desc: 'Telefone do lead' },
-                { field: 'email', required: false, desc: 'E-mail do lead' },
-                { field: 'company', required: false, desc: 'Empresa do lead' },
-                { field: 'message', required: false, desc: 'Mensagem livre do formulário' },
-                { field: 'origin', required: false, desc: 'Ex: "Site Institucional" (padrão: "Orgânico")' },
-                { field: 'conversion_point', required: false, desc: 'Ex: use {embed_url} no Gravity Forms pra capturar a URL da página automaticamente' },
-                { field: 'modalidade', required: false, desc: 'Tipo de contratação / modalidade do plano (ex: "Empresarial", "Individual", "PME Porte II")' },
-                { field: 'current_plan', required: false, desc: 'Plano que o lead já tem hoje. Se não tem, envie exatamente "Não possui plano". Se tem, o nome do plano (ex: "Amil 400"). Variações de "não tenho plano" são normalizadas.' },
-                { field: 'faixa_0_18 … faixa_59_mais', required: false, desc: 'Quantidade de pessoas por faixa etária (número inteiro, padrão 0). 10 campos: faixa_0_18, faixa_19_23, faixa_24_28, faixa_29_33, faixa_34_38, faixa_39_43, faixa_44_48, faixa_49_53, faixa_54_58, faixa_59_mais' },
-              ].map((row, i, arr) => (
-                <tr key={row.field}>
-                  <td style={{ padding: '6px 8px 6px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-in)' : 'none', whiteSpace: 'nowrap' }}>
-                    <code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>{row.field}</code>
-                  </td>
-                  <td style={{ padding: '6px 8px 6px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-in)' : 'none', whiteSpace: 'nowrap' }}>
-                    {row.required ? (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', background: '#FEF2F2', padding: '1px 7px', borderRadius: 99 }}>obrigatório</span>
-                    ) : (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-subtle)', background: 'var(--bg-subtle)', padding: '1px 7px', borderRadius: 99 }}>opcional</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '6px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border-in)' : 'none', color: 'var(--text-2)' }}>{row.desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div>
-          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Respostas</p>
-          <div className="flex flex-col" style={{ gap: 6 }}>
-            {[
-              { code: '201', color: '#059669', desc: <>Lead criado — retorna <code style={{ fontSize: 12, background: 'var(--bg-subtle)', padding: '1px 6px', borderRadius: 4 }}>lead_id</code></> },
-              { code: '403', color: '#DC2626', desc: 'Chave da conta ou da equipe inválida' },
-              { code: '409', color: '#D97706', desc: 'Lead já cadastrado (mesmo e-mail, ou telefone+nome)' },
-              { code: '422', color: '#D97706', desc: 'Faltou nome ou telefone' },
-              { code: '429', color: '#D97706', desc: 'Mais de 10 requisições/min do mesmo IP' },
-            ].map(row => (
-              <div key={row.code} className="flex items-baseline" style={{ gap: 10, fontSize: 12.5 }}>
-                <span style={{ fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', fontWeight: 700, width: 32, flexShrink: 0, color: row.color }}>{row.code}</span>
-                <span style={{ color: 'var(--text-2)' }}>{row.desc}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ height: 1, background: 'var(--border-in)' }} />
-
-        <div>
-          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Exemplo pronto pra copiar</p>
-          {Object.keys(teamKeys).length > 0 && (
-            <div className="flex" style={{ gap: 6, marginBottom: 10 }}>
-              {Object.entries(teamKeys).map(([slug, team]) => (
-                <button
-                  key={slug}
-                  onClick={() => setDocsTeamSlug(slug)}
-                  style={{
-                    fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 7,
-                    border: `1px solid ${activeDocsTeamSlug === slug ? '#2563EB' : 'var(--border-in)'}`,
-                    background: activeDocsTeamSlug === slug ? 'var(--accent-bg, #EFF6FF)' : 'var(--bg-subtle)',
-                    color: activeDocsTeamSlug === slug ? '#2563EB' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {team.name}
-                </button>
-              ))}
-            </div>
-          )}
-          <div style={{ position: 'relative', background: '#0F172A', borderRadius: 8, padding: '14px 16px', overflowX: 'auto' }}>
-            <button
-              onClick={copyCurl}
-              style={{ position: 'absolute', top: 10, right: 10, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600, color: curlCopied ? '#34D399' : '#E2E8F0', background: 'rgba(255,255,255,0.08)', border: `1px solid ${curlCopied ? '#34D399' : 'rgba(255,255,255,0.15)'}`, borderRadius: 6, padding: '5px 9px', cursor: 'pointer' }}
-            >
-              {curlCopied ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> Copiar</>}
-            </button>
-            <pre style={{ margin: 0, fontFamily: 'ui-monospace, SF Mono, Menlo, monospace', fontSize: 12, lineHeight: 1.6, color: '#E2E8F0', whiteSpace: 'pre' }}>{buildCurlExample(true)}</pre>
-          </div>
-          <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--text-subtle)' }}>As chaves aparecem como {'<chave-…>'}. O botão Copiar leva o comando com as chaves reais.</p>
-        </div>
-        </div>
-      </Accordion>
+        <ApiDocsTab accountKey={publicApiKey} teamKeys={teamKeys} />
       )}
       </div>
       )}
