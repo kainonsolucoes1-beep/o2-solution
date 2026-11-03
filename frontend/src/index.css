@@ -39,6 +39,11 @@ body {
   --info:        #8B5CF6;
   --info-weak:   #F5F3FF;
 
+  /* status "Sem retorno" (azul-aço): tom por tema, legível nos dois */
+  --status-sem-retorno:        #4A6FA5;
+  --status-sem-retorno-bg:     #EEF3F9;
+  --status-sem-retorno-border: #C9D7EA;
+
   /* card "Parados há mais de 3 dias" (Emissão) */
   --stale-bg:     rgba(245,158,11,0.10);
   --stale-border: rgba(245,158,11,0.40);
@@ -75,6 +80,10 @@ html.dark {
   --warning-weak:#2A2113;
   --info:        #A78BFA;
   --info-weak:   #241E33;
+
+  --status-sem-retorno:        #8AACD6;
+  --status-sem-retorno-bg:     rgba(138,172,214,0.14);
+  --status-sem-retorno-border: rgba(138,172,214,0.35);
 
   --stale-bg:     rgba(253,230,138,0.08);
   --stale-border: rgba(253,230,138,0.35);
