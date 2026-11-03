@@ -47,6 +47,7 @@ const SETTINGS_CHILDREN = [
 const FINANCEIRO_CHILDREN = [
   { to: '/financeiro/visao-geral', label: 'Visão Geral' },
   { to: '/financeiro/metas',       label: 'Metas Mensais' },
+  { to: '/financeiro/trafego',     label: 'Tráfego pago' },
 ]
 
 function ExpandableNavGroup({ label, Icon, basePath, headerTo, children, slim, pathname, open, onToggle }: {
