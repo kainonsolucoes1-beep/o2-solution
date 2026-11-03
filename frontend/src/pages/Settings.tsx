@@ -10,6 +10,7 @@ import { useTheme } from '../ThemeContext'
 import Accordion from '../components/Accordion'
 import OperadorasEmissaoTab from '../components/OperadorasEmissaoTab'
 import ApiDocsTab from '../components/ApiDocsTab'
+import { DocShell, Section, Table, C, type DocToc } from '../components/ApiDocShell'
 
 // ── Configurações tab ────────────────────────────────────────────────────────
 interface SyncHealth {
@@ -34,6 +35,37 @@ function HealthCell({ dot, label, value, sub }: { dot: string; label: string; va
       </div>
       <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', marginTop: 6 }}>{value}</div>
       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>
+    </div>
+  )
+}
+
+const CHAVES_TOC: DocToc = [
+  { group: 'Começo', items: [{ id: 'visao-geral', label: 'Visão geral' }] },
+  { group: 'Chaves', items: [{ id: 'conta', label: 'Chave da conta' }, { id: 'equipes', label: 'Chaves das equipes' }] },
+  { group: 'Uso', items: [{ id: 'como-usar', label: 'Como usar' }, { id: 'rotacao', label: 'Rotação e segurança' }] },
+]
+const SYNC_TOC: DocToc = [
+  { group: 'Followize', items: [{ id: 'sync-auto', label: 'Sync automático' }, { id: 'reprocessar', label: 'Reprocessamento' }, { id: 'tokens', label: 'Tokens' }] },
+  { group: 'Financeiro', items: [{ id: 'financeiro', label: 'Planilha do Financeiro' }] },
+]
+
+function KeyRow({ label, hint, value, revealed, onReveal, copied, onCopy, rotating, onRotate }: {
+  label: string; hint: string; value: string; revealed: boolean; onReveal: () => void
+  copied: boolean; onCopy: () => void; rotating: boolean; onRotate: () => void
+}) {
+  return (
+    <div className="apidoc-keyrow">
+      <div className="apidoc-keyrow-label"><strong>{label}</strong><code className="apidoc-ic">{hint}</code></div>
+      <div className="apidoc-keyrow-value">
+        <code>{value}</code>
+        <button className="apidoc-btn" onClick={onReveal}>{revealed ? 'Ocultar' : 'Mostrar'}</button>
+        <button className="apidoc-btn" onClick={onCopy} style={copied ? { color: 'var(--success)' } : undefined}>
+          {copied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
+        </button>
+        <button className="apidoc-btn" onClick={onRotate} disabled={rotating} title="Gera uma nova chave e invalida a atual imediatamente">
+          <KeyRound size={13} /> {rotating ? 'Gerando…' : 'Rotacionar'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -179,10 +211,9 @@ function ConfiguracoesTab() {
   const syncDot = healthLoading ? 'var(--text-subtle)' : !health ? 'var(--danger)' : !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444'
   const syncVal = healthLoading ? 'Carregando…' : !health ? 'Indisponível' : !health.last_sync_at ? 'Sem registro' : health.last_sync_ok ? 'Rodando' : 'Falha'
   const syncSub = health?.last_sync_at ? `último ${health.last_sync_ok ? 'OK' : 'erro'} ${formatAgo(health.last_sync_at)} · a cada 5 min` : 'a cada 5 minutos'
-  const eyebrowStyle = { fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: 'var(--text-muted)', margin: '0 0 4px 2px' }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: apiTab === 'docs' ? 1120 : 720 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 1120 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 1, border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--border)' }}>
         <HealthCell dot={syncDot} label="Sync automático" value={syncVal} sub={syncSub} />
         <HealthCell dot={healthLoading ? 'var(--text-subtle)' : health?.tokens_configured ? '#10B981' : '#EF4444'} label="Tokens Followize" value={health?.tokens_configured ? 'Configurados' : 'Não encontrados'} sub="renovação automática" />
@@ -206,203 +237,178 @@ function ConfiguracoesTab() {
         ))}
       </div>
 
-      {(apiTab === 'chaves' || apiTab === 'docs') && (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {apiTab === 'chaves' && (
-      <Accordion defaultOpen
-        title="Chaves de integração — leads públicos"
-        statusColor="var(--accent)"
-        summary={publicKeyLoading ? undefined : `1 chave de conta · ${Object.keys(teamKeys).length} de equipe`}
-      >
-        <div className="flex flex-col gap-4">
-        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Use no webhook do Gravity Forms (ou outro formulário externo) para enviar leads direto pro sistema, sem passar pelo Followize.</p>
+        <DocShell
+          toc={CHAVES_TOC}
+          eyebrow="O2 Solution · Integrações"
+          title="Chaves de acesso"
+          lead="As chaves que autorizam sites, formulários e campanhas a enviar leads direto para o o2sig. Toda requisição usa duas: a da conta e a da equipe que vai receber o lead."
+          meta={[publicKeyLoading ? 'Carregando…' : `1 chave de conta · ${Object.keys(teamKeys).length} de equipe`, 'Mascaradas na tela', 'Copiar leva o valor real']}
+        >
+          <Section id="visao-geral" title="Visão geral" intro="Cada envio precisa das duas chaves nos cabeçalhos da requisição:">
+            <Table head={['Chave', 'Cabeçalho', 'Para que serve']}>
+              <tr><td>Conta</td><td><C>X-API-Key</C></td><td>Identifica a O2 Solution. É a mesma para todas as integrações.</td></tr>
+              <tr><td>Equipe</td><td><C>X-Team-Key</C></td><td>Define a equipe que recebe o lead e o rodízio de atendentes. Uma por equipe.</td></tr>
+            </Table>
+          </Section>
 
-        <div>
-          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Conta</p>
-          {publicKeyLoading ? (
-            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
-          ) : publicApiKey ? (
-            <div className="flex flex-col gap-1">
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>Chave da conta</span>
-              <div className="flex items-center" style={{ gap: 8 }}>
-                <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{revealedKeys.has('conta') ? publicApiKey : maskKey(publicApiKey)}</code>
-                <button onClick={() => toggleReveal('conta')} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>{revealedKeys.has('conta') ? 'Ocultar' : 'Mostrar'}</button>
-                <button onClick={copyPublicKey} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: publicKeyCopied ? '#10B981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                  {publicKeyCopied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
-                </button>
-                <button onClick={rotatePublicKey} disabled={rotatingKey} title="Gera uma nova chave e invalida a atual imediatamente" style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: rotatingKey ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, opacity: rotatingKey ? 0.6 : 1 }}>
-                  <KeyRound size={13} /> {rotatingKey ? 'Gerando...' : 'Rotacionar'}
-                </button>
-              </div>
+          <Section id="conta" title="Chave da conta">
+            <div className="apidoc-card">
+              {publicKeyLoading ? (
+                <p className="apidoc-muted">Carregando…</p>
+              ) : publicApiKey ? (
+                <KeyRow
+                  label="Chave da conta" hint="X-API-Key"
+                  value={revealedKeys.has('conta') ? publicApiKey : maskKey(publicApiKey)}
+                  revealed={revealedKeys.has('conta')} onReveal={() => toggleReveal('conta')}
+                  copied={publicKeyCopied} onCopy={copyPublicKey}
+                  rotating={rotatingKey} onRotate={rotatePublicKey}
+                />
+              ) : (
+                <p className="apidoc-muted">Não foi possível carregar a chave.</p>
+              )}
             </div>
-          ) : (
-            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar a chave.</p>
-          )}
-        </div>
+          </Section>
 
-        <div style={{ height: 1, background: 'var(--border-in)' }} />
-
-        <div>
-          <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Equipes</p>
-          {teamKeysLoading ? (
-            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
-          ) : Object.keys(teamKeys).length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar as chaves de equipe.</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {Object.entries(teamKeys).map(([slug, team]) => (
-                <div key={slug} className="flex flex-col gap-1">
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>{team.name}</span>
-                  <div className="flex items-center" style={{ gap: 8 }}>
-                    <code style={{ fontSize: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-subtle)', color: 'var(--text-2)', wordBreak: 'break-all', flex: 1 }}>{revealedKeys.has(`team:${slug}`) ? team.value : maskKey(team.value)}</code>
-                    <button onClick={() => toggleReveal(`team:${slug}`)} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>{revealedKeys.has(`team:${slug}`) ? 'Ocultar' : 'Mostrar'}</button>
-                    <button onClick={() => copyTeamKey(slug)} style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', color: teamKeyCopiedSlug === slug ? '#10B981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                      {teamKeyCopiedSlug === slug ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
-                    </button>
-                    <button onClick={() => rotateTeamKey(slug)} disabled={rotatingTeamSlug === slug} title="Gera uma nova chave e invalida a atual imediatamente" style={{ flexShrink: 0, background: 'none', border: '1px solid var(--border-in)', borderRadius: 6, padding: '7px 10px', cursor: rotatingTeamSlug === slug ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, opacity: rotatingTeamSlug === slug ? 0.6 : 1 }}>
-                      <KeyRound size={13} /> {rotatingTeamSlug === slug ? 'Gerando...' : 'Rotacionar'}
-                    </button>
-                  </div>
-                </div>
-              ))}
+          <Section id="equipes" title="Chaves das equipes" intro="Use a chave da equipe que deve receber os leads daquela integração (ex.: Meta Ads → Equipe São Paulo).">
+            <div className="apidoc-card">
+              {teamKeysLoading ? (
+                <p className="apidoc-muted">Carregando…</p>
+              ) : Object.keys(teamKeys).length === 0 ? (
+                <p className="apidoc-muted">Não foi possível carregar as chaves de equipe.</p>
+              ) : (
+                Object.entries(teamKeys).map(([slug, team]) => (
+                  <KeyRow
+                    key={slug} label={team.name} hint="X-Team-Key"
+                    value={revealedKeys.has(`team:${slug}`) ? team.value : maskKey(team.value)}
+                    revealed={revealedKeys.has(`team:${slug}`)} onReveal={() => toggleReveal(`team:${slug}`)}
+                    copied={teamKeyCopiedSlug === slug} onCopy={() => copyTeamKey(slug)}
+                    rotating={rotatingTeamSlug === slug} onRotate={() => rotateTeamKey(slug)}
+                  />
+                ))
+              )}
             </div>
-          )}
-        </div>
+          </Section>
 
-        <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>
-          Endpoint: <code>POST /api/v1/public/leads</code> · Headers: <code>X-API-Key</code> (conta) + <code>X-Team-Key</code> (equipe) · Campos: name, email, phone, company, message, origin, conversion_point.
-        </p>
-        </div>
-      </Accordion>
+          <Section id="como-usar" title="Como usar">
+            <ol className="apidoc-steps">
+              <li>Copie a chave da conta e a chave da equipe de destino.</li>
+              <li>Envie as duas para quem vai integrar por um canal privado (nunca na documentação, em e-mail aberto a terceiros ou em grupo).</li>
+              <li>Mande junto o link da documentação: <button className="apidoc-link" onClick={() => setApiTab('docs')}>aba Documentação</button>, que tem o link público para compartilhar.</li>
+              <li>Peça para validarem com <C>GET /ping</C> antes de ligar a integração.</li>
+            </ol>
+          </Section>
+
+          <Section id="rotacao" title="Rotação e segurança">
+            <div className="apidoc-callout warn"><strong>Rotacionar invalida a chave atual na hora.</strong> Toda integração que usa a chave antiga passa a receber erro <C>403</C> até receber a nova. Rotacione quando a chave vazar ou quando uma integração for desligada.</div>
+            <ul>
+              <li>As chaves só devem ser usadas em servidor, nunca em código de página, pixel ou tag do Google Tag Manager.</li>
+              <li>Trocar a chave de uma equipe não afeta as outras equipes nem a chave da conta.</li>
+            </ul>
+          </Section>
+        </DocShell>
       )}
 
       {apiTab === 'docs' && (
         <ApiDocsTab accountKey={publicApiKey} teamKeys={teamKeys} />
       )}
-      </div>
-      )}
 
       {apiTab === 'sync' && (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <p style={eyebrowStyle}>Sincronização e manutenção</p>
-
-      <Accordion
-        title="Tokens Followize (desativado)"
-        statusColor={health?.tokens_configured ? '#10B981' : '#EF4444'}
-        summary={health?.tokens_configured ? 'configurados' : 'não encontrados'}
-      >
-        <div className="flex flex-col gap-5">
-        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Cole os tokens gerados pelo script <code>renovar_token.py</code>. O sistema atualiza imediatamente sem precisar reiniciar.</p>
-        <div className="flex flex-col gap-2">
-          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>Access Token</label>
-          <textarea value={accessToken} onChange={e => setAccessToken(e.target.value)} rows={4} placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."
-            style={{ fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-in)', resize: 'vertical', fontFamily: 'monospace', color: 'var(--text-2)', outline: 'none', background: 'var(--bg-input)' }} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)' }}>Refresh Token</label>
-          <textarea value={refreshToken} onChange={e => setRefreshToken(e.target.value)} rows={3} placeholder="def50200..."
-            style={{ fontSize: 12, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-in)', resize: 'vertical', fontFamily: 'monospace', color: 'var(--text-2)', outline: 'none', background: 'var(--bg-input)' }} />
-        </div>
-        {status === 'success' && <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}><p style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>Tokens atualizados com sucesso.</p></div>}
-        {status === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{errorMsg}</p></div>}
-        <button onClick={handleSave} disabled={status === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: status === 'loading' ? '#93C5FD' : '#2563EB', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: status === 'loading' ? 'not-allowed' : 'pointer' }}>
-          {status === 'loading' ? 'Salvando...' : 'Salvar Tokens'}
-        </button>
-        </div>
-      </Accordion>
-
-      <Accordion
-        title="Status do sync automático"
-        defaultOpen
-        statusColor={healthLoading ? 'var(--text-subtle)' : !health ? 'var(--danger)' : !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444'}
-        summary={!health ? undefined : health.last_sync_ok ? `OK · ${formatAgo(health.last_sync_at)}` : 'Falha no último sync'}
-      >
-        <div className="flex flex-col gap-3">
-        {healthLoading ? (
-          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando...</p>
-        ) : health ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444', flexShrink: 0 }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)' }}>
-                {!health.last_sync_at ? 'Nenhum sync registrado ainda' : health.last_sync_ok ? `Último sync OK — ${formatAgo(health.last_sync_at)}` : `Falha no último sync — ${formatAgo(health.last_sync_at)}`}
-              </span>
+        <DocShell
+          toc={SYNC_TOC}
+          eyebrow="O2 Solution · Integrações"
+          title="Sincronizações"
+          lead="Como os dados de fora entram no o2sig: o sync automático com o Followize e a planilha de recebimentos do Financeiro."
+          meta={['Followize a cada 5 min', 'Financeiro sob demanda']}
+        >
+          <Section id="sync-auto" title="Sync automático (Followize)" intro="Busca leads novos e alterações no Followize a cada 5 minutos. O token é renovado sozinho quando expira.">
+            <div className="apidoc-card">
+              {healthLoading ? (
+                <p className="apidoc-muted">Carregando…</p>
+              ) : health ? (
+                <>
+                  <div className="apidoc-statusline">
+                    <span className="apidoc-dot" style={{ background: !health.last_sync_at ? '#9CA3AF' : health.last_sync_ok ? '#10B981' : '#EF4444' }} />
+                    <strong>{!health.last_sync_at ? 'Nenhum sync registrado ainda' : health.last_sync_ok ? `Último sync OK · ${formatAgo(health.last_sync_at)}` : `Falha no último sync · ${formatAgo(health.last_sync_at)}`}</strong>
+                  </div>
+                  {health.last_sync_ok && health.last_sync_counts && <p className="apidoc-muted" style={{ margin: '6px 0 0 18px' }}>{health.last_sync_counts}</p>}
+                  {!health.last_sync_ok && health.last_sync_error && <div className="apidoc-callout err">{health.last_sync_error}</div>}
+                  <div className="apidoc-statusline" style={{ marginTop: 10 }}>
+                    <span className="apidoc-dot" style={{ background: health.tokens_configured ? '#10B981' : '#EF4444' }} />
+                    <span>{health.tokens_configured ? 'Tokens do Followize configurados' : 'Tokens do Followize não encontrados'}</span>
+                  </div>
+                  {health.paused && <div className="apidoc-callout warn"><strong>Sync pausado.</strong> Leads do Followize não estão entrando no o2sig.</div>}
+                  <div className="apidoc-actions">
+                    <button className={`apidoc-btn ${health.paused ? 'primary' : ''}`} onClick={togglePause} disabled={pauseBusy}>
+                      {pauseBusy ? 'Aguarde…' : health.paused ? 'Retomar sync' : 'Pausar sync'}
+                    </button>
+                    <button className="apidoc-btn" onClick={fetchHealth}>Atualizar agora</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="apidoc-muted">Não foi possível carregar o status.</p>
+                  <div className="apidoc-actions"><button className="apidoc-btn" onClick={fetchHealth}>Tentar de novo</button></div>
+                </>
+              )}
             </div>
-            {health.last_sync_ok && health.last_sync_counts && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>{health.last_sync_counts}</p>}
-            {!health.last_sync_ok && health.last_sync_error && (
-              <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
-                <p style={{ fontSize: 12, color: '#EF4444', margin: 0, wordBreak: 'break-word' }}>{health.last_sync_error}</p>
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: health.tokens_configured ? '#10B981' : '#EF4444', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{health.tokens_configured ? 'Tokens Followize configurados no banco' : 'Tokens não encontrados no banco'}</span>
-            </div>
-            {health.paused && (
-              <div style={{ padding: '8px 12px', background: 'rgba(245,158,11,0.12)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.35)' }}>
-                <p style={{ fontSize: 12, color: '#B45309', margin: 0, fontWeight: 600 }}>Sync PAUSADO — leads do Followize não estão entrando.</p>
-              </div>
-            )}
-            <button onClick={togglePause} disabled={pauseBusy} style={{ alignSelf: 'flex-start', padding: '7px 16px', borderRadius: 8, background: health.paused ? '#10B981' : '#F59E0B', color: 'white', fontWeight: 600, fontSize: 12, border: 'none', cursor: pauseBusy ? 'not-allowed' : 'pointer' }}>
-              {pauseBusy ? 'Aguarde…' : health.paused ? 'Retomar sync' : 'Pausar sync'}
-            </button>
-            <p style={{ fontSize: 11, color: 'var(--text-subtle)', margin: 0 }}>Sync automático a cada 5 minutos. Token renovado automaticamente em caso de expiração.</p>
-          </div>
-        ) : (
-          <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Não foi possível carregar o status.</p>
-        )}
-        <button onClick={fetchHealth} style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', padding: '6px 12px', borderRadius: 8 }}>Atualizar agora</button>
-        </div>
-      </Accordion>
+          </Section>
 
-      <Accordion title="Reprocessamento histórico" summary="re-puxar leads antigos do Followize">
-        <div className="flex flex-col gap-5">
-        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Rebusca do Followize os leads <b>criados ou alterados</b> no período escolhido e atualiza status / motivo de cancelamento no banco. Use um período maior pra recuperar leads antigos que o sync automático não pegou.</p>
-        {syncStatus === 'success' && <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}><p style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>{syncMsg}</p></div>}
-        {syncStatus === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{syncMsg}</p></div>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <select value={syncDays} onChange={e => setSyncDays(Number(e.target.value))} disabled={syncStatus === 'loading'}
-            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none' }}>
-            <option value={90}>Últimos 90 dias</option>
-            <option value={180}>Últimos 6 meses</option>
-            <option value={365}>Últimos 12 meses</option>
-          </select>
-          <button onClick={handleSync} disabled={syncStatus === 'loading'} style={{ padding: '9px 20px', borderRadius: 8, background: syncStatus === 'loading' ? '#FCA5A5' : '#EF4444', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: syncStatus === 'loading' ? 'not-allowed' : 'pointer' }}>
-            {syncStatus === 'loading' ? 'Processando... (pode demorar)' : 'Reprocessar'}
-          </button>
-        </div>
-        </div>
-      </Accordion>
-
-      <Accordion title="Sincronização do financeiro (Google Sheets)" summary="recebido / a receber dos leads">
-        <div className="flex flex-col gap-5">
-        <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>Rebusca a planilha de vendas e atualiza recebido/a receber dos leads. Mostra quais leads não foram encontrados ou ficaram ambíguos (telefone/email duplicado em mais de um cadastro) — esses não são atualizados até a duplicidade ser corrigida.</p>
-        {receitaSyncStatus === 'error' && <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}><p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600 }}>{receitaSyncMsg}</p></div>}
-        {receitaSyncStatus === 'success' && receitaSyncResult && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.1)', borderRadius: 8, border: '1px solid rgba(16,185,129,0.25)' }}>
-              <p style={{ fontSize: 13, color: '#10B981', fontWeight: 600, margin: 0 }}>{receitaSyncResult.matched} leads sincronizados.</p>
+          <Section id="reprocessar" title="Reprocessamento histórico" intro={<>Rebusca do Followize os leads <strong>criados ou alterados</strong> no período escolhido e atualiza status e motivo de cancelamento. Use para recuperar leads antigos que o sync automático não pegou.</>}>
+            <div className="apidoc-card">
+              {syncStatus === 'success' && <div className="apidoc-callout ok" style={{ marginTop: 0 }}>{syncMsg}</div>}
+              {syncStatus === 'error' && <div className="apidoc-callout err" style={{ marginTop: 0 }}>{syncMsg}</div>}
+              <div className="apidoc-actions" style={{ marginTop: 0 }}>
+                <select className="apidoc-input" value={syncDays} onChange={e => setSyncDays(Number(e.target.value))} disabled={syncStatus === 'loading'}>
+                  <option value={90}>Últimos 90 dias</option>
+                  <option value={180}>Últimos 6 meses</option>
+                  <option value={365}>Últimos 12 meses</option>
+                </select>
+                <button className="apidoc-btn primary" onClick={handleSync} disabled={syncStatus === 'loading'}>
+                  {syncStatus === 'loading' ? 'Processando… (pode demorar)' : 'Reprocessar'}
+                </button>
+              </div>
             </div>
-            {receitaSyncResult.ambiguous.length > 0 && (
-              <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)' }}>
-                <p style={{ fontSize: 12.5, color: '#EF4444', fontWeight: 700, margin: '0 0 4px' }}>Duplicados — telefone/email bate com mais de um cadastro ({receitaSyncResult.ambiguous.length}):</p>
-                <p style={{ fontSize: 12.5, color: '#B91C1C', margin: 0 }}>{receitaSyncResult.ambiguous.join(', ')}</p>
+          </Section>
+
+          <Section id="financeiro" title="Planilha do Financeiro (Google Sheets)" intro="Rebusca a planilha de vendas e atualiza recebido / a receber de cada lead. Rode sempre que a planilha mudar.">
+            <div className="apidoc-card">
+              {receitaSyncStatus === 'error' && <div className="apidoc-callout err" style={{ marginTop: 0 }}>{receitaSyncMsg}</div>}
+              {receitaSyncStatus === 'success' && receitaSyncResult && (
+                <>
+                  <div className="apidoc-callout ok" style={{ marginTop: 0 }}><strong>{receitaSyncResult.matched} leads sincronizados.</strong></div>
+                  {receitaSyncResult.ambiguous.length > 0 && (
+                    <div className="apidoc-callout err"><strong>Duplicados: telefone/e-mail bate com mais de um cadastro ({receitaSyncResult.ambiguous.length}).</strong> Não são atualizados até a duplicidade ser corrigida: {receitaSyncResult.ambiguous.join(', ')}</div>
+                  )}
+                  {receitaSyncResult.unmatched.length > 0 && (
+                    <div className="apidoc-callout warn"><strong>Sem lead correspondente no sistema ({receitaSyncResult.unmatched.length}):</strong> {receitaSyncResult.unmatched.join(', ')}</div>
+                  )}
+                </>
+              )}
+              <div className="apidoc-actions" style={{ marginTop: 0 }}>
+                <button className="apidoc-btn primary" onClick={handleReceitaSync} disabled={receitaSyncStatus === 'loading'}>
+                  {receitaSyncStatus === 'loading' ? 'Sincronizando…' : 'Sincronizar planilha agora'}
+                </button>
               </div>
-            )}
-            {receitaSyncResult.unmatched.length > 0 && (
-              <div style={{ padding: '10px 14px', background: 'rgba(217,119,6,0.1)', borderRadius: 8, border: '1px solid rgba(217,119,6,0.25)' }}>
-                <p style={{ fontSize: 12.5, color: '#D97706', fontWeight: 700, margin: '0 0 4px' }}>Sem lead correspondente no sistema ({receitaSyncResult.unmatched.length}):</p>
-                <p style={{ fontSize: 12.5, color: '#B45309', margin: 0 }}>{receitaSyncResult.unmatched.join(', ')}</p>
+            </div>
+          </Section>
+
+          <Section id="tokens" title="Tokens do Followize" intro={<>Desativado no dia a dia: a renovação é automática. Só use se o sync acusar token inválido. Cole os tokens gerados pelo script <C>renovar_token.py</C>; o sistema atualiza na hora, sem reiniciar.</>}>
+            <div className="apidoc-card">
+              <label className="apidoc-label">Access Token</label>
+              <textarea className="apidoc-input" value={accessToken} onChange={e => setAccessToken(e.target.value)} rows={4} placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..." />
+              <label className="apidoc-label" style={{ marginTop: 12 }}>Refresh Token</label>
+              <textarea className="apidoc-input" value={refreshToken} onChange={e => setRefreshToken(e.target.value)} rows={3} placeholder="def50200..." />
+              {status === 'success' && <div className="apidoc-callout ok">Tokens atualizados com sucesso.</div>}
+              {status === 'error' && <div className="apidoc-callout err">{errorMsg}</div>}
+              <div className="apidoc-actions">
+                <button className="apidoc-btn primary" onClick={handleSave} disabled={status === 'loading'}>
+                  {status === 'loading' ? 'Salvando…' : 'Salvar tokens'}
+                </button>
               </div>
-            )}
-          </div>
-        )}
-        <button onClick={handleReceitaSync} disabled={receitaSyncStatus === 'loading'} style={{ alignSelf: 'flex-start', padding: '9px 20px', borderRadius: 8, background: receitaSyncStatus === 'loading' ? '#93C5FD' : '#2563EB', color: 'white', fontWeight: 600, fontSize: 13, border: 'none', cursor: receitaSyncStatus === 'loading' ? 'not-allowed' : 'pointer' }}>
-          {receitaSyncStatus === 'loading' ? 'Sincronizando...' : 'Sincronizar planilha agora'}
-        </button>
-        </div>
-      </Accordion>
-      </div>
+            </div>
+          </Section>
+        </DocShell>
       )}
     </div>
   )
