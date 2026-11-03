@@ -28,6 +28,7 @@ const LOST_REASONS = [
   'Trocou de número',
   'Declinou',
   'Finalizado automaticamente',
+  'Localização',
   'Preço',
   'Sem interesse',
   'Sem perfil',
