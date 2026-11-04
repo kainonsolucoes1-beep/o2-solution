@@ -96,7 +96,8 @@ def needs_own_origin_filter(user) -> bool:
     do comercial nunca bate com o Lead.origin dos leads da equipe que ele
     supervisiona, que pertencem a outras contas). Coordenador ve a base
     inteira, sem restricao de origem."""
-    return user.role not in ("admin", "coordenador") and user.role not in COMERCIAL_ROLES
+    # trafego: visibilidade vem do filtro global (app/trafego_scope.py)
+    return user.role not in ("admin", "coordenador", "trafego") and user.role not in COMERCIAL_ROLES
 
 
 def verify_token(token: str) -> Optional[str]:

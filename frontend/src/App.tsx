@@ -18,7 +18,6 @@ import KPIs from './pages/KPIs'
 import Financeiro from './pages/Financeiro'
 import FinanceiroMetas from './pages/FinanceiroMetas'
 import FinanceiroTrafego from './pages/FinanceiroTrafego'
-import ParceiroLeads from './pages/ParceiroLeads'
 import GestaoComercial from './pages/GestaoComercial'
 import VidaSDR from './pages/VidaSDR'
 import RelatorioProducao from './pages/RelatorioProducao'
@@ -71,7 +70,7 @@ function RoleSwitcher() {
       .then(r => {
         localStorage.setItem('token', r.data.access_token)
         // "ver como" parceiro de tráfego: vai pra área dele, como no login real
-        if (role === 'trafego') { localStorage.setItem('perfil', 'trafego'); window.location.href = '/parceiro' }
+        if (role === 'trafego') { localStorage.setItem('perfil', 'trafego'); window.location.href = '/leads-report' }
         else { localStorage.removeItem('perfil'); window.location.reload() }
       })
       .catch(() => setSwitching(false))
@@ -120,7 +119,6 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/change-password" element={<ChangePassword />} />
         <Route path="/acesso-bloqueado" element={<AcessoBloqueado />} />
-        <Route path="/parceiro" element={<ParceiroLeads />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/leads-report" element={<LeadsReport />} />

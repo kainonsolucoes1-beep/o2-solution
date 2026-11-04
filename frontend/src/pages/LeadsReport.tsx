@@ -494,6 +494,8 @@ export default function LeadsReport() {
   // coordenador pode atribuir leads (renutrição), mas não excluir nem as
   // outras ações admin-only desta tela.
   const canAssign = isAdmin || (me !== null && me.role === 'coordenador')
+  // parceiro de tráfego: relatório só para consulta
+  const isTrafego = me !== null && me.role === 'trafego'
   // comercial (ex: Julia) enxerga a carteira de toda a equipe 'usuario'
   // (visibilidade ampla, ver database.py) -- por isso também pode filtrar
   // por Operador, diferente de 'usuario' que só vê a própria carteira mesmo.
@@ -775,7 +777,7 @@ export default function LeadsReport() {
                 Excluir ({selected.size})
               </button>
             )}
-            <button
+            {!isTrafego && <button
               onClick={() => { resetNewLead(); setNewLeadOpen(true) }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
@@ -786,7 +788,7 @@ export default function LeadsReport() {
             >
               <Plus size={15} />
               Novo Lead
-            </button>
+            </button>}
             <VerComoSlot />
             <button
               onClick={() => setFilterOpen(true)}

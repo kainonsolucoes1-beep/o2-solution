@@ -572,6 +572,8 @@ export default function LeadDetailPage() {
 
   // lead em renutrição com outra pessoa: quem não é o dono (nem admin) só olha
   const renutricaoLock = !!lead.renutricao_owner_id && me !== null && lead.renutricao_owner_id !== me.id && !isAdmin
+  // parceiro de tráfego só consulta (o backend recusa qualquer escrita dele)
+  const somenteLeitura = renutricaoLock || me?.role === 'trafego'
 
   return (
     <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%', ...(dark ? {} : { ['--bg-input' as string]: '#FBFCFE' }) } as React.CSSProperties}>
@@ -635,7 +637,7 @@ export default function LeadDetailPage() {
         onRequestDelete={() => { setMenuOpen(false); setConfirmDelete(true) }}
         hasRenutricao={!!lead.renutricao_owner_id || lead.is_renutrucao}
         onRemoveRenutricao={handleRemoveRenutricao}
-        onRename={renutricaoLock ? undefined : handleRename}
+        onRename={somenteLeitura ? undefined : handleRename}
         onBack={() => navigate(-1)}
       />
 
@@ -668,7 +670,7 @@ export default function LeadDetailPage() {
 
       <LeadNextStepPanel
         editing={acaoRapidaEditing}
-        locked={renutricaoLock}
+        locked={somenteLeitura}
         onToggleEditing={() => {
           const next = !acaoRapidaEditing
           setEditingStatus(next)
@@ -776,7 +778,7 @@ export default function LeadDetailPage() {
             onSaveNoteEdit={handleEditNote}
             deletingStatusId={deletingStatusId}
             onDeleteStatus={handleDeleteStatus}
-            locked={renutricaoLock}
+            locked={somenteLeitura}
             loadingActivity={loadingActivity}
             activity={visibleActivity}
             filter={activityFilter}
@@ -788,7 +790,7 @@ export default function LeadDetailPage() {
         <div className="flex flex-col" style={{ gap: 12 }}>
 
           <LeadNegotiationPanel
-            locked={renutricaoLock}
+            locked={somenteLeitura}
             perceptionLabel={perception?.label ?? null}
             perceptionStyle={perception}
             modalidade={lead.modalidade ?? ''}
@@ -814,7 +816,7 @@ export default function LeadDetailPage() {
           />
 
           <LeadRegistrationPanel
-            locked={renutricaoLock}
+            locked={somenteLeitura}
             origem={lead.origem ?? ''}
             origemOptions={origins}
             savingOrigem={savingOrigin}
@@ -853,11 +855,11 @@ export default function LeadDetailPage() {
             lostReasonLabel={status === 'sale_not_performed' ? lead.lost_reason : null}
           />
 
-          {id && <LeadAttachmentsPanel leadId={id} canDelete={canDeleteAttachments} />}
+          {id && me !== null && me.role !== 'trafego' && <LeadAttachmentsPanel leadId={id} canDelete={canDeleteAttachments} />}
 
           {canSeeFinancials && id && (
             <LeadFinanceiroPanel
-            locked={renutricaoLock}
+            locked={somenteLeitura}
               leadId={id}
               modalidadeOptions={modalidades}
               titularLabel={lead.receita_titular ?? 'Não informado'}

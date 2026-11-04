@@ -1,15 +1,16 @@
 """Perfil "trafego": parceiro externo (time que gerencia as campanhas da Meta)
 que confere se os leads da campanha estão entrando no o2sig.
 
-Regra única do que esse perfil enxerga -- usada pela rota dele
-(parceiro_routes) e pelo filtro global de leads (database.py):
+Regra única do que esse perfil enxerga -- usada pelo middleware (ficha do
+lead, main.py) e pelo filtro global de leads (database.py):
   - só leads da Meta Ads (campo Campanha = Meta ou origem Meta/Facebook/Instagram);
   - nunca Google (campanha ou origem Google);
   - nunca renutrição;
   - só os criados a partir de 04/11/2026 (horário de Brasília).
 Fora isso o perfil é bloqueado por padrão: o middleware de main.py só deixa
-ele chegar em /api/v1/parceiro/* e nas rotas de login/senha.
+ele consultar o Relatório de leads e a ficha (só leitura).
 """
+import re
 from datetime import date
 
 from sqlalchemy import and_, func, or_
@@ -22,19 +23,40 @@ _DESDE_UTC = br_date_to_utc_range(TRAFEGO_LEADS_DESDE)[0]
 
 META_ORIGENS = ("meta ads", "meta", "facebook", "facebook ads", "instagram", "instagram ads")
 
-# rotas liberadas pro perfil, além de /api/v1/parceiro/*
-TRAFEGO_ALLOWLIST = {
-    "/api/v1/auth/login",
+# O parceiro usa o mesmo o2sig (Relatório de leads e ficha), só consultando.
+# Middleware (main.py) libera SÓ o que está aqui; qualquer outra rota, ou
+# qualquer escrita, dá 403.
+TRAFEGO_POST_LIVRE = {"/api/v1/auth/login", "/api/v1/auth/change-password"}
+TRAFEGO_GET_LIVRE = {
     "/api/v1/auth/me",
-    "/api/v1/auth/change-password",
+    # Relatório de leads e listas dos filtros -- todas consultam Lead pelo
+    # ORM, então o filtro global (database.py) já restringe ao escopo abaixo
+    "/api/v1/leads/by-period",
+    "/api/v1/leads/report-stats",
+    "/api/v1/leads/campanhas-midia",
+    "/api/v1/leads/conversion-points",
+    "/api/v1/leads/lost-reasons",
+    "/api/v1/leads/modalidades",
+    "/api/v1/leads/origins",
+    "/api/v1/leads/origins/split",
 }
-TRAFEGO_PREFIX = "/api/v1/parceiro/"
+# ficha do lead: /leads/{id} e estas sub-rotas, desde que o lead esteja no escopo
+# (checado no middleware -- notas/histórico não passam pelo filtro de Lead)
+_LEAD_PATH = re.compile(r"^/api/v1/leads/([0-9a-fA-F-]{36})(?:/(notes|status-history|schedule-history|peek))?$")
 
-# Formulários da Meta conhecidos -> região da campanha (só rótulo na tela)
-FORM_REGIAO = {
-    "920887077776708": "SP",
-    "2154020872683921": "MG",
-}
+
+def trafego_lead_id_da_rota(method: str, path: str) -> tuple[bool, str | None]:
+    """(liberada?, lead_id a conferir). Só leitura, só rotas da lista."""
+    if method == "POST" and path in TRAFEGO_POST_LIVRE:
+        return True, None
+    if method not in ("GET", "HEAD"):
+        return False, None
+    if path in TRAFEGO_GET_LIVRE:
+        return True, None
+    m = _LEAD_PATH.match(path)
+    if m:
+        return True, m.group(1)
+    return False, None
 
 
 def trafego_lead_criteria(cls):

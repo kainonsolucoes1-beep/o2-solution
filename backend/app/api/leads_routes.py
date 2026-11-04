@@ -1649,7 +1649,7 @@ def lead_peek(
         "ultima_nota": ultima_nota,
         # mesma trava de _assert_renutricao_unlocked: renutrição de outra
         # pessoa só o dono ou admin mexem (o painel esconde "Anotar"/"Editar")
-        "pode_anotar": not (lead.renutricao_owner_id and lead.renutricao_owner_id != current_user.id and not _is_admin(current_user)),
+        "pode_anotar": current_user.role != "trafego" and not (lead.renutricao_owner_id and lead.renutricao_owner_id != current_user.id and not _is_admin(current_user)),
         "timeline": timeline[:6],
         "dias_sem_interacao": dias_sem_interacao,
         "dias_no_status": dias_no_status,
