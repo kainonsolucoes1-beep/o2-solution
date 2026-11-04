@@ -42,6 +42,7 @@ interface LeadItem {
   receita_operadora: string | null
   receita_categoria: string | null
   receita_data_venda: string | null
+  data_venda?: string | null
   aviso_previo: boolean
   data_faturamento_previsto: string | null
   receita_origem: string | null
@@ -254,7 +255,10 @@ export default function LeadDetailPage() {
       valor: parseBRNumber(vendaValor), data_venda: vendaData,
       aviso_previo: avisoPrevio, data_faturamento_previsto: avisoPrevio ? dataFaturamentoPrevisto : null,
     })
-      .then(() => handleStatusChange('waiting_billing'))
+      .then(() => {
+        handleStatusChange('waiting_billing')
+        return api.get<LeadItem>(`/api/v1/leads/${id}`).then(r => setLead(r.data))
+      })
       .catch(() => setToast({ msg: 'Erro ao registrar venda', ok: false }))
       .finally(() => setSavingVenda(false))
   }
@@ -633,6 +637,8 @@ export default function LeadDetailPage() {
         perceptionLabel={perception?.label ?? null}
         perceptionStyle={perception}
         avisoPrevioLabel={status === 'waiting_billing' && lead.aviso_previo ? 'Aviso Prévio' : null}
+        dataVendaLabel={(status === 'waiting_billing' || status === 'sale_performed') && lead.data_venda
+          ? fmtDateOnlyLiteral(lead.data_venda) : null}
         phoneLabel={lead.phone ?? 'Não informado'}
         emailLabel={lead.email ?? 'Não informado'}
         attendantLabel={lead.attendant ?? 'Não informado'}
@@ -735,7 +741,13 @@ export default function LeadDetailPage() {
         onLostReasonClick={reason => handleStatusChange('sale_not_performed', reason)}
         onBackToStatusOptions={() => setStatusSubMenu(finalizarFlow ? 'finalizar' : null)}
         onCancelStatusEdit={closeAllEditing}
-        onVendaRealizadaClick={() => setStatusSubMenu('venda_realizada')}
+        onVendaRealizadaClick={() => {
+          if (!vendaData) {
+            const d = new Date()
+            setVendaData(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+          }
+          setStatusSubMenu('venda_realizada')
+        }}
         onBackToFinalizar={() => setStatusSubMenu('finalizar')}
 
         perception={lead.perception}

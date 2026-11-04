@@ -293,14 +293,22 @@ export default function LeadNextStepPanel({
                 </div>
               ) : statusSubMenu === 'venda_realizada' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <CurrencyInput value={vendaValor} onChange={onVendaValorChange} autoFocus />
-                    <input
-                      type="date"
-                      value={vendaData}
-                      onChange={e => onVendaDataChange(e.target.value)}
-                      style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
-                    />
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Valor da venda
+                      <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                        <CurrencyInput value={vendaValor} onChange={onVendaValorChange} autoFocus />
+                      </span>
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Data da venda
+                      <input
+                        type="date"
+                        value={vendaData}
+                        onChange={e => onVendaDataChange(e.target.value)}
+                        style={{ padding: '6px 9px', height: 34, borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13, fontWeight: 400, textTransform: 'none', color: 'var(--text-2)', background: 'var(--bg-input)', boxSizing: 'border-box' }}
+                      />
+                    </label>
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text-2)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={avisoPrevio} onChange={e => onAvisoPrevioChange(e.target.checked)} />

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowLeft, MoreVertical, Trash2, UserMinus, Check, X } from 'lucide-react'
 import Pill from './Pill'
 import EditPencil from './EditPencil'
+import { STATUS_STYLE } from '../utils/leadStatus'
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -20,7 +21,7 @@ function ContactRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function LeadDetailHeader({
-  name, statusLabel, sStyle, perceptionLabel, perceptionStyle, avisoPrevioLabel,
+  name, statusLabel, sStyle, perceptionLabel, perceptionStyle, avisoPrevioLabel, dataVendaLabel,
   phoneLabel, emailLabel, attendantLabel, origemLabel,
   isAdmin, menuOpen, onToggleMenu, onCloseMenu, onRequestDelete, onBack,
   hasRenutricao, onRemoveRenutricao, onRename,
@@ -31,6 +32,7 @@ export default function LeadDetailHeader({
   perceptionLabel: string | null
   perceptionStyle: { bg: string; color: string } | null
   avisoPrevioLabel: string | null
+  dataVendaLabel?: string | null
   phoneLabel: string
   emailLabel: string
   attendantLabel: string
@@ -112,6 +114,7 @@ export default function LeadDetailHeader({
                 <Pill colors={sStyle}>{statusLabel}</Pill>
                 {perceptionLabel && perceptionStyle && <Pill colors={perceptionStyle}>{perceptionLabel}</Pill>}
                 {avisoPrevioLabel && <Pill colors={{ bg: '#FEF3C7', color: '#92400E' }}>{avisoPrevioLabel}</Pill>}
+                {dataVendaLabel && <Pill colors={STATUS_STYLE.sale_performed}>Venda em {dataVendaLabel}</Pill>}
               </div>
             </div>
           </div>
