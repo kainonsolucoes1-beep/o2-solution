@@ -18,7 +18,7 @@ from app.database import get_db
 from app.api.notificacoes_routes import notificar_novo_lead
 from app.models import Lead, LeadNote, LeadSinalPendente, User
 from app.models.app_settings import AppSettings
-from app.teams import TEAMS, team_key_setting, team_rr_index_setting, team_attendant_names
+from app.teams import TEAMS, team_key_setting, team_rr_index_setting, team_attendant_names, fixed_attendant
 from app.lead_utils import normalize_current_plan as _normalize_current_plan
 
 from app.duplicidade import lead_parecido, marcar_duplicado
@@ -122,7 +122,11 @@ def _next_attendant(db: Session, team_slug: str, team_name: str) -> Optional[str
     """Roda a fila de atendentes (round-robin) da equipe. A lista de nomes vem
     de quem esta cadastrado com esse time (se ninguem, cai pra lista manual em
     AppSettings). O indice do rodizio em si fica bloqueado (FOR UPDATE) pra
-    evitar corrida entre leads simultaneos pegando a mesma posicao."""
+    evitar corrida entre leads simultaneos pegando a mesma posicao.
+    Com atendente fixo configurado, ele recebe tudo e o rodizio nao anda."""
+    fixo = fixed_attendant(db)
+    if fixo:
+        return fixo
     names = team_attendant_names(db, team_slug, team_name)
     if not names:
         return None
