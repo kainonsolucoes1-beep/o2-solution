@@ -38,7 +38,7 @@ FINANCIAL_ROLES = ("admin", "diretor", "financeiro", "coordenador")
 
 # todos os papeis validos do sistema -- usado pra validar o seletor de
 # "visualizar como" no staging (ver auth_routes.py)
-ALL_ROLES = ("admin", "diretor", "financeiro", "coordenador", "supervisor", "comercial", "usuario")
+ALL_ROLES = ("admin", "diretor", "financeiro", "coordenador", "supervisor", "comercial", "usuario", "trafego")
 
 
 def can_see_financials(user) -> bool:

@@ -50,6 +50,16 @@ def _apply_lead_visibility_filter(orm_execute_state):
             )
         )
 
+    if orm_execute_state.session.info.get("restrict_trafego"):
+        # parceiro de tráfego: só leads da Meta Ads desde 04/11/2026, nunca
+        # Google nem renutrição (segunda camada -- a primeira é o middleware)
+        from app.models.lead import Lead
+        from app.trafego_scope import trafego_lead_criteria
+
+        orm_execute_state.statement = orm_execute_state.statement.options(
+            with_loader_criteria(Lead, trafego_lead_criteria, include_aliases=True)
+        )
+
     if orm_execute_state.session.info.get("restrict_to_usuario_leads"):
         from app.models.lead import Lead
         from app.models.user import User

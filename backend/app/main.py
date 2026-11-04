@@ -36,6 +36,7 @@ from app.api import gestao_comercial_routes
 from app.api import public_routes
 from app.api import meta_webhook_routes
 from app.api import financeiro_routes
+from app.api import parceiro_routes
 from app.api import trafego_routes
 from app.api import campanhas_routes
 from app.api import notificacoes_routes
@@ -44,6 +45,7 @@ from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler, sync_leads_backfill
 from app.security import verify_token
+from app.trafego_scope import TRAFEGO_ROLE, TRAFEGO_ALLOWLIST, TRAFEGO_PREFIX
 
 load_dotenv()
 
@@ -179,6 +181,10 @@ async def enforce_password_change(request: Request, call_next):
                 db.close()
             if user and user.must_change_password:
                 return JSONResponse(status_code=403, content={"detail": "Troca de senha obrigatória", "must_change_password": True})
+            # perfil de parceiro de tráfego: bloqueado por padrão, só chega na
+            # rota dele (ver app/trafego_scope.py)
+            if user and user.role == TRAFEGO_ROLE and not request.url.path.startswith(TRAFEGO_PREFIX)                     and request.url.path not in TRAFEGO_ALLOWLIST:
+                return JSONResponse(status_code=403, content={"detail": "Sem permissão."})
     return await call_next(request)
 
 
@@ -198,6 +204,7 @@ app.include_router(gestao_comercial_routes.router)
 app.include_router(meta_webhook_routes.router)
 app.include_router(public_routes.router)
 app.include_router(financeiro_routes.router)
+app.include_router(parceiro_routes.router)
 app.include_router(trafego_routes.router)
 app.include_router(campanhas_routes.router)
 app.include_router(notificacoes_routes.router)

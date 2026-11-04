@@ -28,7 +28,8 @@ def team_attendant_names(db, team_slug: str, team_name: str) -> list:
 
     users = (
         db.query(User)
-        .filter(User.team == team_name, User.is_active.is_(True))
+        # parceiro de tráfego (perfil externo) nunca entra no rodízio
+        .filter(User.team == team_name, User.is_active.is_(True), User.role != "trafego")
         .order_by(User.created_at.asc())
         .all()
     )
