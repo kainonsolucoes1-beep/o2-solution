@@ -2,7 +2,7 @@ import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -728,6 +728,111 @@ def conv_point_detalhe(
             "pct_possui": round(plano_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
             "pct_nao_possui": round(plano_nao_possui / plano_com_info * 100, 1) if plano_com_info > 0 else 0.0,
         },
+    }
+
+
+def _br_dia(d: str):
+    return datetime.strptime(d, "%Y-%m-%d").date()
+
+
+@router.get("/conv-point-serie")
+def conv_point_serie(
+    conv_point: str = Query(...),
+    granularidade: str = Query("dia"),  # dia | semana | mes
+    date_from: str = Query(...),        # AAAA-MM-DD, calendário de Brasília
+    date_to: str = Query(...),
+    prev_from: str = Query(None),       # período anterior, só pro total de comparação
+    prev_to: str = Query(None),
+    origens: str = Query(None),
+    team: str = Query(None),
+    campanha_midia: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Análise gráfica do ponto de conversão: captados/vendas/cancelados por
+    dia, semana (seg–dom) ou mês, mais a captação por dia da semana. Vendas e
+    cancelados contam pela data de captação do lead (mesma regra do drawer)."""
+    try:
+        d_from, d_to = _br_dia(date_from), _br_dia(date_to)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Data inválida, use AAAA-MM-DD")
+    hoje = now_br().date()
+    d_to = min(d_to, hoje)  # dias que ainda não chegaram não viram barra zerada
+    if d_to < d_from:
+        d_to = d_from
+
+    base = [
+        Lead.conversion_point.ilike(conv_point),
+        *_scope_filter(team, current_user), *_campanha_filter(campanha_midia),
+    ]
+    if origens:
+        parts = [x.strip() for x in origens.split(',') if x.strip()]
+        if parts:
+            base.append(Lead.origin.in_(parts))
+
+    ini_utc, _ = br_date_to_utc_range(d_from)
+    _, fim_utc = br_date_to_utc_range(d_to)
+    rows = (
+        db.query(EFFECTIVE_CAPTACAO, Lead.status)
+        .filter(EFFECTIVE_CAPTACAO >= ini_utc, EFFECTIVE_CAPTACAO < fim_utc, *base)
+        .all()
+    )
+
+    def chave(d):
+        if granularidade == "mes":
+            return d.replace(day=1)
+        if granularidade == "semana":
+            return d - timedelta(days=d.weekday())  # segunda-feira
+        return d
+
+    # todos os buckets do intervalo, inclusive os sem lead (barra zero)
+    buckets: dict = {}
+    d = d_from
+    while d <= d_to:
+        k = chave(d)
+        if k not in buckets:
+            buckets[k] = {"inicio": max(k, d_from), "fim": d, "captados": 0, "vendas": 0, "cancelados": 0}
+        buckets[k]["fim"] = d
+        d += timedelta(days=1)
+
+    venda_set = {x.lower() for x in VENDA_STATUSES}
+    cancelado_set = {x.lower() for x in CANCELADO_STATUSES}
+    dias_semana = [0] * 7
+    for capt, status in rows:
+        dia = (capt - BR_OFFSET).date()
+        b = buckets.get(chave(dia))
+        if b is None:
+            continue
+        b["captados"] += 1
+        st = (status or "").lower()
+        if st in venda_set:
+            b["vendas"] += 1
+        elif st in cancelado_set:
+            b["cancelados"] += 1
+        dias_semana[dia.weekday()] += 1
+
+    anterior = None
+    if prev_from and prev_to:
+        try:
+            p_ini, _ = br_date_to_utc_range(prev_from)
+            _, p_fim = br_date_to_utc_range(prev_to)
+            anterior = (
+                db.query(func.count(Lead.id))
+                .filter(EFFECTIVE_CAPTACAO >= p_ini, EFFECTIVE_CAPTACAO < p_fim, *base)
+                .scalar()
+            )
+        except ValueError:
+            anterior = None
+
+    return {
+        "granularidade": granularidade,
+        "buckets": [
+            {**b, "inicio": b["inicio"].isoformat(), "fim": b["fim"].isoformat()}
+            for _, b in sorted(buckets.items())
+        ],
+        "dias_semana": [{"dia": i, "captados": n} for i, n in enumerate(dias_semana)],  # 0 = segunda
+        "total": len(rows),
+        "anterior": anterior,
     }
 
 
