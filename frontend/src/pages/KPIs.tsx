@@ -12,7 +12,7 @@ import api from '../api'
 import { fmtDateShort } from '../utils/leadFormat'
 import { useTheme } from '../ThemeContext'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
-import AnaliseGraficaModal from '../components/AnaliseGraficaModal'
+import AnaliseLeadsTab, { type AnaliseFiltroInicial } from '../components/AnaliseLeadsTab'
 
 interface BreakdownItem {
   label: string
@@ -569,6 +569,7 @@ const MAIN_TABS = [
   { key: 'ranking', label: 'Ranking' },
   { key: 'equipe-sdr', label: 'Agentes' },
   { key: 'perfil-leads', label: 'Perfil dos leads' },
+  { key: 'analise-leads', label: 'Análise de leads' },
 ] as const
 type MainTab = typeof MAIN_TABS[number]['key']
 
@@ -673,7 +674,8 @@ export default function KPIs() {
   const [drawerGran, setDrawerGran] = useState<DrawerGran>('pagina')
   const [drawerAnchor, setDrawerAnchor] = useState(isoDate(now))
   const [drawerCampanha, setDrawerCampanha] = useState('')
-  const [analiseGrafica, setAnaliseGrafica] = useState(false)
+  // filtro que o painel de ponto de conversão manda pra aba Análise de leads
+  const [analiseInicial, setAnaliseInicial] = useState<AnaliseFiltroInicial | null>(null)
   const [drawerPrev, setDrawerPrev] = useState<DetalheComum | null>(null)
   const [drawerPrevLabel, setDrawerPrevLabel] = useState('')
   const [campanhasMidia, setCampanhasMidia] = useState<string[]>(['Google', 'Meta'])
@@ -749,8 +751,8 @@ export default function KPIs() {
 
   // Período atual do drawer em datas: recorte próprio, intervalo, mês da página
   // ou, em "todo o período", os últimos 12 meses
-  function drawerCurRange(): { from: Date; to: Date } {
-    if (drawerGran !== 'pagina') return drawerRange(drawerGran, drawerAnchor)
+  function drawerCurRange(gran: DrawerGran = drawerGran): { from: Date; to: Date } {
+    if (gran !== 'pagina') return drawerRange(gran, drawerAnchor)
     if (period === 'range' && debRangeFrom && debRangeTo) return { from: parseIso(debRangeFrom), to: parseIso(debRangeTo) }
     if (period === 'all') {
       const hoje = parseIso(isoDate(now))
@@ -764,12 +766,12 @@ export default function KPIs() {
   // mês/semana/dia anterior ou intervalo do mesmo tamanho logo antes. Se o recorte
   // atual ainda está em andamento, compara só a mesma quantidade de dias corridos
   // (ex.: 1–30/10 contra 1–30/09), senão o mês corrente sempre pareceria pior.
-  function prevDrawerRange(): { from: Date; to: Date } | null {
+  function prevDrawerRange(gran: DrawerGran = drawerGran): { from: Date; to: Date } | null {
     let cur: { from: Date; to: Date }
     let prev: { from: Date; to: Date }
-    if (drawerGran !== 'pagina') {
-      cur = drawerRange(drawerGran, drawerAnchor)
-      prev = drawerRange(drawerGran, shiftAnchor(drawerGran, drawerAnchor, -1))
+    if (gran !== 'pagina') {
+      cur = drawerRange(gran, drawerAnchor)
+      prev = drawerRange(gran, shiftAnchor(gran, drawerAnchor, -1))
     } else if (period === 'all') {
       return null
     } else if (period === 'range' && debRangeFrom && debRangeTo) {
@@ -846,7 +848,6 @@ export default function KPIs() {
   }
 
   function closeDrawer() {
-    setAnaliseGrafica(false)
     setDrawer(null)
     drawerTriggerRef.current?.focus()
   }
@@ -1800,6 +1801,21 @@ export default function KPIs() {
       )}
 
       {/* ── Aba: Perfil dos leads ── */}
+      {activeMainTab === 'analise-leads' && (() => {
+        const prev = prevDrawerRange('pagina')
+        return (
+          <AnaliseLeadsTab
+            range={drawerCurRange('pagina')}
+            prevRange={prev}
+            periodLabel={period === 'all' ? `Últimos 12 meses${team === 'all' ? '' : ` · ${TEAM_LABELS[team]}`}` : periodLabel()}
+            prevLabel={prev ? `vs ${brDate(prev.from)} – ${brDate(prev.to)}` : ''}
+            team={team !== 'all' ? TEAM_VALUES[team] : undefined}
+            campanhaOptions={campanhasMidia}
+            inicial={analiseInicial}
+          />
+        )
+      })()}
+
       {activeMainTab === 'perfil-leads' && (
         perfilBothEmpty ? (
           <StateBox kind="empty" height={140} message="Nenhum dado de perfil (faixa etária ou plano de saúde) neste período." />
@@ -2170,7 +2186,12 @@ export default function KPIs() {
               <span style={{ display: 'inline-flex', gap: 8 }}>
               {drawer.kind === 'conversao' && (
                 <button
-                  onClick={() => setAnaliseGrafica(true)}
+                  onClick={() => {
+                    setAnaliseInicial({ convPoint: drawer.label, campanha: drawerCampanha || undefined, seq: Date.now() })
+                    setActiveMainTab('analise-leads')
+                    closeDrawer()
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
                   disabled={!d || drawerLoading}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 8, padding: '8px 14px',
@@ -2178,7 +2199,7 @@ export default function KPIs() {
                     cursor: !d || drawerLoading ? 'default' : 'pointer', opacity: !d || drawerLoading ? 0.5 : 1,
                   }}
                 >
-                  <BarChart3 size={15} /> Análise gráfica
+                  <BarChart3 size={15} /> Abrir na Análise de leads
                 </button>
               )}
               <button
@@ -2199,20 +2220,6 @@ export default function KPIs() {
         </>
         )
       })()}
-
-      {drawer && drawer.kind === 'conversao' && analiseGrafica && (
-        <AnaliseGraficaModal
-          titulo={drawer.label}
-          subtitulo={drawerCampanha ? `Ponto de conversão · Campanha: ${drawerCampanha}${team !== 'all' ? ` · ${TEAM_LABELS[team]}` : ''}` : `Ponto de conversão${team !== 'all' ? ` · ${TEAM_LABELS[team]}` : ''}`}
-          convPoint={drawer.label}
-          origens={drawer.origens}
-          team={team !== 'all' ? TEAM_VALUES[team] : undefined}
-          campanha={drawerCampanha || undefined}
-          recorte={drawerCurRange()}
-          recorteAnterior={prevDrawerRange()}
-          onClose={() => setAnaliseGrafica(false)}
-        />
-      )}
 
       {/* ── Modal: Comparação entre pontos de conversão ── */}
       {convCompare && (
