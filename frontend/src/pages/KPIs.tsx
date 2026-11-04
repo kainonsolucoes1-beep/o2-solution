@@ -1807,7 +1807,6 @@ export default function KPIs() {
           <AnaliseLeadsTab
             range={drawerCurRange('pagina')}
             prevRange={prev}
-            periodLabel={period === 'all' ? `Últimos 12 meses${team === 'all' ? '' : ` · ${TEAM_LABELS[team]}`}` : periodLabel()}
             prevLabel={prev ? `vs ${brDate(prev.from)} – ${brDate(prev.to)}` : ''}
             team={team !== 'all' ? TEAM_VALUES[team] : undefined}
             campanhaOptions={campanhasMidia}
