@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.api.notificacoes_routes import notificar_novo_lead
-from app.models import Lead, User
+from app.models import Lead, LeadNote, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAM_BY_SLUG, team_rr_index_setting, team_attendant_names
 from app.lead_utils import normalize_current_plan
@@ -101,6 +101,50 @@ def _clean_meta_choice(raw: Optional[str]) -> Optional[str]:
     return text or None
 
 
+# Cada formulário da Meta pode dar o nome que quiser às perguntas (o padrão é
+# full_name / phone_number / email, mas formulários com pergunta personalizada
+# mandam ex. "nome_completo", "whatsapp"). Procura primeiro os nomes exatos e
+# depois qualquer campo que contenha a palavra.
+_NOME_EXATO = ("full_name", "nome_completo", "nome", "name", "seu_nome", "qual_o_seu_nome?")
+_NOME_PARTE = ("nome", "name")
+_NOME_EXCLUI = ("empresa", "company", "plano", "operadora", "cidade", "user", "razao", "razão", "fantasia")
+_TEL_EXATO = ("phone_number", "telefone", "celular", "whatsapp", "phone")
+_TEL_PARTE = ("phone", "telefone", "celular", "whatsapp", "fone", "contato")
+_EMAIL_PARTE = ("email", "e-mail", "e_mail")
+
+
+def _achar_campo(fields: dict, exatos: tuple, partes: tuple, exclui: tuple = ()) -> Optional[str]:
+    for k in exatos:
+        v = (fields.get(k) or "").strip()
+        if v:
+            return v
+    for k, v in fields.items():
+        kl = (k or "").lower()
+        if any(p in kl for p in partes) and not any(x in kl for x in exclui) and (v or "").strip():
+            return v.strip()
+    return None
+
+
+def _nome_do_lead(fields: dict) -> Optional[str]:
+    # nomes exatos > nome + sobrenome separados > qualquer campo com "nome"
+    nome = _achar_campo(fields, _NOME_EXATO, ())
+    if nome:
+        return nome
+    junto = " ".join(x for x in ((fields.get("first_name") or "").strip(), (fields.get("last_name") or "").strip()) if x)
+    return junto or _achar_campo(fields, (), _NOME_PARTE, _NOME_EXCLUI)
+
+
+def _nota_respostas(fields: dict) -> Optional[str]:
+    """Todas as respostas do formulário, legíveis, pra nada se perder na ficha
+    (e pra ver o nome exato de cada campo quando for ajustar o mapeamento)."""
+    linhas = []
+    for k, v in fields.items():
+        rotulo = (k or "").replace("_", " ").strip().rstrip("?").strip()
+        valor = _clean_meta_choice(v) if v else None
+        linhas.append(f"• {rotulo[:1].upper() + rotulo[1:]}: {valor or '—'}  [campo: {k}]")
+    return ("Respostas do formulário Meta:\n" + "\n".join(linhas)) if linhas else None
+
+
 def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
     # a Meta reenvia o mesmo aviso quando não recebe resposta a tempo -- o
     # mesmo leadgen_id é o mesmo lead, então ignora (o índice único em
@@ -120,9 +164,10 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         logger.exception("Falha ao buscar dados do lead na Graph API — leadgen_id=%s", leadgen_id)
         return
 
-    name = (fields.get("full_name") or fields.get("first_name") or "Lead Meta Ads").strip()
-    email = fields.get("email")
-    phone = fields.get("phone_number")
+    name = _nome_do_lead(fields) or "Lead Meta Ads"
+    email = _achar_campo(fields, ("email",), _EMAIL_PARTE)
+    phone = _achar_campo(fields, _TEL_EXATO, _TEL_PARTE)
+    logger.info("Lead do Meta leadgen_id=%s — campos recebidos: %s", leadgen_id, list(fields.keys()))
     # O formulario pergunta primeiro se a pessoa tem plano; quando a resposta
     # e "nao tenho", o campo com o nome do plano fica escondido mas a Meta
     # ainda manda um valor residual nele (ex: "outro") — por isso a resposta
@@ -165,6 +210,9 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         db.rollback()
         logger.info("Lead do Meta já recebido (leadgen_id=%s) — aviso simultâneo ignorado", leadgen_id)
         return
+    nota = _nota_respostas(fields)
+    if nota:
+        db.add(LeadNote(lead_id=lead.id, user_id=None, content=nota))
     if original:
         marcar_duplicado(db, lead, original)
     notificar_novo_lead(db, lead)
