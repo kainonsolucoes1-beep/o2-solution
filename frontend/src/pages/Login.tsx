@@ -17,7 +17,7 @@ export default function Login() {
       localStorage.setItem('token', data.access_token)
       // parceiro de tráfego só tem a área dele (ver Layout)
       try { if (data.role === 'trafego') localStorage.setItem('perfil', 'trafego'); else localStorage.removeItem('perfil') } catch { /* ignore */ }
-      navigate(data.must_change_password ? '/change-password' : data.role === 'trafego' ? '/parceiro' : '/dashboard')
+      navigate(data.must_change_password ? '/change-password' : data.role === 'trafego' ? '/leads-report' : '/dashboard')
     } catch (err) {
       const detail = (err as { response?: { data?: { detail?: { code?: string; message?: string } } } })?.response?.data?.detail
       setError(detail?.message || 'Email ou senha inválidos.')

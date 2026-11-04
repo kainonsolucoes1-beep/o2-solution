@@ -243,7 +243,7 @@ export default function Sidebar() {
   }, [])
 
   useEffect(() => {
-    if (!user) return
+    if (!user || user.role === 'trafego') return
     let cancelled = false
     function loadFollowup() {
       api.get<{ items: AgendaAlertItem[] }>('/api/v1/agenda/alerts', { params: { window_minutes: 10 } })
@@ -267,7 +267,7 @@ export default function Sidebar() {
   }, [user, playFollowupBeep, claimFollowupBeep])
 
   useEffect(() => {
-    if (!user) return
+    if (!user || user.role === 'trafego') return
     let cancelled = false
     function loadNotificacoes() {
       api.get<{ nao_lidas: number; items: NotificacaoItem[] }>('/api/v1/notificacoes')
@@ -318,7 +318,11 @@ export default function Sidebar() {
     { to: '/campanhas/modelos', label: 'Modelos' },
     ...(isAdmin ? [{ to: '/campanhas/dashboard', label: 'Métricas' }] : []),
   ]
-  const navItems: { to: string; label: string; Icon: LucideIcon }[] = [
+  // parceiro de tráfego: só o Relatório (o backend bloqueia o resto)
+  const isTrafego = user?.role === 'trafego'
+  const navItems: { to: string; label: string; Icon: LucideIcon }[] = isTrafego
+    ? NAV.filter(n => n.to === '/leads-report').map(({ to, label, Icon }) => ({ to, label, Icon }))
+    : [
     ...NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => ({ to, label, Icon })),
     ...(showMeuDesempenho
       ? [{ to: `/vida-sdr/${encodeURIComponent(meuNome)}?nome=${encodeURIComponent(meuNome)}`, label: 'Meu desempenho', Icon: UserRound }]
