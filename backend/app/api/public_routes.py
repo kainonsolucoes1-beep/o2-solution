@@ -6,6 +6,7 @@ from collections import defaultdict, deque
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,8 @@ from app.models import Lead, LeadNote, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAMS, team_key_setting, team_rr_index_setting, team_attendant_names
 from app.lead_utils import normalize_current_plan as _normalize_current_plan
+
+from app.duplicidade import lead_parecido, marcar_duplicado
 
 router = APIRouter(prefix="/api/v1/public", tags=["public"])
 logger = logging.getLogger(__name__)
@@ -62,6 +65,9 @@ class PublicLeadCreate(BaseModel):
     utm_content: Optional[str] = None
     fbclid: Optional[str] = None
     gclid: Optional[str] = None
+    # id do lead no sistema de quem envia: reenviar o mesmo id não cria outro
+    # lead (protege contra reenvio por erro de rede/timeout)
+    id_externo: Optional[str] = None
 
 
 # Sinônimos de modalidade usados por integrações externas (ex: Make.com) que
@@ -241,13 +247,15 @@ def create_public_lead(
     if not body.phone or not body.phone.strip():
         raise HTTPException(status_code=422, detail="Telefone é obrigatório")
 
-    existing = None
-    if body.email:
-        existing = db.query(Lead).filter(Lead.email == body.email).first()
-    if not existing and body.phone:
-        existing = db.query(Lead).filter(Lead.phone == body.phone, Lead.name == name).first()
-    if existing:
-        raise HTTPException(status_code=409, detail="Lead já cadastrado")
+    # Repetido não é mais recusado (04/11/2026): entra marcado como possível
+    # duplicado do lead que já tinha o e-mail/telefone. Só o reenvio do mesmo
+    # id_externo é ignorado -- devolve o lead que já foi criado.
+    id_externo = _corta(body.id_externo, 100)
+    if id_externo:
+        ja = db.query(Lead.id).filter(Lead.external_id == id_externo, Lead.team == team["name"]).first()
+        if ja:
+            return JSONResponse(status_code=200, content={"success": True, "lead_id": str(ja.id), "ja_recebido": True})
+    original = lead_parecido(body.email, body.phone)
 
     default_user = db.query(User).first()
     attendant = _next_attendant(db, team["slug"], team["name"])
@@ -272,9 +280,12 @@ def create_public_lead(
         tracking_format=_corta(body.utm_content, 255),
         fbclid=_corta(body.fbclid, 255),
         gclid=_corta(body.gclid, 255),
+        external_id=id_externo,
     )
     db.add(lead)
     db.flush()
+    if original:
+        marcar_duplicado(db, lead, original)
     # Lead.notes nao aparece na ficha (so a linha do tempo, que le LeadNote) --
     # espelha as observacoes (mensagem + idades) como nota pra ficarem visiveis
     # (sem autor: aparece como "Sistema", nao com o nome de um usuario real).

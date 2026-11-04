@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -19,6 +19,9 @@ import EmissaoModal from '../components/EmissaoModal'
 interface LeadItem {
   id: string
   name: string
+  // lead repetido: o e-mail/telefone já estava neste outro lead
+  duplicado_de_id?: string | null
+  duplicado_de_nome?: string | null
   email: string | null
   phone: string | null
   company: string | null
@@ -640,6 +643,22 @@ export default function LeadDetailPage() {
         onRename={somenteLeitura ? undefined : handleRename}
         onBack={() => navigate(-1)}
       />
+
+      {lead.duplicado_de_id && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, marginTop: -8, marginBottom: 16,
+          padding: '11px 16px', borderRadius: 12, fontSize: 13, color: 'var(--text-1)',
+          background: 'var(--warning-weak)', border: '1px solid color-mix(in srgb, var(--warning) 30%, transparent)',
+        }}>
+          <span aria-hidden style={{ color: 'var(--warning)', flexShrink: 0 }}>⚠️</span>
+          <span>
+            <b>Possível lead duplicado:</b> os dados deste cadastro já estão no lead{' '}
+            <Link to={`/leads/${lead.duplicado_de_id}`} style={{ color: 'var(--accent)', fontWeight: 700 }}>
+              {lead.duplicado_de_nome ?? 'anterior'}
+            </Link>.
+          </span>
+        </div>
+      )}
 
       {confirmDelete && (
         <div onClick={() => !deleting && setConfirmDelete(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>

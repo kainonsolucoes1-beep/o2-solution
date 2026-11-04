@@ -72,6 +72,11 @@ class Lead(Base):
     operadoras_enviadas = Column(Text, nullable=True)  # lista separada por virgula
     celular_cor = Column(String(20), nullable=True)  # aparelho da empresa de onde o lead veio (Azul, Roxo...)
     campanha_midia = Column(String(50), nullable=True)  # campanha paga de onde o lead veio (Google, Meta...), marcada na ficha
+    # lead repetido entra mesmo assim, ligado ao que já tinha o e-mail/telefone (app/duplicidade.py)
+    duplicado_de_id = Column(UUID(as_uuid=True), ForeignKey("leads.id", ondelete="SET NULL"), nullable=True)
+    # idempotência dos reenvios técnicos: id do lead na Meta / id enviado pelo integrador
+    meta_leadgen_id = Column(String(64), nullable=True)
+    external_id = Column(String(100), nullable=True)
     receita_data_venda = Column(TIMESTAMP, nullable=True)
     # "Aviso prévio": a venda já fechou, mas o cliente só paga/fatura numa
     # data futura combinada (ex: 28/11) -- so' informativo, nao trava o

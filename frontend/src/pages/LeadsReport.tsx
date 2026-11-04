@@ -26,6 +26,9 @@ type Operator = string
 interface LeadItem {
   id: string
   name: string
+  // lead repetido: os dados já estavam neste outro lead
+  duplicado_de_id?: string | null
+  duplicado_de_nome?: string | null
   email: string | null
   phone: string | null
   company: string | null
@@ -349,6 +352,8 @@ export default function LeadsReport() {
   const [importOpen, setImportOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [newLeadError, setNewLeadError] = useState('')
+  // o e-mail/telefone já está em outro lead: avisa qual e deixa seguir
+  const [dupAviso, setDupAviso] = useState<{ lead_id: string; nome: string; campo: string } | null>(null)
   const [newLead, setNewLead] = useState({
     name: '', company: '', email: '', phone: '', document: '',
     origin: '', modalidade: '', categoria: '', conversion_point: '', value_potential: '', attendant: '', notes: '', visibility_tag: '',
@@ -357,14 +362,16 @@ export default function LeadsReport() {
   function resetNewLead() {
     setNewLead({ name: '', company: '', email: '', phone: '', document: '', origin: '', modalidade: '', categoria: '', conversion_point: '', value_potential: '', attendant: '', notes: '', visibility_tag: '' })
     setNewLeadError('')
+    setDupAviso(null)
   }
 
-  function handleCreateLead() {
+  function handleCreateLead(confirmarDuplicado = false) {
     if (!newLead.name.trim()) { setNewLeadError('Nome é obrigatório'); return }
     if (!newLead.phone.trim()) { setNewLeadError('Telefone é obrigatório'); return }
     if (newLead.phone.replace(/\D/g, '').length < 10) { setNewLeadError('Telefone incompleto — informe o DDD e o número'); return }
     setSavingNewLead(true)
     setNewLeadError('')
+    setDupAviso(null)
     api.post<{ id: string }>('/api/v1/leads', {
       name: newLead.name.trim(),
       company: newLead.company.trim() || null,
@@ -379,13 +386,17 @@ export default function LeadsReport() {
       attendant: newLead.attendant.trim() || null,
       notes: newLead.notes.trim() || null,
       visibility_tag: newLead.visibility_tag.trim() ? titleCase(newLead.visibility_tag.trim()) : null,
-    })
+    }, { params: confirmarDuplicado ? { confirmar_duplicado: true } : undefined })
       .then(r => {
         setNewLeadOpen(false)
         resetNewLead()
         navigate(`/leads/${r.data.id}`)
       })
-      .catch(err => setNewLeadError(err.response?.data?.detail || 'Erro ao criar lead'))
+      .catch(err => {
+        const d = err.response?.data?.detail
+        if (d?.code === 'possivel_duplicado') setDupAviso({ lead_id: d.lead_id, nome: d.nome, campo: d.campo })
+        else setNewLeadError(typeof d === 'string' ? d : 'Erro ao criar lead')
+      })
       .finally(() => setSavingNewLead(false))
   }
 
@@ -1098,6 +1109,13 @@ export default function LeadsReport() {
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{lead.name}</span>
+                                  {lead.duplicado_de_id && (
+                                    <span
+                                      title={`Possível duplicado: os dados já estão no lead ${lead.duplicado_de_nome ?? '(outro lead)'}`}
+                                      style={{ fontSize: 9, fontWeight: 800, color: 'var(--warning)', background: 'var(--warning-weak)', borderRadius: 5, padding: '2px 5px', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                                      DUPLICADO
+                                    </span>
+                                  )}
                                   {lead.campanha_canal ? (
                                     <span
                                       title="Em campanha de disparo — não reatribuir pra evitar conflito"
@@ -1670,6 +1688,24 @@ export default function LeadsReport() {
 
               <div style={{ padding: '22px 26px 26px', display: 'flex', flexDirection: 'column', gap: 22, overflowY: 'auto', minHeight: 0 }}>
                 {newLeadError && <p style={{ color: '#EF4444', fontSize: 13, margin: 0 }}>{newLeadError}</p>}
+                {dupAviso && (
+                  <div style={{ borderRadius: 12, padding: '12px 14px', background: 'var(--warning-weak)', border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-1)', lineHeight: 1.45 }}>
+                      ⚠️ {dupAviso.campo.charAt(0).toUpperCase() + dupAviso.campo.slice(1)} já {dupAviso.campo.includes(' e ') ? 'estão' : 'está'} no lead <b>{dupAviso.nome}</b>.
+                      Se cadastrar mesmo assim, o novo lead fica marcado como possível duplicado dele.
+                    </span>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => window.open(`/leads/${dupAviso.lead_id}`, '_blank')}
+                        style={{ padding: '7px 13px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-1)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Abrir o lead {dupAviso.nome}
+                      </button>
+                      <button type="button" disabled={savingNewLead} onClick={() => handleCreateLead(true)}
+                        style={{ padding: '7px 13px', borderRadius: 8, border: 'none', background: 'var(--warning)', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: savingNewLead ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                        Cadastrar mesmo assim
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-col" style={{ gap: 12 }}>
                   <SectionTitle style={{ fontSize: 11 }}>Identificação</SectionTitle>
@@ -1761,7 +1797,7 @@ export default function LeadsReport() {
                     Cancelar
                   </button>
                   <button
-                    onClick={handleCreateLead}
+                    onClick={() => handleCreateLead()}
                     disabled={savingNewLead}
                     style={{ padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#2563EB', color: 'white', border: 'none', cursor: savingNewLead ? 'not-allowed' : 'pointer', opacity: savingNewLead ? 0.6 : 1 }}
                   >

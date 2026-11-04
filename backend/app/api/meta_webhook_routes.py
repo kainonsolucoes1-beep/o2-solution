@@ -16,6 +16,8 @@ from app.models import Lead, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAM_BY_SLUG, team_rr_index_setting, team_attendant_names
 from app.lead_utils import normalize_current_plan
+from app.duplicidade import lead_parecido, marcar_duplicado
+from sqlalchemy.exc import IntegrityError
 
 router = APIRouter(prefix="/api/v1/webhooks", tags=["meta-webhook"])
 logger = logging.getLogger(__name__)
@@ -100,6 +102,13 @@ def _clean_meta_choice(raw: Optional[str]) -> Optional[str]:
 
 
 def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
+    # a Meta reenvia o mesmo aviso quando não recebe resposta a tempo -- o
+    # mesmo leadgen_id é o mesmo lead, então ignora (o índice único em
+    # leads.meta_leadgen_id segura também dois avisos chegando juntos)
+    if db.query(Lead.id).filter(Lead.meta_leadgen_id == leadgen_id).first():
+        logger.info("Lead do Meta já recebido (leadgen_id=%s) — reenvio ignorado", leadgen_id)
+        return
+
     page_access_token = _setting(db, "meta_page_access_token")
     if not page_access_token:
         logger.error("meta_page_access_token não configurado — não foi possível buscar leadgen_id=%s", leadgen_id)
@@ -128,14 +137,9 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         plan_name = _clean_meta_choice(fields.get("qual_o_seu_plano_de_saúde_atual?"))
         current_plan = normalize_current_plan(plan_name) or normalize_current_plan(has_plan_answer)
 
-    existing = None
-    if email:
-        existing = db.query(Lead).filter(Lead.email == email).first()
-    if not existing and phone:
-        existing = db.query(Lead).filter(Lead.phone == phone, Lead.name == name).first()
-    if existing:
-        logger.info("Lead do Meta já existe (leadgen_id=%s) — ignorando duplicata", leadgen_id)
-        return
+    # mesma pessoa (e-mail/telefone) já cadastrada: entra mesmo assim, marcado
+    # como possível duplicado do lead anterior (app/duplicidade.py)
+    original = lead_parecido(email, phone)
 
     team = TEAM_BY_SLUG[META_LEADS_TEAM_SLUG]
     default_user = db.query(User).first()
@@ -152,9 +156,17 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         team=team["name"],
         status="novo",
         user_id=default_user.id if default_user else None,
+        meta_leadgen_id=leadgen_id,
     )
     db.add(lead)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        logger.info("Lead do Meta já recebido (leadgen_id=%s) — aviso simultâneo ignorado", leadgen_id)
+        return
+    if original:
+        marcar_duplicado(db, lead, original)
     notificar_novo_lead(db, lead)
     db.commit()
     logger.info("Lead criado a partir do webhook Meta — leadgen_id=%s lead_id=%s", leadgen_id, lead.id)
