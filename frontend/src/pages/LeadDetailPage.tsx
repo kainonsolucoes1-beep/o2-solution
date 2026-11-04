@@ -305,6 +305,16 @@ export default function LeadDetailPage() {
     setEditingInfo(true)
   }
 
+  function handleRename(nome: string) {
+    if (!id) return Promise.resolve()
+    return api.post(`/api/v1/leads/${id}/info`, { name: nome }).then(() => {
+      setLead(prev => prev ? { ...prev, name: nome } : prev)
+      setToast({ msg: 'Nome atualizado', ok: true })
+      // a troca de nome gera nota de rastro na ficha
+      api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`).then(r => setNotes(r.data.notes)).catch(() => {})
+    })
+  }
+
   function handleSaveInfo() {
     if (!id) return
     setSavingInfo(true)
@@ -625,6 +635,7 @@ export default function LeadDetailPage() {
         onRequestDelete={() => { setMenuOpen(false); setConfirmDelete(true) }}
         hasRenutricao={!!lead.renutricao_owner_id || lead.is_renutrucao}
         onRemoveRenutricao={handleRemoveRenutricao}
+        onRename={renutricaoLock ? undefined : handleRename}
         onBack={() => navigate(-1)}
       />
 
