@@ -93,11 +93,10 @@ function Barras({ linhas, total }: { linhas: [string, number, string][]; total: 
 }
 
 export default function AnaliseLeadsTab({
-  range, prevRange, periodLabel, prevLabel, team, campanhaOptions, inicial,
+  range, prevRange, prevLabel, team, campanhaOptions, inicial,
 }: {
   range: { from: Date; to: Date }
   prevRange: { from: Date; to: Date } | null
-  periodLabel: string
   prevLabel: string
   team?: string
   campanhaOptions: string[]
@@ -149,7 +148,6 @@ export default function AnaliseLeadsTab({
   const maxSemana = Math.max(0, ...semana.map(d => d.n))
   const buckets = (data?.buckets ?? []).map(b => ({ ...b, label: rotulo(b, gran), longo: rotuloLongo(b, gran) }))
   const modTotal = (data?.modalidades ?? []).reduce((s, m) => s + m.count, 0)
-  const filtroTxt = [campanha ? `Campanha: ${campanha}` : 'Todas as campanhas', convPoint ? `Ponto: ${convPoint}` : null].filter(Boolean).join(' · ')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -157,7 +155,6 @@ export default function AnaliseLeadsTab({
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0, flex: '1 1 260px' }}>
           <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Análise de leads</p>
-          <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: '2px 0 0' }}>{periodLabel} · {filtroTxt}</p>
         </div>
         <select aria-label="Campanha" value={campanha} onChange={e => setCampanha(e.target.value)} style={{ ...sel, ...(campanha ? ativo : {}) }}>
           <option value="">Campanha: todas</option>
