@@ -50,6 +50,8 @@ interface LeadItem {
   celular_cor: string | null
   campanha_midia: string | null
   modalidade: string | null
+  vidas: number | null
+  ages_raw: string | null
   document: string | null
   created_at: string
   retrabalhado_em: string | null
@@ -151,7 +153,7 @@ export default function LeadDetailPage() {
   const [, setTick]                       = useState(0)
   const [editingInfo, setEditingInfo]     = useState(false)
   const [savingInfo, setSavingInfo]       = useState(false)
-  const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', titular_menor: '', email: '', phone: '', attendant: '', document: '', visibility_tag: '' })
+  const [infoDraft, setInfoDraft]         = useState({ name: '', company: '', titular_menor: '', email: '', phone: '', attendant: '', document: '', visibility_tag: '', vidas: '', ages_raw: '' })
   const [origins, setOrigins]             = useState<string[]>([])
   const [conversionPoints, setConversionPoints] = useState<string[]>([])
   const [campanhasMidia, setCampanhasMidia] = useState<string[]>(['Google', 'Meta'])
@@ -304,6 +306,7 @@ export default function LeadDetailPage() {
       name: lead.name ?? '', company: lead.company ?? '', titular_menor: lead.titular_menor ?? '', email: lead.email ?? '',
       phone: lead.phone ?? '', attendant: lead.attendant ?? '', document: lead.document ?? '',
       visibility_tag: lead.visibility_tag ?? '',
+      vidas: lead.vidas != null ? String(lead.vidas) : '', ages_raw: (lead.ages_raw ?? '').split(',').join(', '),
     })
     setEditingInfo(true)
   }
@@ -321,9 +324,10 @@ export default function LeadDetailPage() {
   function handleSaveInfo() {
     if (!id) return
     setSavingInfo(true)
-    api.post(`/api/v1/leads/${id}/info`, infoDraft)
-      .then(() => {
-        setLead(prev => prev ? { ...prev, ...infoDraft } : prev)
+    api.post<{ vidas: number | null; ages_raw: string | null }>(`/api/v1/leads/${id}/info`, infoDraft)
+      .then(r => {
+        // vidas/idades voltam já interpretadas pelo backend ("3 vidas" -> 3)
+        setLead(prev => prev ? { ...prev, ...infoDraft, vidas: r.data.vidas ?? null, ages_raw: r.data.ages_raw ?? null } : prev)
         setEditingInfo(false)
         setToast({ msg: 'Informações atualizadas com sucesso', ok: true })
         // a edição pode ter gerado nota de rastro (nome/empresa/CPF-CNPJ alterados)
@@ -856,6 +860,8 @@ export default function LeadDetailPage() {
             documentoLabel={lead.document ?? 'Não informado'}
             empresaLabel={lead.company ?? 'Não informado'}
             titularMenorLabel={lead.titular_menor ?? null}
+            vidasLabel={lead.vidas != null ? String(lead.vidas) : 'Não informado'}
+            idadesLabel={lead.ages_raw ? lead.ages_raw.split(',').join(', ') : 'Não informado'}
             visibilityTag={lead.visibility_tag}
             editingInfo={editingInfo}
             savingInfo={savingInfo}

@@ -15,7 +15,7 @@ from app.api.notificacoes_routes import notificar_novo_lead
 from app.models import Lead, LeadNote, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAM_BY_SLUG, team_rr_index_setting, team_attendant_names
-from app.lead_utils import normalize_current_plan
+from app.lead_utils import normalize_current_plan, META_FORMULARIOS, parse_vidas, parse_idades
 from app.duplicidade import lead_parecido, marcar_duplicado
 from sqlalchemy.exc import IntegrityError
 
@@ -145,6 +145,14 @@ def _nota_respostas(fields: dict) -> Optional[str]:
     return ("Respostas do formulário Meta:\n" + "\n".join(linhas)) if linhas else None
 
 
+def _modalidade_meta(fields: dict) -> Optional[str]:
+    """"Possui CNPJ ou MEI?" respondido Sim -> PME. Qualquer outra resposta
+    deixa a modalidade em branco pra atendente decidir."""
+    resp = _achar_campo(fields, (), ("cnpj", "mei"))
+    resp = (_clean_meta_choice(resp) or "").strip().lower() if resp else ""
+    return "PME" if resp.startswith("sim") or resp in ("yes", "s") else None
+
+
 def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
     # a Meta reenvia o mesmo aviso quando não recebe resposta a tempo -- o
     # mesmo leadgen_id é o mesmo lead, então ignora (o índice único em
@@ -182,6 +190,10 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         plan_name = _clean_meta_choice(fields.get("qual_o_seu_plano_de_saúde_atual?"))
         current_plan = normalize_current_plan(plan_name) or normalize_current_plan(has_plan_answer)
 
+    modalidade = _modalidade_meta(fields)
+    vidas = parse_vidas(_achar_campo(fields, (), ("vidas", "quantas_pessoas")))
+    idades = parse_idades(_achar_campo(fields, (), ("idade",)))
+
     # mesma pessoa (e-mail/telefone) já cadastrada: entra mesmo assim, marcado
     # como possível duplicado do lead anterior (app/duplicidade.py)
     original = lead_parecido(email, phone)
@@ -197,6 +209,9 @@ def _process_leadgen(db: Session, leadgen_id: str, form_name: Optional[str]):
         origin="Meta Ads",
         conversion_point=form_name,
         current_plan=current_plan,
+        modalidade=modalidade,
+        vidas=vidas,
+        ages_raw=idades,
         attendant=attendant,
         team=team["name"],
         status="novo",
@@ -247,7 +262,8 @@ async def receive_meta_lead(request: Request, db: Session = Depends(get_db)):
                 continue
             value = change.get("value", {})
             leadgen_id = value.get("leadgen_id")
-            form_name = value.get("form_name") or value.get("form_id")
+            form_id = str(value.get("form_id") or "")
+            form_name = META_FORMULARIOS.get(form_id) or value.get("form_name") or form_id or None
             if leadgen_id:
                 _process_leadgen(db, str(leadgen_id), form_name)
 

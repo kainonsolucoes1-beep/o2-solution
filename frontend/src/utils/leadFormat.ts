@@ -70,7 +70,11 @@ export function fmtBRL(n: number | null) {
 /** Exibição de campos livres tipo Origem/Ponto de conversão/Perfil ("ADM" ->
  * "Adm") -- só formatação visual, o valor gravado/enviado continua o digitado. */
 export function titleCase(s: string): string {
-  return s.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())
+  // sigla de 2 letras (SP, BH, MG) e palavra já com maiúscula no meio
+  // (SulAmerica, WhatsApp) ficam como foram escritas: "Meta SulAmerica - BH"
+  return s.split(/(\s+)/).map(w =>
+    /^[A-Z]{2}$/.test(w) || /[a-z]/.test(w) && /.[A-Z]/.test(w) ? w : w.toLowerCase().replace(/^\S/, c => c.toUpperCase()),
+  ).join('')
 }
 
 /** Converte texto digitado/colado em formato BR ("R$ 38.073,62") pra numero JS.
