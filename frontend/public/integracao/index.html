@@ -254,7 +254,8 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--border
     "utm_medium": "paid_social",
     "utm_campaign": "amil-pf-outubro",
     "utm_content": "video-15s",
-    "fbclid": "IwAR2xYz..."
+    "fbclid": "IwAR2xYz...",
+    "id_externo": "meta-1234567890"
   }'</span></pre></div>
           </div>
 
@@ -275,14 +276,13 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--border
     campanha: <span class="s">"Meta"</span>,
     conversion_point: <span class="s">"Formulário Amil PF - Outubro"</span>,
     utm_campaign: <span class="s">"amil-pf-outubro"</span>,
+    id_externo: <span class="s">"meta-1234567890"</span>,   <span class="c">// seu id do lead: evita cópia em reenvio</span>
   }),
   signal: AbortSignal.timeout(15000),
 });
 
-<span class="k">if</span> (resp.status === 201) {
-  <span class="k">const</span> { lead_id } = <span class="k">await</span> resp.json();   <span class="c">// guarde para consultar depois</span>
-} <span class="k">else if</span> (resp.status === 409) {
-  <span class="c">// lead já existe no o2sig: não reenviar</span>
+<span class="k">if</span> (resp.status === 201 || resp.status === 200) {
+  <span class="k">const</span> { lead_id } = <span class="k">await</span> resp.json();   <span class="c">// 200 = id_externo já recebido antes</span>
 } <span class="k">else</span> {
   <span class="c">// 4xx: corrigir o envio · 429/5xx: tentar de novo mais tarde</span>
 }</pre></div>
@@ -305,13 +305,12 @@ resp = requests.post(
         <span class="s">"origin"</span>: <span class="s">"Meta Ads"</span>,
         <span class="s">"campanha"</span>: <span class="s">"Meta"</span>,
         <span class="s">"conversion_point"</span>: <span class="s">"Formulário Amil PF - Outubro"</span>,
+        <span class="s">"id_externo"</span>: <span class="s">"meta-1234567890"</span>,
     },
     timeout=15,
 )
-<span class="k">if</span> resp.status_code == 201:
-    lead_id = resp.json()[<span class="s">"lead_id"</span>]
-<span class="k">elif</span> resp.status_code == 409:
-    <span class="k">pass</span>  <span class="c"># lead já existe: não reenviar</span></pre></div>
+<span class="k">if</span> resp.status_code <span class="k">in</span> (200, 201):
+    lead_id = resp.json()[<span class="s">"lead_id"</span>]  <span class="c"># 200 = id_externo já recebido antes</span></pre></div>
           </div>
 
           <div class="code"><div class="code-head"><span>Resposta · 201 Created</span><button class="copy">Copiar</button></div>
@@ -398,6 +397,14 @@ resp = requests.post(
         </tbody>
       </table></div>
 
+      <h3>Controle de envio</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><code>id_externo</code><span class="opt">recomendado</span></td><td class="type">string</td><td>O identificador do lead no seu sistema (ex.: o ID do lead na Meta). Se o mesmo <code>id_externo</code> for enviado de novo, o o2sig <strong>não cria outro lead</strong>: responde <code>200</code> com o mesmo <code>lead_id</code> e <code>"ja_recebido": true</code>. Assim, reenviar após erro de rede ou timeout é seguro. Máx. 100 caracteres.</td></tr>
+        </tbody>
+      </table></div>
+
       <h3>Perfil do plano</h3>
       <div class="table-wrap"><table>
         <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
@@ -434,11 +441,10 @@ resp = requests.post(
       <div class="table-wrap"><table>
         <thead><tr><th>Código</th><th>Quando acontece</th><th>O que fazer</th></tr></thead>
         <tbody>
-          <tr><td class="status s2">200</td><td><code>GET</code> com sucesso.</td><td>—</td></tr>
+          <tr><td class="status s2">200</td><td><code>GET</code> com sucesso, ou <code>POST</code> com um <code>id_externo</code> já recebido (<code>"ja_recebido": true</code>, nada é criado).</td><td>Tratar como sucesso.</td></tr>
           <tr><td class="status s2">201</td><td>Lead cadastrado. Traz o <code>lead_id</code>.</td><td>Guardar o <code>lead_id</code> se for consultar depois.</td></tr>
           <tr><td class="status s4">403</td><td>Chave da conta ou da equipe inválida.</td><td>Conferir os cabeçalhos. Não repetir automaticamente.</td></tr>
           <tr><td class="status s4">404</td><td>Lead não encontrado (ou de outra equipe).</td><td>Conferir o <code>lead_id</code>.</td></tr>
-          <tr><td class="status s4">409</td><td>Lead já cadastrado (ver <a href="#limites">duplicidade</a>).</td><td>Tratar como sucesso: o lead já está no CRM. <strong>Não reenviar.</strong></td></tr>
           <tr><td class="status s4">422</td><td>Corpo inválido: falta <code>name</code>/<code>phone</code>, tipo errado ou JSON mal formado.</td><td>Corrigir o envio. Não repetir sem corrigir.</td></tr>
           <tr><td class="status s4">429</td><td>Limite de requisições excedido.</td><td>Aguardar 60 segundos e tentar de novo.</td></tr>
           <tr><td class="status s5">5xx</td><td>Falha temporária do servidor.</td><td>Tentar de novo com espera crescente (ex.: 30 s, 2 min, 10 min).</td></tr>
@@ -450,7 +456,7 @@ resp = requests.post(
       <h2>Limites e duplicidade</h2>
       <ul>
         <li><strong>Limite de envio:</strong> 30 requisições por minuto por IP. Em envios em lote, espace as chamadas.</li>
-        <li><strong>Duplicidade:</strong> o lead é recusado com <code>409</code> quando já existe outro com o mesmo <strong>e-mail</strong>, ou com o mesmo <strong>telefone e nome</strong>. Por isso, reenviar um lead é seguro: não cria cópia.</li>
+        <li><strong>Duplicidade:</strong> leads com <strong>e-mail ou telefone já cadastrados são aceitos</strong> normalmente; no CRM eles ficam marcados como possível duplicado do lead anterior. Para que um <em>reenvio</em> do mesmo lead não crie cópia, envie o <code>id_externo</code>.</li>
         <li><strong>Distribuição:</strong> ao entrar, o lead vai para o próximo atendente ativo da equipe (rodízio), que recebe o aviso no CRM na hora.</li>
         <li><strong>Tempo de resposta:</strong> normalmente abaixo de 1 segundo. Use um timeout de 15 segundos.</li>
       </ul>
@@ -460,8 +466,8 @@ resp = requests.post(
       <h2>Roteiro de homologação</h2>
       <ol class="steps">
         <li>Chame <code>GET /ping</code> com as chaves recebidas. Esperado: <code>200</code> com o nome da equipe.</li>
-        <li>Envie <strong>um</strong> lead de teste com <code>POST /leads</code>, com nome começando por <code>TESTE</code> (ex.: <code>"TESTE Integração Meta"</code>) e <code>origin</code> = <code>"Meta Ads"</code>. Esperado: <code>201</code> com <code>lead_id</code>.</li>
-        <li>Envie o mesmo lead de novo. Esperado: <code>409</code>, sem criar cópia.</li>
+        <li>Envie <strong>um</strong> lead de teste com <code>POST /leads</code>, com nome começando por <code>TESTE</code> (ex.: <code>"TESTE Integração Meta"</code>), <code>origin</code> = <code>"Meta Ads"</code> e um <code>id_externo</code>. Esperado: <code>201</code> com <code>lead_id</code>.</li>
+        <li>Envie o mesmo lead de novo, com o mesmo <code>id_externo</code>. Esperado: <code>200</code> com o mesmo <code>lead_id</code> e <code>"ja_recebido": true</code>, sem criar cópia.</li>
         <li>Consulte com <code>GET /leads/{lead_id}</code>. Esperado: <code>200</code> com <code>status</code> = <code>novo</code>.</li>
         <li>Avise a O2 Solution para conferir o lead no CRM e removê-lo antes de ligar a campanha.</li>
       </ol>

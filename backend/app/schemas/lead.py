@@ -70,6 +70,8 @@ class LeadReportItem(BaseModel):
     operadoras_enviadas: Optional[str] = None
     celular_cor: Optional[str] = None
     campanha_midia: Optional[str] = None
+    duplicado_de_id: Optional[UUID] = None
+    duplicado_de_nome: Optional[str] = None
     document: Optional[str] = None
     tracking_campaign: Optional[str] = None
     tracking_medium: Optional[str] = None

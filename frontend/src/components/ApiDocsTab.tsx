@@ -93,7 +93,8 @@ export default function ApiDocsTab({ accountKey, teamKeys }: Props) {
     "utm_medium": "paid_social",
     "utm_campaign": "amil-pf-outubro",
     "utm_content": "video-15s",
-    "fbclid": "IwAR2xYz..."
+    "fbclid": "IwAR2xYz...",
+    "id_externo": "meta-1234567890"
   }'`
 
   const nodePost = `const resp = await fetch("${base}/leads", {
@@ -111,14 +112,13 @@ export default function ApiDocsTab({ accountKey, teamKeys }: Props) {
     campanha: "Meta",
     conversion_point: "Formulário Amil PF - Outubro",
     utm_campaign: "amil-pf-outubro",
+    id_externo: "meta-1234567890",   // seu id do lead: evita cópia em reenvio
   }),
   signal: AbortSignal.timeout(15000),
 });
 
-if (resp.status === 201) {
-  const { lead_id } = await resp.json();   // guarde para consultar depois
-} else if (resp.status === 409) {
-  // lead já existe no o2sig: não reenviar
+if (resp.status === 201 || resp.status === 200) {
+  const { lead_id } = await resp.json();   // 200 = id_externo já recebido antes
 } else {
   // 4xx: corrigir o envio · 429/5xx: tentar de novo mais tarde
 }`
@@ -138,13 +138,12 @@ resp = requests.post(
         "origin": "Meta Ads",
         "campanha": "Meta",
         "conversion_point": "Formulário Amil PF - Outubro",
+        "id_externo": "meta-1234567890",
     },
     timeout=15,
 )
-if resp.status_code == 201:
-    lead_id = resp.json()["lead_id"]
-elif resp.status_code == 409:
-    pass  # lead já existe: não reenviar`
+if resp.status_code in (200, 201):
+    lead_id = resp.json()["lead_id"]  # 200 = id_externo já recebido antes`
 
   const curlGet = `curl ${base}/leads/${LEAD_ID_EX} \\
   -H "X-API-Key: ${KEY_CONTA}" \\
@@ -290,6 +289,10 @@ elif resp.status_code == 409:
             <tr><td><C>fbclid</C><Opt /></td><td className="type">string</td><td>Identificador do clique no Meta, quando houver.</td></tr>
             <tr><td><C>gclid</C><Opt /></td><td className="type">string</td><td>Identificador do clique no Google Ads, quando houver.</td></tr>
           </Table>
+          <h3>Controle de envio</h3>
+          <Table head={['Campo', 'Tipo', 'Descrição']}>
+            <tr><td><C>id_externo</C><Opt>recomendado</Opt></td><td className="type">string</td><td>O identificador do lead no sistema de quem envia (ex.: o ID do lead na Meta). Se o mesmo <C>id_externo</C> for enviado de novo, o o2sig <strong>não cria outro lead</strong>: responde <C>200</C> com o mesmo <C>lead_id</C> e <C>"ja_recebido": true</C>. Máx. 100 caracteres.</td></tr>
+          </Table>
           <h3>Perfil do plano</h3>
           <Table head={['Campo', 'Tipo', 'Descrição']}>
             <tr><td><C>modalidade</C><Opt /></td><td className="type">string</td><td>Tipo de plano. Valores usados no CRM: <C>PF</C>, <C>Familiar</C>, <C>PME</C>, <C>Adesão</C>. <C>"individual"</C> é convertido para <C>PF</C>.</td></tr>
@@ -318,11 +321,10 @@ elif resp.status_code == 409:
           <h2>Respostas e erros</h2>
           <p>Os erros vêm em JSON com o campo <C>detail</C>, por exemplo: <C>{'{"detail": "Chave da equipe inválida"}'}</C>.</p>
           <Table head={['Código', 'Quando acontece', 'O que fazer']}>
-            <tr><td className="status s2">200</td><td><C>GET</C> com sucesso.</td><td>—</td></tr>
+            <tr><td className="status s2">200</td><td><C>GET</C> com sucesso, ou <C>POST</C> com um <C>id_externo</C> já recebido (<C>"ja_recebido": true</C>, nada é criado).</td><td>Tratar como sucesso.</td></tr>
             <tr><td className="status s2">201</td><td>Lead cadastrado. Traz o <C>lead_id</C>.</td><td>Guardar o <C>lead_id</C> se for consultar depois.</td></tr>
             <tr><td className="status s4">403</td><td>Chave da conta ou da equipe inválida.</td><td>Conferir os cabeçalhos. Não repetir automaticamente.</td></tr>
             <tr><td className="status s4">404</td><td>Lead não encontrado (ou de outra equipe).</td><td>Conferir o <C>lead_id</C>.</td></tr>
-            <tr><td className="status s4">409</td><td>Lead já cadastrado (ver duplicidade abaixo).</td><td>Tratar como sucesso: o lead já está no CRM. <strong>Não reenviar.</strong></td></tr>
             <tr><td className="status s4">422</td><td>Corpo inválido: falta <C>name</C>/<C>phone</C>, tipo errado ou JSON mal formado.</td><td>Corrigir o envio. Não repetir sem corrigir.</td></tr>
             <tr><td className="status s4">429</td><td>Limite de requisições excedido.</td><td>Aguardar 60 segundos e tentar de novo.</td></tr>
             <tr><td className="status s5">5xx</td><td>Falha temporária do servidor.</td><td>Tentar de novo com espera crescente (ex.: 30 s, 2 min, 10 min).</td></tr>
@@ -333,7 +335,7 @@ elif resp.status_code == 409:
           <h2>Limites e duplicidade</h2>
           <ul>
             <li><strong>Limite de envio:</strong> 30 requisições por minuto por IP. Em envios em lote, espace as chamadas.</li>
-            <li><strong>Duplicidade:</strong> o lead é recusado com <C>409</C> quando já existe outro com o mesmo <strong>e-mail</strong>, ou com o mesmo <strong>telefone e nome</strong>. Por isso, reenviar um lead é seguro: não cria cópia.</li>
+            <li><strong>Duplicidade:</strong> leads com <strong>e-mail ou telefone já cadastrados são aceitos</strong> normalmente; no CRM eles ficam marcados como possível duplicado do lead anterior. Para que um <em>reenvio</em> do mesmo lead não crie cópia, envie o <C>id_externo</C>.</li>
             <li><strong>Distribuição:</strong> ao entrar, o lead vai para o próximo atendente ativo da equipe (rodízio), que recebe o aviso no CRM na hora.</li>
             <li><strong>Tempo de resposta:</strong> normalmente abaixo de 1 segundo. Use um timeout de 15 segundos.</li>
           </ul>
@@ -343,8 +345,8 @@ elif resp.status_code == 409:
           <h2>Roteiro de homologação</h2>
           <ol className="apidoc-steps">
             <li>Chame <C>GET /ping</C> com as chaves recebidas. Esperado: <C>200</C> com o nome da equipe.</li>
-            <li>Envie <strong>um</strong> lead de teste com <C>POST /leads</C>, com nome começando por <C>TESTE</C> (ex.: <C>"TESTE Integração Meta"</C>) e <C>origin</C> = <C>"Meta Ads"</C>. Esperado: <C>201</C> com <C>lead_id</C>.</li>
-            <li>Envie o mesmo lead de novo. Esperado: <C>409</C>, sem criar cópia.</li>
+            <li>Envie <strong>um</strong> lead de teste com <C>POST /leads</C>, com nome começando por <C>TESTE</C> (ex.: <C>"TESTE Integração Meta"</C>), <C>origin</C> = <C>"Meta Ads"</C> e um <C>id_externo</C>. Esperado: <C>201</C> com <C>lead_id</C>.</li>
+            <li>Envie o mesmo lead de novo, com o mesmo <C>id_externo</C>. Esperado: <C>200</C> com o mesmo <C>lead_id</C> e <C>"ja_recebido": true</C>, sem criar cópia.</li>
             <li>Consulte com <C>GET /leads/{'{lead_id}'}</C>. Esperado: <C>200</C> com <C>status</C> = <C>novo</C>.</li>
             <li>Confira o lead no CRM e remova-o antes de ligar a campanha.</li>
           </ol>

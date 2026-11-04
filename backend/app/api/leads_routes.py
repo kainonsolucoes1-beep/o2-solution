@@ -17,6 +17,7 @@ from app.lead_utils import extract_base, normalize_conversion_point
 from app.lead_scope import own_leads_clause
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.operadoras import get_operadoras
+from app.duplicidade import lead_parecido, marcar_duplicado
 from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
 from app.br_calendar import is_business_day
@@ -131,6 +132,7 @@ def list_leads(
 @router.post("/leads", response_model=LeadResponse, status_code=201)
 def create_lead(
     lead_data: LeadCreate,
+    confirmar_duplicado: bool = Query(False, description="cadastrar mesmo se já existe lead com o mesmo e-mail/telefone"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -141,18 +143,20 @@ def create_lead(
         raise HTTPException(status_code=422, detail="Telefone é obrigatório")
     if sum(c.isdigit() for c in lead_data.phone) < 10:
         raise HTTPException(status_code=422, detail="Telefone incompleto — informe o DDD e o número")
-    if lead_data.email:
-        duplicate = (
-            db.query(Lead)
-            .filter(Lead.user_id == current_user.id, Lead.email == lead_data.email)
-            .first()
-        )
-        if duplicate:
-            raise HTTPException(status_code=409, detail="Já existe um lead com este email")
+    # repetido não é mais barrado: a tela avisa qual lead já tem o dado e a
+    # pessoa escolhe abrir esse lead ou cadastrar mesmo assim (app/duplicidade.py)
+    original = lead_parecido(lead_data.email, lead_data.phone)
+    if original and not confirmar_duplicado:
+        raise HTTPException(status_code=409, detail={
+            "code": "possivel_duplicado", "lead_id": str(original.id),
+            "nome": original.name, "campo": original.campo,
+        })
 
     lead = Lead(**lead_data.model_dump(), user_id=current_user.id)
     db.add(lead)
     db.flush()
+    if original:
+        marcar_duplicado(db, lead, original, current_user.id)
     notificar_novo_lead(db, lead, current_user)
     db.commit()
     db.refresh(lead)
@@ -329,7 +333,7 @@ def leads_by_period(
                 Lead.tracking_campaign, Lead.tracking_medium, Lead.tracking_term, Lead.tracking_format,
                 Lead.fbclid, Lead.gclid, Lead.lgpd_processing_opt_in, Lead.lgpd_communication_opt_in,
                 Lead.first_interaction_at, Lead.last_interaction_at, Lead.team,
-                Lead.campanha_canal, Lead.campanha_status,
+                Lead.campanha_canal, Lead.campanha_status, Lead.duplicado_de_id,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -337,6 +341,9 @@ def leads_by_period(
         .limit(limit)
         .all()
     )
+    # nome do lead original de cada "possível duplicado" (só os que a pessoa enxerga)
+    _dup_ids = {r.duplicado_de_id for r in rows if r.duplicado_de_id}
+    _dup_nomes = dict(db.query(Lead.id, Lead.name).filter(Lead.id.in_(_dup_ids)).all()) if _dup_ids else {}
 
     leads = [
         LeadReportItem(
@@ -368,6 +375,8 @@ def leads_by_period(
             campanha_canal=r.campanha_canal,
             campanha_status=r.campanha_status,
             team=r.team,
+            duplicado_de_id=r.duplicado_de_id,
+            duplicado_de_nome=_dup_nomes.get(r.duplicado_de_id),
         )
         for r in rows
     ]
@@ -692,7 +701,11 @@ def get_lead(
         _o = db.query(User).filter(User.id == lead.renutricao_owner_id).first()
         if _o:
             ren_nome = _o.first_name or _o.username
+    dup_nome = None
+    if lead.duplicado_de_id:
+        dup_nome = db.query(Lead.name).filter(Lead.id == lead.duplicado_de_id).scalar()
     return LeadReportItem(
+        duplicado_de_id=lead.duplicado_de_id, duplicado_de_nome=dup_nome,
         id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
         company=lead.company, titular_menor=lead.titular_menor, attendant=lead.attendant,
         origem=lead.origin, conversion_point=lead.conversion_point,
