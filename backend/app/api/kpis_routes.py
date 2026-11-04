@@ -735,104 +735,174 @@ def _br_dia(d: str):
     return datetime.strptime(d, "%Y-%m-%d").date()
 
 
-@router.get("/conv-point-serie")
-def conv_point_serie(
-    conv_point: str = Query(...),
-    granularidade: str = Query("dia"),  # dia | semana | mes
-    date_from: str = Query(...),        # AAAA-MM-DD, calendário de Brasília
+def _mes_menos(d, n: int):
+    """Primeiro dia do mês n meses antes do mês de d."""
+    y, m = d.year, d.month - n
+    while m <= 0:
+        m += 12
+        y -= 1
+    return d.replace(year=y, month=m, day=1)
+
+
+@router.get("/analise-leads")
+def analise_leads(
+    date_from: str = Query(...),        # período da página, AAAA-MM-DD (Brasília)
     date_to: str = Query(...),
-    prev_from: str = Query(None),       # período anterior, só pro total de comparação
+    prev_from: str = Query(None),       # período anterior, pra comparação
     prev_to: str = Query(None),
-    origens: str = Query(None),
-    team: str = Query(None),
+    granularidade: str = Query("dia"),  # dia | semana | mes (mes = 12 meses até date_to)
+    conv_point: str = Query(None),
     campanha_midia: str = Query(None),
+    team: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Análise gráfica do ponto de conversão: captados/vendas/cancelados por
-    dia, semana (seg–dom) ou mês, mais a captação por dia da semana. Vendas e
-    cancelados contam pela data de captação do lead (mesma regra do drawer)."""
+    """Aba "Análise de leads" do KPIs: indicadores, captação no tempo, dia da
+    semana, funil, modalidade e pontos de conversão, com filtro de campanha e
+    de ponto de conversão. Vendas/cancelados contam pela data de captação."""
     try:
         d_from, d_to = _br_dia(date_from), _br_dia(date_to)
     except ValueError:
         raise HTTPException(status_code=400, detail="Data inválida, use AAAA-MM-DD")
     hoje = now_br().date()
-    d_to = min(d_to, hoje)  # dias que ainda não chegaram não viram barra zerada
-    if d_to < d_from:
-        d_to = d_from
+    d_to = max(min(d_to, hoje), d_from)
 
-    base = [
-        Lead.conversion_point.ilike(conv_point),
-        *_scope_filter(team, current_user), *_campanha_filter(campanha_midia),
-    ]
-    if origens:
-        parts = [x.strip() for x in origens.split(',') if x.strip()]
-        if parts:
-            base.append(Lead.origin.in_(parts))
-
-    ini_utc, _ = br_date_to_utc_range(d_from)
+    janela_ini = min(d_from, _mes_menos(d_to, 11)) if granularidade == "mes" else d_from
+    base = [*_scope_filter(team, current_user), *_campanha_filter(campanha_midia)]
+    ini_utc, _ = br_date_to_utc_range(janela_ini)
     _, fim_utc = br_date_to_utc_range(d_to)
     rows = (
-        db.query(EFFECTIVE_CAPTACAO, Lead.status)
+        db.query(EFFECTIVE_CAPTACAO, Lead.status, Lead.conversion_point, Lead.campanha_midia,
+                 Lead.modalidade, Lead.value_potential)
         .filter(EFFECTIVE_CAPTACAO >= ini_utc, EFFECTIVE_CAPTACAO < fim_utc, *base)
         .all()
     )
 
-    def chave(d):
-        if granularidade == "mes":
-            return d.replace(day=1)
-        if granularidade == "semana":
-            return d - timedelta(days=d.weekday())  # segunda-feira
-        return d
+    venda_set = {x.lower() for x in VENDA_STATUSES}
+    cancelado_set = {x.lower() for x in CANCELADO_STATUSES}
 
-    # todos os buckets do intervalo, inclusive os sem lead (barra zero)
+    def tipo(status):
+        st = (status or "").lower()
+        return "v" if st in venda_set else "x" if st in cancelado_set else "a"
+
+    def ponto_de(cp):
+        return normalize_conversion_point(cp)
+
+    alvo = ponto_de(conv_point).lower() if conv_point else None
+
+    # lista de pontos (pro filtro) sai do período sem o filtro de ponto
+    grafias: dict = defaultdict(lambda: defaultdict(int))
+    leads = []
+    for capt, status, cp, camp, modalidade, valor in rows:
+        dia = (capt - BR_OFFSET).date()
+        ponto = ponto_de(cp)
+        if d_from <= dia <= d_to:
+            grafias[ponto.lower()][ponto] += 1
+        if alvo and ponto.lower() != alvo:
+            continue
+        leads.append((dia, tipo(status), ponto, (camp or "").strip() or "Sem campanha", modalidade, valor))
+
+    def nome_ponto(chave_lower):
+        g = grafias.get(chave_lower)
+        return max(g.items(), key=lambda kv: kv[1])[0] if g else chave_lower
+
+    no_periodo = [l for l in leads if d_from <= l[0] <= d_to]
+
+    totais = {"captados": 0, "vendas": 0, "cancelados": 0, "receita_potencial": 0.0, "base_liquida": 0}
+    modalidades: dict = defaultdict(int)
+    pontos: dict = {}
+    dias_semana = [0] * 7
+    for dia, t, ponto, camp, modalidade, valor in no_periodo:
+        totais["captados"] += 1
+        dias_semana[dia.weekday()] += 1
+        if t == "v":
+            totais["vendas"] += 1
+        elif t == "x":
+            totais["cancelados"] += 1
+        k = (ponto.lower(), camp)
+        pp = pontos.setdefault(k, {"captados": 0, "vendas": 0, "cancelados": 0, "receita_potencial": 0.0})
+        pp["captados"] += 1
+        if t == "v":
+            pp["vendas"] += 1
+        elif t == "x":
+            pp["cancelados"] += 1
+        if t != "x":
+            totais["base_liquida"] += 1
+            modalidades[normalize_modalidade(modalidade)] += 1
+            if valor:
+                totais["receita_potencial"] += float(valor)
+                pp["receita_potencial"] += float(valor)
+
+    # buckets do gráfico
+    if granularidade == "mes":
+        b_ini, chave = _mes_menos(d_to, 11), (lambda d: d.replace(day=1))
+    elif granularidade == "semana":
+        b_ini, chave = d_from, (lambda d: d - timedelta(days=d.weekday()))
+    else:
+        b_ini, chave = d_from, (lambda d: d)
     buckets: dict = {}
-    d = d_from
+    d = b_ini
     while d <= d_to:
         k = chave(d)
         if k not in buckets:
-            buckets[k] = {"inicio": max(k, d_from), "fim": d, "captados": 0, "vendas": 0, "cancelados": 0}
+            buckets[k] = {"inicio": max(k, b_ini), "fim": d, "captados": 0, "vendas": 0, "cancelados": 0}
         buckets[k]["fim"] = d
         d += timedelta(days=1)
-
-    venda_set = {x.lower() for x in VENDA_STATUSES}
-    cancelado_set = {x.lower() for x in CANCELADO_STATUSES}
-    dias_semana = [0] * 7
-    for capt, status in rows:
-        dia = (capt - BR_OFFSET).date()
+    for dia, t, *_ in leads:
+        if dia < b_ini:
+            continue
         b = buckets.get(chave(dia))
         if b is None:
             continue
         b["captados"] += 1
-        st = (status or "").lower()
-        if st in venda_set:
+        if t == "v":
             b["vendas"] += 1
-        elif st in cancelado_set:
+        elif t == "x":
             b["cancelados"] += 1
-        dias_semana[dia.weekday()] += 1
 
     anterior = None
     if prev_from and prev_to:
         try:
             p_ini, _ = br_date_to_utc_range(prev_from)
             _, p_fim = br_date_to_utc_range(prev_to)
-            anterior = (
-                db.query(func.count(Lead.id))
-                .filter(EFFECTIVE_CAPTACAO >= p_ini, EFFECTIVE_CAPTACAO < p_fim, *base)
-                .scalar()
-            )
         except ValueError:
-            anterior = None
+            p_ini = None
+        if p_ini is not None:
+            anterior = {"captados": 0, "vendas": 0, "cancelados": 0}
+            for status, cp in (
+                db.query(Lead.status, Lead.conversion_point)
+                .filter(EFFECTIVE_CAPTACAO >= p_ini, EFFECTIVE_CAPTACAO < p_fim, *base)
+                .all()
+            ):
+                if alvo and ponto_de(cp).lower() != alvo:
+                    continue
+                anterior["captados"] += 1
+                t = tipo(status)
+                if t == "v":
+                    anterior["vendas"] += 1
+                elif t == "x":
+                    anterior["cancelados"] += 1
 
     return {
+        "periodo": {"inicio": d_from.isoformat(), "fim": d_to.isoformat()},
+        "totais": totais,
+        "anterior": anterior,
         "granularidade": granularidade,
         "buckets": [
             {**b, "inicio": b["inicio"].isoformat(), "fim": b["fim"].isoformat()}
             for _, b in sorted(buckets.items())
         ],
-        "dias_semana": [{"dia": i, "captados": n} for i, n in enumerate(dias_semana)],  # 0 = segunda
-        "total": len(rows),
-        "anterior": anterior,
+        "dias_semana": dias_semana,  # 0 = segunda
+        "modalidades": sorted(
+            [{"nome": k, "count": v} for k, v in modalidades.items()], key=lambda x: -x["count"]
+        ),
+        "pontos": sorted(
+            [{"ponto": nome_ponto(k[0]), "campanha": k[1], **v} for k, v in pontos.items()],
+            key=lambda x: -x["captados"],
+        ),
+        "opcoes_pontos": sorted(
+            (nome_ponto(k) for k in grafias), key=lambda n: -sum(grafias[n.lower()].values())
+        ),
     }
 
 
