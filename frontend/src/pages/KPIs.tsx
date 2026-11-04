@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ChevronRight, AlertTriangle, X, ShieldCheck, ShieldX, Users, TrendingUp, TrendingDown,
   ArrowLeftRight, ArrowUp, ArrowDown, SlidersHorizontal, Cake, HeartPulse, Minus,
-  DollarSign, Target, ExternalLink, LayoutGrid, Share2, Tag, RefreshCw,
+  DollarSign, Target, ExternalLink, LayoutGrid, Share2, Tag, RefreshCw, BarChart3,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -12,6 +12,7 @@ import api from '../api'
 import { fmtDateShort } from '../utils/leadFormat'
 import { useTheme } from '../ThemeContext'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
+import AnaliseGraficaModal from '../components/AnaliseGraficaModal'
 
 interface BreakdownItem {
   label: string
@@ -672,6 +673,7 @@ export default function KPIs() {
   const [drawerGran, setDrawerGran] = useState<DrawerGran>('pagina')
   const [drawerAnchor, setDrawerAnchor] = useState(isoDate(now))
   const [drawerCampanha, setDrawerCampanha] = useState('')
+  const [analiseGrafica, setAnaliseGrafica] = useState(false)
   const [drawerPrev, setDrawerPrev] = useState<DetalheComum | null>(null)
   const [drawerPrevLabel, setDrawerPrevLabel] = useState('')
   const [campanhasMidia, setCampanhasMidia] = useState<string[]>(['Google', 'Meta'])
@@ -743,6 +745,19 @@ export default function KPIs() {
     setDrawerAnchor(defaultAnchor())
     setDrawerCampanha('')
     setDrawer({ kind, label, origens })
+  }
+
+  // Período atual do drawer em datas: recorte próprio, intervalo, mês da página
+  // ou, em "todo o período", os últimos 12 meses
+  function drawerCurRange(): { from: Date; to: Date } {
+    if (drawerGran !== 'pagina') return drawerRange(drawerGran, drawerAnchor)
+    if (period === 'range' && debRangeFrom && debRangeTo) return { from: parseIso(debRangeFrom), to: parseIso(debRangeTo) }
+    if (period === 'all') {
+      const hoje = parseIso(isoDate(now))
+      return { from: new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1), to: hoje }
+    }
+    const [y, m] = month.split('-').map(Number)
+    return { from: new Date(y, m - 1, 1), to: new Date(y, m, 0) }
   }
 
   // Período anterior equivalente, para comparar os indicadores do drawer:
@@ -831,6 +846,7 @@ export default function KPIs() {
   }
 
   function closeDrawer() {
+    setAnaliseGrafica(false)
     setDrawer(null)
     drawerTriggerRef.current?.focus()
   }
@@ -2151,6 +2167,20 @@ export default function KPIs() {
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 {d && !drawerLoading ? `${d.captacoes.toLocaleString('pt-BR')} lead${d.captacoes === 1 ? '' : 's'} no recorte` : ''}
               </span>
+              <span style={{ display: 'inline-flex', gap: 8 }}>
+              {drawer.kind === 'conversao' && (
+                <button
+                  onClick={() => setAnaliseGrafica(true)}
+                  disabled={!d || drawerLoading}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 8, padding: '8px 14px',
+                    fontSize: 13, fontWeight: 600, color: '#2563EB', background: 'var(--bg-card)', border: '1px solid #2563EB',
+                    cursor: !d || drawerLoading ? 'default' : 'pointer', opacity: !d || drawerLoading ? 0.5 : 1,
+                  }}
+                >
+                  <BarChart3 size={15} /> Análise gráfica
+                </button>
+              )}
               <button
                 onClick={openDrawerLeads}
                 disabled={!d || drawerLoading || d.captacoes === 0}
@@ -2163,11 +2193,26 @@ export default function KPIs() {
               >
                 Ver {d?.captacoes === 1 ? 'o lead' : 'os leads'} <ChevronRight size={15} />
               </button>
+              </span>
             </div>
           </div>
         </>
         )
       })()}
+
+      {drawer && drawer.kind === 'conversao' && analiseGrafica && (
+        <AnaliseGraficaModal
+          titulo={drawer.label}
+          subtitulo={drawerCampanha ? `Ponto de conversão · Campanha: ${drawerCampanha}${team !== 'all' ? ` · ${TEAM_LABELS[team]}` : ''}` : `Ponto de conversão${team !== 'all' ? ` · ${TEAM_LABELS[team]}` : ''}`}
+          convPoint={drawer.label}
+          origens={drawer.origens}
+          team={team !== 'all' ? TEAM_VALUES[team] : undefined}
+          campanha={drawerCampanha || undefined}
+          recorte={drawerCurRange()}
+          recorteAnterior={prevDrawerRange()}
+          onClose={() => setAnaliseGrafica(false)}
+        />
+      )}
 
       {/* ── Modal: Comparação entre pontos de conversão ── */}
       {convCompare && (
