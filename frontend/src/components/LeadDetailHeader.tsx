@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { ArrowLeft, MoreVertical, Trash2, UserMinus, Check, X } from 'lucide-react'
 import Pill from './Pill'
 import EditPencil from './EditPencil'
-import { STATUS_STYLE } from '../utils/leadStatus'
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -114,7 +113,7 @@ export default function LeadDetailHeader({
                 <Pill colors={sStyle}>{statusLabel}</Pill>
                 {perceptionLabel && perceptionStyle && <Pill colors={perceptionStyle}>{perceptionLabel}</Pill>}
                 {avisoPrevioLabel && <Pill colors={{ bg: '#FEF3C7', color: '#92400E' }}>{avisoPrevioLabel}</Pill>}
-                {dataVendaLabel && <Pill colors={STATUS_STYLE.sale_performed}>Venda em {dataVendaLabel}</Pill>}
+                {dataVendaLabel && <Pill colors={{ bg: '#FEF3C7', color: '#92400E' }}>Venda em {dataVendaLabel}</Pill>}
               </div>
             </div>
           </div>
