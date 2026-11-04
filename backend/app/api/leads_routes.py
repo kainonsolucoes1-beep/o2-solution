@@ -721,6 +721,7 @@ def get_lead(
         receita_operadora=lead.receita_operadora if show_fin else None,
         receita_categoria=lead.receita_categoria if show_fin else None,
         receita_data_venda=lead.receita_data_venda if show_fin else None,
+        data_venda=lead.receita_data_venda,
         receita_origem=lead.receita_origem if show_fin else None,
         aviso_previo=bool(lead.aviso_previo) if show_fin else False,
         data_faturamento_previsto=lead.data_faturamento_previsto if show_fin else None,
