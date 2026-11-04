@@ -14,7 +14,7 @@ from app.database import get_db
 from app.api.notificacoes_routes import notificar_novo_lead
 from app.models import Lead, LeadNote, User
 from app.models.app_settings import AppSettings
-from app.teams import TEAM_BY_SLUG, team_rr_index_setting, team_attendant_names
+from app.teams import TEAM_BY_SLUG, team_rr_index_setting, team_attendant_names, fixed_attendant
 from app.lead_utils import normalize_current_plan, META_FORMULARIOS, parse_vidas, parse_idades
 from app.duplicidade import lead_parecido, marcar_duplicado
 from sqlalchemy.exc import IntegrityError
@@ -35,7 +35,11 @@ def _setting(db: Session, key: str) -> Optional[str]:
 
 
 def _next_attendant(db: Session, team_slug: str, team_name: str) -> Optional[str]:
-    """Mesma logica de round-robin usada em public_routes.py."""
+    """Mesma logica de round-robin usada em public_routes.py (inclusive o
+    atendente fixo, que passa por cima do rodizio)."""
+    fixo = fixed_attendant(db)
+    if fixo:
+        return fixo
     names = team_attendant_names(db, team_slug, team_name)
     if not names:
         return None

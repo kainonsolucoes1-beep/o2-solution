@@ -18,6 +18,33 @@ def team_rr_index_setting(slug: str) -> str:
     return f"public_leads_rr_index_{slug}"
 
 
+# Atendente fixo (04/11/2026): enquanto esta chave tiver um nome, TODO lead novo
+# do site/orgânico, Google e Meta Ads vai pra essa pessoa e o rodízio fica
+# parado. Apagar o valor (ou a chave) volta o rodízio normal.
+FIXED_ATTENDANT_SETTING = "leads_atendente_fixo"
+FIXED_ATTENDANT_SEED = "Pamela"
+
+
+def fixed_attendant(db):
+    """Nome do atendente fixo, se configurado e ativo no cadastro. Usa a
+    grafia do cadastro (first_name). Sem usuário ativo com esse nome, devolve
+    None e o rodízio segue normal -- assim lead nenhum fica sem dono."""
+    from app.models import User
+    from app.models.app_settings import AppSettings
+
+    row = db.query(AppSettings).filter(AppSettings.key == FIXED_ATTENDANT_SETTING).first()
+    nome = (row.value or "").strip() if row else ""
+    if not nome:
+        return None
+    u = (
+        db.query(User)
+        .filter(User.is_active.is_(True), User.role != "trafego")
+        .filter(User.first_name.ilike(nome))
+        .first()
+    )
+    return u.first_name.strip() if u and u.first_name else None
+
+
 def team_attendant_names(db, team_slug: str, team_name: str) -> list:
     """Nomes elegiveis pro rodizio da equipe. Prioriza quem esta cadastrado
     com esse time em users (entra/sai sozinho conforme o cadastro muda); se

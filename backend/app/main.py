@@ -353,6 +353,11 @@ async def startup_event():
             _db.add(_AS(key="public_leads_api_key", value=secrets.token_urlsafe(32)))
             _db.commit()
         from app.teams import TEAMS as _TEAMS, team_key_setting as _team_key_setting, team_attendants_setting as _team_attendants_setting, team_rr_index_setting as _team_rr_index_setting
+        from app.teams import FIXED_ATTENDANT_SETTING as _FIXO, FIXED_ATTENDANT_SEED as _FIXO_SEED
+        # cria só uma vez: se depois apagarem o valor (volta o rodízio), não recria
+        if not _db.query(_AS).filter(_AS.key == _FIXO).first():
+            _db.add(_AS(key=_FIXO, value=_FIXO_SEED))
+            _db.commit()
         for _team in _TEAMS:
             _key_setting = _team_key_setting(_team["slug"])
             if not _db.query(_AS).filter(_AS.key == _key_setting).first():
