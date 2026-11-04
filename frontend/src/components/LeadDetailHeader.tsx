@@ -1,5 +1,7 @@
-import { ArrowLeft, MoreVertical, Trash2, UserMinus } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, MoreVertical, Trash2, UserMinus, Check, X } from 'lucide-react'
 import Pill from './Pill'
+import EditPencil from './EditPencil'
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -21,7 +23,7 @@ export default function LeadDetailHeader({
   name, statusLabel, sStyle, perceptionLabel, perceptionStyle, avisoPrevioLabel,
   phoneLabel, emailLabel, attendantLabel, origemLabel,
   isAdmin, menuOpen, onToggleMenu, onCloseMenu, onRequestDelete, onBack,
-  hasRenutricao, onRemoveRenutricao,
+  hasRenutricao, onRemoveRenutricao, onRename,
 }: {
   name: string
   statusLabel: string
@@ -41,7 +43,26 @@ export default function LeadDetailHeader({
   onBack: () => void
   hasRenutricao?: boolean
   onRemoveRenutricao?: () => void
+  // corrigir o nome direto no topo da ficha; ausente = sem permissão (ex.: renutrição de outra pessoa)
+  onRename?: (nome: string) => Promise<void>
 }) {
+  const [editandoNome, setEditandoNome] = useState(false)
+  const [nomeDraft, setNomeDraft] = useState('')
+  const [salvandoNome, setSalvandoNome] = useState(false)
+  const [erroNome, setErroNome] = useState('')
+
+  function abrirEdicaoNome() { setNomeDraft(name); setErroNome(''); setEditandoNome(true) }
+  function salvarNome() {
+    const novo = nomeDraft.trim().replace(/\s+/g, ' ')
+    if (!novo) { setErroNome('Informe o nome'); return }
+    if (novo === name || !onRename) { setEditandoNome(false); return }
+    setSalvandoNome(true)
+    onRename(novo)
+      .then(() => setEditandoNome(false))
+      .catch(() => setErroNome('Não foi possível salvar'))
+      .finally(() => setSalvandoNome(false))
+  }
+
   return (
     <div className="flex flex-wrap" style={{
       alignItems: 'flex-start', gap: 18, marginBottom: 20,
@@ -68,7 +89,25 @@ export default function LeadDetailHeader({
           </div>
           <div style={{ minWidth: 0 }}>
             <div className="flex items-center flex-wrap" style={{ gap: 10 }}>
-              <p className="text-[18px] sm:text-[24px]" style={{ fontWeight: 700, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>{name}</p>
+              {editandoNome ? (
+                <div className="flex items-center" style={{ gap: 6 }}>
+                  <input
+                    autoFocus value={nomeDraft} disabled={salvandoNome} aria-label="Nome do lead"
+                    onChange={e => { setNomeDraft(e.target.value); setErroNome('') }}
+                    onKeyDown={e => { if (e.key === 'Enter') salvarNome(); else if (e.key === 'Escape') setEditandoNome(false) }}
+                    className="text-[16px] sm:text-[20px]"
+                    style={{ fontWeight: 700, color: 'var(--text-1)', padding: '4px 10px', borderRadius: 8, border: `1px solid ${erroNome ? 'var(--danger)' : 'var(--accent)'}`, background: 'var(--bg-input)', outline: 'none', width: 'min(420px, 60vw)', fontFamily: 'inherit' }}
+                  />
+                  <button onClick={salvarNome} disabled={salvandoNome} title="Salvar (Enter)" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: salvandoNome ? 'wait' : 'pointer', opacity: salvandoNome ? 0.6 : 1 }}><Check size={15} /></button>
+                  <button onClick={() => setEditandoNome(false)} disabled={salvandoNome} title="Cancelar (Esc)" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={15} /></button>
+                  {erroNome && <span style={{ fontSize: 12, color: 'var(--danger)' }}>{erroNome}</span>}
+                </div>
+              ) : (
+                <div className="flex items-center" style={{ gap: 4, minWidth: 0 }}>
+                  <p className="text-[18px] sm:text-[24px]" style={{ fontWeight: 700, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em', overflowWrap: 'break-word' }}>{name}</p>
+                  {onRename && <EditPencil onClick={abrirEdicaoNome} title="Corrigir nome" />}
+                </div>
+              )}
               <div className="flex flex-wrap" style={{ gap: 5, marginTop: 3 }}>
                 <Pill colors={sStyle}>{statusLabel}</Pill>
                 {perceptionLabel && perceptionStyle && <Pill colors={perceptionStyle}>{perceptionLabel}</Pill>}
