@@ -41,6 +41,7 @@ class Lead(Base):
     # trabalho feito aqui (ex: "proposta enviada" voltando pra "novo")
     sig_locked = Column(Boolean, default=False, nullable=False, server_default='false')
     ages_raw = Column(String(100), nullable=True)
+    vidas = Column(Integer, nullable=True)  # quantas pessoas no plano (formulário Meta / ficha)
     modalidade = Column(String(255), nullable=True)
     categoria = Column(String(255), nullable=True)
     current_plan = Column(String(255), nullable=True)

@@ -72,6 +72,8 @@ class LeadReportItem(BaseModel):
     campanha_midia: Optional[str] = None
     duplicado_de_id: Optional[UUID] = None
     duplicado_de_nome: Optional[str] = None
+    vidas: Optional[int] = None
+    ages_raw: Optional[str] = None
     document: Optional[str] = None
     tracking_campaign: Optional[str] = None
     tracking_medium: Optional[str] = None
@@ -137,6 +139,8 @@ class LeadInfoUpdateRequest(BaseModel):
     campanha_midia: Optional[str] = None
     current_plan: Optional[str] = None
     value_potential: Optional[float] = None
+    vidas: Optional[str] = None     # texto: "" limpa; só os dígitos contam
+    ages_raw: Optional[str] = None  # idades, ex. "35, 32, 5"
 
 
 class LeadInfoUpdateResponse(BaseModel):
@@ -160,6 +164,8 @@ class LeadInfoUpdateResponse(BaseModel):
     celular_cor: Optional[str] = None
     campanha_midia: Optional[str] = None
     visibility_tag: Optional[str] = None
+    vidas: Optional[int] = None
+    ages_raw: Optional[str] = None
 
 
 class LeadReceitaUpdateRequest(BaseModel):

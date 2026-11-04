@@ -17,6 +17,8 @@ interface InfoDraft {
   attendant: string
   document: string
   visibility_tag: string
+  vidas: string
+  ages_raw: string
 }
 
 // aparelhos da empresa: cor -> final do numero
@@ -31,7 +33,7 @@ export default function LeadRegistrationPanel({
   conversionPoint, conversionPointOptions, savingConversionPoint, onConversionPointChange,
   campanha, campanhaOptions, savingCampanha, onCampanhaChange,
   celularCor, savingCelular, onCelularChange,
-  leadSinceLabel, retrabalhadoEmLabel, documentoLabel, empresaLabel, titularMenorLabel, visibilityTag,
+  leadSinceLabel, retrabalhadoEmLabel, documentoLabel, empresaLabel, titularMenorLabel, vidasLabel, idadesLabel, visibilityTag,
   editingInfo, savingInfo, infoDraft, onDraftChange, onStartEdit, onCancelEdit, onSaveEdit, locked,
 }: {
   origem: string
@@ -54,6 +56,8 @@ export default function LeadRegistrationPanel({
   documentoLabel: string
   empresaLabel: string
   titularMenorLabel: string | null
+  vidasLabel: string
+  idadesLabel: string
   visibilityTag: string | null
   editingInfo: boolean
   savingInfo: boolean
@@ -148,6 +152,8 @@ export default function LeadRegistrationPanel({
             <EditInput label="Email" value={infoDraft.email} onChange={v => onDraftChange('email', v)} />
             <EditInput label="Telefone" value={infoDraft.phone} onChange={v => onDraftChange('phone', v)} />
             <EditInput label="Documento" value={infoDraft.document} onChange={v => onDraftChange('document', v)} />
+            <EditInput label="Vidas" value={infoDraft.vidas} onChange={v => onDraftChange('vidas', v)} />
+            <EditInput label="Idades" value={infoDraft.ages_raw} onChange={v => onDraftChange('ages_raw', v)} />
             <EditInput label="Atendente" value={infoDraft.attendant} onChange={v => onDraftChange('attendant', v)} />
             <EditInput label="Perfil" value={infoDraft.visibility_tag} onChange={v => onDraftChange('visibility_tag', v)} />
           </>
@@ -174,6 +180,8 @@ export default function LeadRegistrationPanel({
                 </select>
               </div>
             </div>
+            <Field label="Vidas" value={vidasLabel} />
+            <Field label="Idades" value={idadesLabel} />
             {!bothEmpty && (
               <>
                 <Field label="Empresa" value={empresaLabel} />

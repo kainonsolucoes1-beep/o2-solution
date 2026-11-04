@@ -71,6 +71,15 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS duplicado_de_id UUID REFERENCES leads(id) ON DELETE SET NULL"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS meta_leadgen_id VARCHAR(64)"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS external_id VARCHAR(100)"))
+    _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS vidas INTEGER"))
+    # ponto de conversão dos leads da Meta: número do formulário -> nome
+    # (mesma lista que o webhook usa, app/lead_utils.py)
+    from app.lead_utils import META_FORMULARIOS as _META_FORMS
+    for _fid, _fnome in _META_FORMS.items():
+        _conn.execute(
+            text("UPDATE leads SET conversion_point = :n WHERE conversion_point IN (:a, :b)"),
+            {"n": _fnome, "a": _fid, "b": f"Formulário Meta - {_fid}"},
+        )
     _conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_leads_meta_leadgen_id ON leads(meta_leadgen_id) WHERE meta_leadgen_id IS NOT NULL"))
     _conn.execute(text("CREATE INDEX IF NOT EXISTS idx_leads_external_id ON leads(external_id) WHERE external_id IS NOT NULL"))
     # busca de "possível duplicado" (app/duplicidade.py): e-mail sem caixa e telefone só com dígitos

@@ -82,6 +82,42 @@ def extract_base(notes: str | None) -> str | None:
     return BASE_ALIASES.get(base.lower(), base)
 
 
+# Formulários de Lead Ads da Meta: id do formulário -> nome que aparece no
+# "Ponto de conversão". Formulário novo: incluir aqui (sem isso o lead entra
+# com o número do formulário).
+META_FORMULARIOS: dict[str, str] = {
+    "920887077776708": "Meta Alice - SP",
+    "2154020872683921": "Meta SulAmerica - BH",
+    "1873422073618444": "Meta Amil - SP",
+}
+
+
+def parse_vidas(raw) -> int | None:
+    """Quantidade de vidas digitada/respondida ("3", "3 vidas", "Somente eu")
+    -> inteiro; sem número (ou fora de 1..999) fica vazio."""
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw if 0 < raw < 1000 else None
+    texto = str(raw).strip().lower()
+    if texto in ("só eu", "so eu", "somente eu", "apenas eu", "eu", "individual"):
+        return 1
+    m = re.search(r"\d+", texto)
+    if not m:
+        return None
+    n = int(m.group())
+    return n if 0 < n < 1000 else None
+
+
+def parse_idades(raw) -> str | None:
+    """Idades em texto livre ("35 anos, 32 e 5") -> "35,32,5" (formato do
+    ages_raw, que alimenta o gráfico de idade do titular)."""
+    if raw is None:
+        return None
+    nums = [n for n in re.findall(r"\d+", str(raw)) if 0 <= int(n) <= 120]
+    return ",".join(nums)[:100] or None
+
+
 MODALIDADE_ALIASES: dict[str, str] = {
     "empresarial": "PME",
 }

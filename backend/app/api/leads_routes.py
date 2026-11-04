@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.api.notificacoes_routes import notificar, notificar_novo_lead
 from app.database import get_db
-from app.lead_utils import extract_base, normalize_conversion_point
+from app.lead_utils import parse_vidas, parse_idades, extract_base, normalize_conversion_point
 from app.lead_scope import own_leads_clause
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.operadoras import get_operadoras
@@ -706,6 +706,7 @@ def get_lead(
         dup_nome = db.query(Lead.name).filter(Lead.id == lead.duplicado_de_id).scalar()
     return LeadReportItem(
         duplicado_de_id=lead.duplicado_de_id, duplicado_de_nome=dup_nome,
+        vidas=lead.vidas, ages_raw=lead.ages_raw,
         id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
         company=lead.company, titular_menor=lead.titular_menor, attendant=lead.attendant,
         origem=lead.origin, conversion_point=lead.conversion_point,
@@ -1074,7 +1075,7 @@ def update_lead_info(
         "modalidade": "Modalidade", "conversion_point": "Ponto de conversão",
         "perception": "Temperatura", "visibility_tag": "Tag de visibilidade",
         "operadoras_enviadas": "Operadoras enviadas", "celular_cor": "Celular", "campanha_midia": "Campanha", "current_plan": "Plano atual",
-        "value_potential": "Valor potencial",
+        "value_potential": "Valor potencial", "vidas": "Vidas", "ages_raw": "Idades",
     } if _is_coord else {"name": "Nome", "company": "Empresa", "document": "CPF/CNPJ", "phone": "Telefone"}
     _before = {f: getattr(lead, f) for f in _labels}
 
@@ -1153,6 +1154,10 @@ def update_lead_info(
         lead.current_plan = body.current_plan.strip() or None
     if body.value_potential is not None:
         lead.value_potential = body.value_potential
+    if body.vidas is not None:
+        lead.vidas = parse_vidas(body.vidas)
+    if body.ages_raw is not None:
+        lead.ages_raw = parse_idades(body.ages_raw)
 
     changes = [
         f"{label}: '{_before[field] or '—'}' → '{getattr(lead, field) or '—'}'"
@@ -1177,6 +1182,7 @@ def update_lead_info(
         campanha_midia=lead.campanha_midia,
         current_plan=lead.current_plan,
         value_potential=float(lead.value_potential) if lead.value_potential is not None else None,
+        vidas=lead.vidas, ages_raw=lead.ages_raw,
     )
 
 
