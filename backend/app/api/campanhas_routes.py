@@ -56,7 +56,7 @@ def _proximo_rodizio(db: Session) -> User:
     from app.models.app_settings import AppSettings
     fila = (
         db.query(User)
-        .filter(User.team == RODIZIO_EQUIPE, User.is_active.is_(True), func.trim(func.coalesce(User.first_name, "")) != "")
+        .filter(User.team == RODIZIO_EQUIPE, User.is_active.is_(True), User.role != "trafego", func.trim(func.coalesce(User.first_name, "")) != "")
         .order_by(User.created_at.asc())
         .all()
     )

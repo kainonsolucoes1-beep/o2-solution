@@ -18,6 +18,7 @@ import KPIs from './pages/KPIs'
 import Financeiro from './pages/Financeiro'
 import FinanceiroMetas from './pages/FinanceiroMetas'
 import FinanceiroTrafego from './pages/FinanceiroTrafego'
+import ParceiroLeads from './pages/ParceiroLeads'
 import GestaoComercial from './pages/GestaoComercial'
 import VidaSDR from './pages/VidaSDR'
 import RelatorioProducao from './pages/RelatorioProducao'
@@ -46,7 +47,7 @@ function StagingBanner() {
   )
 }
 
-const PREVIEW_ROLES = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervisor', 'comercial', 'usuario']
+const PREVIEW_ROLES = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervisor', 'comercial', 'usuario', 'trafego']
 
 // "Visualizar como": seletor de papel só no staging, pra testar a visão e
 // as permissões de qualquer perfil sem precisar de um login por papel.
@@ -67,7 +68,12 @@ function RoleSwitcher() {
   function handleChange(role: string) {
     setSwitching(true)
     api.post('/api/v1/auth/preview-role', { role: role || null })
-      .then(r => { localStorage.setItem('token', r.data.access_token); window.location.reload() })
+      .then(r => {
+        localStorage.setItem('token', r.data.access_token)
+        // "ver como" parceiro de tráfego: vai pra área dele, como no login real
+        if (role === 'trafego') { localStorage.setItem('perfil', 'trafego'); window.location.href = '/parceiro' }
+        else { localStorage.removeItem('perfil'); window.location.reload() }
+      })
       .catch(() => setSwitching(false))
   }
 
@@ -114,6 +120,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/change-password" element={<ChangePassword />} />
         <Route path="/acesso-bloqueado" element={<AcessoBloqueado />} />
+        <Route path="/parceiro" element={<ParceiroLeads />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/leads-report" element={<LeadsReport />} />

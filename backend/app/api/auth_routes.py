@@ -79,6 +79,7 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     db.info["restrict_admin_leads"] = not can_see_restricted_leads(user)
     db.info["restrict_team"] = team_scope(user)
     db.info["restrict_to_usuario_leads"] = restrict_to_usuario_leads(user)
+    db.info["restrict_trafego"] = user.role == "trafego"
     # nome do proprio usuario -- usado pelo filtro de comercial em database.py
     # pra nao esconder os leads que ja eram dele antes da troca de perfil
     db.info["own_origin_name"] = user.first_name or user.username
@@ -136,7 +137,7 @@ async def login(credentials: UserLogin, request: Request, db: Session = Depends(
     if device_id:
         token_data["did"] = device_id
     access_token = create_access_token(data=token_data)
-    return {"access_token": access_token, "token_type": "bearer", "must_change_password": user.must_change_password}
+    return {"access_token": access_token, "token_type": "bearer", "must_change_password": user.must_change_password, "role": user.role}
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):

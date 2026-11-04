@@ -15,7 +15,9 @@ export default function Login() {
     try {
       const { data } = await api.post('/api/v1/auth/login', { email, password })
       localStorage.setItem('token', data.access_token)
-      navigate(data.must_change_password ? '/change-password' : '/dashboard')
+      // parceiro de tráfego só tem a área dele (ver Layout)
+      try { if (data.role === 'trafego') localStorage.setItem('perfil', 'trafego'); else localStorage.removeItem('perfil') } catch { /* ignore */ }
+      navigate(data.must_change_password ? '/change-password' : data.role === 'trafego' ? '/parceiro' : '/dashboard')
     } catch (err) {
       const detail = (err as { response?: { data?: { detail?: { code?: string; message?: string } } } })?.response?.data?.detail
       setError(detail?.message || 'Email ou senha inválidos.')
