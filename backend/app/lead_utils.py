@@ -188,3 +188,101 @@ def normalize_current_plan(current_plan):
     if current_plan.strip().lower() in SEM_PLANO:
         return "Não possui plano"
     return current_plan.strip()
+
+
+# ── Perfil do lead: vidas e faixa etária (filtros do Relatório de Leads) ──────
+# Junta as três fontes que existem hoje: o campo vidas, o campo ages_raw
+# ("33,32,89") e as observações dos leads do site ("24-28 anos: 2 pessoa(s)",
+# "Idade: 38", "Vidas: 3"). Faixas = as 10 da ANS.
+FAIXAS_ANS = [
+    (0, 18, "0-18"), (19, 23, "19-23"), (24, 28, "24-28"), (29, 33, "29-33"),
+    (34, 38, "34-38"), (39, 43, "39-43"), (44, 48, "44-48"), (49, 53, "49-53"),
+    (54, 58, "54-58"), (59, 999, "59+"),
+]
+VIDAS_BUCKETS = ["1", "2", "3-4", "5-9", "10+"]
+
+_FAIXA_NOTA_RE = re.compile(r'(\d{1,2})\s*[-–]\s*(\d{1,2})\s*anos?\s*:\s*(\d+)|59\s*\+\s*anos?\s*:\s*(\d+)', re.I)
+_IDADE_NOTA_RE = re.compile(r'\bIdades?\s*:?\**\s*(\d[^|\n]{0,80})', re.I)
+_VIDAS_NOTA_RE = re.compile(r'\bvidas?\s*:\s*([^\n|]{0,20})', re.I)
+
+
+def faixa_ans(idade: int) -> str:
+    for lo, hi, label in FAIXAS_ANS:
+        if lo <= idade <= hi:
+            return label
+    return "59+"
+
+
+def _idades_de(raw: str) -> list:
+    out = []
+    for part in re.split(r',|;|\be\b|/', raw):
+        part = part.strip().lower()
+        if not part:
+            continue
+        if re.fullmatch(r'\d{1,2}\s*m(eses?)?', part):  # bebê em meses
+            out.append(0)
+            continue
+        for n in re.findall(r'\d+', part):
+            if int(n) <= 110:
+                out.append(int(n))
+    return out
+
+
+def perfil_lead(vidas, ages_raw, notes):
+    """(vidas, idades, faixas) do lead. vidas: int ou None; idades: lista de
+    idades conhecidas; faixas: dict faixa -> pessoas."""
+    notes = notes or ""
+    idades = _idades_de(ages_raw) if ages_raw and ages_raw.strip() else []
+    if not idades:
+        m = _IDADE_NOTA_RE.search(notes)
+        if m:
+            idades = _idades_de(m.group(1))
+
+    faixas: dict = {}
+    for a in idades:
+        faixas[faixa_ans(a)] = faixas.get(faixa_ans(a), 0) + 1
+    if not idades:
+        for lo, hi, n1, n2 in _FAIXA_NOTA_RE.findall(notes):
+            label = f"{int(lo)}-{int(hi)}" if lo else "59+"
+            if label not in {f[2] for f in FAIXAS_ANS}:
+                continue
+            n = int(n1 or n2 or 0)
+            if n <= 0:
+                continue
+            # tem formulário em que a pessoa digitou a idade no lugar da
+            # quantidade ("59+ anos: 62") -- conta como 1 pessoa
+            faixas[label] = faixas.get(label, 0) + (1 if n >= 10 else n)
+
+    v = vidas if vidas else None
+    if v is None and faixas:
+        v = sum(faixas.values())
+    if v is None:
+        m = _VIDAS_NOTA_RE.search(notes)
+        if m and re.fullmatch(r'\d{1,3}', m.group(1).strip()):
+            v = int(m.group(1).strip()) or None
+    return v, idades, faixas
+
+
+def vidas_bucket(v) -> str:
+    if not v:
+        return "sem"
+    if v <= 2:
+        return str(v)
+    if v <= 4:
+        return "3-4"
+    if v <= 9:
+        return "5-9"
+    return "10+"
+
+
+def idades_resumo(idades: list, faixas: dict):
+    """Texto pra planilha/lista: idades exatas se houver, senão as faixas."""
+    if idades:
+        return ", ".join(str(a) for a in idades)
+    if faixas:
+        ordem = [f[2] for f in FAIXAS_ANS]
+        return ", ".join(
+            f"{k} anos" + (f" ({faixas[k]})" if faixas[k] > 1 else "")
+            for k in sorted(faixas, key=ordem.index)
+        )
+    return None

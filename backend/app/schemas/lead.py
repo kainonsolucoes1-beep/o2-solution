@@ -75,6 +75,8 @@ class LeadReportItem(BaseModel):
     duplicado_de_id: Optional[UUID] = None
     duplicado_de_nome: Optional[str] = None
     vidas: Optional[int] = None
+    # idades exatas ou faixas (texto), juntando campo + observações
+    idades_resumo: Optional[str] = None
     ages_raw: Optional[str] = None
     document: Optional[str] = None
     tracking_campaign: Optional[str] = None
