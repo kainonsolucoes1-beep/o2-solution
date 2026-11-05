@@ -635,7 +635,7 @@ export default function KPIs() {
   useEffect(() => {
     api.get<{ role: string; hire_date: string | null; created_at: string }>('/api/v1/auth/me').then(r => setMe(r.data)).catch(() => {})
   }, [])
-  const _hireYM = me && me.role !== 'admin' && me.role !== 'comercial'
+  const _hireYM = me && me.role !== 'admin' && me.role !== 'diretor' && me.role !== 'comercial'
     ? (me.hire_date || me.created_at || '').slice(0, 7)
     : ''
   const visibleTrend = _hireYM ? trendMonths.filter(m => m.mes >= _hireYM) : trendMonths

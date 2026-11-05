@@ -873,7 +873,7 @@ def vida_sdr_agentes(
 ):
     """Lista de agentes pro seletor do topo da Vida do Agente — so' admin e
     supervisor (o supervisor ve a propria equipe)."""
-    if current_user.role not in ("admin", "supervisor"):
+    if current_user.role not in ("admin", "diretor", "supervisor"):
         raise HTTPException(status_code=403, detail="Sem permissão.")
     if current_user.role == "supervisor":
         nomes = _agentes_do_supervisor(db, current_user)

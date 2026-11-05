@@ -1760,7 +1760,7 @@ export default function GestaoComercial() {
   const maxCap      = grupos.reduce((m, g) => Math.max(m, g.captacoes), 1)
   const dailyPoints   = diario.map(d => ({ x: d.dia, captacoes: d.captacoes, vendas: d.vendas }))
   // operador não é comparado com meses anteriores à entrada na empresa (hire_date)
-  const _hireYM = me && me.role !== 'admin' && me.role !== 'comercial' ? startYM : ''
+  const _hireYM = me && me.role !== 'admin' && me.role !== 'diretor' && me.role !== 'comercial' ? startYM : ''
   const monthlyPoints = mensal
     .filter(m => !_hireYM || m.mes >= _hireYM)
     .map(m => ({ x: m.mes_label, captacoes: m.captacoes, vendas: m.vendas }))

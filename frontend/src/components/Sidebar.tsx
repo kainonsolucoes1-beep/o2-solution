@@ -182,7 +182,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (!user) return
-    const admin = user.role === 'admin' || user.username === 'lucas@o2solution.com.br'
+    const admin = user.role === 'admin' || user.role === 'diretor' || user.username === 'lucas@o2solution.com.br'
     if (!admin) return
     let cancelled = false
     function load() {
@@ -306,6 +306,8 @@ export default function Sidebar() {
   const slim = collapsed && !isMobile
 
   const isAdmin = user?.role === 'admin' || user?.username === 'lucas@o2solution.com.br'
+  // diretor: mesma visão do admin (menus e painéis), sem as Configurações
+  const canViewAll = isAdmin || user?.role === 'diretor'
 
   // "Meu desempenho": leva o usuario/supervisor direto pra Vida do Agente dele
   // (supervisor troca de agente pelo seletor do topo da tela).
@@ -316,14 +318,14 @@ export default function Sidebar() {
   const showCampanhas = !!user && (isAdmin || !!user.is_campanha_operador)
   const campanhasChildren = [
     { to: '/campanhas/modelos', label: 'Modelos' },
-    ...(isAdmin ? [{ to: '/campanhas/dashboard', label: 'Métricas' }] : []),
+    ...(canViewAll ? [{ to: '/campanhas/dashboard', label: 'Métricas' }] : []),
   ]
   // parceiro de tráfego: só o Relatório (o backend bloqueia o resto)
   const isTrafego = user?.role === 'trafego'
   const navItems: { to: string; label: string; Icon: LucideIcon }[] = isTrafego
     ? NAV.filter(n => n.to === '/leads-report').map(({ to, label, Icon }) => ({ to, label, Icon }))
     : [
-    ...NAV.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ to, label, Icon }) => ({ to, label, Icon })),
+    ...NAV.filter(({ adminOnly }) => !adminOnly || canViewAll).map(({ to, label, Icon }) => ({ to, label, Icon })),
     ...(showMeuDesempenho
       ? [{ to: `/vida-sdr/${encodeURIComponent(meuNome)}?nome=${encodeURIComponent(meuNome)}`, label: 'Meu desempenho', Icon: UserRound }]
       : []),

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app import sms_kolmeya_import
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
+from app.security import can_view_all
 from app.api.notificacoes_routes import notificar
 from app.br_calendar import is_business_day
 from app.database import get_db
@@ -241,7 +242,7 @@ def campanhas_dashboard(
 ):
     """Métricas de Campanhas — disparo, resposta e rodízio no período. Não é
     o Dashboard geral: mede o disparo do Isaac, não a captação/venda."""
-    if not _is_admin(current_user):
+    if not can_view_all(current_user):
         raise HTTPException(status_code=403, detail="Apenas administradores podem ver o dashboard de Campanhas")
     try:
         start, _ = br_date_to_utc_range(date_from)
@@ -485,7 +486,7 @@ def sms_dashboard(
     db: Session = Depends(get_db),
 ):
     """Métricas dos lotes de SMS (Kolmeya) disparados no período."""
-    if not _is_admin(current_user):
+    if not can_view_all(current_user):
         raise HTTPException(status_code=403, detail="Apenas administradores podem ver o dashboard de Campanhas")
     try:
         start, _ = br_date_to_utc_range(date_from)
