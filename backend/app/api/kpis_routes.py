@@ -615,7 +615,7 @@ def leads_conv_point(
         "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Agendado",
         "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo", "aguardando_dados": "Aguardando dados", "sem_retorno": "Sem retorno",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
-        "pendencia": "Pendência", "documentacao_pendente": "Documentação Pendente", "emissao": "Emissão",
+        "pendencia": "Pendência", "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
     }
     venda_set    = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
@@ -1355,7 +1355,7 @@ def leads_base(
         "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Agendado",
         "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo", "aguardando_dados": "Aguardando dados", "sem_retorno": "Sem retorno",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
-        "pendencia": "Pendência", "documentacao_pendente": "Documentação Pendente", "emissao": "Emissão",
+        "pendencia": "Pendência", "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
     }
     venda_set     = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
@@ -1527,7 +1527,7 @@ def leads_faixa_etaria(
         "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Agendado",
         "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo", "aguardando_dados": "Aguardando dados", "sem_retorno": "Sem retorno",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
-        "pendencia": "Pendência", "documentacao_pendente": "Documentação Pendente", "emissao": "Emissão",
+        "pendencia": "Pendência", "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
     }
     venda_set     = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
@@ -1649,7 +1649,7 @@ def leads_plano_saude(
         "sale_not_performed": "Cancelado", "novo": "Novo", "qualificado": "Agendado",
         "scheduled": "Agendado", "proposta": "Proposta", "pending": "Novo", "aguardando_dados": "Aguardando dados", "sem_retorno": "Sem retorno",
         "proposal_sent": "Proposta Enviada", "negociacao": "Em Negociação",
-        "pendencia": "Pendência", "documentacao_pendente": "Documentação Pendente", "emissao": "Emissão",
+        "pendencia": "Pendência", "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
     }
     venda_set = {s.lower() for s in VENDA_STATUSES}
     cancelado_set = {s.lower() for s in CANCELADO_STATUSES}
