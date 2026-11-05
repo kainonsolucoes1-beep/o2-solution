@@ -57,7 +57,7 @@ _STAGE_CANON = {
 _STAGE_LABELS = {
     "novo": "Novo", "aguardando_dados": "Aguardando dados", "sem_retorno": "Sem retorno", "qualificado": "Agendado", "proposta": "Proposta",
     "negociacao": "Negociação", "pendencia": "Pendência",
-    "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
+    "documentacao_pendente": "Aguardando documentação", "emissao": "Emissão",
 }
 
 # "Captacao efetiva": quando um lead cancelado/parado e' retrabalhado

@@ -46,7 +46,7 @@ const STATUS_ROWS: [ReactNode, string, string][] = [
   [<><C>sem_retorno</C></>, 'Sem retorno', 'Em atendimento'],
   [<><C>proposta</C> / <C>proposal_sent</C></>, 'Proposta / Proposta enviada', 'Proposta'],
   [<><C>negociacao</C></>, 'Em negociação', 'Proposta'],
-  [<><C>pendencia</C> / <C>documentacao_pendente</C></>, 'Pendência / Documentação pendente', 'Fechamento'],
+  [<><C>pendencia</C> / <C>documentacao_pendente</C></>, 'Pendência / Aguardando documentação', 'Fechamento'],
   [<><C>emissao</C></>, 'Emissão', 'Fechamento'],
   [<><C>waiting_billing</C></>, 'Aguardando faturamento', 'Venda'],
   [<><C>sale_performed</C></>, 'Venda realizada', 'Venda'],
