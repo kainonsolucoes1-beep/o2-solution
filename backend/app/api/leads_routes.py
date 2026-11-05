@@ -18,7 +18,7 @@ from app.lead_scope import own_leads_clause
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.operadoras import get_operadoras
 from app.duplicidade import lead_parecido, marcar_duplicado
-from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads
+from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads, can_view_all
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
 from app.br_calendar import is_business_day
 from app import storage_r2
@@ -124,7 +124,7 @@ def list_leads(
     db: Session = Depends(get_db),
 ):
     q = db.query(Lead)
-    if not _is_admin(current_user):
+    if not can_view_all(current_user):
         q = q.filter(Lead.user_id == current_user.id)
     return q.all()
 
@@ -235,7 +235,7 @@ def leads_by_period(
         raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
 
     cutoff_24h = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
-    admin = _is_admin(current_user)
+    admin = can_view_all(current_user)
     my_name = current_user.first_name or current_user.username
 
     _active_statuses = ("pending", "novo", "new", "qualificado", "qualified", "proposal_sent")
@@ -453,7 +453,7 @@ def leads_report_stats(
         raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
 
     cutoff_24h = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
-    admin = _is_admin(current_user)
+    admin = can_view_all(current_user)
     my_name = current_user.first_name or current_user.username
 
     _active_statuses = ("pending", "novo", "new", "qualificado", "qualified", "proposal_sent")
@@ -608,7 +608,7 @@ def list_operators(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(current_user):
+    if not can_view_all(current_user):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     rows = db.query(User).filter(User.is_active.is_(True)).order_by(User.first_name).all()
     return [OperatorInfo(id=r.id, name=r.first_name or r.username) for r in rows]
@@ -703,7 +703,7 @@ def list_lost_reasons(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(current_user):
+    if not can_view_all(current_user):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     rows = (
         db.query(Lead.lost_reason)
@@ -1791,7 +1791,7 @@ def get_agenda_alerts_count(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not _is_admin(current_user):
+    if not can_view_all(current_user):
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
