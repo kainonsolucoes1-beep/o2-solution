@@ -446,7 +446,7 @@ export default function LeadNextStepPanel({
                               padding: '4px 14px', borderRadius: 99,
                               fontSize: 13, fontWeight: 600, cursor: savingStatus ? 'not-allowed' : 'pointer',
                               opacity: savingStatus ? 0.6 : 1,
-                              transition: 'all 150ms', textTransform: 'capitalize',
+                              transition: 'all 150ms',
                             }}
                           >
                             {opt.label}
