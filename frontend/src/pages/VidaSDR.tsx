@@ -277,7 +277,7 @@ function elapsedLabel(iso: string | null): { label: string; hot: boolean } {
 }
 
 // Detalhamento do "Ainda em andamento" por etapa (Novo/Qualificado/Proposta/
-// Pendência/Documentação pendente/Emissão/Negociação) — cada etapa abre a
+// Pendência/Aguardando documentação/Emissão/Negociação) — cada etapa abre a
 // lista dos leads dela, do mais parado pro mais recente, pra dar visibilidade
 // de quem está sendo atendido e quem está parado.
 function StageAccordion({ stages, total, equipeEstagios }: { stages: Estagio[]; total: number; equipeEstagios?: Record<string, number> | null }) {

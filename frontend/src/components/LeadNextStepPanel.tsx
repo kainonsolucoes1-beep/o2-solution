@@ -11,7 +11,7 @@ const STATUS_OPTIONS = [
   { value: 'sem_retorno', label: 'Sem retorno' },
   { value: 'proposta',    label: 'Proposta' },
   { value: 'pendencia',   label: 'Pendência' },
-  { value: 'documentacao_pendente', label: 'Documentação pendente' },
+  { value: 'documentacao_pendente', label: 'Aguardando documentação' },
   { value: 'emissao',     label: 'Emissão' },
   { value: 'fechado',     label: 'Fechado' },
   { value: 'convertido',  label: 'Convertido' },

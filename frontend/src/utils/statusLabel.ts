@@ -7,7 +7,7 @@ export const STATUS_LABEL: Record<string, string> = {
   proposta: 'Proposta enviada', proposal_sent: 'Proposta enviada', 'proposal sent': 'Proposta enviada',
   negociacao: 'Negociação', negociação: 'Negociação',
   pendencia: 'Pendência', pendência: 'Pendência',
-  documentacao_pendente: 'Documentação pendente', 'documentação pendente': 'Documentação pendente',
+  documentacao_pendente: 'Aguardando documentação', 'documentação pendente': 'Aguardando documentação',
   emissao: 'Emissão', emissão: 'Emissão',
   fechado: 'Fechado', closed: 'Fechado',
   convertido: 'Convertido', converted: 'Convertido',

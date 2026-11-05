@@ -256,7 +256,7 @@ _STATUS_PUBLICO = {
     "novo": "Novo", "pending": "Novo", "qualificado": "Agendado", "scheduled": "Agendado",
     "aguardando_dados": "Aguardando dados", "sem_retorno": "Sem retorno",
     "proposta": "Proposta", "proposal_sent": "Proposta enviada", "negociacao": "Em negociação",
-    "pendencia": "Pendência", "documentacao_pendente": "Documentação pendente", "emissao": "Emissão",
+    "pendencia": "Pendência", "documentacao_pendente": "Aguardando documentação", "emissao": "Emissão",
     "waiting_billing": "Aguardando faturamento", "sale_performed": "Venda realizada",
     "won": "Ganho", "fechado": "Fechado", "closed": "Fechado", "convertido": "Convertido",
     "sale_not_performed": "Cancelado",
