@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { Filter, X, Trash2, RotateCcw, Plus, Upload, Calendar, Users, Search } from 'lucide-react'
+import { Filter, X, Trash2, RotateCcw, Plus, Upload, Calendar, Users, Search, ClipboardList } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -47,6 +47,9 @@ interface LeadItem {
   updated_at: string | null
   modalidade: string | null
   campanha_canal: 'whatsapp' | 'email' | 'sms' | null
+  // vidas / idades juntando o campo da ficha e as observações do formulário
+  vidas?: number | null
+  idades_resumo?: string | null
 }
 
 interface ReportResponse {
@@ -157,6 +160,27 @@ interface StoredFilters {
   closedSubStatus: string
   teamFilter: string
   renutFilter: string
+  vidasFilter?: string
+  faixaFilter?: string
+}
+
+// filtros de perfil (multi-seleção, valores separados por vírgula na API)
+const VIDAS_OPCOES = [
+  { value: '1', label: '1 vida' }, { value: '2', label: '2' }, { value: '3-4', label: '3–4' },
+  { value: '5-9', label: '5–9' }, { value: '10+', label: '10+' }, { value: 'sem', label: 'Não informado' },
+]
+const FAIXA_OPCOES = [
+  { value: '0-18', label: '0–18' }, { value: '19-23', label: '19–23' }, { value: '24-28', label: '24–28' },
+  { value: '29-33', label: '29–33' }, { value: '34-38', label: '34–38' }, { value: '39-43', label: '39–43' },
+  { value: '44-48', label: '44–48' }, { value: '49-53', label: '49–53' }, { value: '54-58', label: '54–58' },
+  { value: '59+', label: '59+' }, { value: 'sem', label: 'Não informado' },
+]
+
+function toggleCsv(csv: string, v: string): string {
+  const set = new Set(csv.split(',').filter(Boolean))
+  if (set.has(v)) set.delete(v)
+  else set.add(v)
+  return [...set].join(',')
 }
 
 function loadStoredFilters(): Partial<StoredFilters> {
@@ -330,6 +354,8 @@ export default function LeadsReport() {
   const [lostReasonFilter, setLostReasonFilter] = useState(() => searchParams.get('lost_reason') ?? (cameFromUrlFilters ? '' : storedFilters.lostReasonFilter ?? ''))
   const [closedSubStatus, setClosedSubStatus] = useState(() => (cameFromUrlFilters ? '' : storedFilters.closedSubStatus ?? ''))
   const [teamFilter, setTeamFilter] = useState(() => searchParams.get('team') ?? (cameFromUrlFilters ? '' : storedFilters.teamFilter ?? ''))
+  const [vidasFilter, setVidasFilter] = useState(() => searchParams.get('vidas') ?? (cameFromUrlFilters ? '' : storedFilters.vidasFilter ?? ''))
+  const [faixaFilter, setFaixaFilter] = useState(() => searchParams.get('faixa_etaria') ?? (cameFromUrlFilters ? '' : storedFilters.faixaFilter ?? ''))
   const [renutFilter, setRenutFilter] = useState<'' | 'em' | 'fora'>(() => {
     const q = searchParams.get('renutricao') === 'true' ? 'em' : searchParams.get('sem_renutricao') === 'true' ? 'fora' : ''
     return (q || (cameFromUrlFilters ? '' : storedFilters.renutFilter ?? '')) as '' | 'em' | 'fora'
@@ -408,9 +434,9 @@ export default function LeadsReport() {
   }, [filterOpen])
 
   useEffect(() => {
-    const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter }
-    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore))
-  }, [dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter])
+    const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter, vidasFilter, faixaFilter }
+    try { localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore)) } catch { /* sem storage */ }
+  }, [dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter, vidasFilter, faixaFilter])
 
   const [clearTrigger, setClearTrigger] = useState(0)
 
@@ -429,6 +455,8 @@ export default function LeadsReport() {
     setClosedSubStatus('')
     setTeamFilter('')
     setRenutFilter('')
+    setVidasFilter('')
+    setFaixaFilter('')
     setStaleDays(0)
     setEstrito(false)
     setFilterOpen(false)
@@ -532,10 +560,12 @@ export default function LeadsReport() {
     if (campanhaFilter) params.campanha_midia = campanhaFilter
     if (statusFilter === STATUS_PERDIDO && lostReasonFilter) params.lost_reason = lostReasonFilter
     if (teamFilter) params.team = teamFilter
+    if (vidasFilter) params.vidas = vidasFilter
+    if (faixaFilter) params.faixa_etaria = faixaFilter
     if (staleDays > 0) params.stale_days = staleDays
     if (search.trim()) params.search = search.trim()
     return params
-  }, [dateFrom, dateTo, vencidosFilter, estrito, canFilterOperador, origem, canal, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, campanhaFilter, lostReasonFilter, teamFilter, staleDays, search])
+  }, [dateFrom, dateTo, vencidosFilter, estrito, canFilterOperador, origem, canal, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, campanhaFilter, lostReasonFilter, teamFilter, vidasFilter, faixaFilter, staleDays, search])
 
   const [selectingAll, setSelectingAll] = useState(false)
   async function selectAllFiltered() {
@@ -602,6 +632,8 @@ export default function LeadsReport() {
         'Telefone':        l.phone ?? '',
         'Origem':          l.origem ?? '',
         'Modalidade':      l.modalidade ?? '',
+        'Vidas':           l.vidas ?? '',
+        'Idades':          l.idades_resumo ?? '',
         'Status':          statusLabel(l.status),
         'Motivo de perda': l.lost_reason ?? '',
         'Valor (R$)':      l.value_potential ?? '',
@@ -1284,7 +1316,7 @@ export default function LeadsReport() {
                   {(() => {
                     const activeCount = [
                       dateFrom !== monthStart || dateTo !== today,
-                      !!origem, !!canal, !!conversionPointFilter, !!campanhaFilter, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '',
+                      !!origem, !!canal, !!conversionPointFilter, !!campanhaFilter, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '', !!vidasFilter, !!faixaFilter,
                     ].filter(Boolean).length
                     return activeCount > 0 ? (
                       <span style={{ fontFamily: 'inherit', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(37,99,235,0.12)', color: '#2563EB' }}>
@@ -1349,10 +1381,10 @@ export default function LeadsReport() {
                   </div>
                 </div>
 
-                {/* Quem & o quê */}
+                {/* Responsável e origem */}
                 <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px dashed var(--border-lt)' }}>
                   <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', margin: '0 0 10px' }}>
-                    <Users size={13} color="#2563EB" />Quem &amp; o quê
+                    <Users size={13} color="#2563EB" />Responsável e origem
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
                     <div className="flex flex-col gap-1">
@@ -1379,6 +1411,23 @@ export default function LeadsReport() {
                         />
                       )}
                     </div>
+
+                    {isAdmin && (
+                      <div className="flex flex-col gap-1">
+                        <label style={labelStyle}>Equipe</label>
+                        <select
+                          value={teamFilter}
+                          onChange={e => setTeamFilter(e.target.value)}
+                          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ color: 'var(--text-2)', width: '100%' }}
+                        >
+                          <option value="">Todas</option>
+                          {TEAM_OPTIONS.map(t => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Origem</label>
@@ -1426,6 +1475,15 @@ export default function LeadsReport() {
                       </select>
                     </div>
 
+                  </div>
+                </div>
+
+                {/* Perfil do lead */}
+                <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px dashed var(--border-lt)' }}>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', margin: '0 0 10px' }}>
+                    <ClipboardList size={13} color="#2563EB" />Perfil do lead
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
                     <div className="flex flex-col gap-1">
                       <label style={labelStyle}>Modalidade</label>
                       <select
@@ -1442,25 +1500,55 @@ export default function LeadsReport() {
                         ))}
                       </select>
                     </div>
-
-                    {isAdmin && (
-                      <div className="flex flex-col gap-1">
-                        <label style={labelStyle}>Equipe</label>
-                        <select
-                          value={teamFilter}
-                          onChange={e => setTeamFilter(e.target.value)}
-                          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          style={{ color: 'var(--text-2)', width: '100%' }}
-                        >
-                          <option value="">Todas</option>
-                          {TEAM_OPTIONS.map(t => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
                   </div>
 
+                  <label style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>Vidas</label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                    {VIDAS_OPCOES.map(opt => {
+                      const active = vidasFilter.split(',').includes(opt.value)
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => setVidasFilter(f => toggleCsv(f, opt.value))}
+                          style={{
+                            fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999,
+                            border: `1px solid ${active ? '#2563EB' : 'var(--border)'}`,
+                            background: active ? 'rgba(37,99,235,0.1)' : 'var(--bg-card)',
+                            color: active ? '#2563EB' : 'var(--text-muted)',
+                            cursor: 'pointer', transition: 'all 150ms',
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <label style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>Faixa etária <span style={{ textTransform: 'none', fontWeight: 500, letterSpacing: 0 }}>(alguém da proposta na faixa)</span></label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {FAIXA_OPCOES.map(opt => {
+                      const active = faixaFilter.split(',').includes(opt.value)
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => setFaixaFilter(f => toggleCsv(f, opt.value))}
+                          style={{
+                            fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999,
+                            border: `1px solid ${active ? '#2563EB' : 'var(--border)'}`,
+                            background: active ? 'rgba(37,99,235,0.1)' : 'var(--bg-card)',
+                            color: active ? '#2563EB' : 'var(--text-muted)',
+                            cursor: 'pointer', transition: 'all 150ms',
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px dashed var(--border-lt)' }}>
                   <label style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>Status</label>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {STATUS_PILLS.map(opt => {

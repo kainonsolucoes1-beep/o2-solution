@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.api.notificacoes_routes import notificar, notificar_novo_lead
 from app.database import get_db
-from app.lead_utils import parse_vidas, parse_idades, extract_base, normalize_conversion_point
+from app.lead_utils import parse_vidas, parse_idades, extract_base, normalize_conversion_point, perfil_lead, vidas_bucket, idades_resumo
 from app.lead_scope import own_leads_clause
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.operadoras import get_operadoras
@@ -183,6 +183,24 @@ def delete_leads_bulk(
     return BulkDeleteResponse(deleted=deleted)
 
 
+def _perfil_ids(db: Session, base_query, vidas: Optional[str], faixa_etaria: Optional[str]):
+    """Ids dos leads (dentro do filtro base) que batem com Vidas / Faixa
+    etária. None = nenhum dos dois filtros ativo."""
+    vsel = {s.strip() for s in (vidas or "").split(",") if s.strip()}
+    fsel = {s.strip() for s in (faixa_etaria or "").split(",") if s.strip()}
+    if not vsel and not fsel:
+        return None
+    ids = []
+    for lid, v, ages_raw, notes in base_query(db.query(Lead.id, Lead.vidas, Lead.ages_raw, Lead.notes)).all():
+        vv, _idades, faixas = perfil_lead(v, ages_raw, notes)
+        if vsel and vidas_bucket(vv) not in vsel:
+            continue
+        if fsel and not (fsel & set(faixas) or ("sem" in fsel and not faixas)):
+            continue
+        ids.append(lid)
+    return ids
+
+
 @router.get("/leads/by-period", response_model=LeadsReportResponse)
 def leads_by_period(
     date_from: str = Query(..., description="YYYY-MM-DD"),
@@ -202,6 +220,8 @@ def leads_by_period(
     sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
     stale_days: int = Query(0, ge=0, le=365, description="só leads ainda ativos e sem movimento há N+ dias"),
     estrito: bool = Query(False, description="aberto por um clique na Gestão Comercial: mesmo recorte dela"),
+    vidas: Optional[str] = Query(None, description="faixas de vidas separadas por vírgula: 1,2,3-4,5-9,10+,sem"),
+    faixa_etaria: Optional[str] = Query(None, description="faixas ANS separadas por vírgula (0-18 ... 59+) ou 'sem'; basta uma pessoa na faixa"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=10000),
     ids_only: bool = Query(False, description="Retorna só {ids, total} de TODOS os leads do filtro (sem paginar) — pra 'selecionar tudo'"),
@@ -314,6 +334,15 @@ def leads_by_period(
             q = q.filter(or_(*conditions))
         return q
 
+    # vidas / faixa etária vêm de 3 fontes (campo, idades e observações), então
+    # o filtro roda em Python e vira uma lista de ids pras consultas abaixo
+    _ids_perfil = _perfil_ids(db, _base_query, vidas, faixa_etaria)
+    if _ids_perfil is not None:
+        _base_query_sem_perfil = _base_query
+
+        def _base_query(q):
+            return _base_query_sem_perfil(q).filter(Lead.id.in_(_ids_perfil))
+
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
 
     if ids_only:
@@ -334,6 +363,7 @@ def leads_by_period(
                 Lead.fbclid, Lead.gclid, Lead.lgpd_processing_opt_in, Lead.lgpd_communication_opt_in,
                 Lead.first_interaction_at, Lead.last_interaction_at, Lead.team,
                 Lead.campanha_canal, Lead.campanha_status, Lead.duplicado_de_id,
+                Lead.vidas, Lead.ages_raw, Lead.notes,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -345,8 +375,14 @@ def leads_by_period(
     _dup_ids = {r.duplicado_de_id for r in rows if r.duplicado_de_id}
     _dup_nomes = dict(db.query(Lead.id, Lead.name).filter(Lead.id.in_(_dup_ids)).all()) if _dup_ids else {}
 
+    def _perfil(r):
+        v, idades, faixas = perfil_lead(r.vidas, r.ages_raw, r.notes)
+        return v, idades_resumo(idades, faixas)
+
+    _perfis = {r.id: _perfil(r) for r in rows}
     leads = [
         LeadReportItem(
+            vidas=_perfis[r.id][0], idades_resumo=_perfis[r.id][1],
             id=r.id, name=r.name, email=r.email, phone=r.phone,
             company=r.company, attendant=r.attendant,
             status=r.status, perception=r.perception,
@@ -403,6 +439,8 @@ def leads_report_stats(
     sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
     stale_days: int = Query(0, ge=0, le=365, description="só leads ainda ativos e sem movimento há N+ dias"),
     estrito: bool = Query(False, description="aberto por um clique na Gestão Comercial: mesmo recorte dela"),
+    vidas: Optional[str] = Query(None, description="faixas de vidas separadas por vírgula: 1,2,3-4,5-9,10+,sem"),
+    faixa_etaria: Optional[str] = Query(None, description="faixas ANS separadas por vírgula (0-18 ... 59+) ou 'sem'; basta uma pessoa na faixa"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -518,6 +556,15 @@ def leads_report_stats(
     _fechado_cond = func.lower(Lead.status).in_(fechados_set)
     _perdido_cond = func.lower(Lead.status) == "sale_not_performed"
     _quente_cond = Lead.perception == "Quente"
+
+    # vidas / faixa etária vêm de 3 fontes (campo, idades e observações), então
+    # o filtro roda em Python e vira uma lista de ids pras consultas abaixo
+    _ids_perfil = _perfil_ids(db, _base_query, vidas, faixa_etaria)
+    if _ids_perfil is not None:
+        _base_query_sem_perfil = _base_query
+
+        def _base_query(q):
+            return _base_query_sem_perfil(q).filter(Lead.id.in_(_ids_perfil))
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
     fechados = _base_query(db.query(func.count(Lead.id))).filter(_fechado_cond).scalar() or 0
