@@ -16,8 +16,9 @@ export const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   'negociação':         { bg: '#F5F3FF', color: '#8B5CF6' },
   pendencia:            { bg: '#FEF3C7', color: '#D97706' },
   'pendência':          { bg: '#FEF3C7', color: '#D97706' },
-  documentacao_pendente:  { bg: '#FEF3C7', color: '#D97706' },
-  'documentação pendente': { bg: '#FEF3C7', color: '#D97706' },
+  // rosa: separa de Pendência (âmbar) -- 05/11/2026
+  documentacao_pendente:  { bg: '#FDF2F8', color: '#DB2777' },
+  'documentação pendente': { bg: '#FDF2F8', color: '#DB2777' },
   emissao:              { bg: '#ECFEFF', color: '#0891B2' },
   'emissão':            { bg: '#ECFEFF', color: '#0891B2' },
   waiting_billing:      { bg: '#ECFDF5', color: '#059669' },

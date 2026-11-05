@@ -180,7 +180,7 @@ const STATUS_STYLE: Record<string, { color: string }> = {
   proposta: { color: '#D97706' },
   proposal_sent: { color: '#D97706' },
   pendencia: { color: '#B45309' },
-  documentacao_pendente: { color: '#B45309' },
+  documentacao_pendente: { color: '#DB2777' },
   emissao: { color: '#0891B2' },
   waiting_billing: { color: '#0D9488' },
   sale_performed: { color: '#059669' },
