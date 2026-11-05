@@ -452,7 +452,7 @@ export default function LeadsReport() {
         api.get<string[]>('/api/v1/leads/modalidades').then(u => setModalidades(u.data))
         api.get<string[]>('/api/v1/leads/conversion-points').then(u => setConversionPoints(u.data))
         api.get<string[]>('/api/v1/leads/campanhas-midia').then(u => setCampanhasMidia(u.data))
-        if (r.data.role === 'admin' || r.data.username === 'lucas@o2solution.com.br') {
+        if (r.data.role === 'admin' || r.data.role === 'diretor' || r.data.username === 'lucas@o2solution.com.br') {
           api.get<string[]>('/api/v1/leads/lost-reasons').then(u => setLostReasons(u.data))
         }
       })
@@ -502,6 +502,8 @@ export default function LeadsReport() {
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isAdmin = me !== null && (me.role === 'admin' || me.username === 'lucas@o2solution.com.br')
+  // diretor vê tudo que o admin vê (filtros, operador, equipe), sem as ações
+  const canViewAll = isAdmin || (me !== null && me.role === 'diretor')
   // coordenador pode atribuir leads (renutrição), mas não excluir nem as
   // outras ações admin-only desta tela.
   const canAssign = isAdmin || (me !== null && me.role === 'coordenador')
@@ -515,7 +517,7 @@ export default function LeadsReport() {
   const sitePoints = conversionPoints
     .filter(p => /^(site|www\.|https?:\/\/)/i.test(p.trim()) || /\.com\.br\/?$/i.test(p.trim()))
     .filter((p, i, all) => all.findIndex(q => q.toLowerCase() === p.toLowerCase()) === i)
-  const canFilterOperador = isAdmin || (me !== null && me.role === 'comercial')
+  const canFilterOperador = canViewAll || (me !== null && me.role === 'comercial')
 
   const reportFilterParams = useCallback((): Record<string, string | number | boolean> => {
     const params: Record<string, string | number | boolean> = { date_from: dateFrom, date_to: dateTo }
@@ -1443,7 +1445,7 @@ export default function LeadsReport() {
                       </select>
                     </div>
 
-                    {isAdmin && (
+                    {canViewAll && (
                       <div className="flex flex-col gap-1">
                         <label style={labelStyle}>Equipe</label>
                         <select

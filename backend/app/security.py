@@ -36,6 +36,15 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 FINANCIAL_ROLES = ("admin", "diretor", "financeiro", "coordenador")
 
+# quem enxerga tudo (todos os leads, operadores, status, painéis) -- o diretor
+# tem a mesma visão do admin, mas as ações de administração (excluir, gerenciar
+# usuários, mudar data de criação etc.) continuam só do admin.
+VIEW_ALL_ROLES = ("admin", "diretor")
+
+
+def can_view_all(user) -> bool:
+    return user.role in VIEW_ALL_ROLES
+
 # todos os papeis validos do sistema -- usado pra validar o seletor de
 # "visualizar como" no staging (ver auth_routes.py)
 ALL_ROLES = ("admin", "diretor", "financeiro", "coordenador", "supervisor", "comercial", "usuario", "trafego")
@@ -97,7 +106,7 @@ def needs_own_origin_filter(user) -> bool:
     supervisiona, que pertencem a outras contas). Coordenador ve a base
     inteira, sem restricao de origem."""
     # trafego: visibilidade vem do filtro global (app/trafego_scope.py)
-    return user.role not in ("admin", "coordenador", "trafego") and user.role not in COMERCIAL_ROLES
+    return user.role not in ("admin", "diretor", "coordenador", "trafego") and user.role not in COMERCIAL_ROLES
 
 
 def verify_token(token: str) -> Optional[str]:
