@@ -321,7 +321,7 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'name',            label: 'Cliente' },
   { key: 'attendant',       label: 'Atendente' },
   { key: 'origem',          label: 'Origem' },
-  { key: 'value_potential', label: 'Valor' },
+  { key: 'value_potential', label: 'Cotação' },
   { key: 'perception',      label: 'Temperatura' },
   { key: 'status',          label: 'Status' },
   { key: 'created_at',      label: 'Entrada' },
