@@ -90,6 +90,10 @@ const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 
 const FILTERS_STORAGE_KEY = 'leadsReportFilters'
 
+// Cards de resumo (Total / Fechados / Perdidos / Quentes) acima da tabela.
+// Desligados em teste na staging (06/11/2026); pra voltar, é só trocar pra true.
+const SHOW_KPI_CARDS = false
+
 const STATUS_PERDIDO = 'sale_not_performed'
 const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,convertido'
 const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
@@ -586,9 +590,11 @@ export default function LeadsReport() {
         })
         .finally(() => { if (fetchReportGenRef.current === gen) setLoading(false) })
 
-      api.get<ReportStats>('/api/v1/leads/report-stats', { params })
-        .then(r => { if (fetchReportGenRef.current === gen) setStats(r.data) })
-        .catch(() => { if (fetchReportGenRef.current === gen) setStats(null) })
+      if (SHOW_KPI_CARDS) {
+        api.get<ReportStats>('/api/v1/leads/report-stats', { params })
+          .then(r => { if (fetchReportGenRef.current === gen) setStats(r.data) })
+          .catch(() => { if (fetchReportGenRef.current === gen) setStats(null) })
+      }
 
       // quantos leads cada opção do painel traria (só muda com os filtros, não com a página)
       if (p === 1) {
@@ -914,7 +920,7 @@ export default function LeadsReport() {
           />
         )}
 
-        {stats && (
+        {SHOW_KPI_CARDS && stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {([
               { key: 'total',    label: 'Total',    value: stats.total,    accent: 'var(--accent)', active: !statusFilter && !perceptionFilter, series: stats.series?.total,    delta: stats.deltas?.total,    goodUp: true },
