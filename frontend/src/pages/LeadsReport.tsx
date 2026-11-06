@@ -1292,11 +1292,12 @@ export default function LeadsReport() {
         )}
 
         {filterOpen && (
-          <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24, overflowY: 'auto' }}>
+          <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: 24, overflowY: 'auto' }}>
             <style>{`@keyframes filterModalIn { from { opacity: 0; transform: translateY(-10px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
             <div
               onClick={e => e.stopPropagation()}
               style={{
+                margin: 'auto 0', flexShrink: 0,
                 background: 'var(--bg-card, #fff)', borderRadius: 20, width: '100%', maxWidth: 940,
                 boxShadow: '0 24px 70px rgba(0,0,0,0.3)', animation: 'filterModalIn 180ms ease-out',
                 overflow: 'hidden',
