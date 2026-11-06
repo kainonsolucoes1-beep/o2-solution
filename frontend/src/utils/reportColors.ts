@@ -30,5 +30,17 @@ export function reportPerceptionColor(perception: string | null | undefined): st
   return TEMP[perception.toLowerCase()] ?? 'var(--lr-st-outro)'
 }
 
+// cor do avatar de cada pessoa (operador / atendente): sempre a mesma pra
+// mesma pessoa, sem diferenciar maiúscula/acento ("ADM" = "Adm")
+const PESSOA_CORES = ['#2A8C7E', '#6366F1', '#F97316', '#9333EA', '#0891B2', '#DB2777', '#2563EB', '#CA8A04', '#16A34A', '#E11D48']
+
+export function personColor(nome: string | null | undefined): string {
+  const n = (nome ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  if (!n || n === 'sem operador') return '#9CA3AF'
+  let h = 0
+  for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0
+  return PESSOA_CORES[h % PESSOA_CORES.length]
+}
+
 // fundo e borda tingidos a partir da cor (funciona com variável CSS)
 export const tint = (c: string, pct: number) => `color-mix(in srgb, ${c} ${pct}%, transparent)`
