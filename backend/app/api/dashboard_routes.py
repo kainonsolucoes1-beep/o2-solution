@@ -754,7 +754,7 @@ def _placar_leads_do_dia(db: Session, start: datetime, end: datetime):
     return (
         db.query(
             Lead.id, Lead.name, Lead.phone, Lead.origin, Lead.conversion_point, Lead.campanha_midia,
-            Lead.status, Lead.attendant, Lead.renutricao_owner_id, Lead.first_interaction_at, eff.label("eff"),
+            Lead.status, Lead.attendant, Lead.renutricao_owner_id, eff.label("eff"),
         )
         .filter(eff >= start, eff < end)
         .all()
@@ -813,11 +813,9 @@ def placar_do_dia(
     for r in rows:
         local = r.eff - BR_OFFSET
         st = (r.status or "novo").strip().lower()
-        # horário do 1º contato: anotação/troca de status no o2 Sig ou, se não
-        # houver, a 1ª interação registrada no Followize -- o que vier primeiro,
-        # desde que seja depois desta captação (lead reativado tem histórico antigo)
-        candidatos = [t for t in (primeiro.get(r.id), r.first_interaction_at) if t is not None and t >= r.eff]
-        contato_at = min(candidatos) if candidatos else None
+        contato_at = primeiro.get(r.id)
+        if contato_at is not None and contato_at < r.eff:
+            contato_at = None  # nota antiga (lead reativado): não é o 1º contato desta captação
         contatado = contato_at is not None or st not in _PLACAR_NAO_CONTATADO
         espera = None
         if not contatado and hoje:
