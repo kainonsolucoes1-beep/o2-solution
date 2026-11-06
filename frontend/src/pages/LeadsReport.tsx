@@ -1139,18 +1139,18 @@ export default function LeadsReport() {
                 )}
               </div>
             )}
-            <div className="rounded-xl" style={{ background: 'var(--bg-page)' }}>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
               {report.leads.length === 0 ? (
-                <div className="py-16 text-center bg-white rounded-xl" style={{ color: 'var(--text-subtle)', fontSize: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <div style={{ padding: '64px 20px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 14 }}>
                   Nenhum lead encontrado para os filtros selecionados.
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
+                  <table className="lr-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                     <thead>
-                      <tr style={{ background: 'var(--bg-hover)' }}>
+                      <tr>
                         {canAssign && (
-                          <th style={{ padding: '11px 12px', border: '1px solid var(--border)', borderLeft: '1px solid var(--border)', borderTopLeftRadius: 10, borderBottomLeftRadius: 10, width: 1 }}>
+                          <th style={{ padding: '11px 12px 11px 16px', width: 1 }}>
                             <input
                               type="checkbox"
                               checked={report !== null && report.leads.length > 0 && report.leads.every(l => selected.has(l.id))}
@@ -1168,13 +1168,8 @@ export default function LeadsReport() {
                               fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)',
                               textTransform: 'uppercase', letterSpacing: '0.04em',
                               cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                              border: '1px solid var(--border)',
-                              borderLeft: i === 0 && !canAssign ? '1px solid var(--border)' : i === 0 ? 'none' : 'none',
-                              borderRight: i === COLUMNS.length - 1 ? '1px solid var(--border)' : 'none',
-                              borderTopLeftRadius: i === 0 && !canAssign ? 10 : 0,
-                              borderBottomLeftRadius: i === 0 && !canAssign ? 10 : 0,
-                              borderTopRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
-                              borderBottomRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
+                              paddingLeft: i === 0 && !canAssign ? 16 : 10,
+                              paddingRight: i === COLUMNS.length - 1 ? 16 : 10,
                             }}
                           >
                             {col.label}
@@ -1189,24 +1184,17 @@ export default function LeadsReport() {
                     </thead>
                     <tbody>
                       {sortedLeads.map(lead => {
-                        const rail = perceptionColor(lead.perception) ?? 'transparent'
                         return (
                         <tr
                           key={lead.id}
                           onClick={() => setPeekLead(lead)}
-                          style={{
-                            background: peekLead?.id === lead.id ? 'var(--accent-weak)' : 'var(--bg-card)',
-                            boxShadow: peekLead?.id === lead.id ? '0 0 0 1.5px var(--accent)' : '0 1px 3px rgba(0,0,0,0.08)',
-                            transition: 'background 120ms',
-                            cursor: 'pointer',
-                          }}
-                          onMouseEnter={e => { if (peekLead?.id !== lead.id) e.currentTarget.style.background = 'var(--bg-hover)' }}
-                          onMouseLeave={e => { if (peekLead?.id !== lead.id) e.currentTarget.style.background = 'var(--bg-card)' }}
+                          className={peekLead?.id === lead.id ? 'cur' : undefined}
+                          style={{ cursor: 'pointer' }}
                         >
                           {canAssign && (
                             <td
                               onClick={e => e.stopPropagation()}
-                              style={{ padding: '12px 12px', borderTopLeftRadius: 10, borderBottomLeftRadius: 10, borderLeft: `3px solid ${rail}` }}
+                              style={{ padding: '12px 12px 12px 16px' }}
                             >
                               <input
                                 type="checkbox"
@@ -1216,7 +1204,7 @@ export default function LeadsReport() {
                               />
                             </td>
                           )}
-                          <td style={{ padding: '12px 10px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', borderTopLeftRadius: canAssign ? 0 : 10, borderBottomLeftRadius: canAssign ? 0 : 10, borderLeft: canAssign ? 'none' : `3px solid ${rail}` }}>
+                          <td style={{ padding: '12px 10px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', paddingLeft: canAssign ? 10 : 16 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <span style={{
                                 width: 30, height: 30, borderRadius: 9, flexShrink: 0,
@@ -1294,7 +1282,7 @@ export default function LeadsReport() {
                               {lead.retrabalhado_em ? `reativado ${fmtAgo(lead.retrabalhado_em)}` : fmtAgo(lead.created_at)}
                             </div>
                           </td>
-                          <td style={{ padding: '12px 10px', whiteSpace: 'nowrap', borderTopRightRadius: 10, borderBottomRightRadius: 10 }}>
+                          <td style={{ padding: '12px 16px 12px 10px', whiteSpace: 'nowrap' }}>
                             <div style={{ fontSize: 13, color: 'var(--text-3b)', fontVariantNumeric: 'tabular-nums' }}>{lead.updated_at ? fmtDate(lead.updated_at) : '—'}</div>
                             {lead.updated_at && <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>{fmtAgo(lead.updated_at)}</div>}
                           </td>

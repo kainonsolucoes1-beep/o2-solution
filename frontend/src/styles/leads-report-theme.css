@@ -122,3 +122,11 @@ html.dark .lr-theme input[type="date"]::-webkit-calendar-picker-indicator { filt
 .lr-btn.soft { background: var(--accent-weak); border-color: var(--accent-line); color: var(--accent-strong); font-weight: 600; }
 .lr-btn.danger { background: var(--lr-danger-weak); border-color: var(--lr-danger-line); color: var(--lr-danger); font-weight: 600; }
 .lr-btn.sm { height: 32px; padding: 0 11px; }
+
+/* tabela do relatório: uma linha fina separando cada lead (como no mockup) */
+.lr-table thead th { background: var(--bg-card); border-bottom: 1px solid var(--border); }
+.lr-table tbody td { background: var(--bg-card); border-bottom: 1px solid var(--border-lt); height: 60px; transition: background-color .12s; }
+.lr-table tbody tr:last-child td { border-bottom: 0; }
+.lr-table tbody tr:hover td { background: var(--bg-hover); }
+.lr-table tbody tr.cur td { background: var(--accent-weak); }
+.lr-table tbody tr.cur td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
