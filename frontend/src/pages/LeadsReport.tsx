@@ -320,7 +320,7 @@ const chipX: React.CSSProperties = {
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'name',            label: 'Cliente' },
   { key: 'attendant',       label: 'Atendente' },
-  { key: 'modalidade',      label: 'Modalidade' },
+  { key: 'origem',          label: 'Origem' },
   { key: 'value_potential', label: 'Valor' },
   { key: 'perception',      label: 'Temperatura' },
   { key: 'status',          label: 'Status' },
@@ -1016,7 +1016,7 @@ export default function LeadsReport() {
         {isNarrow && panelOpen && (
           <div onClick={() => setPanelOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 90 }} />
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: panelOpen && !isNarrow ? '276px minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: panelOpen && !isNarrow ? '256px minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
         {panelOpen && (
           <div style={isNarrow
             ? { position: 'fixed', top: 12, left: 12, bottom: 12, width: 'min(300px, calc(100vw - 24px))', zIndex: 91, display: 'flex', flexDirection: 'column' }
@@ -1216,8 +1216,8 @@ export default function LeadsReport() {
                             onClick={() => handleSort(col.key)}
                             style={{
                               padding: '11px 10px', textAlign: 'left',
-                              fontSize: 11, fontWeight: 800, color: 'var(--text-2)',
-                              textTransform: 'uppercase', letterSpacing: '0.05em',
+                              fontSize: 10.5, fontWeight: 800, color: 'var(--text-2)',
+                              textTransform: 'uppercase', letterSpacing: '0.04em',
                               cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
                               border: '1px solid var(--border)',
                               borderLeft: i === 0 && !canAssign ? '1px solid var(--border)' : i === 0 ? 'none' : 'none',
@@ -1320,11 +1320,15 @@ export default function LeadsReport() {
                           <td style={{ padding: '12px 10px', fontSize: 13, color: 'var(--text-2)' }}>
                             {lead.attendant ?? '—'}
                           </td>
-                          <td style={{ padding: '12px 10px', fontSize: 13, color: 'var(--text-2)' }}>
-                            {lead.modalidade ?? '—'}
+                          <td style={{ padding: '12px 10px', maxWidth: 128 }} title={[lead.origem, lead.conversion_point].filter(Boolean).join(' · ') || undefined}>
+                            <div style={{ fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.origem || '—'}</div>
+                            {lead.conversion_point && (
+                              <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.conversion_point}</div>
+                            )}
                           </td>
-                          <td style={{ padding: '12px 10px', fontSize: 13, fontWeight: 700, color: lead.value_potential ? 'var(--text-1)' : 'var(--text-subtle)', whiteSpace: 'nowrap' }}>
-                            {fmtBRLShort(lead.value_potential)}
+                          <td style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: lead.value_potential ? 'var(--text-1)' : 'var(--text-subtle)' }}>{fmtBRLShort(lead.value_potential)}</div>
+                            {lead.modalidade && <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>{lead.modalidade}</div>}
                           </td>
                           <td style={{ padding: '12px 10px' }}>
                             <PerceptionBadge perception={lead.perception} />
