@@ -754,11 +754,48 @@ def _placar_leads_do_dia(db: Session, start: datetime, end: datetime):
     return (
         db.query(
             Lead.id, Lead.name, Lead.phone, Lead.origin, Lead.conversion_point, Lead.campanha_midia,
-            Lead.status, Lead.attendant, Lead.renutricao_owner_id, Lead.first_interaction_at, eff.label("eff"),
+            Lead.status, Lead.attendant, Lead.renutricao_owner_id, Lead.retrabalhado_em, eff.label("eff"),
         )
         .filter(eff >= start, eff < end)
         .all()
     )
+
+
+# trocas de status automáticas (sync/rodízio) não são ação de uma pessoa
+_PLACAR_AUTORES_AUTOMATICOS = {"sistema", "followize"}
+
+
+def _por_pessoa(changed_by) -> bool:
+    return bool(changed_by) and changed_by.strip().lower() not in _PLACAR_AUTORES_AUTOMATICOS
+
+
+def _placar_historico(db: Session, ids):
+    """lead_id -> lista (changed_at, to_status) das trocas de status feitas por pessoas."""
+    hist: dict = defaultdict(list)
+    if ids:
+        for lid, at, to, by in (
+            db.query(LeadStatusHistory.lead_id, LeadStatusHistory.changed_at, LeadStatusHistory.to_status, LeadStatusHistory.changed_by)
+            .filter(LeadStatusHistory.lead_id.in_(ids)).all()
+        ):
+            if at is not None and _por_pessoa(by):
+                hist[lid].append((at, (to or "").strip().lower()))
+        for v in hist.values():
+            v.sort()
+    return hist
+
+
+def _placar_entrada(r, hist) -> datetime:
+    """Momento de entrada do lead no dia. Lead de renutrição reativado tem
+    `retrabalhado_em` gravado só com a data (meia-noite de Brasília); aí a
+    entrada real é a troca pra "Novo" feita pela pessoa ao reativar."""
+    if r.retrabalhado_em is not None and r.eff == r.retrabalhado_em:
+        local = r.retrabalhado_em - BR_OFFSET
+        if (local.hour, local.minute, local.second) == (0, 0, 0):
+            fim_do_dia = r.retrabalhado_em + timedelta(days=1)
+            for at, to in hist.get(r.id, []):
+                if r.retrabalhado_em <= at < fim_do_dia and to in _PLACAR_NAO_CONTATADO:
+                    return at
+    return r.eff
 
 
 @router.get("/placar")
@@ -785,43 +822,34 @@ def placar_do_dia(
     person_names = _person_name_set(db)
     rows = _placar_leads_do_dia(db, start, end)
     owner_names = _owner_names(db, {r.renutricao_owner_id for r in rows if r.renutricao_owner_id})
-
-    # 1º contato: primeira anotação feita por uma pessoa ou primeira troca de
-    # status feita por alguém, depois da captação
     ids = [r.id for r in rows]
-    primeiro: dict = {}
+    hist = _placar_historico(db, ids)
+
+    # anotações feitas por pessoas (horário de cada uma)
+    notas: dict = defaultdict(list)
     if ids:
         for lid, at in (
-            db.query(LeadNote.lead_id, func.min(LeadNote.created_at))
-            .filter(LeadNote.lead_id.in_(ids), LeadNote.user_id.isnot(None))
-            .group_by(LeadNote.lead_id).all()
+            db.query(LeadNote.lead_id, LeadNote.created_at)
+            .filter(LeadNote.lead_id.in_(ids), LeadNote.user_id.isnot(None)).all()
         ):
-            primeiro[lid] = at
-        for lid, at in (
-            db.query(LeadStatusHistory.lead_id, func.min(LeadStatusHistory.changed_at))
-            .filter(
-                LeadStatusHistory.lead_id.in_(ids),
-                LeadStatusHistory.changed_by.isnot(None),
-                func.lower(LeadStatusHistory.to_status).notin_(list(_PLACAR_NAO_CONTATADO)),
-            )
-            .group_by(LeadStatusHistory.lead_id).all()
-        ):
-            if lid not in primeiro or (at and at < primeiro[lid]):
-                primeiro[lid] = at
+            if at is not None:
+                notas[lid].append(at)
 
     leads = []
     for r in rows:
-        local = r.eff - BR_OFFSET
+        entrada = _placar_entrada(r, hist)
+        local = entrada - BR_OFFSET
         st = (r.status or "novo").strip().lower()
-        # horário do 1º contato: anotação/troca de status no o2 Sig ou, se não
-        # houver, a 1ª interação registrada no Followize -- o que vier primeiro,
-        # desde que seja depois desta captação (lead reativado tem histórico antigo)
-        candidatos = [t for t in (primeiro.get(r.id), r.first_interaction_at) if t is not None and t >= r.eff]
+        # 1º contato: 1ª anotação ou 1ª troca de status (fora "Novo") feita por
+        # uma pessoa DEPOIS da entrada -- o histórico de antes de uma reativação
+        # não conta
+        candidatos = [t for t in notas.get(r.id, []) if t >= entrada]
+        candidatos += [at for at, to in hist.get(r.id, []) if at >= entrada and to not in _PLACAR_NAO_CONTATADO]
         contato_at = min(candidatos) if candidatos else None
         contatado = contato_at is not None or st not in _PLACAR_NAO_CONTATADO
         espera = None
         if not contatado and hoje:
-            espera = _minutos_expediente(r.eff, agora_utc)
+            espera = _minutos_expediente(entrada, agora_utc)
         atendente = owner_names.get(r.renutricao_owner_id) or (r.attendant or "").strip() or None
         if atendente and atendente.lower() == "sem atendente":
             atendente = None
@@ -837,25 +865,27 @@ def placar_do_dia(
             "status_raw": r.status,
             "atendente": atendente,
             "contatado": contatado,
-            "contato_min": _minutos_expediente(r.eff, contato_at) if contato_at else None,
+            "contato_min": _minutos_expediente(entrada, contato_at) if contato_at else None,
             "espera_min": espera,
         })
     leads.sort(key=lambda x: (x["h"], x["min"]), reverse=True)
 
     # dia anterior: hora/minuto + grupo de cada lead (comparação "até o mesmo horário")
     p_start, p_end = br_date_to_utc_range(dia - timedelta(days=1))
-    anterior = [
-        {"m": (r.eff - BR_OFFSET).hour * 60 + (r.eff - BR_OFFSET).minute,
-         "grupo": _placar_grupo(r.origin, r.conversion_point, r.campanha_midia, person_names)}
-        for r in _placar_leads_do_dia(db, p_start, p_end)
-    ]
+    p_rows = _placar_leads_do_dia(db, p_start, p_end)
+    p_hist = _placar_historico(db, [r.id for r in p_rows if r.retrabalhado_em is not None])
+    anterior = []
+    for r in p_rows:
+        e = _placar_entrada(r, p_hist) - BR_OFFSET
+        anterior.append({"m": e.hour * 60 + e.minute, "grupo": _placar_grupo(r.origin, r.conversion_point, r.campanha_midia, person_names)})
 
-    # média por hora dos 7 dias anteriores
+    # média por hora dos 7 dias anteriores (reativados no horário real da reativação)
     m_start, _ = br_date_to_utc_range(dia - timedelta(days=7))
-    eff = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
+    m_rows = _placar_leads_do_dia(db, m_start, start)
+    m_hist = _placar_historico(db, [r.id for r in m_rows if r.retrabalhado_em is not None])
     por_hora = [0] * 24
-    for (t,) in db.query(eff).filter(eff >= m_start, eff < start).all():
-        por_hora[(t - BR_OFFSET).hour] += 1
+    for r in m_rows:
+        por_hora[(_placar_entrada(r, m_hist) - BR_OFFSET).hour] += 1
     media_hora = [round(n / 7, 1) for n in por_hora]
 
     uteis = business_days_in_month(dia.year, dia.month) or 1
