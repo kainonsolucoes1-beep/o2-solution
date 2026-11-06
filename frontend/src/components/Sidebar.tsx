@@ -38,6 +38,10 @@ const NAV = [
   { to: '/telefonia',        label: 'Telefonia',        Icon: Phone,           adminOnly: true  },
 ]
 
+const DASHBOARD_CHILDREN = [
+  { to: '/dashboard/placar', label: 'Placar do dia' },
+]
+
 const SETTINGS_CHILDREN = [
   { to: '/settings/usuarios', label: 'Usuários' },
   { to: '/settings/api',      label: 'API' },
@@ -162,9 +166,9 @@ export default function Sidebar() {
   // Expanders da sidebar (Campanhas/Financeiro/Configurações) em modo "sanfona"
   // -- só um aberto por vez. Abre sozinho ao entrar numa rota do grupo; fora
   // isso, só um clique manual no cabeçalho abre/fecha.
-  const [openGroup, setOpenGroup] = useState<'campanhas' | 'financeiro' | 'settings' | null>(null)
+  const [openGroup, setOpenGroup] = useState<'dashboard' | 'campanhas' | 'financeiro' | 'settings' | null>(null)
   useEffect(() => {
-    const match = (['campanhas', 'financeiro', 'settings'] as const).find(k => location.pathname.startsWith(`/${k}`))
+    const match = (['dashboard', 'campanhas', 'financeiro', 'settings'] as const).find(k => location.pathname.startsWith(`/${k}`))
     if (match) setOpenGroup(match)
   }, [location.pathname])
 
@@ -331,7 +335,7 @@ export default function Sidebar() {
       : []),
   ]
 
-  const navLinks = navItems.map(({ to, label, Icon }) => {
+  const navLinks = navItems.filter(n => n.to !== '/dashboard').map(({ to, label, Icon }) => {
     const isActive = to.startsWith('/vida-sdr') ? location.pathname.startsWith('/vida-sdr') : location.pathname === to
     const alertCount = to === '/agenda' && agendaAlerts ? agendaAlerts.overdue + agendaAlerts.today : 0
     const alertColor = agendaAlerts && agendaAlerts.overdue > 0 ? '#EF4444' : '#F59E0B'
@@ -380,6 +384,13 @@ export default function Sidebar() {
     )
   })
 
+  // Dashboard com a sub-aba "Placar do dia" (some pro parceiro de tráfego, igual ao item antigo)
+  const dashboardGroup = navItems.some(n => n.to === '/dashboard') && (
+    <ExpandableNavGroup
+      label="Dashboard" Icon={LayoutDashboard} basePath="/dashboard" headerTo="/dashboard" children={DASHBOARD_CHILDREN} slim={slim} pathname={location.pathname}
+      open={openGroup === 'dashboard'} onToggle={() => setOpenGroup(g => g === 'dashboard' ? null : 'dashboard')}
+    />
+  )
   const campanhasGroup = showCampanhas && (
     <ExpandableNavGroup
       label="Campanhas" Icon={Megaphone} basePath="/campanhas" headerTo="/campanhas" children={campanhasChildren} slim={slim} pathname={location.pathname}
@@ -585,6 +596,7 @@ export default function Sidebar() {
             </button>
           </div>
           <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
+            {dashboardGroup}
             {navLinks}
             {campanhasGroup}
             {financeiroGroup}
@@ -627,6 +639,7 @@ export default function Sidebar() {
         </button>
       </div>
       <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
+        {dashboardGroup}
         {navLinks}
         {campanhasGroup}
         {financeiroGroup}
