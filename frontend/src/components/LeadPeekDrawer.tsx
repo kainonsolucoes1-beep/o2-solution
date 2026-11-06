@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { X, CalendarClock, Clock3, StickyNote, ArrowUpRight, RotateCcw, Plus, Pencil, ChevronUp, ChevronDown, Phone, MessageCircle, Copy, Check, Info, Activity } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
-import { reportStatusColor, reportPerceptionColor, tint } from '../utils/reportColors'
+import { reportStatusColor, reportPerceptionColor, tint, personColor } from '../utils/reportColors'
 import { fmtDateShort } from '../utils/leadFormat'
 import { parseUTC } from '../utils/date'
 
@@ -471,7 +471,7 @@ const chipOp: CSSProperties = { fontSize: 11.5, fontWeight: 600, padding: '2px 8
 function Pessoa({ nome }: { nome: string }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-      <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, color: '#fff', background: '#94A3B8' }}>
+      <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, color: '#fff', background: personColor(nome) }}>
         {nome.trim()[0]?.toUpperCase()}
       </span>
       {nome}

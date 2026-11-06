@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Calendar, Filter, Users, Target, ClipboardList, RotateCcw, Search, ChevronDown, Flame, PanelLeftClose } from 'lucide-react'
+import { personColor } from '../utils/reportColors'
 
 // Painel lateral de filtros do Relatório de Leads: seções que abrem e fecham,
 // multi-seleção e, ao lado de cada opção, quantos leads ela traria
@@ -365,7 +366,7 @@ function OptionList({ items, isOn, onToggle, max = 99, sortByCount, avatar, empt
             </span>
             {it.color && <span style={{ width: 7, height: 7, borderRadius: '50%', background: it.color, flexShrink: 0 }} />}
             {avatar && (
-              <span style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff', background: '#94A3B8' }}>
+              <span style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff', background: personColor(it.label) }}>
                 {it.label.trim()[0]?.toUpperCase()}
               </span>
             )}
