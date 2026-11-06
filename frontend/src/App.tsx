@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import ChangePassword from './pages/ChangePassword'
 import AcessoBloqueado from './pages/AcessoBloqueado'
 import Dashboard from './pages/Dashboard'
+import PlacarDia from './pages/PlacarDia'
 import LeadsReport from './pages/LeadsReport'
 import LeadDetailPage from './pages/LeadDetailPage'
 import Pipeline from './pages/Pipeline'
@@ -121,6 +122,7 @@ export default function App() {
         <Route path="/acesso-bloqueado" element={<AcessoBloqueado />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/placar" element={<PlacarDia />} />
           <Route path="/leads-report" element={<LeadsReport />} />
           <Route path="/leads/:id" element={<LeadDetailPage />} />
           <Route path="/pipeline" element={<Pipeline />} />
