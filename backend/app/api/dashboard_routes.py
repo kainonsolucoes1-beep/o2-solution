@@ -708,6 +708,33 @@ _PLACAR_STATUS = {
 }
 
 
+# Expediente da atendente: os tempos do placar (até o 1º contato e de espera)
+# só contam minutos dentro dele -- lead que chega às 22h e é atendido às 9h10
+# do dia útil seguinte conta 10 min, não 11h.
+_EXPEDIENTE_INICIO = 9
+_EXPEDIENTE_FIM = 18
+
+
+def _minutos_expediente(inicio_utc: datetime, fim_utc: datetime) -> int:
+    """Minutos entre dois instantes (UTC naive) contando só 9h–18h de Brasília
+    em dias úteis (sem fim de semana e feriado)."""
+    from app.br_calendar import is_business_day
+
+    ini, fim = inicio_utc - BR_OFFSET, fim_utc - BR_OFFSET
+    if fim <= ini:
+        return 0
+    total = 0.0
+    dia = ini.date()
+    while dia <= fim.date():
+        if is_business_day(dia):
+            a = max(ini, datetime(dia.year, dia.month, dia.day, _EXPEDIENTE_INICIO))
+            b = min(fim, datetime(dia.year, dia.month, dia.day, _EXPEDIENTE_FIM))
+            if b > a:
+                total += (b - a).total_seconds()
+        dia += timedelta(days=1)
+    return int(total // 60)
+
+
 def _placar_grupo(origin, conversion_point, campanha_midia, person_names) -> str:
     o = (origin or "").strip().lower()
     camp = (campanha_midia or "").strip().lower()
@@ -792,7 +819,7 @@ def placar_do_dia(
         contatado = contato_at is not None or st not in _PLACAR_NAO_CONTATADO
         espera = None
         if not contatado and hoje:
-            espera = max(0, int((agora_utc - r.eff).total_seconds() // 60))
+            espera = _minutos_expediente(r.eff, agora_utc)
         atendente = owner_names.get(r.renutricao_owner_id) or (r.attendant or "").strip() or None
         if atendente and atendente.lower() == "sem atendente":
             atendente = None
@@ -808,7 +835,7 @@ def placar_do_dia(
             "status_raw": r.status,
             "atendente": atendente,
             "contatado": contatado,
-            "contato_min": max(0, int((contato_at - r.eff).total_seconds() // 60)) if contato_at else None,
+            "contato_min": _minutos_expediente(r.eff, contato_at) if contato_at else None,
             "espera_min": espera,
         })
     leads.sort(key=lambda x: (x["h"], x["min"]), reverse=True)

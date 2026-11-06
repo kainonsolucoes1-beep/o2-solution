@@ -304,7 +304,7 @@ function Row1({ p }: { p: Placar }) {
       <div className="card tile">
         <div className="lbl"><Ico n="clk" />Tempo até o 1º contato</div>
         <div className="val">{mediana ?? '—'}{mediana != null && <small>min</small>}</div>
-        <div className="sub">{tempos.length ? <>mediana · <b>{em15}%</b> atendidos em até 15 min</> : 'sem contatos registrados ainda'}</div>
+        <div className="sub">{tempos.length ? <>mediana em horário útil (9h–18h) · <b>{em15}%</b> em até 15 min</> : 'sem contatos registrados ainda'}</div>
         <div className="sub" style={{ marginTop: 6 }}>{fechados} fechado{fechados !== 1 ? 's' : ''} {quando}</div>
       </div>
     </div>
