@@ -1,0 +1,124 @@
+/* Tema do Relatório de Leads (mockup aprovado em 06/11/2026).
+   Vale só dentro de .lr-theme -- o resto do o2 Sig segue o tema global.
+   Redefine os mesmos tokens do index.css, então os componentes da tela
+   (painel de filtros, tabela, drawer) mudam sem cor fixa no código. */
+
+.lr-theme {
+  --bg-page:    #F6F7F9;
+  --bg-card:    #FFFFFF;
+  --bg-subtle:  #F1F2F4;
+  --bg-faint:   #FAFBFC;
+  --bg-hover:   #F6F7F9;
+  --bg-input:   #FFFFFF;
+  --text-1:     #111827;
+  --text-2:     #111827;
+  --text-3:     #4B5563;
+  --text-3b:    #4B5563;
+  --text-muted: #4B5563;
+  --text-subtle:#8A93A3;
+  --border:     #E6E8EC;
+  --border-lt:  #EEF0F3;
+  --border-in:  #DCDFE4;
+
+  --accent:          #2A8C7E;
+  --accent-weak:     #E8F4F2;
+  --accent-line:     #BFE0DA;
+  --accent-strong:   #1E6B60;
+  --accent-hover:    #247A6E;
+  --accent-contrast: #FFFFFF;
+
+  /* status (mesmas cores das etiquetas do mockup) */
+  --lr-st-pendente:   #4B5563;
+  --lr-st-aguardando: #6366F1;
+  --lr-st-agendado:   #2563EB;
+  --lr-st-proposta:   #9333EA;
+  --lr-st-pendencia:  #D97706;
+  --lr-st-docpend:    #DB2777;
+  --lr-st-emissao:    #0891B2;
+  --lr-st-fechado:    #059669;
+  --lr-st-perdido:    #DC2626;
+  --lr-st-outro:      #6B7280;
+
+  /* temperatura */
+  --lr-quente: #DC2626;
+  --lr-morno:  #D97706;
+  --lr-frio:   #3B82F6;
+
+  /* etiquetas de operadora */
+  --lr-ops-bg: #EEF2FF;
+  --lr-ops-tx: #4F46E5;
+
+  --lr-danger:       #DC2626;
+  --lr-danger-weak:  #FEF2F2;
+  --lr-danger-line:  #FECACA;
+
+  background: var(--bg-page);
+  color: var(--text-1);
+}
+
+html.dark .lr-theme {
+  --bg-page:    #0E1014;
+  --bg-card:    #16191F;
+  --bg-subtle:  #1D2128;
+  --bg-faint:   #13161B;
+  --bg-hover:   #1D2128;
+  --bg-input:   #16191F;
+  --text-1:     #E8EAED;
+  --text-2:     #E8EAED;
+  --text-3:     #B3B9C3;
+  --text-3b:    #B3B9C3;
+  --text-muted: #B3B9C3;
+  --text-subtle:#7A8392;
+  --border:     #272B34;
+  --border-lt:  #1E2128;
+  --border-in:  #2F343E;
+
+  --accent:          #35B09E;
+  --accent-weak:     rgba(53, 176, 158, 0.14);
+  --accent-line:     rgba(53, 176, 158, 0.38);
+  --accent-strong:   #6FD6C5;
+  --accent-hover:    #45C2AF;
+  --accent-contrast: #06201C;
+
+  --lr-st-pendente:   #A3AAB6;
+  --lr-st-aguardando: #8B95FA;
+  --lr-st-agendado:   #60A5FA;
+  --lr-st-proposta:   #C084FC;
+  --lr-st-pendencia:  #FBBF24;
+  --lr-st-docpend:    #F472B6;
+  --lr-st-emissao:    #22D3EE;
+  --lr-st-fechado:    #34D399;
+  --lr-st-perdido:    #F87171;
+  --lr-st-outro:      #9CA3AF;
+
+  --lr-quente: #F87171;
+  --lr-morno:  #FBBF24;
+  --lr-frio:   #60A5FA;
+
+  --lr-ops-bg: rgba(129, 140, 248, 0.16);
+  --lr-ops-tx: #A5B4FC;
+
+  --lr-danger:       #F87171;
+  --lr-danger-weak:  rgba(248, 113, 113, 0.12);
+  --lr-danger-line:  rgba(248, 113, 113, 0.35);
+
+  color-scheme: dark;
+}
+
+.lr-theme input[type="checkbox"] { accent-color: var(--accent); }
+html.dark .lr-theme input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+
+/* botões no padrão do mockup */
+.lr-btn {
+  display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px;
+  border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text-1); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+  white-space: nowrap; transition: background-color .15s, border-color .15s, color .15s;
+}
+.lr-btn:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--border-in); }
+.lr-btn:disabled { opacity: .5; cursor: not-allowed; }
+.lr-btn.pri { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); font-weight: 600; }
+.lr-btn.pri:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.lr-btn.soft { background: var(--accent-weak); border-color: var(--accent-line); color: var(--accent-strong); font-weight: 600; }
+.lr-btn.danger { background: var(--lr-danger-weak); border-color: var(--lr-danger-line); color: var(--lr-danger); font-weight: 600; }
+.lr-btn.sm { height: 32px; padding: 0 11px; }

@@ -179,9 +179,9 @@ export default function ReportFilterPanel(p: Props) {
         <Section k="temp" icon={<Flame size={14} />} title="Temperatura" badge={csvSet(v.perception).size || ''} closed={closed} onToggle={toggleSec}>
           <OptionList
             items={[
-              { value: 'Quente', label: 'Quente', color: '#DC2626' },
-              { value: 'Morno', label: 'Morno', color: '#D97706' },
-              { value: 'Frio', label: 'Frio', color: '#3B82F6' },
+              { value: 'Quente', label: 'Quente', color: 'var(--lr-quente)' },
+              { value: 'Morno', label: 'Morno', color: 'var(--lr-morno)' },
+              { value: 'Frio', label: 'Frio', color: 'var(--lr-frio)' },
             ].map(o => ({ ...o, count: facets?.perception ? facets.perception[o.value] ?? 0 : undefined }))}
             isOn={x => csvSet(v.perception).has(x)}
             onToggle={x => onChange({ perception: toggleIn(v.perception, x) })}
@@ -317,7 +317,7 @@ function Section({ k, icon, title, badge, closed, onToggle, children, last }: {
         <span style={{ color: 'var(--accent)', display: 'flex' }}>{icon}</span>
         {title}
         {badge !== '' && badge !== 0 && (
-          <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 10, background: 'var(--accent-weak)', color: 'var(--accent)' }}>{badge}</span>
+          <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 10, background: 'var(--accent-weak)', color: 'var(--accent-strong, var(--accent))' }}>{badge}</span>
         )}
         <ChevronDown size={14} style={{ marginLeft: badge !== '' && badge !== 0 ? 4 : 'auto', color: 'var(--text-subtle)', transform: isClosed ? 'rotate(-90deg)' : 'none', transition: 'transform 150ms' }} />
       </button>
@@ -361,7 +361,7 @@ function OptionList({ items, isOn, onToggle, max = 99, sortByCount, avatar, empt
               border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border-in)'}`, background: on ? 'var(--accent)' : 'var(--bg-input)',
               transition: 'all 100ms',
             }}>
-              {on && <svg width="9" height="9" viewBox="0 0 12 12"><path d="M2.5 6.2 5 8.6l4.5-5" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+              {on && <svg width="9" height="9" viewBox="0 0 12 12"><path d="M2.5 6.2 5 8.6l4.5-5" fill="none" style={{ stroke: 'var(--accent-contrast, #fff)' }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
             </span>
             {it.color && <span style={{ width: 7, height: 7, borderRadius: '50%', background: it.color, flexShrink: 0 }} />}
             {avatar && (
@@ -401,8 +401,8 @@ function SegBtn({ on, onClick, children, dim }: { on: boolean; onClick: () => vo
     <button onClick={onClick} style={{
       height: 28, padding: '0 9px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
       fontSize: 12, fontWeight: on ? 600 : 500, display: 'inline-flex', alignItems: 'center',
-      border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-      background: on ? 'var(--accent-weak)' : 'var(--bg-card)', color: on ? 'var(--accent)' : 'var(--text-3b)',
+      border: `1px solid ${on ? 'var(--accent-line, var(--accent))' : 'var(--border)'}`,
+      background: on ? 'var(--accent-weak)' : 'var(--bg-card)', color: on ? 'var(--accent-strong, var(--accent))' : 'var(--text-3b)',
       opacity: dim && !on ? 0.5 : 1, transition: 'all 120ms',
     }}>
       {children}
