@@ -218,8 +218,8 @@ const STATUS_STYLE: Record<string, { color: string }> = {
 }
 
 const CANAL_TAG_STYLE: Record<'whatsapp' | 'email' | 'sms', { label: string; color: string; bg: string }> = {
-  whatsapp: { label: 'WHATSAPP', color: '#16A34A', bg: '#EAF7EE' },
-  email:    { label: 'E-MAIL',   color: '#3B82F6', bg: '#EAF1FE' },
+  whatsapp: { label: 'WhatsApp', color: '#16A34A', bg: '#EAF7EE' },
+  email:    { label: 'E-mail',   color: '#3B82F6', bg: '#EAF1FE' },
   sms:      { label: 'SMS',      color: '#8B5CF6', bg: '#F2EEFE' },
 }
 
@@ -240,8 +240,9 @@ function TonalPill({ color, children }: { color: string; children: React.ReactNo
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
-      fontSize: 11.5, fontWeight: 700, padding: '3px 9px', borderRadius: 7,
-      background: `color-mix(in srgb, ${color} 12%, transparent)`, color,
+      fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 20,
+      background: `color-mix(in srgb, ${color} 10%, transparent)`, color,
+      border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
     }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }} />
       {children}
@@ -263,7 +264,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 function PerceptionBadge({ perception }: { perception: string | null }) {
   const c = perceptionColor(perception)
   if (!c) return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 7, background: 'var(--bg-subtle)', color: 'var(--text-subtle)' }}>—</span>
+    <span style={{ color: 'var(--text-subtle)' }}>—</span>
   )
   return <TonalPill color={c}>{perception}</TonalPill>
 }
@@ -858,7 +859,7 @@ export default function LeadsReport() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Relatório de Leads</h1>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Relatório de Leads</h1>
               {report && (
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-subtle)' }}>{report.total} lead{report.total !== 1 ? 's' : ''}</span>
               )}
@@ -1003,7 +1004,7 @@ export default function LeadsReport() {
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginBottom: 6 }}>{s.value}</div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginBottom: 6 }}>{s.value}</div>
                 {s.series && s.series.some(v => v > 0)
                   ? <Sparkline data={s.series} color={s.accent} />
                   : <div style={{ height: 26 }} />}
@@ -1067,7 +1068,7 @@ export default function LeadsReport() {
                 key={v.key}
                 onClick={() => applyView(v.key)}
                 style={{
-                  font: 'inherit', fontSize: 12.5, fontWeight: on ? 700 : 500, cursor: 'pointer',
+                  font: 'inherit', fontSize: 13, fontWeight: on ? 600 : 500, cursor: 'pointer',
                   padding: '8px 12px', border: 'none', background: 'none',
                   color: on ? 'var(--accent)' : 'var(--text-muted)',
                   borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`,
@@ -1086,7 +1087,7 @@ export default function LeadsReport() {
             <button
               onClick={() => setPanelOpen(true)}
               title="Mostrar filtros"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               <PanelLeftOpen size={15} /> Filtros
               {activeCount > 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: '0 6px', borderRadius: 9, background: 'var(--accent)', color: '#fff' }}>{activeCount}</span>}
@@ -1099,7 +1100,7 @@ export default function LeadsReport() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar por nome, CPF/CNPJ, telefone ou email"
-              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 12.5, color: 'var(--text-2)' }}
+              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--text-2)' }}
             />
             {search && (
               <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex', padding: 0 }}>
@@ -1107,7 +1108,7 @@ export default function LeadsReport() {
               </button>
             )}
           </div>
-          <span style={{ fontSize: 12.5, color: 'var(--text-subtle)', whiteSpace: 'nowrap', marginLeft: 4 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-subtle)', whiteSpace: 'nowrap', marginLeft: 4 }}>
             {loading ? 'Buscando…' : report ? <><strong style={{ color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{report.total.toLocaleString('pt-BR')}</strong> lead{report.total !== 1 ? 's' : ''}</> : null}
           </span>
           <button
@@ -1115,7 +1116,7 @@ export default function LeadsReport() {
             disabled={exporting || !report || report.total === 0}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 8,
-              border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
+              border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, fontFamily: 'inherit',
               cursor: exporting || !report || report.total === 0 ? 'not-allowed' : 'pointer', opacity: !report || report.total === 0 ? 0.5 : 1,
             }}
           >
@@ -1216,7 +1217,7 @@ export default function LeadsReport() {
                             onClick={() => handleSort(col.key)}
                             style={{
                               padding: '11px 10px', textAlign: 'left',
-                              fontSize: 10.5, fontWeight: 800, color: 'var(--text-2)',
+                              fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)',
                               textTransform: 'uppercase', letterSpacing: '0.04em',
                               cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
                               border: '1px solid var(--border)',
@@ -1279,21 +1280,21 @@ export default function LeadsReport() {
                               </span>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{lead.name}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{lead.name}</span>
                                   {lead.duplicado_de_id && (
                                     <span
                                       title={`Possível duplicado: os dados já estão no lead ${lead.duplicado_de_nome ?? '(outro lead)'}`}
-                                      style={{ fontSize: 9, fontWeight: 800, color: 'var(--warning)', background: 'var(--warning-weak)', borderRadius: 5, padding: '2px 5px', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                                      DUPLICADO
+                                      style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--warning)', background: 'var(--warning-weak)', borderRadius: 5, padding: '2px 6px', whiteSpace: 'nowrap' }}>
+                                      Duplicado
                                     </span>
                                   )}
                                   {lead.campanha_canal ? (
                                     <span
                                       title="Em campanha de disparo — não reatribuir pra evitar conflito"
                                       style={{
-                                        fontSize: 9, fontWeight: 800, color: CANAL_TAG_STYLE[lead.campanha_canal].color,
-                                        background: CANAL_TAG_STYLE[lead.campanha_canal].bg, borderRadius: 5, padding: '2px 5px',
-                                        letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                                        fontSize: 10.5, fontWeight: 600, color: CANAL_TAG_STYLE[lead.campanha_canal].color,
+                                        background: `color-mix(in srgb, ${CANAL_TAG_STYLE[lead.campanha_canal].color} 13%, transparent)`, borderRadius: 5, padding: '2px 6px',
+                                        whiteSpace: 'nowrap',
                                       }}>
                                       {CANAL_TAG_STYLE[lead.campanha_canal].label}
                                     </span>
@@ -1301,27 +1302,27 @@ export default function LeadsReport() {
                                     <span
                                       title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
                                       style={{
-                                        fontSize: 9, fontWeight: 800, color: '#7C3AED',
-                                        background: '#F3F0FF', borderRadius: 5, padding: '2px 5px',
-                                        letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                                        fontSize: 10.5, fontWeight: 600, color: '#8B5CF6',
+                                        background: 'color-mix(in srgb, #8B5CF6 13%, transparent)', borderRadius: 5, padding: '2px 6px',
+                                        whiteSpace: 'nowrap',
                                       }}>
-                                      RENUTRIÇÃO
+                                      Renutrição
                                     </span>
                                   )}
                                 </div>
                                 {(lead.phone || lead.email) && (
-                                  <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>
+                                  <div style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>
                                     {lead.phone || lead.email}
                                   </div>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td style={{ padding: '12px 10px', fontSize: 13, color: 'var(--text-2)' }}>
+                          <td style={{ padding: '12px 10px', fontSize: 13, color: 'var(--text-3b)' }}>
                             {lead.attendant ?? '—'}
                           </td>
                           <td style={{ padding: '12px 10px', maxWidth: 128 }} title={[lead.origem, lead.conversion_point].filter(Boolean).join(' · ') || undefined}>
-                            <div style={{ fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.origem || '—'}</div>
+                            <div style={{ fontSize: 13, color: 'var(--text-3b)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.origem || '—'}</div>
                             {lead.conversion_point && (
                               <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.conversion_point}</div>
                             )}
@@ -1340,13 +1341,13 @@ export default function LeadsReport() {
                             title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
                             style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}
                           >
-                            <div style={{ fontSize: 13, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(lead.created_at)}</div>
+                            <div style={{ fontSize: 13, color: 'var(--text-3b)', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(lead.created_at)}</div>
                             <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>
                               {lead.retrabalhado_em ? `reativado ${fmtAgo(lead.retrabalhado_em)}` : fmtAgo(lead.created_at)}
                             </div>
                           </td>
                           <td style={{ padding: '12px 10px', whiteSpace: 'nowrap', borderTopRightRadius: 10, borderBottomRightRadius: 10 }}>
-                            <div style={{ fontSize: 13, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{lead.updated_at ? fmtDate(lead.updated_at) : '—'}</div>
+                            <div style={{ fontSize: 13, color: 'var(--text-3b)', fontVariantNumeric: 'tabular-nums' }}>{lead.updated_at ? fmtDate(lead.updated_at) : '—'}</div>
                             {lead.updated_at && <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>{fmtAgo(lead.updated_at)}</div>}
                           </td>
                         </tr>

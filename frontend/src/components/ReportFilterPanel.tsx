@@ -78,7 +78,7 @@ function toggleIn(csv: string, v: string) {
   return [...s].join(',')
 }
 
-const SUB: CSSProperties = { fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '12px 0 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }
+const SUB: CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '12px 0 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }
 
 export default function ReportFilterPanel(p: Props) {
   const { value: v, onChange, facets } = p
@@ -277,7 +277,7 @@ export default function ReportFilterPanel(p: Props) {
               return (
                 <button key={lbl} onClick={() => onChange({ renut: val })} style={{
                   flex: 1, padding: '6px 4px', border: 'none', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
-                  fontSize: 11.5, fontWeight: on ? 700 : 500, whiteSpace: 'nowrap',
+                  fontSize: 12, fontWeight: on ? 600 : 500, whiteSpace: 'nowrap',
                   background: on ? 'var(--bg-card)' : 'transparent', color: on ? 'var(--text-1)' : 'var(--text-muted)',
                   boxShadow: on ? '0 1px 3px rgba(15,23,42,0.14)' : 'none',
                 }}>
@@ -317,7 +317,7 @@ function Section({ k, icon, title, badge, closed, onToggle, children, last }: {
         <span style={{ color: 'var(--accent)', display: 'flex' }}>{icon}</span>
         {title}
         {badge !== '' && badge !== 0 && (
-          <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--accent-weak)', color: 'var(--accent)' }}>{badge}</span>
+          <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 10, background: 'var(--accent-weak)', color: 'var(--accent)' }}>{badge}</span>
         )}
         <ChevronDown size={14} style={{ marginLeft: badge !== '' && badge !== 0 ? 4 : 'auto', color: 'var(--text-subtle)', transform: isClosed ? 'rotate(-90deg)' : 'none', transition: 'transform 150ms' }} />
       </button>
@@ -351,7 +351,7 @@ function OptionList({ items, isOn, onToggle, max = 99, sortByCount, avatar, empt
             style={{
               width: 'calc(100% + 12px)', margin: '0 -6px', display: 'flex', alignItems: 'center', gap: 9, padding: '5px 6px',
               border: 'none', background: 'none', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-              fontSize: 12.5, color: on ? 'var(--text-1)' : 'var(--text-3b)', fontWeight: on ? 600 : 400, opacity: zero ? 0.5 : 1,
+              fontSize: 13, color: on ? 'var(--text-1)' : 'var(--text-3b)', fontWeight: on ? 500 : 400, opacity: zero ? 0.5 : 1,
             }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
@@ -370,7 +370,7 @@ function OptionList({ items, isOn, onToggle, max = 99, sortByCount, avatar, empt
               </span>
             )}
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={it.label}>{it.label}</span>
-            {it.count != null && <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>{it.count}</span>}
+            {it.count != null && <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums', fontWeight: 400 }}>{it.count}</span>}
           </button>
         )
       })}
@@ -400,7 +400,7 @@ function SegBtn({ on, onClick, children, dim }: { on: boolean; onClick: () => vo
   return (
     <button onClick={onClick} style={{
       height: 28, padding: '0 9px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
-      fontSize: 12, fontWeight: on ? 700 : 500, display: 'inline-flex', alignItems: 'center',
+      fontSize: 12, fontWeight: on ? 600 : 500, display: 'inline-flex', alignItems: 'center',
       border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
       background: on ? 'var(--accent-weak)' : 'var(--bg-card)', color: on ? 'var(--accent)' : 'var(--text-3b)',
       opacity: dim && !on ? 0.5 : 1, transition: 'all 120ms',
@@ -422,7 +422,7 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
   )
 }
 
-const linkBtn: CSSProperties = { border: 'none', background: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }
+const linkBtn: CSSProperties = { border: 'none', background: 'none', color: 'var(--accent)', fontWeight: 600, fontSize: 12, cursor: 'pointer', padding: 0, fontFamily: 'inherit' }
 const iconBtn: CSSProperties = { width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 const miniSearch: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, height: 30, padding: '0 9px', border: '1px solid var(--border-in)', borderRadius: 8, marginBottom: 6, background: 'var(--bg-input)' }
 const miniInput: CSSProperties = { border: 'none', outline: 'none', background: 'transparent', flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text-1)', fontFamily: 'inherit' }
