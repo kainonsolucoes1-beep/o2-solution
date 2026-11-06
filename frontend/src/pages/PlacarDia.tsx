@@ -252,6 +252,7 @@ function Row1({ p }: { p: Placar }) {
   const tempos = atendidos.map(l => l.contato_min).filter((t): t is number => t != null).sort((a, b) => a - b)
   const mediana = tempos.length ? tempos[Math.floor(tempos.length / 2)] : null
   const em15 = pct(tempos.filter(t => t <= 15).length, tempos.length)
+  const semHorario = atendidos.length - tempos.length
   const fechados = all.filter(l => l.status === 'fech').length
   const projecao = p.hoje && mediaAte > 0 ? Math.round(total / mediaAte * p.media_dia) : total
   const pAt = pct(atendidos.length, total)
@@ -304,7 +305,11 @@ function Row1({ p }: { p: Placar }) {
       <div className="card tile">
         <div className="lbl"><Ico n="clk" />Tempo até o 1º contato</div>
         <div className="val">{mediana ?? '—'}{mediana != null && <small>min</small>}</div>
-        <div className="sub">{tempos.length ? <>mediana em horário útil (9h–18h) · <b>{em15}%</b> em até 15 min</> : 'sem contatos registrados ainda'}</div>
+        <div className="sub">{tempos.length
+            ? <>mediana em horário útil (9h–18h) · <b>{em15}%</b> em até 15 min{semHorario > 0 && <> · {semHorario} sem horário</>}</>
+            : atendidos.length
+              ? <><b>{atendidos.length}</b> contatado{atendidos.length !== 1 ? 's' : ''}, mas sem horário do contato registrado</>
+              : 'nenhum contato ainda'}</div>
         <div className="sub" style={{ marginTop: 6 }}>{fechados} fechado{fechados !== 1 ? 's' : ''} {quando}</div>
       </div>
     </div>
