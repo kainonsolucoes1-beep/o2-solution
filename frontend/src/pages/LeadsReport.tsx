@@ -12,7 +12,8 @@ import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
 import AssignRenutricaoModal from '../components/AssignRenutricaoModal'
 import LeadPeekDrawer from '../components/LeadPeekDrawer'
 import ReportFilterPanel, { csvSet, type FilterValues, type ReportFacets } from '../components/ReportFilterPanel'
-import { useTheme } from '../ThemeContext'
+import '../styles/leads-report-theme.css'
+import { reportStatusColor, reportPerceptionColor, tint } from '../utils/reportColors'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 interface Me {
@@ -102,16 +103,16 @@ const STATUS_PENDENCIA = 'pendencia,documentacao_pendente'
 const STATUS_EMISSAO = 'emissao'
 
 const STATUS_PILLS: { value: string; label: string; color: string; bg: string; border: string }[] = [
-  { value: '',                label: 'Todos',        color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
-  { value: STATUS_PENDENTE,   label: 'Pendente',      color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
-  { value: STATUS_AGUARDANDO_DADOS, label: 'Aguardando dados', color: '#6366F1', bg: '#EEF2FF', border: '#C7D2FE' },
+  { value: '',                label: 'Todos',        color: 'var(--lr-st-pendente)', bg: '', border: '' },
+  { value: STATUS_PENDENTE,   label: 'Pendente',      color: 'var(--lr-st-pendente)', bg: '', border: '' },
+  { value: STATUS_AGUARDANDO_DADOS, label: 'Aguardando dados', color: 'var(--lr-st-aguardando)', bg: '', border: '' },
   { value: STATUS_SEM_RETORNO, label: 'Sem retorno',  color: 'var(--status-sem-retorno)', bg: 'var(--status-sem-retorno-bg)', border: 'var(--status-sem-retorno-border)' },
-  { value: STATUS_AGENDADO,   label: 'Agendado',      color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
-  { value: STATUS_PROPOSTA,   label: 'Proposta',      color: '#9333EA', bg: '#FAF5FF', border: '#E9D5FF' },
-  { value: STATUS_PENDENCIA,  label: 'Pendência',     color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
-  { value: STATUS_EMISSAO,    label: 'Emissão',       color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
-  { value: STATUS_FECHADO,    label: 'Fechado',       color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
-  { value: STATUS_PERDIDO,    label: 'Perdido',       color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  { value: STATUS_AGENDADO,   label: 'Agendado',      color: 'var(--lr-st-agendado)', bg: '', border: '' },
+  { value: STATUS_PROPOSTA,   label: 'Proposta',      color: 'var(--lr-st-proposta)', bg: '', border: '' },
+  { value: STATUS_PENDENCIA,  label: 'Pendência',     color: 'var(--lr-st-pendencia)', bg: '', border: '' },
+  { value: STATUS_EMISSAO,    label: 'Emissão',       color: 'var(--lr-st-emissao)', bg: '', border: '' },
+  { value: STATUS_FECHADO,    label: 'Fechado',       color: 'var(--lr-st-fechado)', bg: '', border: '' },
+  { value: STATUS_PERDIDO,    label: 'Perdido',       color: 'var(--lr-st-perdido)', bg: '', border: '' },
 ]
 
 // Atalhos de período do painel de filtros -- cada um calcula um intervalo
@@ -193,29 +194,6 @@ function loadStoredFilters(): Partial<StoredFilters> {
   }
 }
 
-const STATUS_STYLE: Record<string, { color: string }> = {
-  novo: { color: '#3B82F6' },
-  new: { color: '#3B82F6' },
-  pending: { color: '#3B82F6' },
-  aguardando_dados: { color: '#6366F1' },
-  sem_retorno: { color: 'var(--status-sem-retorno)' },
-  qualificado: { color: '#7C3AED' },
-  qualified: { color: '#7C3AED' },
-  scheduled: { color: '#7C3AED' },
-  proposta: { color: '#D97706' },
-  proposal_sent: { color: '#D97706' },
-  pendencia: { color: '#B45309' },
-  documentacao_pendente: { color: '#DB2777' },
-  emissao: { color: '#0891B2' },
-  waiting_billing: { color: '#0D9488' },
-  sale_performed: { color: '#059669' },
-  fechado: { color: '#059669' },
-  closed: { color: '#059669' },
-  won: { color: '#059669' },
-  convertido: { color: '#059669' },
-  converted: { color: '#059669' },
-  sale_not_performed: { color: '#DC2626' },
-}
 
 const CANAL_TAG_STYLE: Record<'whatsapp' | 'email' | 'sms', { label: string; color: string; bg: string }> = {
   whatsapp: { label: 'WhatsApp', color: '#16A34A', bg: '#EAF7EE' },
@@ -223,15 +201,8 @@ const CANAL_TAG_STYLE: Record<'whatsapp' | 'email' | 'sms', { label: string; col
   sms:      { label: 'SMS',      color: '#8B5CF6', bg: '#F2EEFE' },
 }
 
-const PERCEPTION_STYLE: Record<string, { color: string }> = {
-  quente: { color: '#DC2626' },
-  morno: { color: '#D97706' },
-  frio: { color: '#3B82F6' },
-}
-
 function perceptionColor(perception: string | null): string | null {
-  if (!perception) return null
-  return (PERCEPTION_STYLE[perception.toLowerCase()] ?? { color: '#6B7280' }).color
+  return reportPerceptionColor(perception)
 }
 
 // Cápsula tonal (intensidade "equilibrada"): fundo levemente tingido + texto
@@ -256,7 +227,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   const pts = data.map((v, i) => `${(i / Math.max(data.length - 1, 1)) * w},${(h - 2) - (v / max) * (h - 5)}`).join(' ')
   return (
     <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: 'block' }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <polyline points={pts} fill="none" style={{ stroke: color }} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }
@@ -296,9 +267,7 @@ function fmtBRLShort(n: number | null): string {
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  const key = (status ?? 'novo').toLowerCase()
-  const s = STATUS_STYLE[key] ?? { color: '#6B7280' }
-  return <TonalPill color={s.color}>{statusLabel(status)}</TonalPill>
+  return <TonalPill color={reportStatusColor(status)}>{statusLabel(status)}</TonalPill>
 }
 
 function getPagesRange(current: number, total: number): (number | '...')[] {
@@ -330,7 +299,6 @@ const COLUMNS: { key: SortKey; label: string }[] = [
 ]
 
 export default function LeadsReport() {
-  const { dark } = useTheme()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -854,7 +822,7 @@ export default function LeadsReport() {
 
   return (
     <>
-    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
+    <main className="lr-theme px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ minHeight: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
@@ -882,12 +850,7 @@ export default function LeadsReport() {
             {canAssign && selected.size > 0 && (
               <button
                 onClick={() => setAssignOpen(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  background: 'var(--accent-weak)', color: 'var(--accent)', border: '1px solid var(--accent-weak)',
-                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                }}
+                className="lr-btn soft"
               >
                 <RotateCcw size={15} />
                 Atribuir ({selected.size})
@@ -896,12 +859,7 @@ export default function LeadsReport() {
             {isAdmin && selected.size > 0 && (
               <button
                 onClick={() => setConfirmDeleteOpen(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
-                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                }}
+                className="lr-btn danger"
               >
                 <Trash2 size={15} />
                 Excluir ({selected.size})
@@ -909,12 +867,7 @@ export default function LeadsReport() {
             )}
             {!isTrafego && <button
               onClick={() => { resetNewLead(); setNewLeadOpen(true) }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                background: '#2563EB', color: '#fff', border: '1px solid #2563EB',
-                cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
+              className="lr-btn pri"
             >
               <Plus size={15} />
               Novo Lead
@@ -923,12 +876,7 @@ export default function LeadsReport() {
             {isAdmin && (
               <button
                 onClick={() => setImportOpen(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)',
-                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                }}
+                className="lr-btn"
               >
                 <Upload size={15} />
                 Importar Renutrição
@@ -969,10 +917,10 @@ export default function LeadsReport() {
         {stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {([
-              { key: 'total',    label: 'Total',    value: stats.total,    accent: '#7C93C4', active: !statusFilter && !perceptionFilter, series: stats.series?.total,    delta: stats.deltas?.total,    goodUp: true },
-              { key: 'fechados', label: 'Fechados', value: stats.fechados, accent: '#0F9D58', active: statusFilter === STATUS_FECHADO,        series: stats.series?.fechados, delta: stats.deltas?.fechados, goodUp: true },
-              { key: 'perdidos', label: 'Perdidos', value: stats.perdidos, accent: '#E1394A', active: statusFilter === STATUS_PERDIDO,        series: stats.series?.perdidos, delta: stats.deltas?.perdidos, goodUp: false },
-              { key: 'quentes',  label: 'Quentes',  value: stats.quentes,  accent: '#D97706', active: perceptionFilter === 'Quente',           series: stats.series?.quentes,  delta: stats.deltas?.quentes,  goodUp: true },
+              { key: 'total',    label: 'Total',    value: stats.total,    accent: 'var(--accent)', active: !statusFilter && !perceptionFilter, series: stats.series?.total,    delta: stats.deltas?.total,    goodUp: true },
+              { key: 'fechados', label: 'Fechados', value: stats.fechados, accent: 'var(--lr-st-fechado)', active: statusFilter === STATUS_FECHADO,        series: stats.series?.fechados, delta: stats.deltas?.fechados, goodUp: true },
+              { key: 'perdidos', label: 'Perdidos', value: stats.perdidos, accent: 'var(--lr-st-perdido)', active: statusFilter === STATUS_PERDIDO,        series: stats.series?.perdidos, delta: stats.deltas?.perdidos, goodUp: false },
+              { key: 'quentes',  label: 'Quentes',  value: stats.quentes,  accent: 'var(--lr-quente)', active: perceptionFilter === 'Quente',           series: stats.series?.quentes,  delta: stats.deltas?.quentes,  goodUp: true },
             ] as const).map(s => {
               const showDelta = typeof s.delta === 'number' && s.delta !== 0
               const good = showDelta && ((s.delta as number) > 0) === s.goodUp
@@ -984,7 +932,7 @@ export default function LeadsReport() {
                   position: 'relative', overflow: 'hidden', textAlign: 'left', font: 'inherit', cursor: 'pointer',
                   background: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px 12px',
                   border: `1px solid ${s.active ? s.accent : 'var(--border)'}`,
-                  boxShadow: s.active ? `0 0 0 3px ${s.accent}22` : 'none',
+                  boxShadow: s.active ? `0 0 0 3px ${tint(s.accent, 16)}` : 'none',
                   transition: 'border-color 120ms, box-shadow 120ms',
                 }}
               >
@@ -997,8 +945,8 @@ export default function LeadsReport() {
                   {showDelta && (
                     <span style={{
                       fontSize: 10.5, fontWeight: 700, padding: '2px 6px', borderRadius: 6,
-                      color: good ? '#0F9D58' : '#E1394A',
-                      background: good ? 'rgba(15,157,88,0.1)' : 'rgba(225,57,74,0.1)',
+                      color: good ? 'var(--lr-st-fechado)' : 'var(--lr-st-perdido)',
+                      background: tint(good ? 'var(--lr-st-fechado)' : 'var(--lr-st-perdido)', 12),
                     }}>
                       {(s.delta as number) > 0 ? '↑' : '↓'} {Math.abs(s.delta as number)}%
                     </span>
@@ -1302,8 +1250,8 @@ export default function LeadsReport() {
                                     <span
                                       title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
                                       style={{
-                                        fontSize: 10.5, fontWeight: 600, color: '#8B5CF6',
-                                        background: 'color-mix(in srgb, #8B5CF6 13%, transparent)', borderRadius: 5, padding: '2px 6px',
+                                        fontSize: 10.5, fontWeight: 600, color: 'var(--accent-strong)',
+                                        background: 'var(--accent-weak)', borderRadius: 5, padding: '2px 6px',
                                         whiteSpace: 'nowrap',
                                       }}>
                                       Renutrição
@@ -1387,8 +1335,8 @@ export default function LeadsReport() {
                       style={{
                         padding: '5px 11px', borderRadius: 8, fontSize: 13,
                         fontWeight: p === page ? 700 : 400,
-                        background: p === page ? '#2563EB' : 'var(--bg-card)',
-                        color: p === page ? 'white' : 'var(--text-2)',
+                        background: p === page ? 'var(--accent)' : 'var(--bg-card)',
+                        color: p === page ? 'var(--accent-contrast)' : 'var(--text-2)',
                         border: '1px solid var(--border)', cursor: 'pointer',
                       }}
                     >
@@ -1464,7 +1412,7 @@ export default function LeadsReport() {
                 <button
                   onClick={deleteSelected}
                   disabled={deleting}
-                  style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#DC2626', color: 'white', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
+                  style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'var(--lr-danger)', color: '#fff', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
                 >
                   {deleting ? 'Excluindo…' : 'Excluir'}
                 </button>
@@ -1482,7 +1430,7 @@ export default function LeadsReport() {
                 borderBottom: '1px solid var(--border)', flexShrink: 0,
               }}>
                 <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, background: '#2563EB', color: 'white' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, background: 'var(--accent)', color: 'var(--accent-contrast)' }}>
                     <Plus size={15} />
                   </span>
                   Novo Lead
@@ -1605,7 +1553,7 @@ export default function LeadsReport() {
                   <button
                     onClick={() => handleCreateLead()}
                     disabled={savingNewLead}
-                    style={{ padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#2563EB', color: 'white', border: 'none', cursor: savingNewLead ? 'not-allowed' : 'pointer', opacity: savingNewLead ? 0.6 : 1 }}
+                    style={{ padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'var(--accent)', color: 'var(--accent-contrast)', border: 'none', cursor: savingNewLead ? 'not-allowed' : 'pointer', opacity: savingNewLead ? 0.6 : 1 }}
                   >
                     {savingNewLead ? 'Salvando…' : 'Criar Lead'}
                   </button>

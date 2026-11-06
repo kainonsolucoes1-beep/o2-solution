@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { X, CalendarClock, Clock3, StickyNote, ArrowUpRight, RotateCcw, Plus, Pencil, ChevronUp, ChevronDown, Phone, MessageCircle, Copy, Check, Info, Activity } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
-import { statusColor, PERCEPTION_STYLE } from '../utils/leadStatus'
+import { reportStatusColor, reportPerceptionColor, tint } from '../utils/reportColors'
 import { fmtDateShort } from '../utils/leadFormat'
 import { parseUTC } from '../utils/date'
 
@@ -81,8 +81,6 @@ function waNumber(phone: string | null): string | null {
   if (d.length < 10) return null
   return d.length <= 11 ? `55${d}` : d
 }
-
-const tint = (c: string, pct: number) => `color-mix(in srgb, ${c} ${pct}%, transparent)`
 
 const LABEL: CSSProperties = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-subtle)' }
 const LINK_BTN: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 4px', border: 'none', background: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
@@ -185,8 +183,8 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
     }).catch(() => { /* sem permissão de área de transferência */ })
   }
 
-  const sc = statusColor(lead.status)
-  const pc = lead.perception ? PERCEPTION_STYLE[lead.perception] : null
+  const sc = { color: reportStatusColor(lead.status) }
+  const pcCor = reportPerceptionColor(lead.perception)
   const valor = fmtBRL0(lead.value_potential)
   const wa = waNumber(lead.phone)
 
@@ -253,11 +251,11 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 20, border: `1px solid ${tint(sc.color, 35)}`, background: 'var(--bg-card)', color: sc.color }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />{statusLabel(lead.status)}
               </span>
-              {pc && <Tag style={{ background: pc.bg, color: pc.color }}>{pc.label}</Tag>}
+              {pcCor && <Tag style={{ background: tint(pcCor, 12), color: pcCor }}>{lead.perception}</Tag>}
               {valor && <Tag strong>{valor}</Tag>}
               {lead.modalidade && <Tag>{lead.modalidade}</Tag>}
               {lead.vidas != null && lead.vidas > 0 && <Tag>{lead.vidas} {lead.vidas === 1 ? 'vida' : 'vidas'}</Tag>}
-              {lead.is_renutrucao && <Tag style={{ background: tint('#7C3AED', 12), color: '#8B5CF6' }}>Renutrição</Tag>}
+              {lead.is_renutrucao && <Tag style={{ background: 'var(--accent-weak)', color: 'var(--accent-strong, var(--accent))' }}>Renutrição</Tag>}
             </div>
 
             {/* ações rápidas */}
@@ -304,7 +302,7 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
                   )}
                 </SecTitle>
                 {notaModo ? (
-                  <div style={{ border: '1px solid var(--accent)', boxShadow: `0 0 0 3px ${tint('#2563EB', 14)}`, borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ border: '1px solid var(--accent)', boxShadow: `0 0 0 3px ${tint('var(--accent)', 16)}`, borderRadius: 10, overflow: 'hidden' }}>
                     <textarea
                       autoFocus value={notaTexto} onChange={e => setNotaTexto(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) salvarNota() }}
@@ -319,7 +317,7 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
                       </button>
                       <button
                         onClick={salvarNota} disabled={notaSalvando || !notaTexto.trim()}
-                        style={{ padding: '6px 13px', borderRadius: 7, border: 'none', background: '#2563EB', color: '#fff', fontSize: 12, fontWeight: 700, cursor: notaSalvando || !notaTexto.trim() ? 'not-allowed' : 'pointer', opacity: notaSalvando || !notaTexto.trim() ? 0.5 : 1, fontFamily: 'inherit' }}
+                        style={{ padding: '6px 13px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--accent-contrast, #fff)', fontSize: 12, fontWeight: 600, cursor: notaSalvando || !notaTexto.trim() ? 'not-allowed' : 'pointer', opacity: notaSalvando || !notaTexto.trim() ? 0.5 : 1, fontFamily: 'inherit' }}
                       >
                         {notaSalvando ? 'Salvando…' : notaModo === 'nova' ? 'Salvar anotação' : 'Salvar edição'}
                       </button>
@@ -354,7 +352,7 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
                   <div style={{ position: 'relative', paddingLeft: 20 }}>
                     <span style={{ position: 'absolute', left: 4, top: 6, bottom: 6, width: 2, borderRadius: 2, background: 'var(--border-lt)' }} />
                     {eventosVisiveis.map((e, i) => {
-                      const cor = e.kind === 'status' ? statusColor(e.status ?? null).color : e.kind === 'agendamento' ? 'var(--success)' : 'var(--accent)'
+                      const cor = e.kind === 'status' ? reportStatusColor(e.status) : e.kind === 'agendamento' ? 'var(--success)' : 'var(--accent)'
                       const tipo = e.kind === 'status' ? 'Status' : e.kind === 'agendamento' ? 'Retorno' : 'Anotação'
                       const label = e.kind === 'status' ? `Status → ${statusLabel(e.status ?? null)}`
                         : e.kind === 'nota' ? (e.text || 'Nota registrada')
@@ -412,7 +410,7 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-lt)', flexShrink: 0 }}>
           <button
             onClick={onOpenFull}
-            style={{ width: '100%', height: 42, background: '#2563EB', color: '#fff', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit' }}
+            style={{ width: '100%', height: 42, background: 'var(--accent)', color: 'var(--accent-contrast, #fff)', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit' }}
           >
             Abrir ficha completa <ArrowUpRight size={16} />
           </button>
@@ -460,15 +458,15 @@ function QuickAction({ icon, label, onClick, href }: { icon: ReactNode; label: s
     border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-3b)', fontSize: 11.5, fontWeight: 500,
     cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.45 : 1, textDecoration: 'none', fontFamily: 'inherit', transition: 'all 120ms',
   }
-  const hoverIn = (e: React.MouseEvent<HTMLElement>) => { if (!off) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' } }
-  const hoverOut = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3b)' }
+  const hoverIn = (e: React.MouseEvent<HTMLElement>) => { if (!off) { const st = e.currentTarget.style; st.borderColor = 'var(--accent-line, var(--accent))'; st.background = 'var(--accent-weak)'; st.color = 'var(--accent-strong, var(--accent))' } }
+  const hoverOut = (e: React.MouseEvent<HTMLElement>) => { const st = e.currentTarget.style; st.borderColor = 'var(--border)'; st.background = 'var(--bg-card)'; st.color = 'var(--text-3b)' }
   if (href) {
     return <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer" style={style} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>{icon}{label}</a>
   }
   return <button onClick={onClick} disabled={off} style={style} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>{icon}{label}</button>
 }
 
-const chipOp: CSSProperties = { fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: tint('#6366F1', 13), color: '#6366F1', lineHeight: 1.5 }
+const chipOp: CSSProperties = { fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: 'var(--lr-ops-bg, #EEF2FF)', color: 'var(--lr-ops-tx, #4F46E5)', lineHeight: 1.5 }
 
 function Pessoa({ nome }: { nome: string }) {
   return (
