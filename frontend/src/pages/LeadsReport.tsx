@@ -93,6 +93,8 @@ const FILTERS_STORAGE_KEY = 'leadsReportFilters'
 // Cards de resumo (Total / Fechados / Perdidos / Quentes) acima da tabela.
 // Desligados em teste na staging (06/11/2026); pra voltar, é só trocar pra true.
 const SHOW_KPI_CARDS = false
+// Abas de visões rápidas (Todos / Quentes / Precisam de atenção...): mesmo teste.
+const SHOW_VIEW_TABS = false
 
 const STATUS_PERDIDO = 'sale_not_performed'
 const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,convertido'
@@ -1007,7 +1009,7 @@ export default function LeadsReport() {
           </div>
         )}
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 2 }}>
+        {SHOW_VIEW_TABS && <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 2 }}>
           {([
             { key: 'todos',        label: 'Todos' },
             { key: 'quentes',      label: 'Quentes' },
@@ -1033,7 +1035,7 @@ export default function LeadsReport() {
               </button>
             )
           })}
-        </div>
+        </div>}
 
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 10px' }}>
