@@ -382,21 +382,19 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
               {/* detalhes / negociação / posse */}
               <Sec>
                 <SecTitle icon={<Info size={13} />} title="Detalhes" />
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '9px 16px', fontSize: 12.5 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '10px 16px', fontSize: 13, alignItems: 'center' }}>
                   <Dt>Operadoras enviadas</Dt>
                   <Dd>
-                    {peek.operadoras.length ? (
-                      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 5, justifyContent: 'flex-end' }}>
-                        {peek.operadoras.map(o => (
-                          <span key={o} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: tint('#6366F1', 14), color: '#6366F1' }}>{o}</span>
-                        ))}
-                      </span>
-                    ) : <span style={{ color: 'var(--text-subtle)', fontWeight: 500 }}>Nenhuma</span>}
+                    <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 5, justifyContent: 'flex-end' }}>
+                      {peek.operadoras.length ? peek.operadoras.map(o => (
+                        <span key={o} style={chipOp}>{o}</span>
+                      )) : <span style={{ ...chipOp, background: 'var(--bg-subtle)', color: 'var(--text-subtle)' }}>Nenhuma</span>}
+                    </span>
                   </Dd>
                   {peek.ponto_conversao && <><Dt>Ponto de conversão</Dt><Dd>{peek.ponto_conversao}</Dd></>}
                   {peek.plano_atual && <><Dt>Plano atual</Dt><Dd>{peek.plano_atual}</Dd></>}
-                  {peek.atendente && <><Dt>Atendente</Dt><Dd>{peek.atendente}</Dd></>}
-                  {peek.dono_renutricao && <><Dt>Dono (renutrição)</Dt><Dd>{peek.dono_renutricao}</Dd></>}
+                  {peek.atendente && <><Dt>Atendente</Dt><Dd><Pessoa nome={peek.atendente} /></Dd></>}
+                  {peek.dono_renutricao && <><Dt>Dono (renutrição)</Dt><Dd><Pessoa nome={peek.dono_renutricao} /></Dd></>}
                   {peek.lost_reason && <><Dt>Motivo da perda</Dt><Dd>{peek.lost_reason}</Dd></>}
                   {lead.email && <><Dt>E-mail</Dt><Dd>{lead.email}</Dd></>}
                   {lead.idades_resumo && <><Dt>Idades</Dt><Dd>{lead.idades_resumo}</Dd></>}
@@ -470,10 +468,23 @@ function QuickAction({ icon, label, onClick, href }: { icon: ReactNode; label: s
   return <button onClick={onClick} disabled={off} style={style} onMouseEnter={hoverIn} onMouseLeave={hoverOut}>{icon}{label}</button>
 }
 
+const chipOp: CSSProperties = { fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: tint('#6366F1', 13), color: '#6366F1', lineHeight: 1.5 }
+
+function Pessoa({ nome }: { nome: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+      <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, color: '#fff', background: '#94A3B8' }}>
+        {nome.trim()[0]?.toUpperCase()}
+      </span>
+      {nome}
+    </span>
+  )
+}
+
 function Dt({ children }: { children: ReactNode }) {
-  return <span style={{ color: 'var(--text-subtle)' }}>{children}</span>
+  return <span style={{ color: 'var(--text-subtle)', fontWeight: 400 }}>{children}</span>
 }
 
 function Dd({ children }: { children: ReactNode }) {
-  return <span style={{ color: 'var(--text-1)', fontWeight: 600, textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere' }}>{children}</span>
+  return <span style={{ color: 'var(--text-1)', fontWeight: 500, textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere' }}>{children}</span>
 }
