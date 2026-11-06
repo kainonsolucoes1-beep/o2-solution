@@ -324,7 +324,8 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'value_potential', label: 'Valor' },
   { key: 'perception',      label: 'Temperatura' },
   { key: 'status',          label: 'Status' },
-  { key: 'updated_at',      label: 'Movido' },
+  { key: 'created_at',      label: 'Entrada' },
+  { key: 'updated_at',      label: 'Atualização' },
 ]
 
 export default function LeadsReport() {
@@ -1214,7 +1215,7 @@ export default function LeadsReport() {
                             key={col.key}
                             onClick={() => handleSort(col.key)}
                             style={{
-                              padding: '11px 16px', textAlign: 'left',
+                              padding: '11px 10px', textAlign: 'left',
                               fontSize: 11, fontWeight: 800, color: 'var(--text-2)',
                               textTransform: 'uppercase', letterSpacing: '0.05em',
                               cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
@@ -1266,7 +1267,7 @@ export default function LeadsReport() {
                               />
                             </td>
                           )}
-                          <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', borderTopLeftRadius: canAssign ? 0 : 10, borderBottomLeftRadius: canAssign ? 0 : 10, borderLeft: canAssign ? 'none' : `3px solid ${rail}` }}>
+                          <td style={{ padding: '12px 10px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', borderTopLeftRadius: canAssign ? 0 : 10, borderBottomLeftRadius: canAssign ? 0 : 10, borderLeft: canAssign ? 'none' : `3px solid ${rail}` }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <span style={{
                                 width: 30, height: 30, borderRadius: 9, flexShrink: 0,
@@ -1316,23 +1317,33 @@ export default function LeadsReport() {
                               </div>
                             </div>
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
+                          <td style={{ padding: '12px 10px', fontSize: 13, color: 'var(--text-2)' }}>
                             {lead.attendant ?? '—'}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
+                          <td style={{ padding: '12px 10px', fontSize: 13, color: 'var(--text-2)' }}>
                             {lead.modalidade ?? '—'}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 700, color: lead.value_potential ? 'var(--text-1)' : 'var(--text-subtle)', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '12px 10px', fontSize: 13, fontWeight: 700, color: lead.value_potential ? 'var(--text-1)' : 'var(--text-subtle)', whiteSpace: 'nowrap' }}>
                             {fmtBRLShort(lead.value_potential)}
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td style={{ padding: '12px 10px' }}>
                             <PerceptionBadge perception={lead.perception} />
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td style={{ padding: '12px 10px' }}>
                             <StatusBadge status={lead.status} />
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: 'var(--text-subtle)', whiteSpace: 'nowrap', borderTopRightRadius: 10, borderBottomRightRadius: 10 }}>
-                            {fmtAgo(lead.updated_at)}
+                          <td
+                            title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
+                            style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}
+                          >
+                            <div style={{ fontSize: 13, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(lead.created_at)}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>
+                              {lead.retrabalhado_em ? `reativado ${fmtAgo(lead.retrabalhado_em)}` : fmtAgo(lead.created_at)}
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 10px', whiteSpace: 'nowrap', borderTopRightRadius: 10, borderBottomRightRadius: 10 }}>
+                            <div style={{ fontSize: 13, color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{lead.updated_at ? fmtDate(lead.updated_at) : '—'}</div>
+                            {lead.updated_at && <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>{fmtAgo(lead.updated_at)}</div>}
                           </td>
                         </tr>
                         )
