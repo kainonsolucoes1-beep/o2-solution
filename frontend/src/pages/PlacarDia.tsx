@@ -507,6 +507,7 @@ function Feed({ leads, flashId, onOpen }: { leads: PlacarLead[]; flashId: string
   if (!leads.length) return <div className="empty">Nenhum lead nesse filtro.</div>
   return (
     <table>
+      <colgroup><col style={{ width: 66 }} /><col /><col style={{ width: '23%' }} /><col style={{ width: 128 }} /><col style={{ width: '19%' }} /></colgroup>
       <thead><tr><th>Hora</th><th>Lead</th><th>Origem</th><th>Status</th><th>Atendente</th></tr></thead>
       <tbody>
         {leads.map(l => {
@@ -515,15 +516,15 @@ function Feed({ leads, flashId, onOpen }: { leads: PlacarLead[]; flashId: string
           return (
             <tr key={l.id} className={flashId === l.id ? 'new' : ''} onClick={() => onOpen(l)}>
               <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--tx2)' }}>{pad(l.h)}:{pad(l.min)}</td>
-              <td className="nm"><b>{l.nome}</b><span>{l.telefone ?? '—'}</span></td>
-              <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--tx2)' }}><i className="dot" style={{ background: `var(${o.c})` }} />{o.l}</span></td>
+              <td className="nm" title={l.nome}><b className="cut">{l.nome}</b><span className="cut">{l.telefone ?? '—'}</span></td>
+              <td><span className="cut" style={{ color: 'var(--tx2)' }}><i className="dot" style={{ background: `var(${o.c})`, marginRight: 7 }} />{o.l}</span></td>
               <td>
                 <span className="badge" style={badgeStyle(s.c)}>{s.l}</span>
                 {l.espera_min != null && l.espera_min > 15 && <div className="wait">esperando {fmtEspera(l.espera_min)}</div>}
               </td>
-              <td style={{ color: 'var(--tx2)' }}>
+              <td style={{ color: 'var(--tx2)' }} title={l.atendente ?? undefined}>
                 {l.atendente
-                  ? <><span className="av" style={{ background: personColor(l.atendente) }}>{l.atendente.trim()[0]?.toUpperCase()}</span>{l.atendente}</>
+                  ? <span className="cut"><span className="av" style={{ background: personColor(l.atendente) }}>{l.atendente.trim()[0]?.toUpperCase()}</span>{l.atendente}</span>
                   : <span className="muted">—</span>}
               </td>
             </tr>
