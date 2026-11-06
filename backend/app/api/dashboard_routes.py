@@ -682,3 +682,164 @@ def activity_feed(
         }
         for h, name in rows
     ]
+
+
+# ── Placar do dia (Dashboard › Placar do dia) ────────────────────────────────
+# Tudo do dia escolhido numa chamada só: cada lead captado (hora, grupo de
+# origem, status, atendente, 1º contato), a média por hora dos 7 dias
+# anteriores, o dia anterior (pra comparar "até o mesmo horário") e a meta
+# do dia (meta mensal ÷ dias úteis do mês). O front monta os cartões e
+# gráficos em cima disso.
+
+_PLACAR_META_ORIGENS = {"meta ads", "meta", "facebook", "facebook ads", "instagram", "instagram ads"}
+_PLACAR_SDR_EXTRA = {"o2 solution", "o2solution", "adm"}
+_PLACAR_NAO_CONTATADO = {"novo", "new", "pending"}
+_PLACAR_STATUS = {
+    "novo": "pend", "new": "pend", "pending": "pend",
+    "aguardando_dados": "aguard",
+    "sem_retorno": "semret",
+    "scheduled": "agend", "qualificado": "agend", "qualified": "agend",
+    "proposal_sent": "prop", "proposta": "prop", "proposal sent": "prop",
+    "pendencia": "pendc", "documentacao_pendente": "pendc",
+    "emissao": "emis",
+    "waiting_billing": "fech", "sale_performed": "fech", "fechado": "fech", "closed": "fech",
+    "won": "fech", "convertido": "fech", "converted": "fech",
+    "sale_not_performed": "perd",
+}
+
+
+def _placar_grupo(origin, conversion_point, campanha_midia, person_names) -> str:
+    o = (origin or "").strip().lower()
+    camp = (campanha_midia or "").strip().lower()
+    if camp == "google" or is_google(origin):
+        return "google"
+    if camp == "meta" or o in _PLACAR_META_ORIGENS:
+        return "meta"
+    if o and (o in person_names or o in _PLACAR_SDR_EXTRA):
+        return "sdr"
+    if not o or is_organico(origin, conversion_point):
+        return "org"
+    return "outros"
+
+
+def _placar_leads_do_dia(db: Session, start: datetime, end: datetime):
+    eff = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
+    return (
+        db.query(
+            Lead.id, Lead.name, Lead.phone, Lead.origin, Lead.conversion_point, Lead.campanha_midia,
+            Lead.status, Lead.attendant, Lead.renutricao_owner_id, eff.label("eff"),
+        )
+        .filter(eff >= start, eff < end)
+        .all()
+    )
+
+
+@router.get("/placar")
+def placar_do_dia(
+    data: str | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from fastapi import HTTPException
+    from app.models.lead import LeadNote
+    from app.tz_utils import now_br
+
+    agora_br = now_br()
+    try:
+        dia = datetime.strptime(data, "%Y-%m-%d").date() if data else agora_br.date()
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Data inválida. Use YYYY-MM-DD.")
+    hoje = dia == agora_br.date()
+    start, end = br_date_to_utc_range(dia)
+    # "agora" em UTC naive: no dia de hoje, nada depois disso existe ainda
+    agora_utc = agora_br + BR_OFFSET
+    corte = min(end, agora_utc) if hoje else end
+
+    person_names = _person_name_set(db)
+    rows = _placar_leads_do_dia(db, start, end)
+    owner_names = _owner_names(db, {r.renutricao_owner_id for r in rows if r.renutricao_owner_id})
+
+    # 1º contato: primeira anotação feita por uma pessoa ou primeira troca de
+    # status feita por alguém, depois da captação
+    ids = [r.id for r in rows]
+    primeiro: dict = {}
+    if ids:
+        for lid, at in (
+            db.query(LeadNote.lead_id, func.min(LeadNote.created_at))
+            .filter(LeadNote.lead_id.in_(ids), LeadNote.user_id.isnot(None))
+            .group_by(LeadNote.lead_id).all()
+        ):
+            primeiro[lid] = at
+        for lid, at in (
+            db.query(LeadStatusHistory.lead_id, func.min(LeadStatusHistory.changed_at))
+            .filter(
+                LeadStatusHistory.lead_id.in_(ids),
+                LeadStatusHistory.changed_by.isnot(None),
+                func.lower(LeadStatusHistory.to_status).notin_(list(_PLACAR_NAO_CONTATADO)),
+            )
+            .group_by(LeadStatusHistory.lead_id).all()
+        ):
+            if lid not in primeiro or (at and at < primeiro[lid]):
+                primeiro[lid] = at
+
+    leads = []
+    for r in rows:
+        local = r.eff - BR_OFFSET
+        st = (r.status or "novo").strip().lower()
+        contato_at = primeiro.get(r.id)
+        if contato_at is not None and contato_at < r.eff:
+            contato_at = None  # nota antiga (lead reativado): não é o 1º contato desta captação
+        contatado = contato_at is not None or st not in _PLACAR_NAO_CONTATADO
+        espera = None
+        if not contatado and hoje:
+            espera = max(0, int((agora_utc - r.eff).total_seconds() // 60))
+        atendente = owner_names.get(r.renutricao_owner_id) or (r.attendant or "").strip() or None
+        if atendente and atendente.lower() == "sem atendente":
+            atendente = None
+        leads.append({
+            "id": str(r.id),
+            "nome": r.name,
+            "telefone": r.phone,
+            "h": local.hour,
+            "min": local.minute,
+            "grupo": _placar_grupo(r.origin, r.conversion_point, r.campanha_midia, person_names),
+            "origem": (r.origin or "").strip() or None,
+            "status": _PLACAR_STATUS.get(st, "outro"),
+            "status_raw": r.status,
+            "atendente": atendente,
+            "contatado": contatado,
+            "contato_min": max(0, int((contato_at - r.eff).total_seconds() // 60)) if contato_at else None,
+            "espera_min": espera,
+        })
+    leads.sort(key=lambda x: (x["h"], x["min"]), reverse=True)
+
+    # dia anterior: hora/minuto + grupo de cada lead (comparação "até o mesmo horário")
+    p_start, p_end = br_date_to_utc_range(dia - timedelta(days=1))
+    anterior = [
+        {"m": (r.eff - BR_OFFSET).hour * 60 + (r.eff - BR_OFFSET).minute,
+         "grupo": _placar_grupo(r.origin, r.conversion_point, r.campanha_midia, person_names)}
+        for r in _placar_leads_do_dia(db, p_start, p_end)
+    ]
+
+    # média por hora dos 7 dias anteriores
+    m_start, _ = br_date_to_utc_range(dia - timedelta(days=7))
+    eff = func.coalesce(Lead.retrabalhado_em, Lead.created_at)
+    por_hora = [0] * 24
+    for (t,) in db.query(eff).filter(eff >= m_start, eff < start).all():
+        por_hora[(t - BR_OFFSET).hour] += 1
+    media_hora = [round(n / 7, 1) for n in por_hora]
+
+    uteis = business_days_in_month(dia.year, dia.month) or 1
+    meta_dia = max(1, round(META_LEADS / uteis))
+
+    return {
+        "data": dia.isoformat(),
+        "hoje": hoje,
+        "agora": agora_br.strftime("%H:%M") if hoje else None,
+        "corte_min": ((corte - BR_OFFSET).hour * 60 + (corte - BR_OFFSET).minute) if hoje else 24 * 60,
+        "meta_dia": meta_dia,
+        "media_hora": media_hora,
+        "media_dia": round(sum(por_hora) / 7, 1),
+        "leads": leads,
+        "anterior": anterior,
+    }
