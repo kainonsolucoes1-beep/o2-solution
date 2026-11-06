@@ -84,8 +84,8 @@ function waNumber(phone: string | null): string | null {
 
 const tint = (c: string, pct: number) => `color-mix(in srgb, ${c} ${pct}%, transparent)`
 
-const LABEL: CSSProperties = { fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-subtle)' }
-const LINK_BTN: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 4px', border: 'none', background: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }
+const LABEL: CSSProperties = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-subtle)' }
+const LINK_BTN: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 4px', border: 'none', background: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
 const NAV_BTN: CSSProperties = { width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
 const KBD: CSSProperties = { fontSize: 10, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 4, padding: '0 4px', background: 'var(--bg-subtle)', color: 'var(--text-muted)', fontFamily: 'inherit' }
 
@@ -250,7 +250,7 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
               </div>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '3px 9px', borderRadius: 20, border: `1px solid ${tint(sc.color, 35)}`, background: 'var(--bg-card)', color: sc.color }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 20, border: `1px solid ${tint(sc.color, 35)}`, background: 'var(--bg-card)', color: sc.color }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />{statusLabel(lead.status)}
               </span>
               {pc && <Tag style={{ background: pc.bg, color: pc.color }}>{pc.label}</Tag>}
@@ -362,9 +362,9 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
                       return (
                         <div key={i} style={{ position: 'relative', paddingBottom: i === eventosVisiveis.length - 1 ? 0 : 13 }}>
                           <span style={{ position: 'absolute', left: -20, top: 5, width: 10, height: 10, borderRadius: '50%', background: cor, boxShadow: '0 0 0 3px var(--bg-card)' }} />
-                          <div style={{ fontSize: 12.5, color: 'var(--text-1)', lineHeight: 1.45, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{label}</div>
+                          <div style={{ fontSize: 13, color: 'var(--text-1)', lineHeight: 1.45, overflowWrap: 'anywhere', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{label}</div>
                           <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: cor, marginRight: 6 }}>{tipo}</span>
+                            <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: cor, marginRight: 6 }}>{tipo}</span>
                             {[e.by, ago(e.at)].filter(Boolean).join(' · ')}
                           </div>
                         </div>
@@ -447,7 +447,7 @@ function Tag({ children, style, strong }: { children: ReactNode; style?: CSSProp
 function Kpi({ label, value, cor }: { label: string; value: string; cor?: string | null }) {
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '9px 11px' }}>
-      <div style={{ ...LABEL, fontSize: 10, marginBottom: 3 }}>{label}</div>
+      <div style={{ ...LABEL, fontSize: 10.5, marginBottom: 3 }}>{label}</div>
       <div style={{ fontSize: 14, fontWeight: 700, color: cor ?? 'var(--text-1)' }}>{value}</div>
     </div>
   )
@@ -457,7 +457,7 @@ function QuickAction({ icon, label, onClick, href }: { icon: ReactNode; label: s
   const off = !onClick && !href
   const style: CSSProperties = {
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '9px 4px', borderRadius: 10,
-    border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-3b)', fontSize: 11.5, fontWeight: 600,
+    border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-3b)', fontSize: 11.5, fontWeight: 500,
     cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.45 : 1, textDecoration: 'none', fontFamily: 'inherit', transition: 'all 120ms',
   }
   const hoverIn = (e: React.MouseEvent<HTMLElement>) => { if (!off) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' } }
