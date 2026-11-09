@@ -225,6 +225,7 @@ def leads_by_period(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=10000),
     ids_only: bool = Query(False, description="Retorna só {ids, total} de TODOS os leads do filtro (sem paginar) — pra 'selecionar tudo'"),
+    com_observacoes: bool = Query(False, description="inclui as anotações de cada lead (usado na exportação do Excel)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -363,7 +364,7 @@ def leads_by_period(
                 Lead.fbclid, Lead.gclid, Lead.lgpd_processing_opt_in, Lead.lgpd_communication_opt_in,
                 Lead.first_interaction_at, Lead.last_interaction_at, Lead.team,
                 Lead.campanha_canal, Lead.campanha_status, Lead.duplicado_de_id,
-                Lead.vidas, Lead.ages_raw, Lead.notes,
+                Lead.vidas, Lead.ages_raw, Lead.notes, Lead.campanha_midia,
             )
         )
         .order_by(Lead.created_at.desc())
@@ -380,6 +381,23 @@ def leads_by_period(
         return v, idades_resumo(idades, faixas)
 
     _perfis = {r.id: _perfil(r) for r in rows}
+
+    # exportação do Excel: observação original do Followize + anotações da
+    # ficha (mais antiga primeiro), com data e autor
+    _obs: dict = {}
+    if com_observacoes and rows:
+        for r in rows:
+            if r.notes and r.notes.strip():
+                _obs.setdefault(r.id, []).append({"at": None, "autor": "Followize", "texto": r.notes.strip()})
+        notas = (
+            db.query(LeadNote.lead_id, LeadNote.created_at, LeadNote.content, User.first_name)
+            .outerjoin(User, User.id == LeadNote.user_id)
+            .filter(LeadNote.lead_id.in_([r.id for r in rows]))
+            .order_by(LeadNote.created_at.asc())
+            .all()
+        )
+        for n in notas:
+            _obs.setdefault(n.lead_id, []).append({"at": n.created_at.isoformat() if n.created_at else None, "autor": n.first_name or "", "texto": n.content})
     leads = [
         LeadReportItem(
             vidas=_perfis[r.id][0], idades_resumo=_perfis[r.id][1],
@@ -413,6 +431,8 @@ def leads_by_period(
             team=r.team,
             duplicado_de_id=r.duplicado_de_id,
             duplicado_de_nome=_dup_nomes.get(r.duplicado_de_id),
+            campanha_midia=r.campanha_midia,
+            observacoes=_obs.get(r.id) if com_observacoes else None,
         )
         for r in rows
     ]

@@ -47,6 +47,9 @@ interface LeadItem {
   updated_at: string | null
   modalidade: string | null
   campanha_canal: 'whatsapp' | 'email' | 'sms' | null
+  campanha_midia?: string | null
+  // só na exportação (?com_observacoes=true)
+  observacoes?: { at: string | null; autor: string; texto: string }[] | null
   // vidas / idades juntando o campo da ficha e as observações do formulário
   vidas?: number | null
   idades_resumo?: string | null
@@ -623,9 +626,17 @@ export default function LeadsReport() {
   async function exportExcel() {
     setExporting(true)
     try {
-      const params = { ...reportFilterParams(), page: 1, limit: 9999 }
+      const params = { ...reportFilterParams(), page: 1, limit: 9999, com_observacoes: true }
 
       const { data } = await api.get<ReportResponse>('/api/v1/leads/by-period', { params })
+      // Excel aceita no máximo 32.767 caracteres por célula
+      const fmtObs = (obs: LeadItem['observacoes']) => {
+        const txt = (obs ?? []).map(o => {
+          const quando = o.at ? new Date(parseUTC(o.at)).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) + ' · ' : ''
+          return `${quando}${o.autor ? o.autor + ': ' : ''}${o.texto}`
+        }).join('\n\n')
+        return txt.length > 32000 ? txt.slice(0, 32000) + ' […]' : txt
+      }
       const rows = data.leads.map(l => ({
         'Criado em':       fmtDate(l.created_at),
         'Atualizado em':   l.updated_at ? fmtDate(l.updated_at) : '',
@@ -633,16 +644,22 @@ export default function LeadsReport() {
         'Email':           l.email ?? '',
         'Telefone':        l.phone ?? '',
         'Origem':          l.origem ?? '',
+        'Ponto de conversão': l.conversion_point ?? '',
+        'Campanha':        l.campanha_midia ?? '',
+        'Atendente':       l.attendant ?? '',
         'Modalidade':      l.modalidade ?? '',
         'Vidas':           l.vidas ?? '',
         'Idades':          l.idades_resumo ?? '',
         'Status':          statusLabel(l.status),
+        'Temperatura':     l.perception ?? '',
         'Motivo de perda': l.lost_reason ?? '',
         'Valor (R$)':      l.value_potential ?? '',
         'Renutrição':      l.is_renutrucao ? 'Sim' : 'Não',
         'Reativado em':    l.retrabalhado_em ? fmtDate(l.retrabalhado_em) : '',
+        'Observações':     fmtObs(l.observacoes),
       }))
       const ws   = XLSX.utils.json_to_sheet(rows)
+      ws['!cols'] = Object.keys(rows[0] ?? {}).map(k => ({ wch: k === 'Observações' ? 80 : k === 'Cliente' || k === 'Email' ? 28 : 16 }))
       const wb   = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Leads')
       const filename = `leads_${dateFrom}_${dateTo}.xlsx`
