@@ -432,7 +432,9 @@ interface UserCreatedResponse extends UserItem { temp_password: string }
 const EMPTY_FORM = { email: '', username: '', first_name: '', role: 'usuario', team: '', contract_type: 'clt', birth_date: '', phone: '', cpf: '', hire_date: '' }
 const EMPTY_EDIT = { first_name: '', email: '', username: '', password: '', team: '', contract_type: 'clt', birth_date: '', phone: '', cpf: '', hire_date: '', termination_date: '' }
 const ROLE_OPTIONS = ['admin', 'diretor', 'financeiro', 'coordenador', 'supervisor', 'comercial', 'usuario', 'trafego']
-const TEAM_OPTIONS = ['Equipe São Paulo', 'Equipe Pernambuco']
+// O2 Solution / O2 Seguros: equipes de visibilidade (11/2026), em paralelo às
+// equipes de rodízio São Paulo / Pernambuco (ainda usadas no rodízio de leads).
+const TEAM_OPTIONS = ['O2 Solution', 'O2 Seguros', 'Equipe São Paulo', 'Equipe Pernambuco']
 const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
   admin:       { bg: 'rgba(139,92,246,0.12)', color: '#7C3AED' },
   diretor:     { bg: 'rgba(37,99,235,0.12)',  color: '#2563EB' },
