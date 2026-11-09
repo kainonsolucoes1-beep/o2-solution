@@ -12,7 +12,7 @@ from app.models.trusted_device import TrustedDevice
 from app.access_policy import check_time_window, check_device, RESTRICTED_ROLES
 from app.request_utils import client_ip, ua_short
 from app.schemas import UserLogin, TokenResponse, UserResponse, ChangePasswordRequest, PreviewRoleRequest
-from app.security import verify_password, create_access_token, decode_token, can_see_restricted_leads, team_scope, restrict_to_usuario_leads, needs_own_origin_filter, hash_password, ALL_ROLES
+from app.security import verify_password, create_access_token, decode_token, can_see_restricted_leads, team_scope, company_scope, restrict_to_usuario_leads, needs_own_origin_filter, hash_password, ALL_ROLES
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -78,6 +78,7 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     # liga o filtro global de leads ADM-only pro resto da sessao desta requisicao
     db.info["restrict_admin_leads"] = not can_see_restricted_leads(user)
     db.info["restrict_team"] = team_scope(user)
+    db.info["restrict_company"] = company_scope(user)
     db.info["restrict_to_usuario_leads"] = restrict_to_usuario_leads(user)
     db.info["restrict_trafego"] = user.role == "trafego"
     # nome do proprio usuario -- usado pelo filtro de comercial em database.py

@@ -5,6 +5,14 @@ TEAMS = [
 
 TEAM_BY_SLUG = {t["slug"]: t for t in TEAMS}
 
+# Empresas (11/2026): equipes de cadastro de usuario, em paralelo as equipes
+# de rodizio acima. Um lead e' da O2 Seguros quando o atendente dele e' um
+# usuario cadastrado na O2 Seguros (ver security.company_scope e o filtro
+# global em database.py). Nao sao gravadas em Lead.team.
+COMPANY_SOLUTION = "O2 Solution"
+COMPANY_SEGUROS = "O2 Seguros"
+COMPANY_TEAMS = (COMPANY_SOLUTION, COMPANY_SEGUROS)
+
 
 def team_key_setting(slug: str) -> str:
     return f"public_leads_team_key_{slug}"

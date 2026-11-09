@@ -50,6 +50,26 @@ def _apply_lead_visibility_filter(orm_execute_state):
             )
         )
 
+    restrict_company = orm_execute_state.session.info.get("restrict_company")
+    if restrict_company:
+        # empresa (O2 Seguros): so leads cujo atendente e' usuario cadastrado
+        # nessa equipe. Vale pra toda query ORM com Lead -- listagens, KPIs,
+        # Financeiro (contratos/parcelas fazem join em Lead), Gestao.
+        from app.models.lead import Lead
+        from app.models.user import User
+
+        orm_execute_state.statement = orm_execute_state.statement.options(
+            with_loader_criteria(
+                Lead,
+                lambda cls: func.lower(func.trim(cls.attendant)).in_(
+                    select(func.lower(func.trim(User.first_name)))
+                    .where(User.team == restrict_company, User.first_name.isnot(None))
+                    .scalar_subquery()
+                ),
+                include_aliases=True,
+            )
+        )
+
     if orm_execute_state.session.info.get("restrict_trafego"):
         # parceiro de tráfego: só leads da Meta Ads desde 04/11/2026, nunca
         # Google nem renutrição (segunda camada -- a primeira é o middleware)

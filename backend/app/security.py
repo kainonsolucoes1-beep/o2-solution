@@ -82,8 +82,24 @@ def team_scope(user) -> str | None:
     """Perfis com visao restrita a propria equipe (ex: supervisor) so veem
     leads com Lead.team igual ao team cadastrado no proprio usuario.
     Retorna None quando nao ha restricao de equipe a aplicar."""
-    if user.role in TEAM_SCOPED_ROLES and user.team:
+    from app.teams import COMPANY_TEAMS
+
+    # O2 Solution / O2 Seguros nao sao valores de Lead.team -- a separacao
+    # dessas equipes e' feita por company_scope (atendente do lead).
+    if user.role in TEAM_SCOPED_ROLES and user.team and user.team not in COMPANY_TEAMS:
         return user.team
+    return None
+
+
+def company_scope(user) -> str | None:
+    """O2 Solution e O2 Seguros sao empresas diferentes (11/2026). Quem esta
+    cadastrado na equipe O2 Seguros -- qualquer perfil, exceto admin -- so ve
+    leads (e com eles a receita/financeiro) cujo atendente tambem e' da
+    O2 Seguros. Quem e' O2 Solution ou nao tem equipe continua vendo tudo."""
+    from app.teams import COMPANY_SEGUROS
+
+    if user.team == COMPANY_SEGUROS and user.role != "admin":
+        return COMPANY_SEGUROS
     return None
 
 
