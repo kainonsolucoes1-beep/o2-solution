@@ -481,7 +481,7 @@ function Origens({ p, sel, onSel }: { p: Placar; sel: GrupoKey | null; onSel: (k
 /* ---------- status ---------- */
 function Status({ leads, hoje }: { leads: PlacarLead[]; hoje: boolean }) {
   const total = leads.length
-  const linhas = STATUS.map(s => ({ ...s, n: leads.filter(l => l.status === s.k).length })).filter(s => s.k !== 'outro' || s.n > 0)
+  const linhas = STATUS.map(s => ({ ...s, n: leads.filter(l => l.status === s.k).length })).filter(s => s.n > 0)
   const max = Math.max(1, ...linhas.map(s => s.n))
   const contato = leads.filter(l => l.contatado).length
   const avanc = leads.filter(l => ['agend', 'prop', 'pendc', 'emis', 'fech'].includes(l.status)).length
@@ -490,8 +490,9 @@ function Status({ leads, hoje }: { leads: PlacarLead[]; hoje: boolean }) {
     <>
       <div className="chh"><div><h3>Status dos leads captados</h3><p>{total} lead{total !== 1 ? 's' : ''} captado{total !== 1 ? 's' : ''} {hoje ? 'hoje' : 'no dia'}, pela situação atual</p></div></div>
       <div style={{ marginTop: 6 }}>
+        {!linhas.length && <div className="empty">Nenhum lead captado {hoje ? 'hoje' : 'no dia'}.</div>}
         {linhas.map(s => (
-          <div className="strow" key={s.k} style={s.n ? undefined : { opacity: 0.45 }}>
+          <div className="strow" key={s.k}>
             <span><span className="badge" style={badgeStyle(s.c)}><i className="dot" style={{ width: 6, height: 6, background: `var(${s.c})` }} />{s.l}</span></span>
             <span className="track"><i style={{ width: `${s.n / max * 100}%` }} /></span>
             <span className="n">{s.n}</span>
