@@ -201,7 +201,7 @@ export default function PlacarDia() {
             </div>
 
             <div className="row3">
-              <section className="card ch">
+              <section className="card ch" style={{ alignSelf: 'start' }}>
                 <Status leads={leadsF} hoje={placar.hoje} />
               </section>
               <section className="card ch feed">
