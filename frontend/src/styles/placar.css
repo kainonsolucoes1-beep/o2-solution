@@ -7,7 +7,7 @@
   --tx:#111827; --tx2:#4B5563; --tx3:#8A93A3;
   --pri:#2A8C7E; --pri-bg:#E8F4F2; --pri-line:#BFE0DA; --pri-dk:#1E6B60; --pri-ct:#fff;
   /* origens (paleta categórica validada — ordem fixa) */
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300;
   /* status (mesmas cores do Relatório) */
   --st-pend:#4B5563; --st-aguard:#6366F1; --st-semret:#4A6FA5; --st-agend:#2563EB; --st-prop:#9333EA; --st-pendc:#D97706; --st-emis:#0891B2; --st-fech:#059669; --st-perd:#DC2626; --st-outro:#6B7280;
   --good:#059669; --good-bg:#ECFDF5; --warn:#B45309; --warn-bg:#FEF3C7; --bad:#DC2626; --bad-bg:#FEF2F2;
@@ -20,7 +20,7 @@ html.dark .pl {
   --line:#272B34; --line2:#1E2128; --grid:#22262E; --axis:#2F343E;
   --tx:#E8EAED; --tx2:#B3B9C3; --tx3:#7A8392;
   --pri:#35B09E; --pri-bg:rgba(53,176,158,.14); --pri-line:rgba(53,176,158,.38); --pri-dk:#6FD6C5; --pri-ct:#06201C;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300;
   --st-pend:#A3AAB6; --st-aguard:#8B95FA; --st-semret:#8AACD6; --st-agend:#60A5FA; --st-prop:#C084FC; --st-pendc:#FBBF24; --st-emis:#22D3EE; --st-fech:#34D399; --st-perd:#F87171; --st-outro:#9CA3AF;
   --good:#34D399; --good-bg:rgba(52,211,153,.12); --warn:#FBBF24; --warn-bg:rgba(251,191,36,.12); --bad:#F87171; --bad-bg:rgba(248,113,113,.12);
   color-scheme:dark;

@@ -34,11 +34,12 @@ interface Placar {
   leads: PlacarLead[]
   anterior: { m: number; grupo: GrupoKey }[]
 }
-type GrupoKey = 'meta' | 'google' | 'org' | 'sdr' | 'outros'
+type GrupoKey = 'meta' | 'google' | 'org' | 'sdr' | 'discadora' | 'outros'
 
 const ORIGENS: { k: GrupoKey; l: string; c: string }[] = [
   { k: 'meta', l: 'Meta Ads', c: '--s1' }, { k: 'google', l: 'Google', c: '--s2' }, { k: 'org', l: 'Orgânico', c: '--s3' },
-  { k: 'sdr', l: 'Prospecção SDR', c: '--s4' }, { k: 'outros', l: 'Indicação e outros', c: '--s5' },
+  { k: 'sdr', l: 'Prospecção SDR', c: '--s4' }, { k: 'discadora', l: 'Discadora', c: '--s6' },
+  { k: 'outros', l: 'Indicação e outros', c: '--s5' },
 ]
 const STATUS = [
   { k: 'pend', l: 'Pendente', c: '--st-pend' }, { k: 'aguard', l: 'Aguardando dados', c: '--st-aguard' }, { k: 'semret', l: 'Sem retorno', c: '--st-semret' },
