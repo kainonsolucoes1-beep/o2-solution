@@ -33,6 +33,7 @@ TRAFEGO_GET_LIVRE = {
     # ORM, então o filtro global (database.py) já restringe ao escopo abaixo
     "/api/v1/leads/by-period",
     "/api/v1/leads/report-stats",
+    "/api/v1/leads/report-facets",
     "/api/v1/leads/campanhas-midia",
     "/api/v1/leads/conversion-points",
     "/api/v1/leads/lost-reasons",

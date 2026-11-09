@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as XLSX from 'xlsx'
-import { Filter, X, Trash2, RotateCcw, Plus, Upload, Calendar, Users, Search, ClipboardList } from 'lucide-react'
+import { X, Trash2, RotateCcw, Plus, Upload, Search, PanelLeftOpen, Download } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
@@ -11,7 +11,9 @@ import Combobox from '../components/Combobox'
 import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
 import AssignRenutricaoModal from '../components/AssignRenutricaoModal'
 import LeadPeekDrawer from '../components/LeadPeekDrawer'
-import { useTheme } from '../ThemeContext'
+import ReportFilterPanel, { csvSet, type FilterValues, type ReportFacets } from '../components/ReportFilterPanel'
+import '../styles/leads-report-theme.css'
+import { reportStatusColor, reportPerceptionColor, tint } from '../utils/reportColors'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 interface Me {
@@ -91,6 +93,12 @@ const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 
 const FILTERS_STORAGE_KEY = 'leadsReportFilters'
 
+// Cards de resumo (Total / Fechados / Perdidos / Quentes) acima da tabela.
+// Desligados em teste na staging (06/11/2026); pra voltar, é só trocar pra true.
+const SHOW_KPI_CARDS = false
+// Abas de visões rápidas (Todos / Quentes / Precisam de atenção...): mesmo teste.
+const SHOW_VIEW_TABS = false
+
 const STATUS_PERDIDO = 'sale_not_performed'
 const STATUS_FECHADO = 'waiting_billing,sale_performed,fechado,closed,won,convertido'
 const STATUS_AGUARDANDO_FATURAMENTO = 'waiting_billing'
@@ -104,16 +112,16 @@ const STATUS_PENDENCIA = 'pendencia,documentacao_pendente'
 const STATUS_EMISSAO = 'emissao'
 
 const STATUS_PILLS: { value: string; label: string; color: string; bg: string; border: string }[] = [
-  { value: '',                label: 'Todos',        color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
-  { value: STATUS_PENDENTE,   label: 'Pendente',      color: '#4B5563', bg: '#F3F4F6', border: '#E5E7EB' },
-  { value: STATUS_AGUARDANDO_DADOS, label: 'Aguardando dados', color: '#6366F1', bg: '#EEF2FF', border: '#C7D2FE' },
+  { value: '',                label: 'Todos',        color: 'var(--lr-st-pendente)', bg: '', border: '' },
+  { value: STATUS_PENDENTE,   label: 'Pendente',      color: 'var(--lr-st-pendente)', bg: '', border: '' },
+  { value: STATUS_AGUARDANDO_DADOS, label: 'Aguardando dados', color: 'var(--lr-st-aguardando)', bg: '', border: '' },
   { value: STATUS_SEM_RETORNO, label: 'Sem retorno',  color: 'var(--status-sem-retorno)', bg: 'var(--status-sem-retorno-bg)', border: 'var(--status-sem-retorno-border)' },
-  { value: STATUS_AGENDADO,   label: 'Agendado',      color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
-  { value: STATUS_PROPOSTA,   label: 'Proposta',      color: '#9333EA', bg: '#FAF5FF', border: '#E9D5FF' },
-  { value: STATUS_PENDENCIA,  label: 'Pendência',     color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
-  { value: STATUS_EMISSAO,    label: 'Emissão',       color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
-  { value: STATUS_FECHADO,    label: 'Fechado',       color: '#059669', bg: '#ECFDF5', border: '#A7F3D0' },
-  { value: STATUS_PERDIDO,    label: 'Perdido',       color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  { value: STATUS_AGENDADO,   label: 'Agendado',      color: 'var(--lr-st-agendado)', bg: '', border: '' },
+  { value: STATUS_PROPOSTA,   label: 'Proposta',      color: 'var(--lr-st-proposta)', bg: '', border: '' },
+  { value: STATUS_PENDENCIA,  label: 'Pendência',     color: 'var(--lr-st-pendencia)', bg: '', border: '' },
+  { value: STATUS_EMISSAO,    label: 'Emissão',       color: 'var(--lr-st-emissao)', bg: '', border: '' },
+  { value: STATUS_FECHADO,    label: 'Fechado',       color: 'var(--lr-st-fechado)', bg: '', border: '' },
+  { value: STATUS_PERDIDO,    label: 'Perdido',       color: 'var(--lr-st-perdido)', bg: '', border: '' },
 ]
 
 // Atalhos de período do painel de filtros -- cada um calcula um intervalo
@@ -195,45 +203,15 @@ function loadStoredFilters(): Partial<StoredFilters> {
   }
 }
 
-const STATUS_STYLE: Record<string, { color: string }> = {
-  novo: { color: '#3B82F6' },
-  new: { color: '#3B82F6' },
-  pending: { color: '#3B82F6' },
-  aguardando_dados: { color: '#6366F1' },
-  sem_retorno: { color: 'var(--status-sem-retorno)' },
-  qualificado: { color: '#7C3AED' },
-  qualified: { color: '#7C3AED' },
-  scheduled: { color: '#7C3AED' },
-  proposta: { color: '#D97706' },
-  proposal_sent: { color: '#D97706' },
-  pendencia: { color: '#B45309' },
-  documentacao_pendente: { color: '#DB2777' },
-  emissao: { color: '#0891B2' },
-  waiting_billing: { color: '#0D9488' },
-  sale_performed: { color: '#059669' },
-  fechado: { color: '#059669' },
-  closed: { color: '#059669' },
-  won: { color: '#059669' },
-  convertido: { color: '#059669' },
-  converted: { color: '#059669' },
-  sale_not_performed: { color: '#DC2626' },
-}
 
 const CANAL_TAG_STYLE: Record<'whatsapp' | 'email' | 'sms', { label: string; color: string; bg: string }> = {
-  whatsapp: { label: 'WHATSAPP', color: '#16A34A', bg: '#EAF7EE' },
-  email:    { label: 'E-MAIL',   color: '#3B82F6', bg: '#EAF1FE' },
+  whatsapp: { label: 'WhatsApp', color: '#16A34A', bg: '#EAF7EE' },
+  email:    { label: 'E-mail',   color: '#3B82F6', bg: '#EAF1FE' },
   sms:      { label: 'SMS',      color: '#8B5CF6', bg: '#F2EEFE' },
 }
 
-const PERCEPTION_STYLE: Record<string, { color: string }> = {
-  quente: { color: '#DC2626' },
-  morno: { color: '#D97706' },
-  frio: { color: '#3B82F6' },
-}
-
 function perceptionColor(perception: string | null): string | null {
-  if (!perception) return null
-  return (PERCEPTION_STYLE[perception.toLowerCase()] ?? { color: '#6B7280' }).color
+  return reportPerceptionColor(perception)
 }
 
 // Cápsula tonal (intensidade "equilibrada"): fundo levemente tingido + texto
@@ -242,8 +220,9 @@ function TonalPill({ color, children }: { color: string; children: React.ReactNo
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
-      fontSize: 11.5, fontWeight: 700, padding: '3px 9px', borderRadius: 7,
-      background: `color-mix(in srgb, ${color} 12%, transparent)`, color,
+      fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 20,
+      background: `color-mix(in srgb, ${color} 10%, transparent)`, color,
+      border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
     }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }} />
       {children}
@@ -257,7 +236,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   const pts = data.map((v, i) => `${(i / Math.max(data.length - 1, 1)) * w},${(h - 2) - (v / max) * (h - 5)}`).join(' ')
   return (
     <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: 'block' }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <polyline points={pts} fill="none" style={{ stroke: color }} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }
@@ -265,7 +244,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 function PerceptionBadge({ perception }: { perception: string | null }) {
   const c = perceptionColor(perception)
   if (!c) return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 7, background: 'var(--bg-subtle)', color: 'var(--text-subtle)' }}>—</span>
+    <span style={{ color: 'var(--text-subtle)' }}>—</span>
   )
   return <TonalPill color={c}>{perception}</TonalPill>
 }
@@ -297,9 +276,7 @@ function fmtBRLShort(n: number | null): string {
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  const key = (status ?? 'novo').toLowerCase()
-  const s = STATUS_STYLE[key] ?? { color: '#6B7280' }
-  return <TonalPill color={s.color}>{statusLabel(status)}</TonalPill>
+  return <TonalPill color={reportStatusColor(status)}>{statusLabel(status)}</TonalPill>
 }
 
 function getPagesRange(current: number, total: number): (number | '...')[] {
@@ -309,22 +286,33 @@ function getPagesRange(current: number, total: number): (number | '...')[] {
   return [1, '...', current - 1, current, current + 1, '...', total]
 }
 
+// etiqueta de filtro ativo (faixa acima da tabela)
+const chipStyle: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 8px 0 10px', borderRadius: 7,
+  background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: 12, whiteSpace: 'nowrap',
+}
+const chipX: React.CSSProperties = {
+  width: 18, height: 18, marginRight: -4, borderRadius: 5, border: 'none', background: 'none', cursor: 'pointer',
+  color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+}
+
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'name',            label: 'Cliente' },
   { key: 'attendant',       label: 'Atendente' },
-  { key: 'modalidade',      label: 'Modalidade' },
-  { key: 'value_potential', label: 'Valor' },
+  { key: 'origem',          label: 'Origem' },
+  { key: 'value_potential', label: 'Cotação' },
   { key: 'perception',      label: 'Temperatura' },
   { key: 'status',          label: 'Status' },
-  { key: 'updated_at',      label: 'Movido' },
+  { key: 'created_at',      label: 'Entrada' },
+  { key: 'updated_at',      label: 'Atualização' },
 ]
 
 export default function LeadsReport() {
-  const { dark } = useTheme()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
   const fetchReportGenRef = useRef(0)
+  const facetsGenRef = useRef(0)
   const [me, setMe]               = useState<Me | null>(null)
   const [operators, setOperators] = useState<Operator[]>([])
   // /leads/origins mistura pessoas e canais; o Relatório separa em Operador e Origem
@@ -372,7 +360,15 @@ export default function LeadsReport() {
   const [searched, setSearched]   = useState(false)
   const [sortCol, setSortCol]     = useState<SortKey | null>(null)
   const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc')
-  const [filterOpen, setFilterOpen] = useState(false)
+  // painel lateral de filtros (aberto/recolhido fica salvo)
+  const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 1000)
+  const [panelOpen, setPanelOpen] = useState(() => {
+    if (window.innerWidth < 1000) return false
+    try { return localStorage.getItem('leadsReportPanelOpen') !== '0' } catch { return true }
+  })
+  const [facets, setFacets] = useState<ReportFacets | null>(null)
+  // navegação do drawer que cruzou a página: abre o 1º/último lead da página nova
+  const [pendingPeek, setPendingPeek] = useState<'first' | 'last' | null>(null)
   const [selected, setSelected]   = useState<Set<string>>(new Set())
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [deleting, setDeleting]   = useState(false)
@@ -430,11 +426,15 @@ export default function LeadsReport() {
   }
 
   useEffect(() => {
-    if (!filterOpen) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setFilterOpen(false) }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [filterOpen])
+    const onResize = () => setIsNarrow(window.innerWidth < 1000)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useEffect(() => {
+    if (isNarrow) return
+    try { localStorage.setItem('leadsReportPanelOpen', panelOpen ? '1' : '0') } catch { /* sem storage */ }
+  }, [panelOpen, isNarrow])
 
   useEffect(() => {
     const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter, vidasFilter, faixaFilter }
@@ -462,7 +462,6 @@ export default function LeadsReport() {
     setFaixaFilter('')
     setStaleDays(0)
     setEstrito(false)
-    setFilterOpen(false)
     setClearTrigger(c => c + 1)
   }
 
@@ -499,29 +498,15 @@ export default function LeadsReport() {
     if (me) fetchReport(1)
   }, [me]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Painel lateral: qualquer filtro vale na hora (com um respiro curto pra
+  // juntar cliques seguidos numa busca só).
+  const filtersDebounceRef = useRef<ReturnType<typeof setTimeout>>()
   useEffect(() => {
-    if (searched) fetchReport(1)
-  }, [perceptionFilter]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (searched) fetchReport(1)
-  }, [conversionPointFilter]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (searched) fetchReport(1)
-  }, [statusFilter]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (searched) fetchReport(1)
-  }, [renutFilter]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (searched) fetchReport(1)
-  }, [staleDays]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (searched) fetchReport(1)
-  }, [estrito]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!searched) return
+    clearTimeout(filtersDebounceRef.current)
+    filtersDebounceRef.current = setTimeout(() => fetchReport(1), 250)
+    return () => clearTimeout(filtersDebounceRef.current)
+  }, [dateFrom, dateTo, origem, canal, campanhaFilter, modalidadeFilter, conversionPointFilter, statusFilter, perceptionFilter, lostReasonFilter, closedSubStatus, teamFilter, vidasFilter, faixaFilter, renutFilter, staleDays, estrito]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Busca da barra rápida: filtra sozinha com um respiro de digitação.
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>()
@@ -610,9 +595,19 @@ export default function LeadsReport() {
         })
         .finally(() => { if (fetchReportGenRef.current === gen) setLoading(false) })
 
-      api.get<ReportStats>('/api/v1/leads/report-stats', { params })
-        .then(r => { if (fetchReportGenRef.current === gen) setStats(r.data) })
-        .catch(() => { if (fetchReportGenRef.current === gen) setStats(null) })
+      if (SHOW_KPI_CARDS) {
+        api.get<ReportStats>('/api/v1/leads/report-stats', { params })
+          .then(r => { if (fetchReportGenRef.current === gen) setStats(r.data) })
+          .catch(() => { if (fetchReportGenRef.current === gen) setStats(null) })
+      }
+
+      // quantos leads cada opção do painel traria (só muda com os filtros, não com a página)
+      if (p === 1) {
+        const fgen = ++facetsGenRef.current
+        api.get<ReportFacets>('/api/v1/leads/report-facets', { params: reportFilterParams() })
+          .then(r => { if (facetsGenRef.current === fgen) setFacets(r.data) })
+          .catch(() => { if (facetsGenRef.current === fgen) setFacets(null) })
+      }
     },
     [reportFilterParams, navigate],
   )
@@ -620,6 +615,13 @@ export default function LeadsReport() {
   useEffect(() => {
     if (clearTrigger > 0) fetchReport(1)
   }, [clearTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!pendingPeek || !report || loading) return
+    const l = pendingPeek === 'first' ? report.leads[0] : report.leads[report.leads.length - 1]
+    if (l) setPeekLead(l)
+    setPendingPeek(null)
+  }, [report, loading, pendingPeek])
 
   const [exporting, setExporting] = useState(false)
 
@@ -702,7 +704,6 @@ export default function LeadsReport() {
     }
   }
 
-  function handleSearch() { fetchReport(1) }
 
   function goToPage() {
     const n = parseInt(jumpPage, 10)
@@ -776,14 +777,82 @@ export default function LeadsReport() {
 
   const labelStyle = { fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }
 
+  // ---- painel lateral: valores, alterações e etiquetas dos filtros ativos ----
+  const filterValues: FilterValues = {
+    dateFrom, dateTo, status: statusFilter, closedSubStatus, lostReason: lostReasonFilter, perception: perceptionFilter,
+    origem, team: teamFilter, canal, conversionPoint: conversionPointFilter, campanha: campanhaFilter,
+    modalidade: modalidadeFilter, vidas: vidasFilter, faixa: faixaFilter, renut: renutFilter,
+  }
+  function patchFilters(pt: Partial<FilterValues>) {
+    if (pt.dateFrom !== undefined) setDateFrom(pt.dateFrom)
+    if (pt.dateTo !== undefined) setDateTo(pt.dateTo)
+    if (pt.status !== undefined) setStatusFilter(pt.status)
+    if (pt.closedSubStatus !== undefined) setClosedSubStatus(pt.closedSubStatus)
+    if (pt.lostReason !== undefined) setLostReasonFilter(pt.lostReason)
+    if (pt.perception !== undefined) setPerceptionFilter(pt.perception)
+    if (pt.origem !== undefined) setOrigem(pt.origem)
+    if (pt.team !== undefined) setTeamFilter(pt.team)
+    if (pt.canal !== undefined) setCanal(pt.canal)
+    if (pt.conversionPoint !== undefined) setConversionPointFilter(pt.conversionPoint)
+    if (pt.campanha !== undefined) setCampanhaFilter(pt.campanha)
+    if (pt.modalidade !== undefined) setModalidadeFilter(pt.modalidade)
+    if (pt.vidas !== undefined) setVidasFilter(pt.vidas)
+    if (pt.faixa !== undefined) setFaixaFilter(pt.faixa)
+    if (pt.renut !== undefined) setRenutFilter(pt.renut)
+  }
+
+  const statusOptions = STATUS_PILLS.filter(s => s.value).map(s => ({ value: s.value, label: s.label, color: s.color }))
+  const datePresets = DATE_PRESETS.map(d => ({ key: d.key, label: d.label, ...(({ from, to }) => ({ from, to }))(presetRange(d.key)) }))
+  const presetAtual = datePresets.find(d => d.from === dateFrom && d.to === dateTo)
+  const fmtDia = (iso: string) => iso.split('-').reverse().slice(0, 2).join('/')
+
+  interface Chip { key: string; label: string; value: string; color?: string; onRemove?: () => void }
+  const chips: Chip[] = []
+  const listaCsv = (csv: string, label: (x: string) => string = x => x) => {
+    const xs = [...csvSet(csv)].map(label)
+    return xs.length <= 2 ? xs.join(', ') : `${xs[0]} +${xs.length - 1}`
+  }
+  const statusOn = statusOptions.filter(o => csvSet(statusFilter).has(o.value.split(',')[0]))
+  if (statusFilter) {
+    const nomes = statusOn.length ? statusOn.map(o => o.label) : [statusLabel(statusFilter.split(',')[0])]
+    chips.push({ key: 'status', label: 'Status', value: nomes.length <= 2 ? nomes.join(', ') : `${nomes[0]} +${nomes.length - 1}`, color: statusOn.length === 1 ? statusOn[0].color : undefined, onRemove: () => setStatusFilter('') })
+  }
+  if (closedSubStatus) chips.push({ key: 'etapa', label: 'Etapa', value: closedSubStatus === STATUS_AGUARDANDO_FATURAMENTO ? 'Aguardando faturamento' : 'Venda realizada', onRemove: () => setClosedSubStatus('') })
+  if (lostReasonFilter) chips.push({ key: 'motivo', label: 'Motivo', value: listaCsv(lostReasonFilter), onRemove: () => setLostReasonFilter('') })
+  if (perceptionFilter) chips.push({ key: 'temp', label: 'Temperatura', value: listaCsv(perceptionFilter), onRemove: () => setPerceptionFilter('') })
+  if (canFilterOperador && origem) chips.push({ key: 'op', label: 'Operador', value: listaCsv(origem), onRemove: () => setOrigem('') })
+  if (teamFilter) chips.push({ key: 'team', label: 'Equipe', value: listaCsv(teamFilter), onRemove: () => setTeamFilter('') })
+  if (canal) chips.push({ key: 'canal', label: 'Origem', value: listaCsv(canal), onRemove: () => setCanal('') })
+  if (conversionPointFilter) chips.push({ key: 'ponto', label: 'Conversão', value: listaCsv(conversionPointFilter), onRemove: () => setConversionPointFilter('') })
+  if (campanhaFilter) chips.push({ key: 'camp', label: 'Campanha', value: listaCsv(campanhaFilter), onRemove: () => setCampanhaFilter('') })
+  if (modalidadeFilter) chips.push({ key: 'mod', label: 'Modalidade', value: listaCsv(modalidadeFilter), onRemove: () => setModalidadeFilter('') })
+  if (vidasFilter) chips.push({ key: 'vidas', label: 'Vidas', value: listaCsv(vidasFilter, x => VIDAS_OPCOES.find(o => o.value === x)?.label ?? x), onRemove: () => setVidasFilter('') })
+  if (faixaFilter) chips.push({ key: 'faixa', label: 'Faixa etária', value: listaCsv(faixaFilter, x => FAIXA_OPCOES.find(o => o.value === x)?.label ?? x), onRemove: () => setFaixaFilter('') })
+  if (renutFilter) chips.push({ key: 'renut', label: 'Renutrição', value: renutFilter === 'em' ? 'Em renutrição' : 'Fora', onRemove: () => setRenutFilter('') })
+  if (staleDays > 0) chips.push({ key: 'stale', label: 'Sem movimento', value: `${staleDays}+ dias`, onRemove: () => setStaleDays(0) })
+  if (search.trim()) chips.push({ key: 'busca', label: 'Busca', value: `"${search.trim()}"`, onRemove: () => setSearch('') })
+  const periodoAlterado = dateFrom !== monthStart || dateTo !== today
+  const activeCount = chips.length + (periodoAlterado ? 1 : 0)
+
+  // ---- drawer: anterior / próximo (atravessa as páginas) ----
+  const peekIdx = peekLead ? sortedLeads.findIndex(l => l.id === peekLead.id) : -1
+  const peekPos = report && peekIdx >= 0 ? (page - 1) * LIMIT + peekIdx + 1 : null
+  function peekStep(d: 1 | -1) {
+    if (peekIdx < 0) return
+    const alvo = sortedLeads[peekIdx + d]
+    if (alvo) { setPeekLead(alvo); return }
+    const nova = page + d
+    if (nova >= 1 && nova <= totalPages) { setPendingPeek(d > 0 ? 'first' : 'last'); fetchReport(nova) }
+  }
+
   return (
     <>
-    <main className="px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
+    <main className="lr-theme px-4 md:px-8 xl:px-12 py-6 flex flex-col gap-6" style={{ minHeight: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Relatório de Leads</h1>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Relatório de Leads</h1>
               {report && (
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-subtle)' }}>{report.total} lead{report.total !== 1 ? 's' : ''}</span>
               )}
@@ -803,23 +872,10 @@ export default function LeadsReport() {
                 </button>
               </div>
             )}
-            {conversionPointFilter && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', borderRadius: 99, padding: '4px 10px 4px 12px' }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#7C3AED' }}>Ponto de conversão: {conversionPointFilter}</span>
-                <button onClick={() => setConversionPointFilter('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7C3AED', display: 'flex', alignItems: 'center', padding: 0 }}>
-                  <X size={13} />
-                </button>
-              </div>
-            )}
             {canAssign && selected.size > 0 && (
               <button
                 onClick={() => setAssignOpen(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  background: 'var(--accent-weak)', color: 'var(--accent)', border: '1px solid var(--accent-weak)',
-                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                }}
+                className="lr-btn soft"
               >
                 <RotateCcw size={15} />
                 Atribuir ({selected.size})
@@ -828,12 +884,7 @@ export default function LeadsReport() {
             {isAdmin && selected.size > 0 && (
               <button
                 onClick={() => setConfirmDeleteOpen(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
-                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                }}
+                className="lr-btn danger"
               >
                 <Trash2 size={15} />
                 Excluir ({selected.size})
@@ -841,43 +892,16 @@ export default function LeadsReport() {
             )}
             {!isTrafego && <button
               onClick={() => { resetNewLead(); setNewLeadOpen(true) }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                background: '#2563EB', color: '#fff', border: '1px solid #2563EB',
-                cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
+              className="lr-btn pri"
             >
               <Plus size={15} />
               Novo Lead
             </button>}
             <VerComoSlot />
-            <button
-              onClick={() => setFilterOpen(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)',
-                cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              }}
-            >
-              <Filter size={15} />
-              Filtros
-              {renutFilter !== '' && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#0D9488', background: '#F0FDFA', border: '1px solid #99F6E4', borderRadius: 999, padding: '1px 8px' }}>
-                  <RotateCcw size={11} /> {renutFilter === 'em' ? 'Em renutrição' : 'Fora da renutrição'}
-                </span>
-              )}
-            </button>
             {isAdmin && (
               <button
                 onClick={() => setImportOpen(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  background: 'var(--bg-card)', color: 'var(--text-2)', border: '1px solid var(--border)',
-                  cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                }}
+                className="lr-btn"
               >
                 <Upload size={15} />
                 Importar Renutrição
@@ -904,19 +928,24 @@ export default function LeadsReport() {
 
         {peekLead && (
           <LeadPeekDrawer
+            key="peek"
             lead={peekLead}
             onClose={() => setPeekLead(null)}
             onOpenFull={() => window.open(`/leads/${peekLead.id}`, '_blank')}
+            position={peekPos != null && report ? { index: peekPos, total: report.total } : undefined}
+            onPrev={peekPos != null && peekPos > 1 ? () => peekStep(-1) : undefined}
+            onNext={peekPos != null && report && peekPos < report.total ? () => peekStep(1) : undefined}
+            navLoading={pendingPeek != null}
           />
         )}
 
-        {stats && (
+        {SHOW_KPI_CARDS && stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {([
-              { key: 'total',    label: 'Total',    value: stats.total,    accent: '#7C93C4', active: !statusFilter && !perceptionFilter, series: stats.series?.total,    delta: stats.deltas?.total,    goodUp: true },
-              { key: 'fechados', label: 'Fechados', value: stats.fechados, accent: '#0F9D58', active: statusFilter === STATUS_FECHADO,        series: stats.series?.fechados, delta: stats.deltas?.fechados, goodUp: true },
-              { key: 'perdidos', label: 'Perdidos', value: stats.perdidos, accent: '#E1394A', active: statusFilter === STATUS_PERDIDO,        series: stats.series?.perdidos, delta: stats.deltas?.perdidos, goodUp: false },
-              { key: 'quentes',  label: 'Quentes',  value: stats.quentes,  accent: '#D97706', active: perceptionFilter === 'Quente',           series: stats.series?.quentes,  delta: stats.deltas?.quentes,  goodUp: true },
+              { key: 'total',    label: 'Total',    value: stats.total,    accent: 'var(--accent)', active: !statusFilter && !perceptionFilter, series: stats.series?.total,    delta: stats.deltas?.total,    goodUp: true },
+              { key: 'fechados', label: 'Fechados', value: stats.fechados, accent: 'var(--lr-st-fechado)', active: statusFilter === STATUS_FECHADO,        series: stats.series?.fechados, delta: stats.deltas?.fechados, goodUp: true },
+              { key: 'perdidos', label: 'Perdidos', value: stats.perdidos, accent: 'var(--lr-st-perdido)', active: statusFilter === STATUS_PERDIDO,        series: stats.series?.perdidos, delta: stats.deltas?.perdidos, goodUp: false },
+              { key: 'quentes',  label: 'Quentes',  value: stats.quentes,  accent: 'var(--lr-quente)', active: perceptionFilter === 'Quente',           series: stats.series?.quentes,  delta: stats.deltas?.quentes,  goodUp: true },
             ] as const).map(s => {
               const showDelta = typeof s.delta === 'number' && s.delta !== 0
               const good = showDelta && ((s.delta as number) > 0) === s.goodUp
@@ -928,7 +957,7 @@ export default function LeadsReport() {
                   position: 'relative', overflow: 'hidden', textAlign: 'left', font: 'inherit', cursor: 'pointer',
                   background: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px 12px',
                   border: `1px solid ${s.active ? s.accent : 'var(--border)'}`,
-                  boxShadow: s.active ? `0 0 0 3px ${s.accent}22` : 'none',
+                  boxShadow: s.active ? `0 0 0 3px ${tint(s.accent, 16)}` : 'none',
                   transition: 'border-color 120ms, box-shadow 120ms',
                 }}
               >
@@ -941,14 +970,14 @@ export default function LeadsReport() {
                   {showDelta && (
                     <span style={{
                       fontSize: 10.5, fontWeight: 700, padding: '2px 6px', borderRadius: 6,
-                      color: good ? '#0F9D58' : '#E1394A',
-                      background: good ? 'rgba(15,157,88,0.1)' : 'rgba(225,57,74,0.1)',
+                      color: good ? 'var(--lr-st-fechado)' : 'var(--lr-st-perdido)',
+                      background: tint(good ? 'var(--lr-st-fechado)' : 'var(--lr-st-perdido)', 12),
                     }}>
                       {(s.delta as number) > 0 ? '↑' : '↓'} {Math.abs(s.delta as number)}%
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginBottom: 6 }}>{s.value}</div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', marginBottom: 6 }}>{s.value}</div>
                 {s.series && s.series.some(v => v > 0)
                   ? <Sparkline data={s.series} color={s.accent} />
                   : <div style={{ height: 26 }} />}
@@ -958,7 +987,46 @@ export default function LeadsReport() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 2 }}>
+        {isNarrow && panelOpen && (
+          <div onClick={() => setPanelOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 90 }} />
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: panelOpen && !isNarrow ? '256px minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
+        {panelOpen && (
+          <div style={isNarrow
+            ? { position: 'fixed', top: 12, left: 12, bottom: 12, width: 'min(300px, calc(100vw - 24px))', zIndex: 91, display: 'flex', flexDirection: 'column' }
+            : { position: 'sticky', top: 16 }}>
+            <ReportFilterPanel
+              value={filterValues}
+              onChange={patchFilters}
+              facets={facets}
+              statusOptions={statusOptions}
+              closedOptions={[
+                { value: STATUS_AGUARDANDO_FATURAMENTO, label: 'Aguardando faturamento' },
+                { value: STATUS_VENDA_REALIZADA, label: 'Venda realizada' },
+              ]}
+              statusFechado={STATUS_FECHADO}
+              statusPerdido={STATUS_PERDIDO}
+              datePresets={datePresets}
+              operators={operators}
+              canais={canais}
+              sitePoints={sitePoints}
+              campanhas={campanhasMidia}
+              modalidades={modalidades}
+              lostReasons={lostReasons}
+              teamOptions={TEAM_OPTIONS}
+              vidasOptions={VIDAS_OPCOES}
+              faixaOptions={FAIXA_OPCOES}
+              canFilterOperador={canFilterOperador}
+              canViewAll={canViewAll}
+              myName={myName}
+              activeCount={activeCount}
+              onClearAll={clearFilters}
+              onCollapse={() => setPanelOpen(false)}
+            />
+          </div>
+        )}
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {SHOW_VIEW_TABS && <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 2 }}>
           {([
             { key: 'todos',        label: 'Todos' },
             { key: 'quentes',      label: 'Quentes' },
@@ -973,7 +1041,7 @@ export default function LeadsReport() {
                 key={v.key}
                 onClick={() => applyView(v.key)}
                 style={{
-                  font: 'inherit', fontSize: 12.5, fontWeight: on ? 700 : 500, cursor: 'pointer',
+                  font: 'inherit', fontSize: 13, fontWeight: on ? 600 : 500, cursor: 'pointer',
                   padding: '8px 12px', border: 'none', background: 'none',
                   color: on ? 'var(--accent)' : 'var(--text-muted)',
                   borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`,
@@ -984,9 +1052,20 @@ export default function LeadsReport() {
               </button>
             )
           })}
-        </div>
+        </div>}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 10px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 10px' }}>
+          {!panelOpen && (
+            <button
+              onClick={() => setPanelOpen(true)}
+              title="Mostrar filtros"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <PanelLeftOpen size={15} /> Filtros
+              {activeCount > 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: '0 6px', borderRadius: 9, background: 'var(--accent)', color: '#fff' }}>{activeCount}</span>}
+            </button>
+          )}
           <div style={{ flex: 1, minWidth: 180, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--bg-subtle)', borderRadius: 9 }}>
             <Search size={14} style={{ color: 'var(--text-subtle)', flexShrink: 0 }} />
             <input
@@ -994,7 +1073,7 @@ export default function LeadsReport() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar por nome, CPF/CNPJ, telefone ou email"
-              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 12.5, color: 'var(--text-2)' }}
+              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--text-2)' }}
             />
             {search && (
               <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex', padding: 0 }}>
@@ -1002,32 +1081,47 @@ export default function LeadsReport() {
               </button>
             )}
           </div>
-          <div style={{ display: 'flex', background: 'var(--bg-subtle)', borderRadius: 9, padding: 3 }}>
-            {([
-              { label: 'Todas',  value: '',       color: '' },
-              { label: 'Quente', value: 'Quente', color: '#DC2626' },
-              { label: 'Morno',  value: 'Morno',  color: '#D97706' },
-              { label: 'Frio',   value: 'Frio',   color: '#3B82F6' },
-            ] as const).map(opt => {
-              const active = perceptionFilter === opt.value
-              return (
-                <button
-                  key={opt.label}
-                  onClick={() => setPerceptionFilter(opt.value)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    fontSize: 11.5, fontWeight: 600, padding: '5px 10px', borderRadius: 7, cursor: 'pointer', border: 'none',
-                    background: active ? 'var(--bg-card)' : 'transparent',
-                    color: active ? 'var(--text-1)' : 'var(--text-muted)',
-                    boxShadow: active ? '0 1px 3px rgba(15,23,42,0.12)' : 'none',
-                  }}
-                >
-                  {opt.color && <span style={{ width: 6, height: 6, borderRadius: '50%', background: opt.color }} />}
-                  {opt.label}
-                </button>
-              )
-            })}
-          </div>
+          <span style={{ fontSize: 13, color: 'var(--text-subtle)', whiteSpace: 'nowrap', marginLeft: 4 }}>
+            {loading ? 'Buscando…' : report ? <><strong style={{ color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{report.total.toLocaleString('pt-BR')}</strong> lead{report.total !== 1 ? 's' : ''}</> : null}
+          </span>
+          <button
+            onClick={exportExcel}
+            disabled={exporting || !report || report.total === 0}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 8,
+              border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 13, fontWeight: 500, fontFamily: 'inherit',
+              cursor: exporting || !report || report.total === 0 ? 'not-allowed' : 'pointer', opacity: !report || report.total === 0 ? 0.5 : 1,
+            }}
+          >
+            <Download size={14} /> {exporting ? 'Exportando…' : 'Exportar'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: '8px 10px', borderTop: '1px solid var(--border-lt)', background: 'var(--bg-hover)' }}>
+          <span style={chipStyle}>
+            <span style={{ color: 'var(--text-subtle)' }}>Período</span>
+            <strong style={{ color: 'var(--text-1)', fontWeight: 600 }}>{presetAtual ? presetAtual.label : `${fmtDia(dateFrom)} – ${fmtDia(dateTo)}`}</strong>
+            {presetAtual && <span style={{ color: 'var(--text-subtle)' }}>{fmtDia(dateFrom)} – {fmtDia(dateTo)}</span>}
+          </span>
+          {estrito && (
+            <span style={chipStyle} title="Mesma contagem da Gestão Comercial: só leads captados no período.">
+              <strong style={{ color: 'var(--accent)', fontWeight: 600 }}>Recorte da Gestão Comercial</strong>
+              <button onClick={() => setEstrito(false)} aria-label="Ver carteira completa" style={chipX}><X size={12} /></button>
+            </span>
+          )}
+          {chips.map(c => (
+            <span key={c.key} style={chipStyle}>
+              {c.color && <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.color }} />}
+              <span style={{ color: 'var(--text-subtle)' }}>{c.label}</span>
+              <strong style={{ color: 'var(--text-1)', fontWeight: 600, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.value}</strong>
+              {c.onRemove && <button onClick={c.onRemove} aria-label={`Remover filtro ${c.label}`} style={chipX}><X size={12} /></button>}
+            </span>
+          ))}
+          {activeCount > 0 && (
+            <button onClick={clearFilters} style={{ border: 'none', background: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '0 4px', fontFamily: 'inherit' }}>
+              Limpar tudo
+            </button>
+          )}
+        </div>
         </div>
 
         {error && <p style={{ color: '#EF4444', fontSize: 13 }}>{error}</p>}
@@ -1037,7 +1131,7 @@ export default function LeadsReport() {
             className="text-center py-16 bg-white rounded-xl"
             style={{ color: 'var(--text-subtle)', fontSize: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
           >
-            Selecione os filtros e clique em <strong>Buscar</strong> para ver os leads.
+            Carregando seus leads…
           </div>
         )}
 
@@ -1070,18 +1164,18 @@ export default function LeadsReport() {
                 )}
               </div>
             )}
-            <div className="rounded-xl" style={{ background: 'var(--bg-page)' }}>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
               {report.leads.length === 0 ? (
-                <div className="py-16 text-center bg-white rounded-xl" style={{ color: 'var(--text-subtle)', fontSize: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <div style={{ padding: '64px 20px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 14 }}>
                   Nenhum lead encontrado para os filtros selecionados.
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
+                  <table className="lr-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                     <thead>
-                      <tr style={{ background: 'var(--bg-hover)' }}>
+                      <tr>
                         {canAssign && (
-                          <th style={{ padding: '11px 12px', border: '1px solid var(--border)', borderLeft: '1px solid var(--border)', borderTopLeftRadius: 10, borderBottomLeftRadius: 10, width: 1 }}>
+                          <th style={{ padding: '11px 12px 11px 16px', width: 1 }}>
                             <input
                               type="checkbox"
                               checked={report !== null && report.leads.length > 0 && report.leads.every(l => selected.has(l.id))}
@@ -1095,17 +1189,12 @@ export default function LeadsReport() {
                             key={col.key}
                             onClick={() => handleSort(col.key)}
                             style={{
-                              padding: '11px 16px', textAlign: 'left',
-                              fontSize: 11, fontWeight: 800, color: 'var(--text-2)',
-                              textTransform: 'uppercase', letterSpacing: '0.05em',
+                              padding: '11px 10px', textAlign: 'left',
+                              fontSize: 11, fontWeight: 600, color: 'var(--text-subtle)',
+                              textTransform: 'uppercase', letterSpacing: '0.04em',
                               cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                              border: '1px solid var(--border)',
-                              borderLeft: i === 0 && !canAssign ? '1px solid var(--border)' : i === 0 ? 'none' : 'none',
-                              borderRight: i === COLUMNS.length - 1 ? '1px solid var(--border)' : 'none',
-                              borderTopLeftRadius: i === 0 && !canAssign ? 10 : 0,
-                              borderBottomLeftRadius: i === 0 && !canAssign ? 10 : 0,
-                              borderTopRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
-                              borderBottomRightRadius: i === COLUMNS.length - 1 ? 10 : 0,
+                              paddingLeft: i === 0 && !canAssign ? 16 : 10,
+                              paddingRight: i === COLUMNS.length - 1 ? 16 : 10,
                             }}
                           >
                             {col.label}
@@ -1120,24 +1209,17 @@ export default function LeadsReport() {
                     </thead>
                     <tbody>
                       {sortedLeads.map(lead => {
-                        const rail = perceptionColor(lead.perception) ?? 'transparent'
                         return (
                         <tr
                           key={lead.id}
                           onClick={() => setPeekLead(lead)}
-                          style={{
-                            background: 'var(--bg-card)',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                            transition: 'background 120ms',
-                            cursor: 'pointer',
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg-card)')}
+                          className={peekLead?.id === lead.id ? 'cur' : undefined}
+                          style={{ cursor: 'pointer' }}
                         >
                           {canAssign && (
                             <td
                               onClick={e => e.stopPropagation()}
-                              style={{ padding: '12px 12px', borderTopLeftRadius: 10, borderBottomLeftRadius: 10, borderLeft: `3px solid ${rail}` }}
+                              style={{ padding: '12px 12px 12px 16px' }}
                             >
                               <input
                                 type="checkbox"
@@ -1147,7 +1229,7 @@ export default function LeadsReport() {
                               />
                             </td>
                           )}
-                          <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', borderTopLeftRadius: canAssign ? 0 : 10, borderBottomLeftRadius: canAssign ? 0 : 10, borderLeft: canAssign ? 'none' : `3px solid ${rail}` }}>
+                          <td style={{ padding: '12px 10px', fontSize: 14, fontWeight: 500, color: 'var(--text-2)', paddingLeft: canAssign ? 10 : 16 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <span style={{
                                 width: 30, height: 30, borderRadius: 9, flexShrink: 0,
@@ -1159,21 +1241,21 @@ export default function LeadsReport() {
                               </span>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{lead.name}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>{lead.name}</span>
                                   {lead.duplicado_de_id && (
                                     <span
                                       title={`Possível duplicado: os dados já estão no lead ${lead.duplicado_de_nome ?? '(outro lead)'}`}
-                                      style={{ fontSize: 9, fontWeight: 800, color: 'var(--warning)', background: 'var(--warning-weak)', borderRadius: 5, padding: '2px 5px', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                                      DUPLICADO
+                                      style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--warning)', background: 'var(--warning-weak)', borderRadius: 5, padding: '2px 6px', whiteSpace: 'nowrap' }}>
+                                      Duplicado
                                     </span>
                                   )}
                                   {lead.campanha_canal ? (
                                     <span
                                       title="Em campanha de disparo — não reatribuir pra evitar conflito"
                                       style={{
-                                        fontSize: 9, fontWeight: 800, color: CANAL_TAG_STYLE[lead.campanha_canal].color,
-                                        background: CANAL_TAG_STYLE[lead.campanha_canal].bg, borderRadius: 5, padding: '2px 5px',
-                                        letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                                        fontSize: 10.5, fontWeight: 600, color: CANAL_TAG_STYLE[lead.campanha_canal].color,
+                                        background: `color-mix(in srgb, ${CANAL_TAG_STYLE[lead.campanha_canal].color} 13%, transparent)`, borderRadius: 5, padding: '2px 6px',
+                                        whiteSpace: 'nowrap',
                                       }}>
                                       {CANAL_TAG_STYLE[lead.campanha_canal].label}
                                     </span>
@@ -1181,39 +1263,53 @@ export default function LeadsReport() {
                                     <span
                                       title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
                                       style={{
-                                        fontSize: 9, fontWeight: 800, color: '#7C3AED',
-                                        background: '#F3F0FF', borderRadius: 5, padding: '2px 5px',
-                                        letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                                        fontSize: 10.5, fontWeight: 600, color: 'var(--accent-strong)',
+                                        background: 'var(--accent-weak)', borderRadius: 5, padding: '2px 6px',
+                                        whiteSpace: 'nowrap',
                                       }}>
-                                      RENUTRIÇÃO
+                                      Renutrição
                                     </span>
                                   )}
                                 </div>
                                 {(lead.phone || lead.email) && (
-                                  <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>
+                                  <div style={{ fontSize: 12, color: 'var(--text-subtle)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>
                                     {lead.phone || lead.email}
                                   </div>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
+                          <td style={{ padding: '12px 10px', fontSize: 13, color: 'var(--text-3b)' }}>
                             {lead.attendant ?? '—'}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-2)' }}>
-                            {lead.modalidade ?? '—'}
+                          <td style={{ padding: '12px 10px', maxWidth: 128 }} title={[lead.origem, lead.conversion_point].filter(Boolean).join(' · ') || undefined}>
+                            <div style={{ fontSize: 13, color: 'var(--text-3b)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.origem || '—'}</div>
+                            {lead.conversion_point && (
+                              <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.conversion_point}</div>
+                            )}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 700, color: lead.value_potential ? 'var(--text-1)' : 'var(--text-subtle)', whiteSpace: 'nowrap' }}>
-                            {fmtBRLShort(lead.value_potential)}
+                          <td style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: lead.value_potential ? 'var(--text-1)' : 'var(--text-subtle)' }}>{fmtBRLShort(lead.value_potential)}</div>
+                            {lead.modalidade && <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>{lead.modalidade}</div>}
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td style={{ padding: '12px 10px' }}>
                             <PerceptionBadge perception={lead.perception} />
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td style={{ padding: '12px 10px' }}>
                             <StatusBadge status={lead.status} />
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: 12.5, color: 'var(--text-subtle)', whiteSpace: 'nowrap', borderTopRightRadius: 10, borderBottomRightRadius: 10 }}>
-                            {fmtAgo(lead.updated_at)}
+                          <td
+                            title={lead.retrabalhado_em ? `Reativado em ${fmtDate(lead.retrabalhado_em)}` : undefined}
+                            style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}
+                          >
+                            <div style={{ fontSize: 13, color: 'var(--text-3b)', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(lead.created_at)}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>
+                              {lead.retrabalhado_em ? `reativado ${fmtAgo(lead.retrabalhado_em)}` : fmtAgo(lead.created_at)}
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 16px 12px 10px', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 13, color: 'var(--text-3b)', fontVariantNumeric: 'tabular-nums' }}>{lead.updated_at ? fmtDate(lead.updated_at) : '—'}</div>
+                            {lead.updated_at && <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>{fmtAgo(lead.updated_at)}</div>}
                           </td>
                         </tr>
                         )
@@ -1252,8 +1348,8 @@ export default function LeadsReport() {
                       style={{
                         padding: '5px 11px', borderRadius: 8, fontSize: 13,
                         fontWeight: p === page ? 700 : 400,
-                        background: p === page ? '#2563EB' : 'var(--bg-card)',
-                        color: p === page ? 'white' : 'var(--text-2)',
+                        background: p === page ? 'var(--accent)' : 'var(--bg-card)',
+                        color: p === page ? 'var(--accent-contrast)' : 'var(--text-2)',
                         border: '1px solid var(--border)', cursor: 'pointer',
                       }}
                     >
@@ -1308,445 +1404,8 @@ export default function LeadsReport() {
           </>
         )}
 
-        {filterOpen && (
-          <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 100, padding: 24, overflowY: 'auto' }}>
-            <style>{`@keyframes filterModalIn { from { opacity: 0; transform: translateY(-10px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{
-                margin: 'auto 0', flexShrink: 0,
-                background: 'var(--bg-card, #fff)', borderRadius: 20, width: '100%', maxWidth: 940,
-                boxShadow: '0 24px 70px rgba(0,0,0,0.3)', animation: 'filterModalIn 180ms ease-out',
-                overflow: 'hidden',
-              }}
-            >
-              <div style={{
-                padding: '22px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: 'linear-gradient(135deg, rgba(37,99,235,0.08), rgba(124,58,237,0.05))',
-                borderBottom: '1px solid var(--border)',
-              }}>
-                <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    width: 32, height: 32, borderRadius: 10, background: '#2563EB', color: 'white',
-                  }}>
-                    <Filter size={16} />
-                  </span>
-                  Filtros
-                  {(() => {
-                    const activeCount = [
-                      dateFrom !== monthStart || dateTo !== today,
-                      !!origem, !!canal, !!conversionPointFilter, !!campanhaFilter, !!modalidadeFilter, !!statusFilter, !!teamFilter, !!search, renutFilter !== '', !!vidasFilter, !!faixaFilter,
-                    ].filter(Boolean).length
-                    return activeCount > 0 ? (
-                      <span style={{ fontFamily: 'inherit', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(37,99,235,0.12)', color: '#2563EB' }}>
-                        {activeCount} ativo{activeCount !== 1 ? 's' : ''}
-                      </span>
-                    ) : null
-                  })()}
-                </p>
-                <button onClick={() => setFilterOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }}>
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div style={{ padding: '24px 28px 28px' }}>
-                {/* Período */}
-                <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px dashed var(--border-lt)' }}>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', margin: '0 0 10px' }}>
-                    <Calendar size={13} color="#2563EB" />Período
-                  </p>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                    {DATE_PRESETS.map(p => {
-                      const range = presetRange(p.key)
-                      const active = dateFrom === range.from && dateTo === range.to
-                      return (
-                        <button
-                          key={p.key}
-                          onClick={() => { setDateFrom(range.from); setDateTo(range.to) }}
-                          style={{
-                            fontSize: 11.5, fontWeight: 600, padding: '5px 12px', borderRadius: 999, cursor: 'pointer',
-                            border: `1px solid ${active ? '#2563EB' : 'var(--border)'}`,
-                            background: active ? 'rgba(37,99,235,0.1)' : 'var(--bg-subtle)',
-                            color: active ? '#2563EB' : 'var(--text-muted)',
-                          }}
-                        >
-                          {p.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
-                    <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Data Início</label>
-                      <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={e => setDateFrom(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Data Fim</label>
-                      <input
-                        type="date"
-                        value={dateTo}
-                        onChange={e => setDateTo(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Responsável e origem */}
-                <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px dashed var(--border-lt)' }}>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', margin: '0 0 10px' }}>
-                    <Users size={13} color="#2563EB" />Responsável e origem
-                  </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
-                    <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Operador</label>
-                      {canFilterOperador ? (
-                        <select
-                          value={origem}
-                          onChange={e => setOrigem(e.target.value)}
-                          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          style={{ color: 'var(--text-2)', width: '100%' }}
-                        >
-                          <option value="">Todos</option>
-                          {operators.map(op => (
-                            <option key={op} value={op}>{op}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          value={myName}
-                          disabled
-                          className="border rounded-lg px-3 py-2 text-sm bg-gray-50"
-                          style={{ color: 'var(--text-muted)', width: '100%' }}
-                        />
-                      )}
-                    </div>
-
-                    {canViewAll && (
-                      <div className="flex flex-col gap-1">
-                        <label style={labelStyle}>Equipe</label>
-                        <select
-                          value={teamFilter}
-                          onChange={e => setTeamFilter(e.target.value)}
-                          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          style={{ color: 'var(--text-2)', width: '100%' }}
-                        >
-                          <option value="">Todas</option>
-                          {TEAM_OPTIONS.map(t => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Origem</label>
-                      <select
-                        value={canal}
-                        onChange={e => setCanal(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      >
-                        <option value="">Todas</option>
-                        {(canal && !canais.includes(canal) ? [...canais, canal] : canais).map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Ponto de conversão</label>
-                      <select
-                        value={conversionPointFilter}
-                        onChange={e => setConversionPointFilter(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      >
-                        <option value="">Todos</option>
-                        {(conversionPointFilter && !sitePoints.includes(conversionPointFilter) ? [...sitePoints, conversionPointFilter] : sitePoints).map(p => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Campanha</label>
-                      <select
-                        value={campanhaFilter}
-                        onChange={e => setCampanhaFilter(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      >
-                        <option value="">Todas</option>
-                        <option value="Sem campanha">Sem campanha</option>
-                        {(campanhaFilter && campanhaFilter !== 'Sem campanha' && !campanhasMidia.includes(campanhaFilter) ? [...campanhasMidia, campanhaFilter] : campanhasMidia).map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                  </div>
-                </div>
-
-                {/* Perfil do lead */}
-                <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px dashed var(--border-lt)' }}>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', margin: '0 0 10px' }}>
-                    <ClipboardList size={13} color="#2563EB" />Perfil do lead
-                  </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 16 }}>
-                    <div className="flex flex-col gap-1">
-                      <label style={labelStyle}>Modalidade</label>
-                      <select
-                        value={modalidadeFilter}
-                        onChange={e => setModalidadeFilter(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      >
-                        <option value="">Todas</option>
-                        {/* valor vindo de um clique (ex.: "Não informado" em Gestão
-                            Comercial) que não está na lista fixa também aparece */}
-                        {(modalidadeFilter && !modalidades.includes(modalidadeFilter) ? [...modalidades, modalidadeFilter] : modalidades).map(m => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <label style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>Vidas</label>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-                    {VIDAS_OPCOES.map(opt => {
-                      const active = vidasFilter.split(',').includes(opt.value)
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() => setVidasFilter(f => toggleCsv(f, opt.value))}
-                          style={{
-                            fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999,
-                            border: `1px solid ${active ? '#2563EB' : 'var(--border)'}`,
-                            background: active ? 'rgba(37,99,235,0.1)' : 'var(--bg-card)',
-                            color: active ? '#2563EB' : 'var(--text-muted)',
-                            cursor: 'pointer', transition: 'all 150ms',
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  <label style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>Faixa etária <span style={{ textTransform: 'none', fontWeight: 500, letterSpacing: 0 }}>(alguém da proposta na faixa)</span></label>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {FAIXA_OPCOES.map(opt => {
-                      const active = faixaFilter.split(',').includes(opt.value)
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() => setFaixaFilter(f => toggleCsv(f, opt.value))}
-                          style={{
-                            fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999,
-                            border: `1px solid ${active ? '#2563EB' : 'var(--border)'}`,
-                            background: active ? 'rgba(37,99,235,0.1)' : 'var(--bg-card)',
-                            color: active ? '#2563EB' : 'var(--text-muted)',
-                            cursor: 'pointer', transition: 'all 150ms',
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Status */}
-                <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px dashed var(--border-lt)' }}>
-                  <label style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>Status</label>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {STATUS_PILLS.map(opt => {
-                      const active = statusFilter === opt.value
-                      return (
-                        <button
-                          key={opt.value || 'todos'}
-                          onClick={() => setStatusFilter(opt.value)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999,
-                            border: `1px solid ${active ? opt.border : 'var(--border)'}`,
-                            background: active ? opt.bg : 'var(--bg-card)',
-                            color: active ? opt.color : 'var(--text-muted)',
-                            cursor: 'pointer', transition: 'all 150ms',
-                          }}
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: active ? opt.color : 'var(--text-subtle)' }} />
-                          {opt.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6, marginTop: 18, marginBottom: 8 }}>
-                    <RotateCcw size={13} style={{ color: '#0D9488' }} /> Renutrição
-                  </label>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {([
-                      ['', 'Todos'],
-                      ['em', 'Em renutrição'],
-                      ['fora', 'Fora da renutrição'],
-                    ] as const).map(([val, lbl]) => {
-                      const active = renutFilter === val
-                      return (
-                        <button
-                          key={lbl}
-                          onClick={() => setRenutFilter(val)}
-                          style={{
-                            fontSize: 12, fontWeight: 700, padding: '6px 13px', borderRadius: 999,
-                            border: `1px solid ${active ? '#0D9488' : 'var(--border)'}`,
-                            background: active ? '#0D9488' : 'var(--bg-card)',
-                            color: active ? '#fff' : 'var(--text-muted)',
-                            cursor: 'pointer', transition: 'all 150ms',
-                          }}
-                        >
-                          {lbl}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {statusFilter === STATUS_PERDIDO && (
-                    <div className="flex flex-col gap-1" style={{ marginTop: 16, maxWidth: 280 }}>
-                      <label style={labelStyle}>Motivo</label>
-                      <select
-                        value={lostReasonFilter}
-                        onChange={e => setLostReasonFilter(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      >
-                        <option value="">Todos</option>
-                        {lostReasons.map(r => (
-                          <option key={r} value={r}>{r}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {statusFilter === STATUS_FECHADO && (
-                    <div className="flex flex-col gap-1" style={{ marginTop: 16, maxWidth: 280 }}>
-                      <label style={labelStyle}>Etapa</label>
-                      <select
-                        value={closedSubStatus}
-                        onChange={e => setClosedSubStatus(e.target.value)}
-                        className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ color: 'var(--text-2)', width: '100%' }}
-                      >
-                        <option value="">Todos</option>
-                        <option value={STATUS_AGUARDANDO_FATURAMENTO}>Aguardando Faturamento</option>
-                        <option value={STATUS_VENDA_REALIZADA}>Venda Realizada</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {perceptionFilter !== '' && (
-                    <div className="flex items-center gap-2" style={{ marginTop: 16 }}>
-                      <span style={labelStyle}>Percepção</span>
-                      {[
-                        { label: 'Ambos', value: 'Quente,Morno' },
-                        { label: 'Quente', value: 'Quente' },
-                        { label: 'Morno', value: 'Morno' },
-                      ].map(opt => {
-                        const active = perceptionFilter === opt.value
-                        const colors: Record<string, { bg: string; color: string; border: string }> = {
-                          Quente: { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' },
-                          Morno:  { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' },
-                          Ambos:  { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' },
-                        }
-                        const c = colors[opt.label]
-                        return (
-                          <button
-                            key={opt.value}
-                            onClick={() => setPerceptionFilter(opt.value)}
-                            style={{
-                              fontSize: 12, fontWeight: 600, padding: '4px 14px', borderRadius: 99,
-                              border: `1px solid ${active ? c.border : 'var(--border)'}`,
-                              background: active ? c.bg : 'var(--bg-card)',
-                              color: active ? c.color : 'var(--text-muted)',
-                              cursor: 'pointer', transition: 'all 150ms',
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Busca livre */}
-                <div>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-subtle)', margin: '0 0 10px' }}>
-                    <Search size={13} color="#2563EB" />Busca livre
-                  </p>
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); setFilterOpen(false) } }}
-                    placeholder="Nome, CPF/CNPJ, telefone ou email"
-                    className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    style={{ color: 'var(--text-2)', width: '100%' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--border-lt)' }}>
-                  <button
-                    onClick={clearFilters}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                      background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)',
-                      cursor: 'pointer', transition: 'all 150ms',
-                    }}
-                  >
-                    <RotateCcw size={14} />
-                    Limpar Filtros
-                  </button>
-
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button
-                      onClick={exportExcel}
-                      disabled={exporting || !report || report.total === 0}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                        background: exporting ? '#D1FAE5' : '#059669', color: exporting ? '#065F46' : 'white',
-                        border: 'none', cursor: exporting || !report || report.total === 0 ? 'not-allowed' : 'pointer',
-                        opacity: !report || report.total === 0 ? 0.4 : 1, transition: 'background 150ms',
-                      }}
-                    >
-                      {exporting ? '⏳ Exportando...' : '⬇ Exportar Excel'}
-                    </button>
-                    <button
-                      onClick={() => { handleSearch(); setFilterOpen(false) }}
-                      disabled={loading}
-                      className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
-                      style={{ height: 38 }}
-                    >
-                      {loading ? 'Buscando…' : 'Buscar'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
+        </div>
 
         {confirmDeleteOpen && (
           <div onClick={() => !deleting && setConfirmDeleteOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24 }}>
@@ -1766,7 +1425,7 @@ export default function LeadsReport() {
                 <button
                   onClick={deleteSelected}
                   disabled={deleting}
-                  style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#DC2626', color: 'white', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
+                  style={{ padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'var(--lr-danger)', color: '#fff', border: 'none', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1 }}
                 >
                   {deleting ? 'Excluindo…' : 'Excluir'}
                 </button>
@@ -1784,7 +1443,7 @@ export default function LeadsReport() {
                 borderBottom: '1px solid var(--border)', flexShrink: 0,
               }}>
                 <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, background: '#2563EB', color: 'white' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, background: 'var(--accent)', color: 'var(--accent-contrast)' }}>
                     <Plus size={15} />
                   </span>
                   Novo Lead
@@ -1907,7 +1566,7 @@ export default function LeadsReport() {
                   <button
                     onClick={() => handleCreateLead()}
                     disabled={savingNewLead}
-                    style={{ padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: '#2563EB', color: 'white', border: 'none', cursor: savingNewLead ? 'not-allowed' : 'pointer', opacity: savingNewLead ? 0.6 : 1 }}
+                    style={{ padding: '9px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'var(--accent)', color: 'var(--accent-contrast)', border: 'none', cursor: savingNewLead ? 'not-allowed' : 'pointer', opacity: savingNewLead ? 0.6 : 1 }}
                   >
                     {savingNewLead ? 'Salvando…' : 'Criar Lead'}
                   </button>

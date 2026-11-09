@@ -201,34 +201,34 @@ def _perfil_ids(db: Session, base_query, vidas: Optional[str], faixa_etaria: Opt
     return ids
 
 
-@router.get("/leads/by-period", response_model=LeadsReportResponse)
-def leads_by_period(
-    date_from: str = Query(..., description="YYYY-MM-DD"),
-    date_to: str = Query(..., description="YYYY-MM-DD"),
-    origem: Optional[str] = Query(None),
-    canal: Optional[str] = Query(None, description="filtro de Origem (canal: Instagram, Meta Ads...), separado do Operador"),
-    campanha_midia: Optional[str] = Query(None, description="campanha marcada na ficha (Google, Meta...); 'Sem campanha' = vazio"),
-    status: Optional[str] = Query(None),
-    perception: Optional[str] = Query(None),
-    modalidade: Optional[str] = Query(None),
-    conversion_point: Optional[str] = Query(None),
-    lost_reason: Optional[str] = Query(None),
-    team: Optional[str] = Query(None),
-    search: Optional[str] = Query(None, description="Busca por nome, CPF/CNPJ, telefone ou email"),
-    vencidos: bool = Query(False),
-    renutricao: bool = Query(False),
-    sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
-    stale_days: int = Query(0, ge=0, le=365, description="só leads ainda ativos e sem movimento há N+ dias"),
-    estrito: bool = Query(False, description="aberto por um clique na Gestão Comercial: mesmo recorte dela"),
-    vidas: Optional[str] = Query(None, description="faixas de vidas separadas por vírgula: 1,2,3-4,5-9,10+,sem"),
-    faixa_etaria: Optional[str] = Query(None, description="faixas ANS separadas por vírgula (0-18 ... 59+) ou 'sem'; basta uma pessoa na faixa"),
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=10000),
-    ids_only: bool = Query(False, description="Retorna só {ids, total} de TODOS os leads do filtro (sem paginar) — pra 'selecionar tudo'"),
-    com_observacoes: bool = Query(False, description="inclui as anotações de cada lead (usado na exportação do Excel)"),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+def _csv(v: Optional[str]) -> list:
+    return [s.strip() for s in (v or "").split(",") if s.strip()]
+
+
+def _csv_ou_inteiro(v: Optional[str]) -> list:
+    """Valores de um filtro multi-seleção (separados por vírgula) + o texto
+    inteiro -- um ponto de conversão / campanha que tenha vírgula no nome
+    continua casando quando é o único escolhido."""
+    vals = _csv(v)
+    inteiro = (v or "").strip()
+    if inteiro and inteiro not in vals:
+        vals.append(inteiro)
+    return vals
+
+
+def _report_base_query(
+    db: Session, current_user: User, *,
+    date_from: str, date_to: str,
+    origem: Optional[str] = None, canal: Optional[str] = None, campanha_midia: Optional[str] = None,
+    status: Optional[str] = None, perception: Optional[str] = None, modalidade: Optional[str] = None,
+    conversion_point: Optional[str] = None, lost_reason: Optional[str] = None, team: Optional[str] = None,
+    search: Optional[str] = None, vencidos: bool = False, renutricao: bool = False,
+    sem_renutricao: bool = False, stale_days: int = 0, estrito: bool = False,
+    vidas: Optional[str] = None, faixa_etaria: Optional[str] = None,
 ):
+    """Filtro do Relatório de Leads, compartilhado por /leads/by-period,
+    /leads/report-stats e /leads/report-facets. Devolve (base_query, start, end):
+    base_query(q) aplica todos os filtros numa consulta de Lead."""
     try:
         start, _ = br_date_to_utc_range(date_from)
         _, end = br_date_to_utc_range(date_to)
@@ -294,13 +294,16 @@ def leads_by_period(
             if _oc is not None:
                 q = q.filter(_oc)
         if canal:
-            parts = [s.strip() for s in canal.split(',') if s.strip()]
-            q = q.filter(Lead.origin.in_(parts))
+            q = q.filter(Lead.origin.in_(_csv(canal)))
         if campanha_midia:
-            if campanha_midia.strip().lower() == "sem campanha":
-                q = q.filter(or_(Lead.campanha_midia.is_(None), Lead.campanha_midia == ""))
-            else:
-                q = q.filter(func.lower(Lead.campanha_midia) == campanha_midia.strip().lower())
+            vals = _csv_ou_inteiro(campanha_midia)
+            conds = []
+            if any(v.lower() == "sem campanha" for v in vals):
+                conds.append(or_(Lead.campanha_midia.is_(None), Lead.campanha_midia == ""))
+            nomes = [v.lower() for v in vals if v.lower() != "sem campanha"]
+            if nomes:
+                conds.append(func.lower(Lead.campanha_midia).in_(nomes))
+            q = q.filter(or_(*conds))
         if status:
             statuses = [s.strip().lower() for s in status.split(',')]
             q = q.filter(func.lower(Lead.status).in_(statuses))
@@ -312,15 +315,15 @@ def leads_by_period(
             if _mc is not None:
                 q = q.filter(_mc)
         if conversion_point:
-            q = q.filter(Lead.conversion_point.ilike(conversion_point))
+            q = q.filter(or_(*[Lead.conversion_point.ilike(p) for p in _csv_ou_inteiro(conversion_point)]))
         if lost_reason:
-            parts = [s.strip() for s in lost_reason.split(',') if s.strip()]
+            parts = _csv(lost_reason)
             if len(parts) == 1:
                 q = q.filter(Lead.lost_reason == parts[0])
             else:
                 q = q.filter(Lead.lost_reason.in_(parts))
         if team:
-            parts = [s.strip() for s in team.split(',') if s.strip()]
+            parts = _csv(team)
             if len(parts) == 1:
                 q = q.filter(Lead.team == parts[0])
             else:
@@ -336,13 +339,53 @@ def leads_by_period(
         return q
 
     # vidas / faixa etária vêm de 3 fontes (campo, idades e observações), então
-    # o filtro roda em Python e vira uma lista de ids pras consultas abaixo
+    # o filtro roda em Python e vira uma lista de ids pras consultas
     _ids_perfil = _perfil_ids(db, _base_query, vidas, faixa_etaria)
-    if _ids_perfil is not None:
-        _base_query_sem_perfil = _base_query
+    if _ids_perfil is None:
+        return _base_query, start, end
 
-        def _base_query(q):
-            return _base_query_sem_perfil(q).filter(Lead.id.in_(_ids_perfil))
+    def _base_query_com_perfil(q):
+        return _base_query(q).filter(Lead.id.in_(_ids_perfil))
+
+    return _base_query_com_perfil, start, end
+
+
+@router.get("/leads/by-period", response_model=LeadsReportResponse)
+def leads_by_period(
+    date_from: str = Query(..., description="YYYY-MM-DD"),
+    date_to: str = Query(..., description="YYYY-MM-DD"),
+    origem: Optional[str] = Query(None),
+    canal: Optional[str] = Query(None, description="filtro de Origem (canal: Instagram, Meta Ads...), separado do Operador"),
+    campanha_midia: Optional[str] = Query(None, description="campanha marcada na ficha (Google, Meta...); 'Sem campanha' = vazio"),
+    status: Optional[str] = Query(None),
+    perception: Optional[str] = Query(None),
+    modalidade: Optional[str] = Query(None),
+    conversion_point: Optional[str] = Query(None),
+    lost_reason: Optional[str] = Query(None),
+    team: Optional[str] = Query(None),
+    search: Optional[str] = Query(None, description="Busca por nome, CPF/CNPJ, telefone ou email"),
+    vencidos: bool = Query(False),
+    renutricao: bool = Query(False),
+    sem_renutricao: bool = Query(False, description="só leads FORA da renutrição (candidatos a atribuir)"),
+    stale_days: int = Query(0, ge=0, le=365, description="só leads ainda ativos e sem movimento há N+ dias"),
+    estrito: bool = Query(False, description="aberto por um clique na Gestão Comercial: mesmo recorte dela"),
+    vidas: Optional[str] = Query(None, description="faixas de vidas separadas por vírgula: 1,2,3-4,5-9,10+,sem"),
+    faixa_etaria: Optional[str] = Query(None, description="faixas ANS separadas por vírgula (0-18 ... 59+) ou 'sem'; basta uma pessoa na faixa"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=10000),
+    ids_only: bool = Query(False, description="Retorna só {ids, total} de TODOS os leads do filtro (sem paginar) — pra 'selecionar tudo'"),
+    com_observacoes: bool = Query(False, description="inclui as anotações de cada lead (usado na exportação do Excel)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _base_query, start, end = _report_base_query(
+        db, current_user, date_from=date_from, date_to=date_to,
+        origem=origem, canal=canal, campanha_midia=campanha_midia, status=status,
+        perception=perception, modalidade=modalidade, conversion_point=conversion_point,
+        lost_reason=lost_reason, team=team, search=search, vencidos=vencidos,
+        renutricao=renutricao, sem_renutricao=sem_renutricao, stale_days=stale_days,
+        estrito=estrito, vidas=vidas, faixa_etaria=faixa_etaria,
+    )
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
 
@@ -466,125 +509,19 @@ def leads_report_stats(
 ):
     """Contagens (total/fechados/perdidos/quentes) para os cards de resumo do
     Relatorio de Leads, respeitando os mesmos filtros de /leads/by-period."""
-    try:
-        start, _ = br_date_to_utc_range(date_from)
-        _, end = br_date_to_utc_range(date_to)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Formato de data inválido. Use YYYY-MM-DD.")
-
-    cutoff_24h = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
-    admin = can_view_all(current_user)
-    my_name = current_user.first_name or current_user.username
-
-    _active_statuses = ("pending", "novo", "new", "qualificado", "qualified", "proposal_sent")
-    _active_filter = or_(
-        func.lower(Lead.status).in_([s.lower() for s in _active_statuses]),
-        Lead.perception.in_(["Quente", "Morno"]),
+    _base_query, start, end = _report_base_query(
+        db, current_user, date_from=date_from, date_to=date_to,
+        origem=origem, canal=canal, campanha_midia=campanha_midia, status=status,
+        perception=perception, modalidade=modalidade, conversion_point=conversion_point,
+        lost_reason=lost_reason, team=team, search=search, vencidos=vencidos,
+        renutricao=renutricao, sem_renutricao=sem_renutricao, stale_days=stale_days,
+        estrito=estrito, vidas=vidas, faixa_etaria=faixa_etaria,
     )
-
-    searching = bool(search and search.strip())
-
-    def _base_query(q):
-        if vencidos:
-            q = q.filter(Lead.updated_at <= cutoff_24h, _active_filter)
-        if stale_days > 0:
-            stale_cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=stale_days)
-            q = q.filter(Lead.updated_at <= stale_cutoff, _active_filter)
-        if renutricao:
-            q = q.filter(Lead.is_renutrucao.is_(True))
-            # comercial (ex: Julia) enxerga a renutrição de toda a equipe
-            # 'usuario' (visibilidade ampla, ver database.py) -- mas sem um
-            # Operador explícito a tag no filtro precisa significar "minha
-            # renutrição", senão mistura com a carteira de outra pessoa (ex:
-            # Pamela) e confunde quem filtra. Com Operador escolhido, quem
-            # filtra já sabe que está olhando a carteira de outra pessoa.
-            if not admin and not origem:
-                q = q.filter(Lead.renutricao_owner_id == current_user.id)
-        elif sem_renutricao:
-            q = q.filter(or_(Lead.is_renutrucao.is_(False), Lead.is_renutrucao.is_(None)))
-        if not searching:
-            # data efetiva = reativação (retrabalhado_em) ou criação. Assim um
-            # lead retrabalhado hoje aparece sob "hoje", igual ao Dashboard.
-            date_clause = and_(EFFECTIVE_CAPTACAO >= start, EFFECTIVE_CAPTACAO < end)
-            # lead de renutrição ainda não retrabalhado (só atribuído) tem data
-            # efetiva antiga -- pra quem trabalha a carteira (fila) ou no modo
-            # renutrição, mostra mesmo assim.
-            # Aberto por um clique na Gestão Comercial (estrito), usa o mesmo
-            # recorte dela -- só o período -- pra lista bater com o número clicado.
-            if not estrito and (renutricao or needs_own_origin_filter(current_user) or restrict_to_usuario_leads(current_user)):
-                q = q.filter(or_(date_clause, Lead.is_renutrucao.is_(True)))
-            else:
-                q = q.filter(date_clause)
-        if needs_own_origin_filter(current_user) and estrito:
-            q = q.filter(own_leads_clause(current_user))
-        elif needs_own_origin_filter(current_user):
-            _own_clause = or_(Lead.origin == my_name, Lead.renutricao_owner_id == current_user.id)
-            # perfil usuario tambem enxerga o que estiver atribuido a ele como
-            # atendente (Lead.attendant) -- cobre leads de origem "Meta Ads" /
-            # "Organico" que o rodizio atribuiu a ele, mas cuja origin nao e' o
-            # nome dele (ex: leads do plugin Gravity Forms / Meta Ads).
-            if current_user.role == "usuario":
-                _own_clause = or_(_own_clause, Lead.attendant == my_name)
-            q = q.filter(_own_clause)
-        elif origem:
-            _oc = _origem_clause(db, origem)
-            if _oc is not None:
-                q = q.filter(_oc)
-        if canal:
-            parts = [s.strip() for s in canal.split(',') if s.strip()]
-            q = q.filter(Lead.origin.in_(parts))
-        if campanha_midia:
-            if campanha_midia.strip().lower() == "sem campanha":
-                q = q.filter(or_(Lead.campanha_midia.is_(None), Lead.campanha_midia == ""))
-            else:
-                q = q.filter(func.lower(Lead.campanha_midia) == campanha_midia.strip().lower())
-        if status:
-            statuses = [s.strip().lower() for s in status.split(',')]
-            q = q.filter(func.lower(Lead.status).in_(statuses))
-        if perception:
-            percs = [p.strip() for p in perception.split(',')]
-            q = q.filter(Lead.perception.in_(percs))
-        if modalidade:
-            _mc = _modalidade_clause(modalidade)
-            if _mc is not None:
-                q = q.filter(_mc)
-        if conversion_point:
-            q = q.filter(Lead.conversion_point.ilike(conversion_point))
-        if lost_reason:
-            parts = [s.strip() for s in lost_reason.split(',') if s.strip()]
-            if len(parts) == 1:
-                q = q.filter(Lead.lost_reason == parts[0])
-            else:
-                q = q.filter(Lead.lost_reason.in_(parts))
-        if team:
-            parts = [s.strip() for s in team.split(',') if s.strip()]
-            if len(parts) == 1:
-                q = q.filter(Lead.team == parts[0])
-            else:
-                q = q.filter(Lead.team.in_(parts))
-        if searching:
-            term = search.strip()
-            digits = re.sub(r"\D", "", term)
-            conditions = [func.unaccent(Lead.name).ilike(func.unaccent(f"%{term}%")), Lead.email.ilike(f"%{term}%")]
-            if digits:
-                conditions.append(func.regexp_replace(Lead.phone, r'\D', '', 'g').ilike(f"%{digits}%"))
-                conditions.append(Lead.document.ilike(f"%{digits}%"))
-            q = q.filter(or_(*conditions))
-        return q
 
     fechados_set = [s.lower() for s in ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")]
     _fechado_cond = func.lower(Lead.status).in_(fechados_set)
     _perdido_cond = func.lower(Lead.status) == "sale_not_performed"
     _quente_cond = Lead.perception == "Quente"
-
-    # vidas / faixa etária vêm de 3 fontes (campo, idades e observações), então
-    # o filtro roda em Python e vira uma lista de ids pras consultas abaixo
-    _ids_perfil = _perfil_ids(db, _base_query, vidas, faixa_etaria)
-    if _ids_perfil is not None:
-        _base_query_sem_perfil = _base_query
-
-        def _base_query(q):
-            return _base_query_sem_perfil(q).filter(Lead.id.in_(_ids_perfil))
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
     fechados = _base_query(db.query(func.count(Lead.id))).filter(_fechado_cond).scalar() or 0
@@ -621,6 +558,127 @@ def leads_report_stats(
         "series": {"total": s_total, "fechados": s_fech, "perdidos": s_perd, "quentes": s_quen},
         "deltas": {"total": d_total, "fechados": d_fech, "perdidos": d_perd, "quentes": d_quen},
     }
+
+
+@router.get("/leads/report-facets")
+def leads_report_facets(
+    date_from: str = Query(..., description="YYYY-MM-DD"),
+    date_to: str = Query(..., description="YYYY-MM-DD"),
+    origem: Optional[str] = Query(None),
+    canal: Optional[str] = Query(None),
+    campanha_midia: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    perception: Optional[str] = Query(None),
+    modalidade: Optional[str] = Query(None),
+    conversion_point: Optional[str] = Query(None),
+    lost_reason: Optional[str] = Query(None),
+    team: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    vencidos: bool = Query(False),
+    renutricao: bool = Query(False),
+    sem_renutricao: bool = Query(False),
+    stale_days: int = Query(0, ge=0, le=365),
+    estrito: bool = Query(False),
+    vidas: Optional[str] = Query(None),
+    faixa_etaria: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Contagem de leads por opção de cada filtro do painel do Relatório.
+    Cada grupo conta com TODOS os outros filtros aplicados, menos o próprio
+    (ex.: as contagens de Status ignoram o Status escolhido), pra mostrar
+    quantos leads cada opção traria antes de clicar."""
+    filtros = dict(
+        date_from=date_from, date_to=date_to, origem=origem, canal=canal,
+        campanha_midia=campanha_midia, status=status, perception=perception,
+        modalidade=modalidade, conversion_point=conversion_point, lost_reason=lost_reason,
+        team=team, search=search, vencidos=vencidos, renutricao=renutricao,
+        sem_renutricao=sem_renutricao, stale_days=stale_days, estrito=estrito,
+        vidas=vidas, faixa_etaria=faixa_etaria,
+    )
+
+    def base(**sem):
+        bq, _, _ = _report_base_query(db, current_user, **{**filtros, **sem})
+        return bq
+
+    def agrupar(coluna, **sem):
+        rows = base(**sem)(db.query(coluna, func.count(Lead.id))).group_by(coluna).all()
+        return [(k, n) for k, n in rows]
+
+    out: dict = {}
+
+    st: dict = {}
+    for k, n in agrupar(func.lower(Lead.status), status=None):
+        st[k or ""] = st.get(k or "", 0) + n
+    out["status"] = st
+
+    out["perception"] = {k or "": n for k, n in agrupar(Lead.perception, perception=None)}
+    out["canal"] = {k: n for k, n in agrupar(Lead.origin, canal=None) if k}
+    out["team"] = {k: n for k, n in agrupar(Lead.team, team=None) if k}
+    out["lost_reason"] = {k: n for k, n in agrupar(Lead.lost_reason, lost_reason=None) if k}
+
+    mod: dict = {}
+    for k, n in agrupar(Lead.modalidade, modalidade=None):
+        chave = "Não informado" if not (k or "").strip() else ("PME" if k in ("PME", "Empresarial") else k)
+        mod[chave] = mod.get(chave, 0) + n
+    out["modalidade"] = mod
+
+    out["conversion_point"] = {}
+    for k, n in agrupar(func.lower(Lead.conversion_point), conversion_point=None):
+        if k:
+            out["conversion_point"][k] = out["conversion_point"].get(k, 0) + n
+
+    camp: dict = {}
+    for k, n in agrupar(func.lower(func.coalesce(Lead.campanha_midia, "")), campanha_midia=None):
+        chave = (k or "").strip() or "sem campanha"
+        camp[chave] = camp.get(chave, 0) + n
+    out["campanha"] = camp
+
+    # Operador: casa com a origem do lead OU com o dono da renutrição (ver
+    # _origem_clause) -- um lead conta pros dois nomes quando são diferentes
+    ops: dict = {}
+    if not needs_own_origin_filter(current_user):
+        q = (
+            db.query(Lead.origin, User.first_name, User.username, func.count(Lead.id))
+            .select_from(Lead)
+            .outerjoin(User, User.id == Lead.renutricao_owner_id)
+        )
+        for orig, fn, un, n in base(origem=None)(q).group_by(Lead.origin, User.first_name, User.username).all():
+            for nome in {x for x in (orig, fn or un) if x}:
+                ops[nome] = ops.get(nome, 0) + n
+    out["operador"] = ops
+
+    # Vidas / Faixa etária: calculadas em Python (3 fontes de dado)
+    def perfis(**sem):
+        rows = base(**sem)(db.query(Lead.vidas, Lead.ages_raw, Lead.notes)).all()
+        return [perfil_lead(v, a, nt) for v, a, nt in rows]
+
+    def conta_vidas(ps):
+        c: dict = {}
+        for vv, _i, _f in ps:
+            b = vidas_bucket(vv)
+            c[b] = c.get(b, 0) + 1
+        return c
+
+    def conta_faixas(ps):
+        c: dict = {}
+        for _v, _i, faixas in ps:
+            for f in (set(faixas) or {"sem"}):
+                c[f] = c.get(f, 0) + 1
+        return c
+
+    if not vidas and not faixa_etaria:
+        ps = perfis()
+        out["vidas"], out["faixa_etaria"] = conta_vidas(ps), conta_faixas(ps)
+    else:
+        out["vidas"] = conta_vidas(perfis(vidas=None))
+        out["faixa_etaria"] = conta_faixas(perfis(faixa_etaria=None))
+
+    out["renutricao"] = {
+        "em": base(renutricao=True, sem_renutricao=False)(db.query(func.count(Lead.id))).scalar() or 0,
+        "fora": base(renutricao=False, sem_renutricao=True)(db.query(func.count(Lead.id))).scalar() or 0,
+    }
+    return out
 
 
 @router.get("/users", response_model=List[OperatorInfo])
