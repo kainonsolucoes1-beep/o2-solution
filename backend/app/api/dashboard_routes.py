@@ -742,6 +742,8 @@ def _placar_grupo(origin, conversion_point, campanha_midia, person_names) -> str
         return "google"
     if camp == "meta" or o in _PLACAR_META_ORIGENS:
         return "meta"
+    if "discadora" in o:
+        return "discadora"
     if o and (o in person_names or o in _PLACAR_SDR_EXTRA):
         return "sdr"
     if not o or is_organico(origin, conversion_point):
