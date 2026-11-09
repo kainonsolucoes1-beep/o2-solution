@@ -13,7 +13,7 @@ from app.models.lead import Lead, LeadParcela
 from app.models.sdr_meta import SdrMeta, SdrMetaMensal, meta_do_mes
 from app.models.user import User
 from app.schemas.sdr_meta import SdrMetaCreate, SdrMetaProgress, SdrMetasListResponse, SdrMetaUpdate
-from app.security import can_see_financials
+from app.security import can_see_financials, company_scope
 from app.tz_utils import br_date_to_utc_range, now_br
 
 router = APIRouter(prefix="/api/v1/financeiro", tags=["financeiro"])
@@ -315,7 +315,17 @@ def list_metas(
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
 
     year, month = _ref_month(date_to)
-    metas_rows = db.query(SdrMeta).order_by(SdrMeta.nome).all()
+    q = db.query(SdrMeta)
+    empresa = company_scope(current_user)
+    if empresa:
+        # O2 Seguros: so as metas dos operadores da propria empresa
+        # (SdrMeta.nome e' o first_name do operador)
+        nomes = [
+            (n or "").strip().lower()
+            for (n,) in db.query(User.first_name).filter(User.team == empresa).all()
+        ]
+        q = q.filter(func.lower(func.trim(SdrMeta.nome)).in_(nomes))
+    metas_rows = q.order_by(SdrMeta.nome).all()
     return SdrMetasListResponse(
         mes_label=f"{MESES_ABREV[month]}/{str(year)[2:]}",
         ano_mes=f"{year:04d}-{month:02d}",
