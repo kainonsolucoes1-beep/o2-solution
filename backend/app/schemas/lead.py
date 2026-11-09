@@ -74,6 +74,8 @@ class LeadReportItem(BaseModel):
     campanha_midia: Optional[str] = None
     duplicado_de_id: Optional[UUID] = None
     duplicado_de_nome: Optional[str] = None
+    # só com ?com_observacoes=true (exportação): [{at, autor, texto}]
+    observacoes: Optional[list] = None
     vidas: Optional[int] = None
     # idades exatas ou faixas (texto), juntando campo + observações
     idades_resumo: Optional[str] = None
