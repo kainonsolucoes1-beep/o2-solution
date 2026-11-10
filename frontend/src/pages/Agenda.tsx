@@ -33,7 +33,8 @@ const MONTHS = [
 
 const STATUS_DOT: Record<string, string> = {
   novo: '#3B82F6', new: '#3B82F6', pending: '#3B82F6', aguardando_dados: '#6366F1', sem_retorno: 'var(--status-sem-retorno)',
-  qualificado: '#10B981', qualified: '#10B981', scheduled: '#10B981',
+  // Agendado em rosa (10/11/2026): o verde se confundia com Fechado
+  qualificado: '#EC4899', qualified: '#EC4899', scheduled: '#EC4899', agendado: '#EC4899',
   proposta: '#F59E0B', proposal_sent: '#F59E0B', 'proposal sent': '#F59E0B',
   negociacao: '#8B5CF6', negociação: '#8B5CF6',
   pendencia: '#D97706', documentacao_pendente: '#DB2777', emissao: '#0891B2',
