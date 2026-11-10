@@ -5,6 +5,7 @@ import { statusLabel } from '../utils/statusLabel'
 import { reportStatusColor, reportPerceptionColor, tint, personColor } from '../utils/reportColors'
 import { fmtDateShort } from '../utils/leadFormat'
 import { parseUTC } from '../utils/date'
+import EmissaoModal from './EmissaoModal'
 
 interface PeekLead {
   id: string
@@ -58,12 +59,6 @@ function ago(iso: string | null): string {
   return m < 12 ? `há ${m} ${m === 1 ? 'mês' : 'meses'}` : `há ${Math.floor(m / 12)} ano(s)`
 }
 
-function dias(n: number | null): string {
-  if (n == null) return '—'
-  if (n === 0) return 'hoje'
-  if (n === 1) return '1 dia'
-  return `${n} dias`
-}
 
 function initials(name: string) {
   const p = name.trim().split(/\s+/)
@@ -95,9 +90,35 @@ interface Props {
   onPrev?: () => void
   onNext?: () => void
   navLoading?: boolean
+  // avisa a tela de origem (ex.: tabela do relatório) que o status mudou
+  onStatusChanged?: (leadId: string, status: string) => void
 }
 
-export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNext }: Props) {
+// Trocar status pelo painel (10/11/2026) -- mesmas opções e submenus da ficha
+// (LeadNextStepPanel): Fechado pergunta o tipo, Perdido pede o motivo e Emissão
+// abre a mesma janela da operadora.
+const STATUS_OPCOES = [
+  { value: 'novo', label: 'Novo' },
+  { value: 'aguardando_dados', label: 'Aguardando dados' },
+  { value: 'sem_retorno', label: 'Sem retorno' },
+  { value: 'proposta', label: 'Proposta' },
+  { value: 'pendencia', label: 'Pendência' },
+  { value: 'documentacao_pendente', label: 'Aguardando documentação' },
+  { value: 'emissao', label: 'Emissão' },
+  { value: 'fechado', label: 'Fechado' },
+  { value: 'convertido', label: 'Convertido' },
+  { value: 'sale_not_performed', label: 'Perdido' },
+]
+const FECHADO_OPCOES = [
+  { value: 'waiting_billing', label: 'Aguardando faturamento' },
+  { value: 'sale_performed', label: 'Venda realizada' },
+]
+const MOTIVOS_PERDA = [
+  'Cliente não retornou contato', 'Trocou de número', 'Declinou', 'Finalizado automaticamente',
+  'Localização', 'Preço', 'Sem interesse', 'Sem perfil', 'Sem retorno',
+]
+
+export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNext, onStatusChanged }: Props) {
   const [peek, setPeek] = useState<Peek | null>(null)
   const [loading, setLoading] = useState(true)
   const [entered, setEntered] = useState(false)
@@ -108,6 +129,12 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
   const [notaErro, setNotaErro] = useState('')
   const [tlTodos, setTlTodos] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  // troca de status pelo painel
+  const [statusLocal, setStatusLocal] = useState<string | null>(null)
+  const [statusMenu, setStatusMenu] = useState<null | 'opcoes' | 'fechado' | 'perdido'>(null)
+  const [emissaoOpen, setEmissaoOpen] = useState(false)
+  const [statusSalvando, setStatusSalvando] = useState(false)
+  const [statusErro, setStatusErro] = useState('')
   const bodyRef = useRef<HTMLDivElement>(null)
 
   // atalhos sempre com as funções da renderização mais recente
@@ -148,8 +175,34 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
   // trocou de lead (anterior/próximo): volta pro topo e fecha o que estava aberto
   useEffect(() => {
     setNotaModo(null); setNotaErro(''); setTlTodos(false); setCopiado(false)
+    setStatusLocal(null); setStatusMenu(null); setEmissaoOpen(false); setStatusErro('')
     bodyRef.current?.scrollTo({ top: 0 })
   }, [lead.id])
+
+  function mudarStatus(value: string, lostReason?: string, extra?: Record<string, unknown>) {
+    setStatusSalvando(true)
+    setStatusErro('')
+    api.post(`/api/v1/leads/${lead.id}/status`, { status: value, ...(lostReason ? { lost_reason: lostReason } : {}), ...(extra ?? {}) })
+      .then(() => {
+        setStatusLocal(value)
+        setStatusMenu(null)
+        setEmissaoOpen(false)
+        onStatusChanged?.(lead.id, value)
+        carregar(true)
+      })
+      .catch(err => {
+        const d = err?.response?.data?.detail
+        setStatusErro(typeof d === 'string' ? d : 'Não foi possível alterar o status.')
+      })
+      .finally(() => setStatusSalvando(false))
+  }
+
+  function escolherStatus(value: string) {
+    if (value === 'fechado') { setStatusMenu('fechado'); return }
+    if (value === 'sale_not_performed') { setStatusMenu('perdido'); return }
+    if (value === 'emissao') { setEmissaoOpen(true); return }
+    mudarStatus(value)
+  }
 
   function abrirNota(modo: 'nova' | 'editar') {
     setNotaModo(modo)
@@ -182,16 +235,14 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
     }).catch(() => { /* sem permissão de área de transferência */ })
   }
 
-  const sc = { color: reportStatusColor(lead.status) }
+  const statusAtual = statusLocal ?? lead.status
+  const sc = { color: reportStatusColor(statusAtual) }
   const pcCor = reportPerceptionColor(lead.perception)
   const valor = fmtBRL0(lead.value_potential)
   const wa = waNumber(lead.phone)
 
   const dsi = peek?.dias_sem_interacao ?? null
-  const dns = peek?.dias_no_status ?? null
   const esfriando = dsi != null && dsi > 7 && !peek?.agendamento
-  const nivel = (n: number | null) => (n == null ? null : n >= 7 ? 'var(--danger)' : n >= 3 ? 'var(--warning)' : null)
-  const entrada = lead.retrabalhado_em || lead.created_at || null
 
   const eventos = peek?.timeline ?? []
   const eventosVisiveis = tlTodos ? eventos : eventos.slice(0, 5)
@@ -237,7 +288,7 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 20, border: `1px solid ${tint(sc.color, 35)}`, background: 'var(--bg-card)', color: sc.color }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />{statusLabel(lead.status)}
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />{statusLabel(statusAtual)}
               </span>
               {pcCor && <Tag style={{ background: tint(pcCor, 12), color: pcCor }}>{lead.perception}</Tag>}
               {valor && <Tag strong>{valor}</Tag>}
@@ -273,10 +324,80 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
                   </div>
                   {proximo.quando && <div style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: proximo.cor, whiteSpace: 'nowrap' }}>{proximo.quando}</div>}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 10 }}>
-                  <Kpi label="Sem contato" value={dias(dsi)} cor={nivel(dsi)} />
-                  <Kpi label="Neste status" value={dias(dns)} cor={nivel(dns)} />
-                  <Kpi label={lead.retrabalhado_em ? 'Reativado' : 'Entrada'} value={entrada ? new Date(parseUTC(entrada)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '—'} />
+                {/* trocar status sem abrir a ficha (no lugar dos indicadores Sem contato / Neste status / Entrada) */}
+                <div style={{ marginTop: 10, border: '1px solid var(--border)', borderRadius: 11, padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: sc.color }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: sc.color }} />{statusLabel(statusAtual)}
+                    </span>
+                    {peek.pode_anotar && (
+                      <button
+                        onClick={() => { setStatusMenu(statusMenu ? null : 'opcoes'); setStatusErro('') }}
+                        disabled={statusSalvando}
+                        style={{ ...LINK_BTN, marginLeft: 'auto' }}
+                      >
+                        {statusSalvando ? 'Salvando…' : statusMenu ? 'Cancelar' : <><Pencil size={12} /> Alterar status</>}
+                      </button>
+                    )}
+                  </div>
+                  {statusMenu && (
+                    <div style={{ marginTop: 10, borderTop: '1px solid var(--border-lt)', paddingTop: 10 }}>
+                      {statusMenu === 'opcoes' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
+                          {STATUS_OPCOES.map(o => {
+                            const atual = (statusAtual || '').toLowerCase() === o.value
+                            const cor = reportStatusColor(o.value)
+                            return (
+                              <button
+                                key={o.value}
+                                onClick={() => !atual && escolherStatus(o.value)}
+                                disabled={statusSalvando || atual}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 7, padding: '7px 9px', borderRadius: 8, textAlign: 'left',
+                                  border: `1px solid ${atual ? tint(cor, 45) : 'var(--border)'}`, background: atual ? tint(cor, 12) : 'var(--bg-card)',
+                                  color: 'var(--text-1)', fontSize: 12.5, fontWeight: atual ? 700 : 500, cursor: atual ? 'default' : 'pointer', fontFamily: 'inherit',
+                                }}
+                              >
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: cor, flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.label}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {statusMenu === 'fechado' && (
+                        <>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Fechado como:</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
+                            {FECHADO_OPCOES.map(o => (
+                              <button key={o.value} onClick={() => mudarStatus(o.value)} disabled={statusSalvando}
+                                style={{ padding: '8px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-1)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                {o.label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      {statusMenu === 'perdido' && (
+                        <>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Motivo da perda:</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {MOTIVOS_PERDA.map(m => (
+                              <button key={m} onClick={() => mudarStatus('sale_not_performed', m)} disabled={statusSalvando}
+                                style={{ padding: '6px 10px', borderRadius: 20, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-1)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      {statusMenu !== 'opcoes' && (
+                        <button onClick={() => setStatusMenu('opcoes')} style={{ ...LINK_BTN, marginTop: 8, padding: 0 }}>‹ Voltar às opções</button>
+                      )}
+                    </div>
+                  )}
+                  {statusErro && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--danger)' }}>{statusErro}</div>}
                 </div>
               </Sec>
 
@@ -404,6 +525,25 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
           </button>
         </div>
       </div>
+
+      {/* Emissão pede operadora e valor -- mesma janela da ficha */}
+      {emissaoOpen && (
+        <EmissaoModal
+          leadName={lead.name}
+          statusLabel={statusLabel(statusAtual)}
+          defaultValor={lead.value_potential != null ? lead.value_potential.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+          saving={statusSalvando}
+          onCancel={() => setEmissaoOpen(false)}
+          onConfirm={({ operadora, valor, observacao }) => {
+            const v = Number(valor.replace(/\./g, '').replace(',', '.'))
+            mudarStatus('emissao', undefined, {
+              operadora,
+              ...(valor.trim() && !Number.isNaN(v) ? { valor_contrato: v } : {}),
+              ...(observacao.trim() ? { observacao: observacao.trim() } : {}),
+            })
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -427,15 +567,6 @@ function Tag({ children, style, strong }: { children: ReactNode; style?: CSSProp
     <span style={{ fontSize: 11.5, fontWeight: strong ? 700 : 600, padding: '3px 9px', borderRadius: 7, background: 'var(--bg-subtle)', color: strong ? 'var(--text-1)' : 'var(--text-muted)', ...style }}>
       {children}
     </span>
-  )
-}
-
-function Kpi({ label, value, cor }: { label: string; value: string; cor?: string | null }) {
-  return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '9px 11px' }}>
-      <div style={{ ...LABEL, fontSize: 10.5, marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: cor ?? 'var(--text-1)' }}>{value}</div>
-    </div>
   )
 }
 

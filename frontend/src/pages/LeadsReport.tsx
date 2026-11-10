@@ -936,6 +936,7 @@ export default function LeadsReport() {
             onPrev={peekPos != null && peekPos > 1 ? () => peekStep(-1) : undefined}
             onNext={peekPos != null && report && peekPos < report.total ? () => peekStep(1) : undefined}
             navLoading={pendingPeek != null}
+            onStatusChanged={(id, status) => setReport(r => r ? { ...r, leads: r.leads.map(l => l.id === id ? { ...l, status } : l) } : r)}
           />
         )}
 
