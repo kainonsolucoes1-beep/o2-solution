@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronsLeft, ChevronsRight, ChevronDown, Menu, X, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, ScrollText, Lightbulb, UserRound, Megaphone, Bell, Clock, AlertTriangle,
+  Settings, LogOut, ChevronDown, Menu, X, Pin, PinOff, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, ScrollText, Lightbulb, UserRound, Megaphone, Bell, Clock, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 import { useSinoSlot } from './SinoSlot'
+import '../styles/sidebar.css'
 
 interface UserInfo { username: string; first_name: string | null; role: string; is_campanha_operador?: boolean }
 interface AgendaAlerts { overdue: number; today: number }
@@ -54,90 +55,32 @@ const FINANCEIRO_CHILDREN = [
   { to: '/financeiro/trafego',     label: 'Tráfego pago' },
 ]
 
-function ExpandableNavGroup({ label, Icon, basePath, headerTo, children, slim, pathname, open, onToggle }: {
-  label: string; Icon: LucideIcon; basePath: string; headerTo?: string; children: { to: string; label: string }[]; slim: boolean; pathname: string
+function ExpandableNavGroup({ label, Icon, basePath, headerTo, children, pathname, open, onToggle }: {
+  label: string; Icon: LucideIcon; basePath: string; headerTo?: string; children: { to: string; label: string }[]; pathname: string
   open: boolean; onToggle: () => void
 }) {
   const groupActive = pathname.startsWith(basePath)
-
-  if (slim) {
-    return (
-      <Link
-        to={headerTo ?? children[0]?.to ?? basePath}
-        title={label}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '10px 0', borderRadius: 8, textDecoration: 'none',
-          background: groupActive ? 'rgba(0,109,183,0.16)' : 'transparent',
-          color: groupActive ? '#4FB0E8' : '#9CA3AF',
-          borderLeft: groupActive ? '3px solid #006db7' : '3px solid transparent',
-          transition: 'background 150ms',
-        }}
-        onMouseEnter={e => { if (!groupActive) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' }}
-        onMouseLeave={e => { if (!groupActive) e.currentTarget.style.background = 'transparent' }}
-      >
-        <Icon size={17} />
-      </Link>
-    )
-  }
-
-  // Header vira link (headerTo): destaca o fundo só quando a rota é exatamente
-  // a do header (ex: Fila), não sempre que qualquer filho estiver ativo --
-  // os filhos já têm seu próprio destaque. Sem headerTo (Configurações/
-  // Financeiro): mesma regra de sempre, destaca colapsado com algo ativo dentro.
-  const headerExactActive = headerTo ? pathname === headerTo : (groupActive && !open)
-  const headerStyle = {
-    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-    padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-    background: headerExactActive ? 'rgba(0,109,183,0.16)' : 'transparent',
-    color: groupActive ? '#4FB0E8' : '#9CA3AF',
-    borderLeft: headerExactActive ? '3px solid #006db7' : '3px solid transparent',
-    fontSize: 13, fontWeight: groupActive ? 600 : 400,
-    transition: 'background 150ms',
-  } as const
-  const headerHover = {
-    onMouseEnter: (e: MouseEvent<HTMLElement>) => { if (!headerExactActive) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' },
-    onMouseLeave: (e: MouseEvent<HTMLElement>) => { if (!headerExactActive) e.currentTarget.style.background = 'transparent' },
-  }
-
+  // destaque no cabeçalho: rota exata do header, ou grupo fechado com algo ativo dentro
+  const headerOn = headerTo ? pathname === headerTo || (groupActive && !open) : (groupActive && !open)
+  const inner = (
+    <>
+      <Icon size={18} className="sb-ic" />
+      <span className="sb-lb sb-hide">{label}</span>
+      <ChevronDown size={15} className="sb-chev sb-hide" />
+    </>
+  )
+  const cls = `sb-it ${headerOn ? 'on' : ''} ${open ? 'open' : ''}`
   return (
     <div>
-      {headerTo ? (
-        <Link to={headerTo} style={{ ...headerStyle, textDecoration: 'none' }} {...headerHover}>
-          <Icon size={17} />
-          <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
-          <ChevronDown size={14} style={{ color: '#6B7280', transition: 'transform 180ms ease', transform: open ? 'rotate(180deg)' : 'none' }} />
-        </Link>
-      ) : (
-        <button onClick={onToggle} aria-expanded={open} style={headerStyle} {...headerHover}>
-          <Icon size={17} />
-          <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
-          <ChevronDown size={14} style={{ color: '#6B7280', transition: 'transform 180ms ease', transform: open ? 'rotate(180deg)' : 'none' }} />
-        </button>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden', maxHeight: open ? 120 : 0, transition: 'max-height 220ms ease' }}>
-        {children.map(child => {
-          const isActive = pathname === child.to
-          return (
-            <Link
-              key={child.to}
-              to={child.to}
-              style={{
-                display: 'flex', alignItems: 'center',
-                padding: '8px 12px 8px 39px', borderRadius: 8, textDecoration: 'none',
-                background: isActive ? 'rgba(0,109,183,0.16)' : 'transparent',
-                color: isActive ? '#4FB0E8' : '#9CA3AF',
-                borderLeft: isActive ? '3px solid #006db7' : '3px solid transparent',
-                fontSize: 12.5, fontWeight: isActive ? 600 : 400,
-                transition: 'background 150ms',
-              }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
-            >
-              {child.label}
-            </Link>
-          )
-        })}
+      {headerTo
+        ? <Link to={headerTo} className={cls} onClick={() => { if (pathname === headerTo) onToggle() }}>{inner}</Link>
+        : <button type="button" onClick={onToggle} aria-expanded={open} className={cls}>{inner}</button>}
+      <div className={`sb-subs ${open ? 'open' : ''}`}>
+        <div>
+          {children.map(child => (
+            <Link key={child.to} to={child.to} className={`sb-sub ${pathname === child.to ? 'on' : ''}`}>{child.label}</Link>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -147,7 +90,13 @@ export default function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const { dark, toggle } = useTheme()
-  const [collapsed, setCollapsed] = useState(false)
+  // trilho de ícones: abre por cima ao passar o mouse; alfinete fixa aberto
+  const [pinned, setPinned] = useState(() => { try { return localStorage.getItem('sidebarPinned') === '1' } catch { return false } })
+  const [hover, setHover] = useState(false)
+  const togglePinned = () => setPinned(v => {
+    try { localStorage.setItem('sidebarPinned', v ? '0' : '1') } catch { /* sem storage */ }
+    return !v
+  })
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [user, setUser] = useState<UserInfo | null>(null)
@@ -332,7 +281,7 @@ export default function Sidebar() {
 
   function logout() { localStorage.removeItem('token'); navigate('/login') }
 
-  const slim = collapsed && !isMobile
+  const expanded = pinned || hover || isMobile
 
   const isAdmin = user?.role === 'admin' || user?.username === 'lucas@o2solution.com.br'
   // diretor: mesma visão do admin (menus e painéis), sem as Configurações
@@ -360,125 +309,67 @@ export default function Sidebar() {
       : []),
   ]
 
-  const navLinks = navItems.filter(n => n.to !== '/dashboard').map(({ to, label, Icon }) => {
+  const linkEl = (to: string) => {
+    const item = navItems.find(n => n.to === to)
+    if (!item) return null
+    const { label, Icon } = item
     const isActive = to.startsWith('/vida-sdr') ? location.pathname.startsWith('/vida-sdr') : location.pathname === to
     const alertCount = to === '/agenda' && agendaAlerts ? agendaAlerts.overdue + agendaAlerts.today : 0
-    const alertColor = agendaAlerts && agendaAlerts.overdue > 0 ? '#EF4444' : '#F59E0B'
+    const alertColor = agendaAlerts && agendaAlerts.overdue > 0 ? 'var(--sb-red)' : '#F59E0B'
     return (
-      <Link
-        key={label}
-        to={to}
-        title={slim ? label : undefined}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: slim ? '10px 0' : '9px 12px',
-          justifyContent: slim ? 'center' : 'flex-start',
-          borderRadius: 8, textDecoration: 'none', position: 'relative',
-          background: isActive ? 'rgba(0,109,183,0.16)' : 'transparent',
-          color: isActive ? '#4FB0E8' : '#9CA3AF',
-          borderLeft: isActive ? '3px solid #006db7' : '3px solid transparent',
-          fontSize: 13, fontWeight: isActive ? 600 : 400,
-          transition: 'background 150ms',
-        }}
-        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(0,109,183,0.06)' }}
-        onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
-      >
-        <span style={{ position: 'relative', display: 'flex' }}>
-          <Icon size={17} />
-          {alertCount > 0 && slim && (
-            <span style={{
-              position: 'absolute', top: -4, right: -6, background: alertColor,
-              color: '#fff', borderRadius: 999, fontSize: 9, fontWeight: 700,
-              minWidth: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '0 3px', lineHeight: 1,
-            }}>
-              {alertCount}
-            </span>
-          )}
-        </span>
-        {!slim && <span style={{ flex: 1 }}>{label}</span>}
-        {!slim && alertCount > 0 && (
-          <span style={{
-            background: alertColor, color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700,
-            minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px',
-          }}>
-            {alertCount}
-          </span>
-        )}
+      <Link key={label} to={to} className={`sb-it ${isActive ? 'on' : ''}`} title={expanded ? undefined : label}>
+        <Icon size={18} className="sb-ic" />
+        <span className="sb-lb sb-hide">{label}</span>
+        {alertCount > 0 && <span className="sb-badge" style={{ background: alertColor }}>{alertCount}</span>}
       </Link>
     )
-  })
+  }
+  const meuDesempenhoTo = navItems.find(n => n.to.startsWith('/vida-sdr'))?.to
 
   // Dashboard com a sub-aba "Placar do dia" (some pro parceiro de tráfego, igual ao item antigo)
   const dashboardGroup = navItems.some(n => n.to === '/dashboard') && (
     <ExpandableNavGroup
-      label="Dashboard" Icon={LayoutDashboard} basePath="/dashboard" headerTo="/dashboard" children={DASHBOARD_CHILDREN} slim={slim} pathname={location.pathname}
+      label="Dashboard" Icon={LayoutDashboard} basePath="/dashboard" headerTo="/dashboard" children={DASHBOARD_CHILDREN} pathname={location.pathname}
       open={openGroup === 'dashboard'} onToggle={() => setOpenGroup(g => g === 'dashboard' ? null : 'dashboard')}
     />
   )
   const campanhasGroup = showCampanhas && (
     <ExpandableNavGroup
-      label="Campanhas" Icon={Megaphone} basePath="/campanhas" headerTo="/campanhas" children={campanhasChildren} slim={slim} pathname={location.pathname}
+      label="Campanhas" Icon={Megaphone} basePath="/campanhas" headerTo="/campanhas" children={campanhasChildren} pathname={location.pathname}
       open={openGroup === 'campanhas'} onToggle={() => setOpenGroup(g => g === 'campanhas' ? null : 'campanhas')}
     />
   )
   const settingsGroup = isAdmin && (
     <ExpandableNavGroup
-      label="Configurações" Icon={Settings} basePath="/settings" children={SETTINGS_CHILDREN} slim={slim} pathname={location.pathname}
+      label="Configurações" Icon={Settings} basePath="/settings" children={SETTINGS_CHILDREN} pathname={location.pathname}
       open={openGroup === 'settings'} onToggle={() => setOpenGroup(g => g === 'settings' ? null : 'settings')}
     />
   )
   // mesmos papéis de can_see_financials (backend/app/security.py)
   const financeiroGroup = (isAdmin || ['diretor', 'financeiro', 'coordenador'].includes(user?.role ?? '')) && (
     <ExpandableNavGroup
-      label="Financeiro" Icon={DollarSign} basePath="/financeiro" children={FINANCEIRO_CHILDREN} slim={slim} pathname={location.pathname}
+      label="Financeiro" Icon={DollarSign} basePath="/financeiro" children={FINANCEIRO_CHILDREN} pathname={location.pathname}
       open={openGroup === 'financeiro'} onToggle={() => setOpenGroup(g => g === 'financeiro' ? null : 'financeiro')}
     />
   )
 
-  const themeBtn = (
-    <button
-      onClick={toggle}
-      title={slim ? (dark ? 'Modo claro' : 'Modo escuro') : undefined}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        justifyContent: slim ? 'center' : 'flex-start',
-        width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-        color: '#9CA3AF', fontSize: 13, padding: slim ? '6px 0' : '6px 4px',
-        borderRadius: 6, marginBottom: 6,
-        transition: 'color 150ms',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.color = '#E2E8F0' }}
-      onMouseLeave={e => { e.currentTarget.style.color = '#9CA3AF' }}
-    >
-      {dark ? <Sun size={15} /> : <Moon size={15} />}
-      {!slim && <span>{dark ? 'Modo claro' : 'Modo escuro'}</span>}
-    </button>
-  )
-
+  const nomeUser = user ? (user.first_name || user.username) : ''
+  const iniciais = nomeUser.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map(p => p[0]!.toUpperCase()).join('') || '?'
   const footer = (
-    <div style={{ borderTop: '1px solid #1F2937', padding: slim ? '12px 0' : '12px 16px', flexShrink: 0 }}>
-      {!slim && user && (
-        <div style={{ marginBottom: 10 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#F9FAFB' }}>{user.first_name || user.username}</p>
-          <p style={{ fontSize: 11, color: '#6B7280', textTransform: 'capitalize', marginTop: 2 }}>{user.role}</p>
+    <div className="sb-foot">
+      <button type="button" className="sb-it" onClick={toggle} title={expanded ? undefined : (dark ? 'Modo claro' : 'Modo escuro')}>
+        {dark ? <Sun size={18} className="sb-ic" /> : <Moon size={18} className="sb-ic" />}
+        <span className="sb-lb sb-hide">{dark ? 'Modo claro' : 'Modo escuro'}</span>
+      </button>
+      {user && (
+        <div className="sb-it static" title={expanded ? undefined : nomeUser}>
+          <span className="sb-av">{iniciais}</span>
+          <span className="sb-lb sb-hide">{nomeUser}<small>{user.role}</small></span>
         </div>
       )}
-      {themeBtn}
-      <button
-        onClick={logout}
-        title={slim ? 'Sair' : undefined}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          justifyContent: slim ? 'center' : 'flex-start',
-          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-          color: '#9CA3AF', fontSize: 13, padding: slim ? '6px 0' : '6px 4px', borderRadius: 6,
-        }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#FCA5A5' }}
-        onMouseLeave={e => { e.currentTarget.style.color = '#9CA3AF' }}
-      >
-        <LogOut size={15} />
-        {!slim && <span>Sair</span>}
+      <button type="button" className="sb-it danger" onClick={logout} title={expanded ? undefined : 'Sair'}>
+        <LogOut size={18} className="sb-ic" />
+        <span className="sb-lb sb-hide">Sair</span>
       </button>
     </div>
   )
@@ -578,100 +469,84 @@ export default function Sidebar() {
   )
   const followupBell = sinoNoSlot ? createPortal(followupBellEl, sinoSlot!) : followupBellEl
 
+  // menu agrupado por assunto; seção sem nenhum item (ex: Gestão pra quem não vê nada dela) some
+  const gestao = [campanhasGroup, financeiroGroup, settingsGroup].filter(Boolean)
+  const navBody = (
+    <>
+      <div className="sb-sect">Operação</div>
+      {dashboardGroup}
+      {linkEl('/leads-report')}
+      {linkEl('/gestao-comercial')}
+      {linkEl('/agenda')}
+      {!isTrafego && (
+        <>
+          <div className="sb-sect">Equipe</div>
+          {meuDesempenhoTo && linkEl(meuDesempenhoTo)}
+          {linkEl('/kpis')}
+          {linkEl('/scripts')}
+          {linkEl('/sugestoes')}
+          {linkEl('/telefonia')}
+        </>
+      )}
+      {gestao.length > 0 && (
+        <>
+          <div className="sb-sect">Gestão</div>
+          {gestao}
+        </>
+      )}
+    </>
+  )
+
   if (isMobile) {
     return (
-      <>
+      <div className="sb">
         {followupBell}
         {!mobileOpen && (
-          <button
-            onClick={() => setMobileOpen(true)}
-            style={{
-              position: 'fixed', top: 12, left: 12, zIndex: 50,
-              background: '#111827', border: 'none', borderRadius: 8,
-              padding: 8, cursor: 'pointer', color: '#F9FAFB',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
+          <button type="button" className="sb-menu-btn" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
             <Menu size={20} />
           </button>
         )}
         {mobileOpen && (
-          <div
-            onClick={() => setMobileOpen(false)}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }}
-          />
+          <div onClick={() => setMobileOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }} />
         )}
-        <aside style={{
-          position: 'fixed', left: 0, top: 0, bottom: 0, width: 240, zIndex: 50,
-          background: '#111827', display: 'flex', flexDirection: 'column',
-          transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 250ms ease',
-        }}>
-          <div style={{ padding: '18px 16px', borderBottom: '1px solid #1F2937', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#F9FAFB', display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f92280', flexShrink: 0 }} />
-              O2 Solution
-            </span>
-            <button
-              onClick={() => setMobileOpen(false)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', display: 'flex' }}
-            >
-              <X size={16} />
-            </button>
+        <aside className="sb-rail exp mobile" style={{ transform: mobileOpen ? 'translateX(0)' : 'translateX(-105%)' }}>
+          <div className="sb-head">
+            <span className="sb-logo">O2</span>
+            <span className="sb-brand">O2 Solution</span>
+            <button type="button" className="sb-iconbtn" onClick={() => setMobileOpen(false)} aria-label="Fechar menu"><X size={16} /></button>
           </div>
-          <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
-            {dashboardGroup}
-            {navLinks}
-            {campanhasGroup}
-            {financeiroGroup}
-            {settingsGroup}
-          </nav>
+          <nav className="sb-nav">{navBody}</nav>
           {footer}
         </aside>
-      </>
+      </div>
     )
   }
 
-  const w = collapsed ? 64 : 240
   return (
     <>
       {followupBell}
-      <aside style={{
-      width: w, flexShrink: 0, height: '100vh',
-      position: 'sticky', top: 0,
-      transition: 'width 200ms ease',
-      overflow: 'hidden', background: '#111827',
-      display: 'flex', flexDirection: 'column',
-    }}>
-      <div style={{
-        padding: collapsed ? '18px 0' : '18px 16px',
-        display: 'flex', alignItems: 'center',
-        justifyContent: collapsed ? 'center' : 'space-between',
-        borderBottom: '1px solid #1F2937', flexShrink: 0, minHeight: 58,
-      }}>
-        {!collapsed && (
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#F9FAFB', display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f92280', flexShrink: 0 }} />
-            O2 Solution
-          </span>
-        )}
-        <button
-          onClick={() => setCollapsed(c => !c)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 4, borderRadius: 4, display: 'flex', flexShrink: 0 }}
+      <div className={`sb sb-slot ${pinned ? 'pinned' : ''}`}>
+        <aside
+          className={`sb-rail ${expanded ? 'exp' : ''}`}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
         >
-          {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
-        </button>
+          <div className="sb-head">
+            <span className="sb-logo">O2</span>
+            <span className="sb-brand sb-hide">O2 Solution</span>
+            <button
+              type="button"
+              className={`sb-iconbtn sb-hide ${pinned ? 'on' : ''}`}
+              onClick={togglePinned}
+              title={pinned ? 'Soltar (menu volta a abrir só com o mouse)' : 'Fixar menu aberto'}
+            >
+              {pinned ? <PinOff size={16} /> : <Pin size={16} />}
+            </button>
+          </div>
+          <nav className="sb-nav">{navBody}</nav>
+          {footer}
+        </aside>
       </div>
-      <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
-        {dashboardGroup}
-        {navLinks}
-        {campanhasGroup}
-        {financeiroGroup}
-        {settingsGroup}
-      </nav>
-      {footer}
-      </aside>
     </>
   )
 }
