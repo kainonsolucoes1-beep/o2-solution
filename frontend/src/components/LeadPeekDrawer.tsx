@@ -219,7 +219,12 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
       ? api.patch(`/api/v1/leads/${lead.id}/notes/${peek.ultima_nota.id}`, { content })
       : api.post(`/api/v1/leads/${lead.id}/notes`, { content })
     req
-      .then(() => { setNotaModo(null); setNotaTexto(''); carregar(true) })
+      .then(res => {
+        // nota nova em Novo / Sem retorno / Aguardando dados leva o lead pra Agendado
+        const st = (res?.data as { status_atualizado?: string | null } | undefined)?.status_atualizado
+        if (st) { setStatusLocal(st); onStatusChanged?.(lead.id, st) }
+        setNotaModo(null); setNotaTexto(''); carregar(true)
+      })
       .catch(err => {
         const d = err?.response?.data?.detail
         setNotaErro(typeof d === 'string' ? d : 'Não foi possível salvar a anotação.')

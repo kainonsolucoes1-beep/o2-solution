@@ -294,6 +294,7 @@ class NoteCreateResponse(BaseModel):
     # retorno automático criado pela anotação (None = lead em status final ou
     # já havia um agendamento manual mais distante)
     retorno_agendado: Optional[datetime] = None
+    status_atualizado: Optional[str] = None
 
 
 class NoteResponse(BaseModel):
