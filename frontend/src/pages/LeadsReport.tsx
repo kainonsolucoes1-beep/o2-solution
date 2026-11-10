@@ -11,7 +11,7 @@ import Combobox from '../components/Combobox'
 import ImportRenutricaoModal from '../components/ImportRenutricaoModal'
 import AssignRenutricaoModal from '../components/AssignRenutricaoModal'
 import LeadPeekDrawer from '../components/LeadPeekDrawer'
-import ReportFilterPanel, { csvSet, type FilterValues, type ReportFacets } from '../components/ReportFilterPanel'
+import ReportFilterPanel, { csvSet, PLANO_OPCOES, type FilterValues, type ReportFacets } from '../components/ReportFilterPanel'
 import '../styles/leads-report-theme.css'
 import { reportStatusColor, reportPerceptionColor, tint } from '../utils/reportColors'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
@@ -173,6 +173,7 @@ interface StoredFilters {
   renutFilter: string
   vidasFilter?: string
   faixaFilter?: string
+  planoFilter?: string
 }
 
 // filtros de perfil (multi-seleção, valores separados por vírgula na API)
@@ -347,6 +348,7 @@ export default function LeadsReport() {
   const [teamFilter, setTeamFilter] = useState(() => searchParams.get('team') ?? (cameFromUrlFilters ? '' : storedFilters.teamFilter ?? ''))
   const [vidasFilter, setVidasFilter] = useState(() => searchParams.get('vidas') ?? (cameFromUrlFilters ? '' : storedFilters.vidasFilter ?? ''))
   const [faixaFilter, setFaixaFilter] = useState(() => searchParams.get('faixa_etaria') ?? (cameFromUrlFilters ? '' : storedFilters.faixaFilter ?? ''))
+  const [planoFilter, setPlanoFilter] = useState(() => searchParams.get('plano') ?? (cameFromUrlFilters ? '' : storedFilters.planoFilter ?? ''))
   const [renutFilter, setRenutFilter] = useState<'' | 'em' | 'fora'>(() => {
     const q = searchParams.get('renutricao') === 'true' ? 'em' : searchParams.get('sem_renutricao') === 'true' ? 'fora' : ''
     return (q || (cameFromUrlFilters ? '' : storedFilters.renutFilter ?? '')) as '' | 'em' | 'fora'
@@ -437,9 +439,9 @@ export default function LeadsReport() {
   }, [panelOpen, isNarrow])
 
   useEffect(() => {
-    const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter, vidasFilter, faixaFilter }
+    const toStore: StoredFilters = { dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter, vidasFilter, faixaFilter, planoFilter }
     try { localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toStore)) } catch { /* sem storage */ }
-  }, [dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter, vidasFilter, faixaFilter])
+  }, [dateFrom, dateTo, origem, canal, conversionPointFilter, campanhaFilter, modalidadeFilter, statusFilter, perceptionFilter, search, lostReasonFilter, closedSubStatus, teamFilter, renutFilter, vidasFilter, faixaFilter, planoFilter])
 
   const [clearTrigger, setClearTrigger] = useState(0)
 
@@ -460,6 +462,7 @@ export default function LeadsReport() {
     setRenutFilter('')
     setVidasFilter('')
     setFaixaFilter('')
+    setPlanoFilter('')
     setStaleDays(0)
     setEstrito(false)
     setClearTrigger(c => c + 1)
@@ -506,7 +509,7 @@ export default function LeadsReport() {
     clearTimeout(filtersDebounceRef.current)
     filtersDebounceRef.current = setTimeout(() => fetchReport(1), 250)
     return () => clearTimeout(filtersDebounceRef.current)
-  }, [dateFrom, dateTo, origem, canal, campanhaFilter, modalidadeFilter, conversionPointFilter, statusFilter, perceptionFilter, lostReasonFilter, closedSubStatus, teamFilter, vidasFilter, faixaFilter, renutFilter, staleDays, estrito]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo, origem, canal, campanhaFilter, modalidadeFilter, conversionPointFilter, statusFilter, perceptionFilter, lostReasonFilter, closedSubStatus, teamFilter, vidasFilter, faixaFilter, planoFilter, renutFilter, staleDays, estrito]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Busca da barra rápida: filtra sozinha com um respiro de digitação.
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>()
@@ -552,10 +555,11 @@ export default function LeadsReport() {
     if (teamFilter) params.team = teamFilter
     if (vidasFilter) params.vidas = vidasFilter
     if (faixaFilter) params.faixa_etaria = faixaFilter
+    if (planoFilter) params.plano = planoFilter
     if (staleDays > 0) params.stale_days = staleDays
     if (search.trim()) params.search = search.trim()
     return params
-  }, [dateFrom, dateTo, vencidosFilter, estrito, canFilterOperador, origem, canal, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, campanhaFilter, lostReasonFilter, teamFilter, vidasFilter, faixaFilter, staleDays, search])
+  }, [dateFrom, dateTo, vencidosFilter, estrito, canFilterOperador, origem, canal, renutFilter, statusFilter, closedSubStatus, perceptionFilter, modalidadeFilter, conversionPointFilter, campanhaFilter, lostReasonFilter, teamFilter, vidasFilter, faixaFilter, planoFilter, staleDays, search])
 
   const [selectingAll, setSelectingAll] = useState(false)
   async function selectAllFiltered() {
@@ -781,7 +785,7 @@ export default function LeadsReport() {
   const filterValues: FilterValues = {
     dateFrom, dateTo, status: statusFilter, closedSubStatus, lostReason: lostReasonFilter, perception: perceptionFilter,
     origem, team: teamFilter, canal, conversionPoint: conversionPointFilter, campanha: campanhaFilter,
-    modalidade: modalidadeFilter, vidas: vidasFilter, faixa: faixaFilter, renut: renutFilter,
+    modalidade: modalidadeFilter, vidas: vidasFilter, faixa: faixaFilter, plano: planoFilter, renut: renutFilter,
   }
   function patchFilters(pt: Partial<FilterValues>) {
     if (pt.dateFrom !== undefined) setDateFrom(pt.dateFrom)
@@ -798,6 +802,7 @@ export default function LeadsReport() {
     if (pt.modalidade !== undefined) setModalidadeFilter(pt.modalidade)
     if (pt.vidas !== undefined) setVidasFilter(pt.vidas)
     if (pt.faixa !== undefined) setFaixaFilter(pt.faixa)
+    if (pt.plano !== undefined) setPlanoFilter(pt.plano)
     if (pt.renut !== undefined) setRenutFilter(pt.renut)
   }
 
@@ -828,6 +833,7 @@ export default function LeadsReport() {
   if (modalidadeFilter) chips.push({ key: 'mod', label: 'Modalidade', value: listaCsv(modalidadeFilter), onRemove: () => setModalidadeFilter('') })
   if (vidasFilter) chips.push({ key: 'vidas', label: 'Vidas', value: listaCsv(vidasFilter, x => VIDAS_OPCOES.find(o => o.value === x)?.label ?? x), onRemove: () => setVidasFilter('') })
   if (faixaFilter) chips.push({ key: 'faixa', label: 'Faixa etária', value: listaCsv(faixaFilter, x => FAIXA_OPCOES.find(o => o.value === x)?.label ?? x), onRemove: () => setFaixaFilter('') })
+  if (planoFilter) chips.push({ key: 'plano', label: 'Plano atual', value: listaCsv(planoFilter, x => PLANO_OPCOES.find(o => o.value === x)?.label ?? x), onRemove: () => setPlanoFilter('') })
   if (renutFilter) chips.push({ key: 'renut', label: 'Renutrição', value: renutFilter === 'em' ? 'Em renutrição' : 'Fora', onRemove: () => setRenutFilter('') })
   if (staleDays > 0) chips.push({ key: 'stale', label: 'Sem movimento', value: `${staleDays}+ dias`, onRemove: () => setStaleDays(0) })
   if (search.trim()) chips.push({ key: 'busca', label: 'Busca', value: `"${search.trim()}"`, onRemove: () => setSearch('') })
