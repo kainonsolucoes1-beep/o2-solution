@@ -417,7 +417,8 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
         {pico && pico.tot > 0 && <span className="muted" style={{ fontSize: 12 }}>Pico: <b style={{ color: 'var(--tx)' }}>{pico.h}h–{pico.h + 1}h</b> · {pico.tot} leads</span>}
       </div>
       <div className="legend">
-        {ORIGENS.map(o => (
+        {/* só as origens que têm lead no dia (desligadas continuam, pra religar) */}
+        {ORIGENS.filter(o => p.leads.some(l => l.grupo === o.k) || origOff.has(o.k) || origSel === o.k).map(o => (
           <span key={o.k} className={origOff.has(o.k) || (origSel && origSel !== o.k) ? 'off' : ''} onClick={() => onLegend(o.k)}>
             <i className="dot" style={{ background: `var(${o.c})` }} />{o.l}
           </span>
