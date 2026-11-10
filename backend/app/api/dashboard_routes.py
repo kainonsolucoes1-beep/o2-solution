@@ -695,6 +695,8 @@ _PLACAR_META_ORIGENS = {"meta ads", "meta", "facebook", "facebook ads", "instagr
 _PLACAR_SDR_EXTRA = {"o2 solution", "o2solution"}
 # lead registrado como "Adm" tem grupo próprio (não é prospecção de SDR)
 _PLACAR_ADM = {"adm", "administrativo"}
+_PLACAR_INDICACAO = {"indicação", "indicacao"}
+_PLACAR_RETRABALHO = {"retrabalho"}
 _PLACAR_NAO_CONTATADO = {"novo", "new", "pending"}
 _PLACAR_STATUS = {
     "novo": "pend", "new": "pend", "pending": "pend",
@@ -748,6 +750,10 @@ def _placar_grupo(origin, conversion_point, campanha_midia, person_names) -> str
         return "discadora"
     if o in _PLACAR_ADM:
         return "adm"
+    if o in _PLACAR_INDICACAO:
+        return "indicacao"
+    if o in _PLACAR_RETRABALHO:
+        return "retrabalho"
     if o and (o in person_names or o in _PLACAR_SDR_EXTRA):
         return "sdr"
     if not o or is_organico(origin, conversion_point):
