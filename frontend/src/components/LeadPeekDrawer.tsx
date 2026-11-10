@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { X, CalendarClock, Clock3, StickyNote, ArrowUpRight, RotateCcw, Plus, Pencil, ChevronUp, ChevronDown, Phone, MessageCircle, Copy, Check, Info, Activity } from 'lucide-react'
+import { X, CalendarClock, Clock3, StickyNote, ArrowUpRight, RotateCcw, Plus, Pencil, Phone, MessageCircle, Copy, Check, Info, Activity } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { reportStatusColor, reportPerceptionColor, tint, personColor } from '../utils/reportColors'
@@ -85,7 +85,6 @@ function waNumber(phone: string | null): string | null {
 const LABEL: CSSProperties = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-subtle)' }
 const LINK_BTN: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 4px', border: 'none', background: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
 const NAV_BTN: CSSProperties = { width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }
-const KBD: CSSProperties = { fontSize: 10, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 4, padding: '0 4px', background: 'var(--bg-subtle)', color: 'var(--text-muted)', fontFamily: 'inherit' }
 
 interface Props {
   lead: PeekLead
@@ -98,7 +97,7 @@ interface Props {
   navLoading?: boolean
 }
 
-export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, onPrev, onNext, navLoading }: Props) {
+export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNext }: Props) {
   const [peek, setPeek] = useState<Peek | null>(null)
   const [loading, setLoading] = useState(true)
   const [entered, setEntered] = useState(false)
@@ -212,30 +211,19 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, position, on
       <div
         role="dialog" aria-label={`Lead ${lead.name}`}
         style={{
-          width: 'min(440px, 100%)', height: '100%', display: 'flex', flexDirection: 'column',
+          width: 'min(440px, 100%)', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
           background: 'var(--bg-card)', boxShadow: '-16px 0 44px rgba(0,0,0,0.22)', borderLeft: '1px solid var(--border)',
           transform: entered ? 'translateX(0)' : 'translateX(32px)', opacity: entered ? 1 : 0,
           transition: 'transform 220ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease',
         }}
       >
-        {/* barra de navegação */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderBottom: '1px solid var(--border-lt)', fontSize: 12, color: 'var(--text-subtle)', flexShrink: 0 }}>
-          {position && (
-            <>
-              <button onClick={onPrev} disabled={!onPrev || navLoading} title="Anterior (↑)" aria-label="Lead anterior" style={{ ...NAV_BTN, opacity: !onPrev ? 0.35 : 1, cursor: !onPrev ? 'default' : 'pointer' }}><ChevronUp size={15} /></button>
-              <button onClick={onNext} disabled={!onNext || navLoading} title="Próximo (↓)" aria-label="Próximo lead" style={{ ...NAV_BTN, opacity: !onNext ? 0.35 : 1, cursor: !onNext ? 'default' : 'pointer' }}><ChevronDown size={15} /></button>
-              <span style={{ marginLeft: 4, fontVariantNumeric: 'tabular-nums' }}>{navLoading ? 'Carregando…' : `${position.index.toLocaleString('pt-BR')} de ${position.total.toLocaleString('pt-BR')}`}</span>
-              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <kbd style={KBD}>↑</kbd><kbd style={KBD}>↓</kbd> navegar · <kbd style={KBD}>Esc</kbd> fechar
-              </span>
-            </>
-          )}
-          <button onClick={onClose} aria-label="Fechar" title="Fechar (Esc)" style={{ ...NAV_BTN, marginLeft: position ? 8 : 'auto' }}><X size={15} /></button>
-        </div>
+        {/* barra de navegação (setas, "2 de 70", atalhos) retirada a pedido em 10/11/2026;
+            fica só o X flutuando no canto. As teclas ↑/↓ e Esc continuam funcionando. */}
+        <button onClick={onClose} aria-label="Fechar" title="Fechar (Esc)" style={{ ...NAV_BTN, position: 'absolute', top: 12, right: 12, zIndex: 3, background: 'var(--bg-card)' }}><X size={15} /></button>
 
         <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto' }}>
           {/* cabeçalho com faixa na cor do status */}
-          <div style={{ padding: '18px 20px 16px', background: `linear-gradient(180deg, ${tint(sc.color, 10)}, transparent 80px)` }}>
+          <div style={{ padding: '18px 52px 16px 20px', background: `linear-gradient(180deg, ${tint(sc.color, 10)}, transparent 80px)` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ width: 46, height: 46, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: '#fff', background: sc.color }}>
                 {initials(lead.name)}
