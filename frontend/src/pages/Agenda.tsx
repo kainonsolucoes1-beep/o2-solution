@@ -61,6 +61,8 @@ const MAX_VISIBLE = 3
 // linha que cresce pra caber TODOS os agendamentos daquela hora (sem resumo
 // "N agendamentos" -- pedido dela: ver tudo de cada dia).
 const ROW_MIN = 52
+// mais que isso numa célula (dia x hora) fica recolhido atrás de "Ver mais"
+const CELL_VISIBLE = 4
 const DAY_START = 8
 const DAY_END = 19
 
@@ -94,6 +96,12 @@ export default function Agenda() {
   const [loading, setLoading] = useState(true)
   const [popover, setPopover] = useState<{ title: string; items: AgendaItem[] } | null>(null)
   const [atendente, setAtendente] = useState('')
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggleCell = (key: string) => setExpanded(prev => {
+    const n = new Set(prev)
+    if (n.has(key)) n.delete(key); else n.add(key)
+    return n
+  })
   const [now, setNow] = useState(() => Date.now())
 
   // linha do "agora" e marcação de vencido acompanham o relógio
@@ -270,7 +278,31 @@ export default function Agenda() {
                         background: isToday ? tint('#2563EB', 4) : undefined,
                       }}
                     >
-                      {list.map(weekBlock)}
+                      {(() => {
+                        const cellKey = `${k}-${h}`
+                        const open = expanded.has(cellKey)
+                        const hidden = list.length - CELL_VISIBLE
+                        const shown = open || hidden <= 0 ? list : list.slice(0, CELL_VISIBLE)
+                        const hiddenLate = hidden > 0 ? list.slice(CELL_VISIBLE).filter(isOverdue).length : 0
+                        return (
+                          <>
+                            {shown.map(weekBlock)}
+                            {hidden > 0 && (
+                              <button
+                                onClick={() => toggleCell(cellKey)}
+                                aria-expanded={open}
+                                style={{
+                                  border: '1px dashed var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-2)',
+                                  borderRadius: 7, padding: '4px 8px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', textAlign: 'center',
+                                }}
+                              >
+                                {open ? 'Ver menos' : `Ver mais ${hidden}`}
+                                {!open && hiddenLate > 0 && <span style={{ color: OVERDUE }}> · {hiddenLate} vencido{hiddenLate > 1 ? 's' : ''}</span>}
+                              </button>
+                            )}
+                          </>
+                        )
+                      })()}
                       {isToday && nowHour === h && (
                         <div style={{ position: 'absolute', left: 0, right: 0, top: `${(today.getMinutes() / 60) * 100}%`, height: 2, background: '#2563EB', zIndex: 2, pointerEvents: 'none' }}>
                           <span style={{ position: 'absolute', left: -4, top: -3, width: 8, height: 8, borderRadius: '50%', background: '#2563EB' }} />
