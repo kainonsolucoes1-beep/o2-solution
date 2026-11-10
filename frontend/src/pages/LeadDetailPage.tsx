@@ -421,17 +421,21 @@ export default function LeadDetailPage() {
   function handleSaveNote() {
     if (!id || !noteText.trim()) return
     setSavingNote(true)
-    api.post<{ retorno_agendado?: string | null }>(`/api/v1/leads/${id}/notes`, { content: noteText.trim() })
+    api.post<{ retorno_agendado?: string | null; status_atualizado?: string | null }>(`/api/v1/leads/${id}/notes`, { content: noteText.trim() })
       .then(res => {
         setNoteText('')
         // anotação em lead fora de status final agenda retorno em 2 dias úteis (10/11/2026)
+        // e leva Novo / Sem retorno / Aguardando dados pra Agendado
         const r = res.data?.retorno_agendado
-        setToast({
-          msg: r
-            ? `Nota salva · retorno agendado para ${new Date(parseUTC(r)).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-            : 'Nota salva com sucesso',
-          ok: true,
-        })
+        const st = res.data?.status_atualizado
+        if (st) {
+          setStatus(st)
+          setLead(prev => prev ? { ...prev, status: st } : prev)
+        }
+        const partes = ['Nota salva']
+        if (st) partes.push('status: Agendado')
+        if (r) partes.push(`retorno agendado para ${new Date(parseUTC(r)).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`)
+        setToast({ msg: partes.length > 1 ? partes.join(' · ') : 'Nota salva com sucesso', ok: true })
         if (r) api.get<{ schedules: ScheduleItem[] }>(`/api/v1/leads/${id}/schedule-history`).then(s => setSchedules(s.data.schedules)).catch(() => {})
         return api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`)
       })

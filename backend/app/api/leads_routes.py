@@ -176,6 +176,29 @@ def _retorno_por_anotacao(db: Session, lead: Lead, user: User, now: datetime):
     return retorno
 
 
+# Status de "início de contato": a anotação (que já agenda o retorno) também
+# avança o lead pra "Agendado" (valor "qualificado", o mesmo do agendamento
+# manual). Proposta, pendência etc. mantêm o status — só ganham o retorno.
+_STATUS_VIRAM_AGENDADO = {
+    "novo", "new", "pending", "pendente",
+    "sem_retorno", "sem retorno",
+    "aguardando_dados", "aguardando dados",
+}
+
+
+def _status_por_anotacao(db: Session, lead: Lead, user: User, now: datetime):
+    """Novo / Sem retorno / Aguardando dados -> Agendado. Devolve o novo status ou None."""
+    if (lead.status or "").strip().lower() not in _STATUS_VIRAM_AGENDADO:
+        return None
+    db.add(LeadStatusHistory(
+        lead_id=lead.id, from_status=lead.status, to_status="qualificado",
+        changed_at=now, changed_by=user.first_name or user.username,
+    ))
+    lead.status = "qualificado"
+    lead.updated_at = now
+    return lead.status
+
+
 @router.get("/leads", response_model=List[LeadResponse])
 def list_leads(
     current_user: User = Depends(get_current_user),
@@ -2029,10 +2052,15 @@ def create_lead_note(
     db.add(note)
     if 'renutrição' in body.content.lower():
         lead.is_renutrucao = True
-    retorno = _retorno_por_anotacao(db, lead, current_user, datetime.now(timezone.utc).replace(tzinfo=None))
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    retorno = _retorno_por_anotacao(db, lead, current_user, now)
+    novo_status = _status_por_anotacao(db, lead, current_user, now)
     db.commit()
     db.refresh(note)
-    return NoteCreateResponse(success=True, note_id=note.id, created_at=note.created_at, retorno_agendado=retorno)
+    return NoteCreateResponse(
+        success=True, note_id=note.id, created_at=note.created_at,
+        retorno_agendado=retorno, status_atualizado=novo_status,
+    )
 
 
 @router.patch("/leads/{lead_id}/notes/{note_id}", response_model=NoteUpdateResponse)
