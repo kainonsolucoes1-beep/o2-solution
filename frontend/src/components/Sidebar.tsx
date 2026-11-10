@@ -246,6 +246,31 @@ export default function Sidebar() {
     } catch { /* autoplay bloqueado ou navegador sem suporte -- silencioso */ }
   }, [])
 
+  // Agendamento perto de vencer / vencido tem som próprio ("ding-dong": duas
+  // notas descendo), diferente dos dois bipes do lead novo -- dá pra saber de
+  // longe qual dos dois avisos tocou.
+  const playAgendaBeep = useCallback(() => {
+    try {
+      let ctx = audioCtxRef.current
+      if (!ctx) { ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); audioCtxRef.current = ctx }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+      const tone = (startAt: number, freq: number, dur: number) => {
+        const osc = ctx!.createOscillator()
+        const gain = ctx!.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = freq
+        gain.gain.setValueAtTime(0.0001, startAt)
+        gain.gain.exponentialRampToValueAtTime(0.55, startAt + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + dur)
+        osc.connect(gain); gain.connect(ctx!.destination)
+        osc.start(startAt)
+        osc.stop(startAt + dur)
+      }
+      tone(ctx.currentTime, 784, 0.55)
+      tone(ctx.currentTime + 0.38, 622.25, 0.8)
+    } catch { /* autoplay bloqueado ou navegador sem suporte -- silencioso */ }
+  }, [])
+
   useEffect(() => {
     if (!user || user.role === 'trafego') return
     let cancelled = false
@@ -258,7 +283,7 @@ export default function Sidebar() {
           const seen = followupSeenRef.current
           if (seen) {
             const newIds = [...ids].filter(id => !seen.has(id))
-            if (newIds.length > 0 && claimFollowupBeep(newIds)) playFollowupBeep()
+            if (newIds.length > 0 && claimFollowupBeep(newIds)) playAgendaBeep()
           }
           followupSeenRef.current = ids
           setFollowupAlerts(items)
@@ -268,7 +293,7 @@ export default function Sidebar() {
     loadFollowup()
     const id = setInterval(loadFollowup, 60 * 1000)
     return () => { cancelled = true; clearInterval(id) }
-  }, [user, playFollowupBeep, claimFollowupBeep])
+  }, [user, playAgendaBeep, claimFollowupBeep])
 
   useEffect(() => {
     if (!user || user.role === 'trafego') return
