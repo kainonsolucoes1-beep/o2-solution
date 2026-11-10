@@ -34,13 +34,14 @@ interface Placar {
   leads: PlacarLead[]
   anterior: { m: number; grupo: GrupoKey }[]
 }
-type GrupoKey = 'meta' | 'google' | 'org' | 'sdr' | 'discadora' | 'adm' | 'outros'
+type GrupoKey = 'meta' | 'google' | 'org' | 'sdr' | 'discadora' | 'adm' | 'indicacao' | 'retrabalho' | 'outros'
 
 const ORIGENS: { k: GrupoKey; l: string; c: string }[] = [
   { k: 'meta', l: 'Meta Ads', c: '--s1' }, { k: 'google', l: 'Google', c: '--s2' }, { k: 'org', l: 'Orgânico', c: '--s3' },
   { k: 'sdr', l: 'Prospecção SDR', c: '--s4' }, { k: 'discadora', l: 'Discadora', c: '--s6' },
   { k: 'adm', l: 'Adm', c: '--s7' },
-  { k: 'outros', l: 'Indicação e outros', c: '--s5' },
+  { k: 'indicacao', l: 'Indicação', c: '--s5' }, { k: 'retrabalho', l: 'Retrabalho', c: '--s8' },
+  { k: 'outros', l: 'Outros', c: '--s9' },
 ]
 const STATUS = [
   { k: 'pend', l: 'Pendente', c: '--st-pend' }, { k: 'aguard', l: 'Aguardando dados', c: '--st-aguard' }, { k: 'semret', l: 'Sem retorno', c: '--st-semret' },
@@ -459,15 +460,28 @@ function Origens({ p, sel, onSel }: { p: Placar; sel: GrupoKey | null; onSel: (k
       <div style={{ marginTop: 6 }}>
         {rows.map(r => {
           const d = r.n - p.anterior.filter(a => a.grupo === r.k && a.m < p.corte_min).length
+          // "Outros" sempre diz quais origens estão dentro dele (ex: Listagem 2 · Robô 1)
+          const detalhe = r.k === 'outros' && r.n > 0
+            ? Object.entries(all.filter(l => l.grupo === 'outros').reduce<Record<string, number>>((acc, l) => {
+                const nome = (l.origem || '').trim() || 'Sem origem'
+                acc[nome] = (acc[nome] || 0) + 1
+                return acc
+              }, {})).sort((a, b) => b[1] - a[1]).map(([nome, n]) => `${nome} ${n}`).join(' · ')
+            : ''
           return (
-            <div
-              key={r.k} className={`orow ${sel === r.k ? 'sel' : ''}`} onClick={() => onSel(r.k)}
-              title={`${d >= 0 ? '+' : ''}${d} vs ${p.hoje ? 'ontem no mesmo horário' : 'dia anterior'}`}
-              style={sel && sel !== r.k ? { opacity: 0.45 } : undefined}
-            >
-              <span className="nm"><i className="dot" style={{ background: `var(${r.c})` }} />{r.l}</span>
-              <span className="track"><i style={{ width: `${r.n / max * 100}%`, background: `var(${r.c})` }} /></span>
-              <span className="n">{r.n}</span><span className="pct">{pct(r.n, total)}%</span>
+            <div key={r.k}>
+              <div
+                className={`orow ${sel === r.k ? 'sel' : ''}`} onClick={() => onSel(r.k)}
+                title={`${d >= 0 ? '+' : ''}${d} vs ${p.hoje ? 'ontem no mesmo horário' : 'dia anterior'}`}
+                style={sel && sel !== r.k ? { opacity: 0.45 } : undefined}
+              >
+                <span className="nm"><i className="dot" style={{ background: `var(${r.c})` }} />{r.l}</span>
+                <span className="track"><i style={{ width: `${r.n / max * 100}%`, background: `var(${r.c})` }} /></span>
+                <span className="n">{r.n}</span><span className="pct">{pct(r.n, total)}%</span>
+              </div>
+              {detalhe && (
+                <div style={{ fontSize: 11.5, color: 'var(--tx3)', padding: '0 0 6px 18px', marginTop: -2 }}>{detalhe}</div>
+              )}
             </div>
           )
         })}
