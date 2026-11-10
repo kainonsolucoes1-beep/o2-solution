@@ -95,7 +95,7 @@ html.dark .pl .tt{box-shadow:0 12px 32px rgba(0,0,0,.5)}
 .pl .tt .r b{margin-left:auto;color:var(--tx);font-variant-numeric:tabular-nums}
 .pl .tt .t{border-top:1px solid var(--line2);margin-top:6px;padding-top:6px}
 
-.pl .orig{padding:16px 18px}
+.pl .orig{padding:16px 18px;align-self:start} /* altura pelo conteúdo: cresce conforme aparecem origens */
 .pl .orow{display:grid;grid-template-columns:150px 1fr 34px 40px;align-items:center;gap:10px;padding:8px 6px;margin:0 -6px;border-radius:8px;cursor:pointer}
 .pl .orow:hover{background:var(--hover)}
 .pl .orow.sel{background:var(--pri-bg)}
