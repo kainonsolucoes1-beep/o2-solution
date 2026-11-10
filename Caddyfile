@@ -4,6 +4,28 @@ www.o2sig.com.br {
 
 o2sig.com.br {
     encode zstd gzip
+
+    # Registro de acesso (11/11/2026): horário, IP, rota, status e tempo de
+    # cada pedido -- pra diagnosticar queda (só o escritório? todo mundo?) e
+    # lentidão. Arquivo com rotação (5 x 20 MB, no máx. 30 dias) no volume
+    # caddy_data. Sem cabeçalhos (cookie/token) e sem o texto da busca
+    # (nome/CPF digitado), pra não guardar dado pessoal além do IP.
+    log {
+        output file /data/access.log {
+            roll_size 20MiB
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format filter {
+            wrap json
+            request>headers delete
+            resp_headers delete
+            request>uri query {
+                delete search
+            }
+        }
+    }
+
     reverse_proxy frontend:3000 {
         # segura a requisição durante a troca de container no deploy (evita 502)
         lb_try_duration 5s
