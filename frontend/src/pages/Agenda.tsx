@@ -207,13 +207,14 @@ export default function Agenda() {
         onClick={() => navigate(`/leads/${it.id}`)}
         title={`${statusLabel(it.status)}${late ? ' · vencido' : ''} · ${it.name}${it.attendant ? ` · ${it.attendant}` : ''}`}
         style={{
-          display: 'block', width: '100%', borderRadius: 6, border: 'none', borderLeft: `3px solid ${c}`,
-          background: tint(c, dark ? 22 : 13), color: 'var(--text-1)', textAlign: 'left', padding: '4px 6px',
-          cursor: 'pointer', overflow: 'hidden', fontSize: 11.5, lineHeight: 1.3, whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          display: 'block', width: '100%', borderRadius: 7, border: 'none', borderLeft: `3px solid ${c}`,
+          background: tint(c, dark ? 24 : 14), color: 'var(--text-1)', textAlign: 'left', padding: '5px 8px',
+          cursor: 'pointer', overflow: 'hidden', fontSize: 12, lineHeight: 1.3, whiteSpace: 'nowrap', textOverflow: 'ellipsis',
           outline: late ? `1.5px dashed ${OVERDUE}` : undefined, outlineOffset: -1.5,
         }}
       >
-        <b style={{ color: late ? OVERDUE : 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{fmtTime(it.scheduled_at)}</b>{' '}{it.name}
+        {/* horário na cor do status (vencido continua em vermelho) */}
+        <b style={{ color: late ? OVERDUE : c, fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{fmtTime(it.scheduled_at)}</b>{' '}{it.name}
       </button>
     )
   }
