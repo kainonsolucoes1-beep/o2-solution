@@ -84,7 +84,8 @@ function initials(name: string) {
 
 type SortKey = keyof LeadItem
 
-const LIMIT = 10
+const PER_PAGE_OPCOES = [10, 20, 50, 100]
+const PER_PAGE_STORAGE_KEY = 'leadsReportPerPage'
 
 const today = new Date().toISOString().slice(0, 10)
 const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
@@ -497,6 +498,17 @@ export default function LeadsReport() {
     if (statusFilter !== STATUS_FECHADO) setClosedSubStatus('')
   }, [statusFilter])
 
+  // Quantos leads por página (10/20/50/100) — lembra a escolha no navegador.
+  const [perPage, setPerPage] = useState<number>(() => {
+    try {
+      const n = Number(localStorage.getItem(PER_PAGE_STORAGE_KEY))
+      return PER_PAGE_OPCOES.includes(n) ? n : 10
+    } catch { return 10 }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(PER_PAGE_STORAGE_KEY, String(perPage)) } catch { /* sem storage */ }
+  }, [perPage])
+
   useEffect(() => {
     if (me) fetchReport(1)
   }, [me]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -509,7 +521,7 @@ export default function LeadsReport() {
     clearTimeout(filtersDebounceRef.current)
     filtersDebounceRef.current = setTimeout(() => fetchReport(1), 250)
     return () => clearTimeout(filtersDebounceRef.current)
-  }, [dateFrom, dateTo, origem, canal, campanhaFilter, modalidadeFilter, conversionPointFilter, statusFilter, perceptionFilter, lostReasonFilter, closedSubStatus, teamFilter, vidasFilter, faixaFilter, planoFilter, renutFilter, staleDays, estrito]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo, origem, canal, campanhaFilter, modalidadeFilter, conversionPointFilter, statusFilter, perceptionFilter, lostReasonFilter, closedSubStatus, teamFilter, vidasFilter, faixaFilter, planoFilter, renutFilter, staleDays, estrito, perPage]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Busca da barra rápida: filtra sozinha com um respiro de digitação.
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>()
@@ -580,7 +592,7 @@ export default function LeadsReport() {
       setLoading(true)
       setError('')
 
-      const params: Record<string, string | number | boolean> = { ...reportFilterParams(), page: p, limit: LIMIT }
+      const params: Record<string, string | number | boolean> = { ...reportFilterParams(), page: p, limit: perPage }
 
       api
         .get<ReportResponse>('/api/v1/leads/by-period', { params })
@@ -613,7 +625,7 @@ export default function LeadsReport() {
           .catch(() => { if (facetsGenRef.current === fgen) setFacets(null) })
       }
     },
-    [reportFilterParams, navigate],
+    [reportFilterParams, navigate, perPage],
   )
 
   useEffect(() => {
@@ -776,7 +788,7 @@ export default function LeadsReport() {
       })
     : []
 
-  const totalPages = report ? Math.ceil(report.total / LIMIT) : 0
+  const totalPages = report ? Math.ceil(report.total / perPage) : 0
   const myName = me ? (me.first_name ?? me.username) : ''
 
   const labelStyle = { fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }
@@ -842,7 +854,7 @@ export default function LeadsReport() {
 
   // ---- drawer: anterior / próximo (atravessa as páginas) ----
   const peekIdx = peekLead ? sortedLeads.findIndex(l => l.id === peekLead.id) : -1
-  const peekPos = report && peekIdx >= 0 ? (page - 1) * LIMIT + peekIdx + 1 : null
+  const peekPos = report && peekIdx >= 0 ? (page - 1) * perPage + peekIdx + 1 : null
   function peekStep(d: 1 | -1) {
     if (peekIdx < 0) return
     const alvo = sortedLeads[peekIdx + d]
@@ -1327,8 +1339,9 @@ export default function LeadsReport() {
               )}
             </div>
 
-            {totalPages > 1 && (
+            {report.total > PER_PAGE_OPCOES[0] && (
               <div className="flex items-center justify-center gap-1 flex-wrap">
+                {totalPages > 1 && (<>
                 <button
                   onClick={() => fetchReport(page - 1)}
                   disabled={page <= 1 || loading}
@@ -1397,6 +1410,19 @@ export default function LeadsReport() {
                   >
                     Ir
                   </button>
+                </span>
+                </>)}
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: totalPages > 1 ? 14 : 0, fontSize: 12.5, color: 'var(--text-subtle)' }}>
+                  Por página
+                  <select
+                    value={perPage}
+                    onChange={e => setPerPage(Number(e.target.value))}
+                    disabled={loading}
+                    style={{ padding: '5px 6px', borderRadius: 8, fontSize: 13, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', cursor: 'pointer' }}
+                  >
+                    {PER_PAGE_OPCOES.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
                 </span>
               </div>
             )}
