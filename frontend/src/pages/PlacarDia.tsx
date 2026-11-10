@@ -412,7 +412,7 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
   return (
     <>
       <div className="chh">
-        <div><h3>Captação por hora</h3><p>{filtrado ? `Filtrado: ${ativos.map(o => o.l).join(', ')}` : 'Barras por origem · linha tracejada = média dos últimos 7 dias'}</p></div>
+        <div><h3>Captação por hora</h3>{filtrado && <p>Filtrado: {ativos.map(o => o.l).join(', ')}</p>}</div>
         <div className="sp" />
         {pico && pico.tot > 0 && <span className="muted" style={{ fontSize: 12 }}>Pico: <b style={{ color: 'var(--tx)' }}>{pico.h}h–{pico.h + 1}h</b> · {pico.tot} leads</span>}
       </div>
