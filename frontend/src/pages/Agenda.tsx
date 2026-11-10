@@ -57,13 +57,12 @@ function dotColor(status: string | null) {
 }
 
 const MAX_VISIBLE = 3
-// Semana (modelo B aprovado em 10/11/2026): cada agendamento é um bloco no
-// seu horário; até 2 na mesma hora ficam lado a lado, 3+ viram um resumo
-// clicável (acaba o "+36 mais" do mês).
-const HOUR_PX = 60
+// Semana (modelo B aprovado em 10/11/2026): grade hora x dia. Cada hora é uma
+// linha que cresce pra caber TODOS os agendamentos daquela hora (sem resumo
+// "N agendamentos" -- pedido dela: ver tudo de cada dia).
+const ROW_MIN = 52
 const DAY_START = 8
 const DAY_END = 19
-const MAX_SIDE_BY_SIDE = 2
 
 function dateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -199,12 +198,34 @@ export default function Agenda() {
   const navBtn: React.CSSProperties = { width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }
   const gridCols = `52px repeat(${weekDays.length}, minmax(0, 1fr))`
 
+  function weekBlock(it: AgendaItem) {
+    const c = dotColor(it.status)
+    const late = isOverdue(it)
+    return (
+      <button
+        key={it.schedule_id}
+        onClick={() => navigate(`/leads/${it.id}`)}
+        title={`${statusLabel(it.status)}${late ? ' · vencido' : ''} · ${it.name}${it.attendant ? ` · ${it.attendant}` : ''}`}
+        style={{
+          display: 'block', width: '100%', borderRadius: 6, border: 'none', borderLeft: `3px solid ${c}`,
+          background: tint(c, dark ? 22 : 13), color: 'var(--text-1)', textAlign: 'left', padding: '4px 6px',
+          cursor: 'pointer', overflow: 'hidden', fontSize: 11.5, lineHeight: 1.3, whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          outline: late ? `1.5px dashed ${OVERDUE}` : undefined, outlineOffset: -1.5,
+        }}
+      >
+        <b style={{ color: late ? OVERDUE : 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{fmtTime(it.scheduled_at)}</b>{' '}{it.name}
+      </button>
+    )
+  }
+
   function renderWeek() {
     const hours = Array.from({ length: hEnd - hStart }, (_, i) => hStart + i)
-    const nowMin = today.getHours() * 60 + today.getMinutes()
+    const weekHasToday = weekDays.some(d => dateKey(d) === todayKey)
+    const nowHour = today.getHours()
+    const dayBorder = '1px solid var(--border)'
     return (
       <>
-        <div style={{ display: 'grid', gridTemplateColumns: gridCols, borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: gridCols, borderBottom: '2px solid var(--border)', background: 'var(--bg-subtle)' }}>
           <div />
           {weekDays.map(d => {
             const k = dateKey(d)
@@ -212,7 +233,7 @@ export default function Agenda() {
             const late = list.filter(isOverdue).length
             const isToday = k === todayKey
             return (
-              <div key={k} style={{ padding: '9px 6px', textAlign: 'center', borderLeft: '1px solid var(--border-lt)' }}>
+              <div key={k} style={{ padding: '9px 6px', textAlign: 'center', borderLeft: dayBorder, background: isToday ? tint('#2563EB', 8) : undefined }}>
                 <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{WEEKDAYS[d.getDay()]}</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: isToday ? '#2563EB' : 'var(--text-1)', lineHeight: 1.3 }}>
                   {isToday
@@ -227,84 +248,36 @@ export default function Agenda() {
             )
           })}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: gridCols, maxHeight: 660, overflowY: 'auto', position: 'relative' }}>
-          <div>
-            {hours.map(h => (
-              <div key={h} style={{ height: HOUR_PX, borderTop: '1px solid var(--border-lt)', fontSize: 11, color: 'var(--text-subtle)', textAlign: 'right', padding: '2px 8px 0 0', fontVariantNumeric: 'tabular-nums' }}>
-                {String(h).padStart(2, '0')}:00
-              </div>
-            ))}
-          </div>
-          {weekDays.map(d => {
-            const k = dateKey(d)
-            const list = byDay[k] ?? []
-            const byHour: Record<number, AgendaItem[]> = {}
-            for (const it of list) {
-              const h = new Date(parseUTC(it.scheduled_at)).getHours()
-              ;(byHour[h] = byHour[h] || []).push(it)
-            }
+        <div style={{ maxHeight: 720, overflowY: 'auto' }}>
+          {hours.map(h => {
+            const nowRow = weekHasToday && nowHour === h
             return (
-              <div key={k} style={{ position: 'relative', borderLeft: '1px solid var(--border-lt)', background: k === todayKey ? tint('#2563EB', 3) : undefined }}>
-                {hours.map(h => <div key={h} style={{ height: HOUR_PX, borderTop: '1px solid var(--border-lt)' }} />)}
-                {Object.entries(byHour).map(([hs, group]) => {
-                  const h = Number(hs)
-                  if (group.length > MAX_SIDE_BY_SIDE) {
-                    const late = group.filter(isOverdue).length
-                    const counts = LEGEND.map(l => ({ c: dotColor(l.status), n: group.filter(it => dotColor(it.status) === dotColor(l.status)).length })).filter(x => x.n)
-                    return (
-                      <button
-                        key={hs}
-                        onClick={() => setPopover({ title: `${d.getDate()} de ${MONTHS[d.getMonth()].toLowerCase()} · ${String(h).padStart(2, '0')}h`, items: group })}
-                        title={`${group.length} agendamentos às ${h}h`}
-                        style={{
-                          position: 'absolute', left: 3, right: 3, top: (h - hStart) * HOUR_PX + 2, height: HOUR_PX - 4,
-                          borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-subtle)', cursor: 'pointer',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: 4,
-                          outline: late ? `1.5px dashed ${OVERDUE}` : undefined, outlineOffset: -1.5,
-                        }}
-                      >
-                        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-1)' }}>{group.length} agendamentos</span>
-                        <span style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 11, color: 'var(--text-3)' }}>
-                          {counts.map((x, i) => (
-                            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: x.c }} />{x.n}
-                            </span>
-                          ))}
-                          {late > 0 && <span style={{ color: OVERDUE, fontWeight: 700 }}>· {late} venc.</span>}
-                        </span>
-                      </button>
-                    )
-                  }
-                  return group.map((it, i) => {
-                    const dt = new Date(parseUTC(it.scheduled_at))
-                    const top = ((dt.getHours() - hStart) * 60 + dt.getMinutes()) * HOUR_PX / 60
-                    const c = dotColor(it.status)
-                    const late = isOverdue(it)
-                    const half = group.length === 2
-                    return (
-                      <button
-                        key={it.schedule_id}
-                        onClick={() => navigate(`/leads/${it.id}`)}
-                        title={`${statusLabel(it.status)}${late ? ' · vencido' : ''} · ${it.name}${it.attendant ? ` · ${it.attendant}` : ''}`}
-                        style={{
-                          position: 'absolute', top: top + 1, height: 30,
-                          left: half && i === 1 ? 'calc(50% + 1px)' : 3, width: half ? 'calc(50% - 4px)' : 'calc(100% - 6px)',
-                          borderRadius: 7, border: 'none', borderLeft: `3px solid ${c}`, background: tint(c, dark ? 22 : 13),
-                          color: 'var(--text-1)', textAlign: 'left', padding: '3px 6px', cursor: 'pointer', overflow: 'hidden',
-                          fontSize: 11.5, lineHeight: 1.25, whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-                          outline: late ? `1.5px dashed ${OVERDUE}` : undefined, outlineOffset: -1.5, zIndex: 1,
-                        }}
-                      >
-                        <b style={{ color: late ? OVERDUE : 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{fmtTime(it.scheduled_at)}</b>{' '}{it.name}
-                      </button>
-                    )
-                  })
+              <div key={h} style={{ display: 'grid', gridTemplateColumns: gridCols, borderTop: dayBorder }}>
+                <div style={{ fontSize: 11, color: nowRow ? '#2563EB' : 'var(--text-subtle)', fontWeight: nowRow ? 800 : 600, textAlign: 'right', padding: '7px 8px 0 0', fontVariantNumeric: 'tabular-nums' }}>
+                  {String(h).padStart(2, '0')}:00
+                </div>
+                {weekDays.map(d => {
+                  const k = dateKey(d)
+                  const isToday = k === todayKey
+                  const list = (byDay[k] ?? []).filter(it => new Date(parseUTC(it.scheduled_at)).getHours() === h)
+                  return (
+                    <div
+                      key={k}
+                      style={{
+                        position: 'relative', borderLeft: dayBorder, minHeight: ROW_MIN, padding: 4, minWidth: 0,
+                        display: 'flex', flexDirection: 'column', gap: 3,
+                        background: isToday ? tint('#2563EB', 4) : undefined,
+                      }}
+                    >
+                      {list.map(weekBlock)}
+                      {isToday && nowHour === h && (
+                        <div style={{ position: 'absolute', left: 0, right: 0, top: `${(today.getMinutes() / 60) * 100}%`, height: 2, background: '#2563EB', zIndex: 2, pointerEvents: 'none' }}>
+                          <span style={{ position: 'absolute', left: -4, top: -3, width: 8, height: 8, borderRadius: '50%', background: '#2563EB' }} />
+                        </div>
+                      )}
+                    </div>
+                  )
                 })}
-                {k === todayKey && nowMin >= hStart * 60 && nowMin <= hEnd * 60 && (
-                  <div style={{ position: 'absolute', left: 0, right: 0, top: (nowMin - hStart * 60) * HOUR_PX / 60, height: 2, background: '#2563EB', zIndex: 2, pointerEvents: 'none' }}>
-                    <span style={{ position: 'absolute', left: -4, top: -3, width: 8, height: 8, borderRadius: '50%', background: '#2563EB' }} />
-                  </div>
-                )}
               </div>
             )
           })}
