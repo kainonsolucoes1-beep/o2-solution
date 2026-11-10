@@ -398,6 +398,19 @@ def _report_base_query(
             if digits:
                 conditions.append(func.regexp_replace(Lead.phone, r'\D', '', 'g').ilike(f"%{digits}%"))
                 conditions.append(Lead.document.ilike(f"%{digits}%"))
+            # palavras-chave nas observações (11/2026): ex. "cliente não atende".
+            # Todas as palavras precisam estar na MESMA anotação (ou na observação
+            # original do Followize / mensagem de perda), sem diferenciar acento
+            # nem maiúscula. Só quando a busca tem letras -- telefone/CPF puro não.
+            palavras = [w for w in re.split(r"\s+", term) if len(w) >= 2]
+            if palavras and re.search(r"[^\d\s().+\-/]", term):
+                def _todas(col):
+                    return and_(*[func.unaccent(col).ilike(func.unaccent(f"%{w}%")) for w in palavras])
+                conditions.append(
+                    db.query(LeadNote.id).filter(LeadNote.lead_id == Lead.id, _todas(LeadNote.content)).exists()
+                )
+                conditions.append(_todas(Lead.notes))
+                conditions.append(_todas(Lead.lost_message))
             q = q.filter(or_(*conditions))
         return q
 
