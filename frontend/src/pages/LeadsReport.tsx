@@ -1079,7 +1079,7 @@ export default function LeadsReport() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar por nome, CPF/CNPJ, telefone ou email"
+              placeholder="Buscar por nome, CPF/CNPJ, telefone, email ou palavras das anotações"
               style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--text-2)' }}
             />
             {search && (
