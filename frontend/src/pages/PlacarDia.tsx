@@ -452,12 +452,14 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
 /* ---------- origem ---------- */
 function Origens({ p, sel, onSel }: { p: Placar; sel: GrupoKey | null; onSel: (k: GrupoKey) => void }) {
   const all = p.leads, total = all.length
-  const rows = ORIGENS.map(o => ({ ...o, n: all.filter(l => l.grupo === o.k).length })).sort((a, b) => b.n - a.n)
+  // origem zerada no dia não aparece (fica só a selecionada, pra dar pra limpar o filtro)
+  const rows = ORIGENS.map(o => ({ ...o, n: all.filter(l => l.grupo === o.k).length })).filter(o => o.n > 0 || o.k === sel).sort((a, b) => b.n - a.n)
   const max = Math.max(1, ...rows.map(r => r.n))
   const pago = all.filter(l => l.grupo === 'meta' || l.grupo === 'google').length
   return (
     <>
       <div style={{ marginTop: 6 }}>
+        {rows.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--tx3)', padding: '8px 0' }}>Nenhum lead captado ainda.</div>}
         {rows.map(r => {
           const d = r.n - p.anterior.filter(a => a.grupo === r.k && a.m < p.corte_min).length
           // "Outros" sempre diz quais origens estão dentro dele (ex: Listagem 2 · Robô 1)
