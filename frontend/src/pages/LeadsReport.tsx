@@ -1339,101 +1339,103 @@ export default function LeadsReport() {
               )}
             </div>
 
-            {report.total > PER_PAGE_OPCOES[0] && (
-              <div className="flex items-center justify-center gap-1 flex-wrap">
-                {totalPages > 1 && (<>
-                <button
-                  onClick={() => fetchReport(page - 1)}
-                  disabled={page <= 1 || loading}
-                  style={{
-                    padding: '5px 12px', borderRadius: 8, fontSize: 13,
-                    border: '1px solid var(--border)', background: 'var(--bg-card)',
-                    color: 'var(--text-2)', cursor: page <= 1 ? 'not-allowed' : 'pointer',
-                    opacity: page <= 1 ? 0.3 : 1,
-                  }}
-                >
-                  ‹
-                </button>
-
-                {getPagesRange(page, totalPages).map((p, i) =>
-                  p === '...' ? (
-                    <span key={`ellipsis-${i}`} style={{ padding: '5px 4px', color: 'var(--text-subtle)', fontSize: 13 }}>
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => fetchReport(p as number)}
-                      disabled={loading}
-                      style={{
-                        padding: '5px 11px', borderRadius: 8, fontSize: 13,
-                        fontWeight: p === page ? 700 : 400,
-                        background: p === page ? 'var(--accent)' : 'var(--bg-card)',
-                        color: p === page ? 'var(--accent-contrast)' : 'var(--text-2)',
-                        border: '1px solid var(--border)', cursor: 'pointer',
-                      }}
-                    >
-                      {p}
-                    </button>
-                  ),
-                )}
-
-                <button
-                  onClick={() => fetchReport(page + 1)}
-                  disabled={page >= totalPages || loading}
-                  style={{
-                    padding: '5px 12px', borderRadius: 8, fontSize: 13,
-                    border: '1px solid var(--border)', background: 'var(--bg-card)',
-                    color: 'var(--text-2)', cursor: page >= totalPages ? 'not-allowed' : 'pointer',
-                    opacity: page >= totalPages ? 0.3 : 1,
-                  }}
-                >
-                  ›
-                </button>
-
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 10, fontSize: 12.5, color: 'var(--text-subtle)' }}>
-                  Ir para
-                  <input
-                    type="number"
-                    min={1}
-                    max={totalPages}
-                    value={jumpPage}
-                    onChange={e => setJumpPage(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') goToPage() }}
-                    placeholder={String(page)}
-                    style={{ width: 58, padding: '5px 6px', borderRadius: 8, fontSize: 13, textAlign: 'center', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)' }}
-                  />
+            {/* Rodapé em duas linhas: páginas em destaque; contagem e ajustes discretos embaixo */}
+            <div className="flex flex-col items-center" style={{ gap: 10 }}>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-1 flex-wrap">
                   <button
-                    onClick={goToPage}
-                    disabled={loading || !jumpPage}
-                    style={{ padding: '5px 11px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', cursor: !jumpPage || loading ? 'not-allowed' : 'pointer', opacity: !jumpPage ? 0.4 : 1 }}
+                    onClick={() => fetchReport(page - 1)}
+                    disabled={page <= 1 || loading}
+                    style={{
+                      padding: '5px 12px', borderRadius: 8, fontSize: 13,
+                      border: '1px solid var(--border)', background: 'var(--bg-card)',
+                      color: 'var(--text-2)', cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                      opacity: page <= 1 ? 0.3 : 1,
+                    }}
                   >
-                    Ir
+                    ‹
                   </button>
+
+                  {getPagesRange(page, totalPages).map((p, i) =>
+                    p === '...' ? (
+                      <span key={`ellipsis-${i}`} style={{ padding: '5px 4px', color: 'var(--text-subtle)', fontSize: 13 }}>
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => fetchReport(p as number)}
+                        disabled={loading}
+                        style={{
+                          padding: '5px 11px', borderRadius: 8, fontSize: 13,
+                          fontWeight: p === page ? 700 : 400,
+                          background: p === page ? 'var(--accent)' : 'var(--bg-card)',
+                          color: p === page ? 'var(--accent-contrast)' : 'var(--text-2)',
+                          border: '1px solid var(--border)', cursor: 'pointer',
+                        }}
+                      >
+                        {p}
+                      </button>
+                    ),
+                  )}
+
+                  <button
+                    onClick={() => fetchReport(page + 1)}
+                    disabled={page >= totalPages || loading}
+                    style={{
+                      padding: '5px 12px', borderRadius: 8, fontSize: 13,
+                      border: '1px solid var(--border)', background: 'var(--bg-card)',
+                      color: 'var(--text-2)', cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                      opacity: page >= totalPages ? 0.3 : 1,
+                    }}
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center justify-center flex-wrap" style={{ gap: 14, fontSize: 12.5, color: 'var(--text-subtle)' }}>
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  <strong style={{ color: 'var(--text-muted)' }}>
+                    {report.leads.length === 0 ? 0 : `${(page - 1) * perPage + 1}–${(page - 1) * perPage + report.leads.length}`}
+                  </strong>{' '}
+                  de <strong style={{ color: 'var(--text-muted)' }}>{report.total}</strong> leads
                 </span>
+
+                {report.total > PER_PAGE_OPCOES[0] && (<>
+                  <span style={{ width: 1, height: 18, background: 'var(--border)' }} />
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    Por página
+                    <select
+                      value={perPage}
+                      onChange={e => setPerPage(Number(e.target.value))}
+                      disabled={loading}
+                      style={{ padding: '4px 6px', borderRadius: 8, fontSize: 12.5, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', cursor: 'pointer' }}
+                    >
+                      {PER_PAGE_OPCOES.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </span>
                 </>)}
 
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: totalPages > 1 ? 14 : 0, fontSize: 12.5, color: 'var(--text-subtle)' }}>
-                  Por página
-                  <select
-                    value={perPage}
-                    onChange={e => setPerPage(Number(e.target.value))}
-                    disabled={loading}
-                    style={{ padding: '5px 6px', borderRadius: 8, fontSize: 13, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', cursor: 'pointer' }}
-                  >
-                    {PER_PAGE_OPCOES.map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </span>
+                {totalPages > 1 && (<>
+                  <span style={{ width: 1, height: 18, background: 'var(--border)' }} />
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    Ir para
+                    <input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={jumpPage}
+                      onChange={e => setJumpPage(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') goToPage() }}
+                      placeholder={String(page)}
+                      title="Digite a página e aperte Enter"
+                      style={{ width: 54, padding: '4px 6px', borderRadius: 8, fontSize: 12.5, textAlign: 'center', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)' }}
+                    />
+                  </span>
+                </>)}
               </div>
-            )}
-
-            <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-subtle)' }}>
-              Mostrando{' '}
-              <strong style={{ color: 'var(--text-muted)' }}>{report.leads.length}</strong>{' '}
-              de{' '}
-              <strong style={{ color: 'var(--text-muted)' }}>{report.total}</strong>{' '}
-              leads
-            </p>
+            </div>
           </>
         )}
 
