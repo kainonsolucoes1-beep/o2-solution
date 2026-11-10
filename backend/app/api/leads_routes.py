@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -71,6 +71,26 @@ def _origem_clause(db, origem: str):
     if owner_ids:
         conds.append(Lead.renutricao_owner_id.in_(owner_ids))
     return or_(*conds) if len(conds) > 1 else conds[0]
+
+
+def _plano_categoria():
+    """Classifica Lead.current_plan (texto livre) em 'com' (plano ativo),
+    'sem' (respondeu que não tem: "Não possui plano", "não tem", "nenhum",
+    "sem plano", "-"...) e 'nao_informado' (vazio). Filtro "Plano atual" do
+    Relatório (11/2026)."""
+    v = func.lower(func.trim(func.coalesce(Lead.current_plan, "")))
+    negativo = or_(
+        v.in_(("-", "--", "n/a", "na", "n", "0", "x", "nada", "sem", "nenhum", "nenhuma", "nao", "não")),
+        v.like("não %"), v.like("nao %"), v.like("não,%"), v.like("nao,%"),
+        v.like("nenhum%"), v.like("sem plano%"), v.like("sem convênio%"), v.like("sem convenio%"),
+        v.like("não possui%"), v.like("nao possui%"), v.like("não tem%"), v.like("nao tem%"),
+    )
+    return case((v == "", "nao_informado"), (negativo, "sem"), else_="com")
+
+
+def _plano_clause(plano: str):
+    cats = [p.strip() for p in plano.split(",") if p.strip() in ("com", "sem", "nao_informado")]
+    return _plano_categoria().in_(cats) if cats else None
 
 
 def _modalidade_clause(modalidade: str):
@@ -263,6 +283,7 @@ def _report_base_query(
     search: Optional[str] = None, vencidos: bool = False, renutricao: bool = False,
     sem_renutricao: bool = False, stale_days: int = 0, estrito: bool = False,
     vidas: Optional[str] = None, faixa_etaria: Optional[str] = None,
+    plano: Optional[str] = None,
 ):
     """Filtro do Relatório de Leads, compartilhado por /leads/by-period,
     /leads/report-stats e /leads/report-facets. Devolve (base_query, start, end):
@@ -352,6 +373,10 @@ def _report_base_query(
             _mc = _modalidade_clause(modalidade)
             if _mc is not None:
                 q = q.filter(_mc)
+        if plano:
+            _pc = _plano_clause(plano)
+            if _pc is not None:
+                q = q.filter(_pc)
         if conversion_point:
             q = q.filter(or_(*[Lead.conversion_point.ilike(p) for p in _csv_ou_inteiro(conversion_point)]))
         if lost_reason:
@@ -409,6 +434,7 @@ def leads_by_period(
     estrito: bool = Query(False, description="aberto por um clique na Gestão Comercial: mesmo recorte dela"),
     vidas: Optional[str] = Query(None, description="faixas de vidas separadas por vírgula: 1,2,3-4,5-9,10+,sem"),
     faixa_etaria: Optional[str] = Query(None, description="faixas ANS separadas por vírgula (0-18 ... 59+) ou 'sem'; basta uma pessoa na faixa"),
+    plano: Optional[str] = Query(None, description="plano atual: com,sem,nao_informado"),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=10000),
     ids_only: bool = Query(False, description="Retorna só {ids, total} de TODOS os leads do filtro (sem paginar) — pra 'selecionar tudo'"),
@@ -422,7 +448,7 @@ def leads_by_period(
         perception=perception, modalidade=modalidade, conversion_point=conversion_point,
         lost_reason=lost_reason, team=team, search=search, vencidos=vencidos,
         renutricao=renutricao, sem_renutricao=sem_renutricao, stale_days=stale_days,
-        estrito=estrito, vidas=vidas, faixa_etaria=faixa_etaria,
+        estrito=estrito, vidas=vidas, faixa_etaria=faixa_etaria, plano=plano,
     )
 
     total = _base_query(db.query(func.count(Lead.id))).scalar() or 0
@@ -542,6 +568,7 @@ def leads_report_stats(
     estrito: bool = Query(False, description="aberto por um clique na Gestão Comercial: mesmo recorte dela"),
     vidas: Optional[str] = Query(None, description="faixas de vidas separadas por vírgula: 1,2,3-4,5-9,10+,sem"),
     faixa_etaria: Optional[str] = Query(None, description="faixas ANS separadas por vírgula (0-18 ... 59+) ou 'sem'; basta uma pessoa na faixa"),
+    plano: Optional[str] = Query(None, description="plano atual: com,sem,nao_informado"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -553,7 +580,7 @@ def leads_report_stats(
         perception=perception, modalidade=modalidade, conversion_point=conversion_point,
         lost_reason=lost_reason, team=team, search=search, vencidos=vencidos,
         renutricao=renutricao, sem_renutricao=sem_renutricao, stale_days=stale_days,
-        estrito=estrito, vidas=vidas, faixa_etaria=faixa_etaria,
+        estrito=estrito, vidas=vidas, faixa_etaria=faixa_etaria, plano=plano,
     )
 
     fechados_set = [s.lower() for s in ("waiting_billing", "sale_performed", "fechado", "closed", "won", "convertido")]
@@ -619,6 +646,7 @@ def leads_report_facets(
     estrito: bool = Query(False),
     vidas: Optional[str] = Query(None),
     faixa_etaria: Optional[str] = Query(None),
+    plano: Optional[str] = Query(None, description="plano atual: com,sem,nao_informado"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -632,7 +660,7 @@ def leads_report_facets(
         modalidade=modalidade, conversion_point=conversion_point, lost_reason=lost_reason,
         team=team, search=search, vencidos=vencidos, renutricao=renutricao,
         sem_renutricao=sem_renutricao, stale_days=stale_days, estrito=estrito,
-        vidas=vidas, faixa_etaria=faixa_etaria,
+        vidas=vidas, faixa_etaria=faixa_etaria, plano=plano,
     )
 
     def base(**sem):
@@ -671,6 +699,8 @@ def leads_report_facets(
         chave = (k or "").strip() or "sem campanha"
         camp[chave] = camp.get(chave, 0) + n
     out["campanha"] = camp
+
+    out["plano"] = {k: n for k, n in agrupar(_plano_categoria(), plano=None) if k}
 
     # Operador: casa com a origem do lead OU com o dono da renutrição (ver
     # _origem_clause) -- um lead conta pros dois nomes quando são diferentes

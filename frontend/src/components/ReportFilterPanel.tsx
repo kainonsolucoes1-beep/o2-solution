@@ -18,8 +18,16 @@ export interface ReportFacets {
   operador?: Record<string, number>
   vidas?: Record<string, number>
   faixa_etaria?: Record<string, number>
+  plano?: Record<string, number>
   renutricao?: { em: number; fora: number }
 }
+
+// "Plano atual" da ficha (texto livre) agrupado pelo backend (_plano_categoria)
+export const PLANO_OPCOES = [
+  { value: 'com', label: 'Com plano ativo' },
+  { value: 'sem', label: 'Sem plano' },
+  { value: 'nao_informado', label: 'Não informado' },
+]
 
 export interface FilterValues {
   dateFrom: string
@@ -36,6 +44,7 @@ export interface FilterValues {
   modalidade: string
   vidas: string
   faixa: string
+  plano: string
   renut: '' | 'em' | 'fora'
 }
 
@@ -110,7 +119,7 @@ export default function ReportFilterPanel(p: Props) {
   const nStatus = statusGroupsOn.length + (v.closedSubStatus ? 1 : 0) + csvSet(v.lostReason).size
   const nResp = csvSet(v.origem).size + csvSet(v.team).size
   const nOrig = csvSet(v.canal).size + csvSet(v.conversionPoint).size + csvSet(v.campanha).size
-  const nPerfil = csvSet(v.modalidade).size + csvSet(v.vidas).size + csvSet(v.faixa).size
+  const nPerfil = csvSet(v.modalidade).size + csvSet(v.vidas).size + csvSet(v.faixa).size + csvSet(v.plano).size
 
   const opItems = p.operators
     .filter(o => !opSearch || o.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(opSearch.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')))
@@ -264,6 +273,12 @@ export default function ReportFilterPanel(p: Props) {
             items={p.faixaOptions.map(o => ({ ...o, label: o.value === 'sem' ? 'Não inf.' : o.label, count: facets?.faixa_etaria?.[o.value] }))}
             isOn={x => csvSet(v.faixa).has(x)}
             onToggle={x => onChange({ faixa: toggleIn(v.faixa, x) })}
+          />
+          <div style={SUB}>Plano atual <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>campo da ficha</span></div>
+          <OptionList
+            items={PLANO_OPCOES.map(o => ({ ...o, count: facets?.plano ? facets.plano[o.value] ?? 0 : undefined }))}
+            isOn={x => csvSet(v.plano).has(x)}
+            onToggle={x => onChange({ plano: toggleIn(v.plano, x) })}
           />
         </Section>
 
