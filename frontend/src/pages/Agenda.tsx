@@ -65,8 +65,9 @@ function dotColor(status: string | null) {
 const ROW_MIN = 52
 const DAY_START = 8
 const DAY_END = 19
+// Dia, Semana e Mês idênticos (pedido 10/11/2026): mesmo bloco, lista em uma
+// coluna e o mesmo limite antes do "Ver mais"
 const CELL_VISIBLE = 4
-const MONTH_VISIBLE = 3
 
 function dateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -206,7 +207,7 @@ export default function Agenda() {
   const navBtn: React.CSSProperties = { width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }
   const line = '1px solid var(--border)'
 
-  function block(it: AgendaItem, compact = false) {
+  function block(it: AgendaItem) {
     const c = dotColor(it.status)
     const late = isOverdue(it)
     return (
@@ -217,34 +218,33 @@ export default function Agenda() {
         style={{
           display: 'block', width: '100%', minWidth: 0, borderRadius: 7, border: 'none', borderLeft: `3px solid ${c}`,
           background: tint(c, dark ? 24 : 14), color: 'var(--text-1)', textAlign: 'left',
-          padding: compact ? '3px 6px' : '5px 8px', cursor: 'pointer', overflow: 'hidden',
-          fontSize: compact ? 11 : 12, lineHeight: 1.3, whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          padding: '5px 8px', cursor: 'pointer', overflow: 'hidden', position: 'relative', zIndex: 3,
+          fontSize: 12, lineHeight: 1.3, whiteSpace: 'nowrap', textOverflow: 'ellipsis',
           outline: late ? `1.5px dashed ${OVERDUE}` : undefined, outlineOffset: -1.5,
         }}
       >
         {/* horário na cor do status (vencido continua em vermelho) */}
         <b style={{ color: late ? OVERDUE : c, fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{fmtTime(it.scheduled_at)}</b>{' '}{it.name}
-        {view === 'dia' && it.attendant && <span style={{ color: 'var(--text-subtle)', fontSize: 11 }}> · {it.attendant}</span>}
       </button>
     )
   }
 
-  // lista de uma célula com "Ver mais N" / "Ver menos"
-  function cellList(cellKey: string, list: AgendaItem[], max: number, compact = false) {
+  // lista de uma célula com "Ver mais N" / "Ver menos" (igual nas três visões)
+  function cellList(cellKey: string, list: AgendaItem[]) {
     const open = expanded.has(cellKey)
-    const hidden = list.length - max
-    const shown = open || hidden <= 0 ? list : list.slice(0, max)
-    const hiddenLate = hidden > 0 ? list.slice(max).filter(isOverdue).length : 0
+    const hidden = list.length - CELL_VISIBLE
+    const shown = open || hidden <= 0 ? list : list.slice(0, CELL_VISIBLE)
+    const hiddenLate = hidden > 0 ? list.slice(CELL_VISIBLE).filter(isOverdue).length : 0
     return (
       <>
-        {shown.map(it => block(it, compact))}
+        {shown.map(block)}
         {hidden > 0 && (
           <button
             onClick={() => toggleCell(cellKey)}
             aria-expanded={open}
             style={{
-              gridColumn: '1 / -1', border: '1px dashed var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-2)',
-              borderRadius: 7, padding: compact ? '3px 6px' : '4px 8px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', textAlign: 'center',
+              border: '1px dashed var(--border)', background: 'var(--bg-subtle)', color: 'var(--text-2)', position: 'relative', zIndex: 3,
+              borderRadius: 7, padding: '4px 8px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', textAlign: 'center',
             }}
           >
             {open ? 'Ver menos' : `Ver mais ${hidden}`}
@@ -290,7 +290,6 @@ export default function Agenda() {
     const gridCols = `52px repeat(${cols.length}, minmax(0, 1fr))`
     const hasToday = cols.some(d => dateKey(d) === todayKey)
     const nowHour = today.getHours()
-    const isDay = view === 'dia'
     return (
       <>
         <div style={{ display: 'grid', gridTemplateColumns: gridCols, borderBottom: '2px solid var(--border)', background: 'var(--bg-subtle)' }}>
@@ -314,15 +313,14 @@ export default function Agenda() {
                       key={k}
                       style={{
                         position: 'relative', borderLeft: line, minHeight: ROW_MIN, padding: 4, minWidth: 0,
-                        // no Dia a coluna é larga: os blocos se distribuem em colunas
-                        display: 'grid', gridTemplateColumns: isDay ? 'repeat(auto-fill, minmax(220px, 1fr))' : 'minmax(0, 1fr)',
-                        gap: 3, alignContent: 'start',
-                        background: isToday && !isDay ? tint(TODAY_BLUE, 4) : undefined,
+                        display: 'flex', flexDirection: 'column', gap: 3,
+                        background: isToday ? tint(TODAY_BLUE, 4) : undefined,
                       }}
                     >
-                      {cellList(`${k}-${h}`, list, isDay ? CELL_VISIBLE * 3 : CELL_VISIBLE)}
+                      {cellList(`${k}-${h}`, list)}
+                      {/* linha do agora fica por baixo dos blocos (não corta o texto) */}
                       {isToday && nowHour === h && (
-                        <div style={{ position: 'absolute', left: 0, right: 0, top: `${(today.getMinutes() / 60) * 100}%`, height: 2, background: TODAY_BLUE, zIndex: 2, pointerEvents: 'none' }}>
+                        <div style={{ position: 'absolute', left: 0, right: 0, top: `${(today.getMinutes() / 60) * 100}%`, height: 2, background: TODAY_BLUE, zIndex: 1, pointerEvents: 'none' }}>
                           <span style={{ position: 'absolute', left: -4, top: -3, width: 8, height: 8, borderRadius: '50%', background: TODAY_BLUE }} />
                         </div>
                       )}
@@ -380,7 +378,7 @@ export default function Agenda() {
                       )}
                     </button>
                   )}
-                  {cellList(`m-${k}`, list, MONTH_VISIBLE, true)}
+                  {cellList(`m-${k}`, list)}
                 </div>
               )
             })}
