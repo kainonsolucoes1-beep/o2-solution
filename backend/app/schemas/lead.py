@@ -291,6 +291,9 @@ class NoteCreateResponse(BaseModel):
     success: bool
     note_id: UUID
     created_at: datetime
+    # retorno automático criado pela anotação (None = lead em status final ou
+    # já havia um agendamento manual mais distante)
+    retorno_agendado: Optional[datetime] = None
 
 
 class NoteResponse(BaseModel):

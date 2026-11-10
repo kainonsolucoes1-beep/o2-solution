@@ -118,6 +118,44 @@ def _concluir_agendamento_vencido(db: Session, lead_id, user: User) -> None:
             s.concluido_por = user.first_name or user.username
 
 
+def _mais_dois_dias_uteis(base: datetime) -> datetime:
+    """Mesmo horário, 2 dias ÚTEIS depois (pula fim de semana e feriado
+    nacional, contando no calendário de Brasília)."""
+    retorno, uteis = base, 0
+    while uteis < 2:
+        retorno += timedelta(days=1)
+        if is_business_day((retorno - BR_OFFSET).date()):
+            uteis += 1
+    return retorno
+
+
+# Status finais: a anotação NÃO agenda retorno automático (10/11/2026)
+_STATUS_FINAIS_SEM_RETORNO = {
+    "emissao", "emissão",
+    "waiting_billing", "aguardando_faturamento",
+    "sale_performed", "sale performed", "fechado", "closed", "won", "convertido",
+    "sale_not_performed", "sale not performed", "perdido", "lost",
+}
+
+
+def _retorno_por_anotacao(db: Session, lead: Lead, user: User, now: datetime):
+    """Anotação feita em lead que não está em status final agenda um retorno
+    automático 2 dias úteis depois, no mesmo horário da anotação (mesma conta
+    da regra de "proposta enviada"). Se já existe um agendamento ativo MAIS
+    DISTANTE (ex.: cliente pediu retorno numa data específica), ele é mantido.
+    Devolve a data do retorno criado, ou None."""
+    if (lead.status or "").strip().lower() in _STATUS_FINAIS_SEM_RETORNO:
+        return None
+    retorno = _mais_dois_dias_uteis(now)
+    ativos = db.query(LeadSchedule).filter(LeadSchedule.lead_id == lead.id, LeadSchedule.is_active.is_(True)).all()
+    if any(s.scheduled_at > retorno for s in ativos):
+        return None
+    for s in ativos:
+        s.is_active = False
+    db.add(LeadSchedule(lead_id=lead.id, scheduled_at=retorno, created_by=user.first_name or user.username))
+    return retorno
+
+
 @router.get("/leads", response_model=List[LeadResponse])
 def list_leads(
     current_user: User = Depends(get_current_user),
@@ -948,14 +986,9 @@ def update_lead_status(
         db.query(LeadSchedule).filter(
             LeadSchedule.lead_id == lead.id, LeadSchedule.is_active.is_(True)
         ).update({"is_active": False})
-        retorno, uteis = now, 0
-        while uteis < 2:
-            retorno += timedelta(days=1)
-            if is_business_day((retorno - BR_OFFSET).date()):
-                uteis += 1
         db.add(LeadSchedule(
             lead_id=lead.id,
-            scheduled_at=retorno,
+            scheduled_at=_mais_dois_dias_uteis(now),
             created_by=actor,
         ))
 
@@ -1953,9 +1986,10 @@ def create_lead_note(
     db.add(note)
     if 'renutrição' in body.content.lower():
         lead.is_renutrucao = True
+    retorno = _retorno_por_anotacao(db, lead, current_user, datetime.now(timezone.utc).replace(tzinfo=None))
     db.commit()
     db.refresh(note)
-    return NoteCreateResponse(success=True, note_id=note.id, created_at=note.created_at)
+    return NoteCreateResponse(success=True, note_id=note.id, created_at=note.created_at, retorno_agendado=retorno)
 
 
 @router.patch("/leads/{lead_id}/notes/{note_id}", response_model=NoteUpdateResponse)
