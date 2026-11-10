@@ -5,6 +5,7 @@ import EditPencil from './EditPencil'
 import Field from './Field'
 import EditInput from './EditInput'
 import SelectField from './SelectField'
+import OrigemField from './OrigemField'
 import FieldLabel from './FieldLabel'
 import { titleCase } from '../utils/leadFormat'
 
@@ -105,7 +106,7 @@ export default function LeadRegistrationPanel({
       <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
 
       <div className="flex flex-col gap-4">
-        <SelectField label="Origem" value={origem} options={origemOptions} saving={savingOrigem || locked} onChange={onOrigemChange} formatOption={titleCase} />
+        <OrigemField value={origem} options={origemOptions} saving={savingOrigem || locked} onChange={onOrigemChange} formatOption={titleCase} />
         <SelectField label="Ponto de Conversão" value={conversionPoint} options={conversionPointOptions} saving={savingConversionPoint || locked} onChange={onConversionPointChange} formatOption={titleCase} />
         <div className="flex flex-col gap-1">
           <FieldLabel>Campanha</FieldLabel>

@@ -809,7 +809,12 @@ def list_origins(
         .all()
     )
     origins = {r.origin for r in rows}
-    origins.add("ADM")
+    # origens fixas, disponíveis mesmo sem nenhum lead ainda usar (sem duplicar
+    # grafia diferente já existente, ex: "Whatsapp" x "WhatsApp")
+    existentes = {o.strip().lower() for o in origins}
+    for fixa in ("ADM", "WhatsApp"):
+        if fixa.lower() not in existentes:
+            origins.add(fixa)
     # donos de renutrição (ex: Pamela) — nunca aparecem como origem, mas dá pra
     # filtrar os leads deles pelo mesmo campo (ver _origem_clause)
     owner_rows = (
