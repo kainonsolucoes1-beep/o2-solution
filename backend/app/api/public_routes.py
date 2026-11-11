@@ -169,12 +169,11 @@ def _utcnow() -> datetime:
 
 
 def _marcar_google_ads(db: Session, lead: Lead, click_id: str) -> None:
-    """Campanha = Google (se ninguém marcou outra) e guarda o click id do anúncio."""
-    if not lead.campanha_midia:
-        lead.campanha_midia = "Google"
+    """Origem = Google e guarda o click id do anúncio (Campanha não é tocada)."""
+    lead.origin = "Google"
     if not lead.gclid:
         lead.gclid = click_id
-    db.add(LeadNote(lead_id=lead.id, user_id=None, content="Veio de um clique no anúncio do Google Ads (aviso da tag do site). Campanha: Google."))
+    db.add(LeadNote(lead_id=lead.id, user_id=None, content="Veio de um clique no anúncio do Google Ads (aviso da tag do site). Origem: Google."))
 
 
 @router.post("/lead-sinal", status_code=204)
@@ -182,7 +181,7 @@ async def lead_sinal(request: Request, db: Session = Depends(get_db)):
     """Aviso da tag do GTM no envio do formulário do site: "este lead clicou
     num anúncio do Google Ads". Vem do navegador via sendBeacon (text/plain,
     sem chave -- uma chave no GTM ficaria pública). Por isso só faz uma coisa:
-    marca Campanha = Google em lead do mesmo site criado há menos de 30 min,
+    marca Origem = Google em lead do mesmo site criado há menos de 30 min,
     casando por telefone ou e-mail. Se o lead ainda não chegou, guarda o aviso
     e o /public/leads aplica quando ele entrar. Responde 204 sempre que o
     corpo é válido (não revela se o lead existe)."""
