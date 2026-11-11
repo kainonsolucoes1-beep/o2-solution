@@ -1224,14 +1224,6 @@ export default function LeadsReport() {
                                 {sortDir === 'asc' ? '↑' : '↓'}
                               </span>
                             )}
-                            {col.key === 'value_potential' && report.valor_qtd > 0 && (
-                              <div
-                                title={`Soma da cotação de todos os leads do filtro (não só desta página): ${report.valor_qtd} com valor · média ${fmtBRLShort(report.valor_total / report.valor_qtd)}`}
-                                style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', textTransform: 'none', letterSpacing: 0, marginTop: 2 }}
-                              >
-                                Σ {fmtBRLShort(report.valor_total)}
-                              </div>
-                            )}
                           </th>
                         ))}
                       </tr>
@@ -1344,6 +1336,29 @@ export default function LeadsReport() {
                         )
                       })}
                     </tbody>
+                    {report.valor_qtd > 0 && (() => {
+                      // rodapé alinhado à coluna Cotação: soma do filtro inteiro (todas as
+                      // páginas) e, se houver leads marcados nesta página, a soma deles
+                      const antes = (canAssign ? 1 : 0) + COLUMNS.findIndex(c => c.key === 'value_potential')
+                      const depois = COLUMNS.length - COLUMNS.findIndex(c => c.key === 'value_potential') - 1
+                      const sel = report.leads.filter(l => selected.has(l.id))
+                      const linha = (rotulo: string, detalhe: string, valor: number, topo: boolean) => (
+                        <tr style={{ borderTop: topo ? '2px solid var(--border)' : undefined, background: 'var(--bg-subtle, transparent)' }}>
+                          <td colSpan={antes} style={{ padding: '11px 10px 11px 16px', textAlign: 'right', fontSize: 12, color: 'var(--text-subtle)', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 11 }}>{rotulo}</span>
+                            {detalhe && <span style={{ marginLeft: 8 }}>{detalhe}</span>}
+                          </td>
+                          <td style={{ padding: '11px 10px', whiteSpace: 'nowrap', fontSize: 13.5, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{fmtBRLShort(valor)}</td>
+                          {depois > 0 && <td colSpan={depois} />}
+                        </tr>
+                      )
+                      return (
+                        <tfoot>
+                          {linha('Total do filtro', `${report.valor_qtd} com valor · média ${fmtBRLShort(report.valor_total / report.valor_qtd)}`, report.valor_total, true)}
+                          {sel.length > 0 && sel.length === selected.size && linha(`Selecionados (${sel.length})`, '', sel.reduce((a, l) => a + (l.value_potential ?? 0), 0), false)}
+                        </tfoot>
+                      )
+                    })()}
                   </table>
                 </div>
               )}
@@ -1411,19 +1426,6 @@ export default function LeadsReport() {
                   </strong>{' '}
                   de <strong style={{ color: 'var(--text-muted)' }}>{report.total}</strong> leads
                 </span>
-
-                {(() => {
-                  // soma da seleção (só dá pra somar o que está nesta página)
-                  const sel = report.leads.filter(l => selected.has(l.id))
-                  if (sel.length === 0 || sel.length !== selected.size) return null
-                  const soma = sel.reduce((acc, l) => acc + (l.value_potential ?? 0), 0)
-                  return (<>
-                    <span style={{ width: 1, height: 18, background: 'var(--border)' }} />
-                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      {sel.length} selecionado{sel.length !== 1 ? 's' : ''}: <strong style={{ color: 'var(--text-1)' }}>{fmtBRLShort(soma)}</strong>
-                    </span>
-                  </>)
-                })()}
 
                 {report.total > PER_PAGE_OPCOES[0] && (<>
                   <span style={{ width: 1, height: 18, background: 'var(--border)' }} />
