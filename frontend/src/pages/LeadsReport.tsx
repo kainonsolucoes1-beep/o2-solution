@@ -546,7 +546,7 @@ export default function LeadsReport() {
   // filtro "Ponto de conversão": os sites ("Site ...", "www...." ou "....com.br") e as
   // campanhas Meta ("Meta Alice - SP"...), sem repetir com maiúsculas diferentes
   const sitePoints = conversionPoints
-    .filter(p => /^(site|www\.|https?:\/\/|meta\s)/i.test(p.trim()) || /\.com\.br\/?$/i.test(p.trim()))
+    .filter(p => /^(site|www\.|https?:\/\/|meta\s)/i.test(p.trim()) || /\.(com|net|org)(\.br)?\/?$/i.test(p.trim()))
     .filter((p, i, all) => all.findIndex(q => q.toLowerCase() === p.toLowerCase()) === i)
   const canFilterOperador = canViewAll || (me !== null && me.role === 'comercial')
 
