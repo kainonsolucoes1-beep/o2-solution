@@ -498,7 +498,7 @@ def leads_by_period(
             db.query(
                 Lead.id, Lead.name, Lead.email, Lead.phone,
                 Lead.company, Lead.attendant,
-                Lead.status, Lead.perception, Lead.value_potential,
+                Lead.status, Lead.perception, Lead.value_potential, Lead.operadoras_enviadas,
                 Lead.created_at, Lead.updated_at, Lead.origin, Lead.is_renutrucao,
                 Lead.retrabalhado_em,
                 Lead.lost_reason, Lead.lost_message, Lead.modalidade,
@@ -576,6 +576,7 @@ def leads_by_period(
             duplicado_de_nome=_dup_nomes.get(r.duplicado_de_id),
             campanha_midia=r.campanha_midia,
             observacoes=_obs.get(r.id) if com_observacoes else None,
+            operadoras_enviadas=r.operadoras_enviadas,
         )
         for r in rows
     ]
