@@ -28,6 +28,7 @@ type Operator = string
 interface LeadItem {
   id: string
   name: string
+  operadoras_enviadas?: string | null
   // lead repetido: os dados já estavam neste outro lead
   duplicado_de_id?: string | null
   duplicado_de_nome?: string | null
@@ -305,6 +306,7 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'attendant',       label: 'Atendente' },
   { key: 'origem',          label: 'Origem' },
   { key: 'value_potential', label: 'Cotação' },
+  { key: 'operadoras_enviadas', label: 'Operadora' },
   { key: 'perception',      label: 'Temperatura' },
   { key: 'status',          label: 'Status' },
   { key: 'created_at',      label: 'Entrada' },
@@ -1312,6 +1314,15 @@ export default function LeadsReport() {
                           <td style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: lead.value_potential ? 'var(--text-1)' : 'var(--text-subtle)' }}>{fmtBRLShort(lead.value_potential)}</div>
                             {lead.modalidade && <div style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginTop: 1 }}>{lead.modalidade}</div>}
+                          </td>
+                          <td style={{ padding: '12px 10px', whiteSpace: 'nowrap' }}>
+                            {/* "Operadoras enviadas" aceita várias (separadas por vírgula): mostra a 1ª */}
+                            {(() => {
+                              const lista = (lead.operadoras_enviadas || '').split(',').map(s => s.trim()).filter(Boolean)
+                              return lista.length > 0
+                                ? <span title={lista.join(', ')} style={{ fontSize: 13, color: 'var(--text-2)' }}>{lista[0]}{lista.length > 1 && <span style={{ fontSize: 11.5, color: 'var(--text-subtle)', marginLeft: 4 }}>+{lista.length - 1}</span>}</span>
+                                : <span style={{ fontSize: 13, color: 'var(--text-subtle)' }}>—</span>
+                            })()}
                           </td>
                           <td style={{ padding: '12px 10px' }}>
                             <PerceptionBadge perception={lead.perception} />
