@@ -338,6 +338,14 @@ def create_public_lead(
             return JSONResponse(status_code=200, content={"success": True, "lead_id": str(ja.id), "ja_recebido": True})
     original = lead_parecido(body.email, body.phone)
 
+    # "Site - Plano Odonto..." é ponto de conversão, não origem: lead de site
+    # entra como Orgânico (o site já vem em conversion_point)
+    origem = (body.origin or "").strip()
+    conversion_point = body.conversion_point
+    if origem.lower().replace(" ", "").startswith("site-"):
+        conversion_point = conversion_point or origem
+        origem = ""
+
     default_user = db.query(User).first()
     attendant = _next_attendant(db, team["slug"], team["name"])
     lead = Lead(
@@ -346,8 +354,8 @@ def create_public_lead(
         phone=body.phone,
         company=body.company,
         notes=_build_notes(body),
-        origin=body.origin or "Orgânico",
-        conversion_point=body.conversion_point,
+        origin=origem or "Orgânico",
+        conversion_point=conversion_point,
         modalidade=_normalize_modalidade(body.modalidade),
         current_plan=_normalize_current_plan(body.current_plan),
         attendant=attendant,
