@@ -101,6 +101,9 @@ class LeadsReportResponse(BaseModel):
     page: int
     limit: int
     leads: List[LeadReportItem]
+    # soma do valor potencial de TODO o filtro (não só da página) e quantos têm valor
+    valor_total: float = 0
+    valor_qtd: int = 0
 
 
 class BulkDeleteRequest(BaseModel):

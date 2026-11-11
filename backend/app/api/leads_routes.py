@@ -580,7 +580,14 @@ def leads_by_period(
         for r in rows
     ]
 
-    return LeadsReportResponse(total=total, page=page, limit=limit, leads=leads)
+    valor_total, valor_qtd = _base_query(
+        db.query(func.coalesce(func.sum(Lead.value_potential), 0), func.count(Lead.value_potential))
+        .filter(Lead.value_potential > 0)
+    ).one()
+    return LeadsReportResponse(
+        total=total, page=page, limit=limit, leads=leads,
+        valor_total=float(valor_total or 0), valor_qtd=int(valor_qtd or 0),
+    )
 
 
 @router.get("/leads/report-stats")
