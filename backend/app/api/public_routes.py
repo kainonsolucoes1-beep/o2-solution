@@ -342,7 +342,7 @@ def create_public_lead(
     # entra como Orgânico (o site já vem em conversion_point)
     origem = (body.origin or "").strip()
     conversion_point = body.conversion_point
-    if origem.lower().startswith("site"):
+    if origem.lower().replace(" ", "").startswith("site-"):
         conversion_point = conversion_point or origem
         origem = ""
 
