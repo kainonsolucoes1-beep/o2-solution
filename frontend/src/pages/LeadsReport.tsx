@@ -543,10 +543,10 @@ export default function LeadsReport() {
   // comercial (ex: Julia) enxerga a carteira de toda a equipe 'usuario'
   // (visibilidade ampla, ver database.py) -- por isso também pode filtrar
   // por Operador, diferente de 'usuario' que só vê a própria carteira mesmo.
-  // filtro "Ponto de conversão": só os sites ("Site ...", "www...." ou "....com.br"),
-  // sem repetir a mesma URL com maiúsculas diferentes
+  // filtro "Ponto de conversão": os sites ("Site ...", "www...." ou "....com.br") e as
+  // campanhas Meta ("Meta Alice - SP"...), sem repetir com maiúsculas diferentes
   const sitePoints = conversionPoints
-    .filter(p => /^(site|www\.|https?:\/\/)/i.test(p.trim()) || /\.com\.br\/?$/i.test(p.trim()))
+    .filter(p => /^(site|www\.|https?:\/\/|meta\s)/i.test(p.trim()) || /\.com\.br\/?$/i.test(p.trim()))
     .filter((p, i, all) => all.findIndex(q => q.toLowerCase() === p.toLowerCase()) === i)
   const canFilterOperador = canViewAll || (me !== null && me.role === 'comercial')
 
