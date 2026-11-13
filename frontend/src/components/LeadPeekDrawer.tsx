@@ -4,7 +4,7 @@ import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { reportStatusColor, reportPerceptionColor, tint, personColor } from '../utils/reportColors'
 import { fmtDateShort } from '../utils/leadFormat'
-import { parseUTC } from '../utils/date'
+import { parseUTC, calendarDaysAgo } from '../utils/date'
 import EmissaoModal from './EmissaoModal'
 
 interface PeekLead {
@@ -51,7 +51,7 @@ interface Peek {
 
 function ago(iso: string | null): string {
   if (!iso) return '—'
-  const days = Math.floor((Date.now() - parseUTC(iso)) / 86400000)
+  const days = calendarDaysAgo(parseUTC(iso))
   if (days <= 0) return 'hoje'
   if (days === 1) return 'ontem'
   if (days < 30) return `há ${days} dias`

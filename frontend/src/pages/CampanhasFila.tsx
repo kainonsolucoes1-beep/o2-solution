@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { MessageCircle, Mail, MessageSquare, X, Check, Send, Copy } from 'lucide-react'
 import api from '../api'
 import { useTheme } from '../ThemeContext'
+import { calendarDaysAgo } from '../utils/date'
 
 type Canal = 'whatsapp' | 'email' | 'sms'
 
@@ -41,7 +42,7 @@ function fmtBRL(n: number | null) {
 
 function fmtAgo(iso: string | null): string {
   if (!iso) return '—'
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+  const days = calendarDaysAgo(new Date(iso).getTime())
   if (days <= 0) return 'hoje'
   if (days === 1) return 'ontem'
   return `há ${days} dias`

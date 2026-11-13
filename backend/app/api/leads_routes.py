@@ -1884,8 +1884,11 @@ def lead_peek(
     timeline.sort(key=lambda e: e["at"], reverse=True)
 
     last_touch = lead.last_interaction_at or lead.updated_at or lead.created_at
-    dias_sem_interacao = (now - last_touch).days if last_touch else None
-    dias_no_status = (now - hist[0].changed_at).days if hist and hist[0].changed_at else None
+    # dias de calendário no fuso de Brasília (UTC-3), não blocos de 24h -- senão "ontem" vira "hoje"
+    _br = timedelta(hours=3)
+    _cal = lambda t: ((now - _br).date() - (t - _br).date()).days
+    dias_sem_interacao = _cal(last_touch) if last_touch else None
+    dias_no_status = _cal(hist[0].changed_at) if hist and hist[0].changed_at else None
 
     owner = db.query(User).filter(User.id == lead.renutricao_owner_id).first() if lead.renutricao_owner_id else None
     ultima_nota = None
