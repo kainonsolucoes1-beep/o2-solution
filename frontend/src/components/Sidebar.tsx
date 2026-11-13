@@ -51,6 +51,7 @@ const SETTINGS_CHILDREN = [
 
 const FINANCEIRO_CHILDREN = [
   { to: '/financeiro/visao-geral', label: 'Visão Geral' },
+  { to: '/financeiro/macro',       label: 'Macro' },
   { to: '/financeiro/metas',       label: 'Metas Mensais' },
   { to: '/financeiro/trafego',     label: 'Tráfego pago' },
 ]

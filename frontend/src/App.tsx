@@ -19,6 +19,7 @@ import KPIs from './pages/KPIs'
 import Financeiro from './pages/Financeiro'
 import FinanceiroMetas from './pages/FinanceiroMetas'
 import FinanceiroTrafego from './pages/FinanceiroTrafego'
+import Macro from './pages/Macro'
 import GestaoComercial from './pages/GestaoComercial'
 import VidaSDR from './pages/VidaSDR'
 import RelatorioProducao from './pages/RelatorioProducao'
@@ -136,6 +137,7 @@ export default function App() {
           <Route path="/financeiro/visao-geral" element={<Financeiro />} />
           <Route path="/financeiro/metas" element={<FinanceiroMetas />} />
           <Route path="/financeiro/trafego" element={<FinanceiroTrafego />} />
+          <Route path="/financeiro/macro" element={<Macro />} />
           <Route path="/gestao-comercial" element={<GestaoComercial />} />
           <Route path="/vida-sdr/:origens" element={<VidaSDR />} />
           <Route path="/campanhas" element={<CampanhasFila />} />
