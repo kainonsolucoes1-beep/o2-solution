@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import api from '../api'
 import CurrencyInput from './CurrencyInput'
+import Combobox from './Combobox'
 
-export interface EmissaoPayload { operadora: string; valor: string; observacao: string }
+export interface EmissaoPayload { operadora: string; valor: string; observacao: string; promotora: string }
 
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--text-2)', margin: '0 0 6px' }
 const hintStyle: React.CSSProperties = { margin: '6px 0 0', fontSize: 11.5, color: 'var(--text-muted)' }
@@ -25,11 +26,16 @@ export default function EmissaoModal({ leadName, statusLabel, defaultValor, savi
   const [pickerOpen, setPickerOpen] = useState(true)
   const [valor, setValor] = useState(defaultValor)
   const [observacao, setObservacao] = useState('')
+  const [promotora, setPromotora] = useState('')
+  const [promotoras, setPromotoras] = useState<string[]>([])
 
   useEffect(() => {
     api.get<string[]>('/api/v1/leads/operadoras-emissao')
       .then(r => setOperadoras(r.data))
       .catch(() => setLoadError(true))
+    api.get<string[]>('/api/v1/macro/promotoras')
+      .then(r => setPromotoras(r.data))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -106,6 +112,12 @@ export default function EmissaoModal({ leadName, statusLabel, defaultValor, savi
         </div>
 
         <div>
+          <span style={labelStyle}>Promotora <span style={{ fontWeight: 500, color: 'var(--text-subtle)' }}>(opcional)</span></span>
+          <Combobox value={promotora} onChange={setPromotora} options={promotoras} placeholder="Ex.: Bliss, Multinotas" />
+          <p style={hintStyle}>Quem intermedeia o contrato. Pode ser preenchida depois, reabrindo esta janela.</p>
+        </div>
+
+        <div>
           <label htmlFor="emissao-obs" style={labelStyle}>Observação <span style={{ fontWeight: 500, color: 'var(--text-subtle)' }}>(opcional)</span></label>
           <textarea
             id="emissao-obs" value={observacao} onChange={e => setObservacao(e.target.value)} rows={2}
@@ -127,7 +139,7 @@ export default function EmissaoModal({ leadName, statusLabel, defaultValor, savi
           </button>
           <button
             type="button" disabled={!canConfirm}
-            onClick={() => onConfirm({ operadora, valor, observacao })}
+            onClick={() => onConfirm({ operadora, valor, observacao, promotora })}
             style={{ padding: '10px 20px', borderRadius: 9, border: 'none', background: canConfirm ? '#0E7490' : '#9CA3AF', color: '#fff', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: canConfirm ? 'pointer' : 'not-allowed' }}
           >
             {saving ? 'Enviando…' : 'Confirmar envio'}

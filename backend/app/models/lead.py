@@ -129,6 +129,8 @@ class LeadEmissao(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
     operadora = Column(String(60), nullable=False)
+    # promotora do contrato (Simone define na emissao) -- antes so' vinha da planilha de receita
+    promotora = Column(String(120), nullable=True)
     valor = Column(Numeric(12, 2), nullable=True)
     valor_cotacao = Column(Numeric(12, 2), nullable=True)
     observacao = Column(Text, nullable=True)
