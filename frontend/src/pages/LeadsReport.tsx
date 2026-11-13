@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx'
 import { X, Trash2, RotateCcw, Plus, Upload, Search, PanelLeftOpen, Download } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
-import { parseUTC } from '../utils/date'
+import { parseUTC, calendarDaysAgo } from '../utils/date'
 import { parseBRNumber, titleCase } from '../utils/leadFormat'
 import SectionTitle from '../components/SectionTitle'
 import Combobox from '../components/Combobox'
@@ -260,7 +260,7 @@ function fmtDate(iso: string) {
 
 function fmtAgo(iso: string | null): string {
   if (!iso) return '—'
-  const days = Math.floor((Date.now() - parseUTC(iso)) / 86400000)
+  const days = calendarDaysAgo(parseUTC(iso))
   if (days <= 0) return 'hoje'
   if (days === 1) return 'ontem'
   if (days < 30) return `há ${days} dias`
