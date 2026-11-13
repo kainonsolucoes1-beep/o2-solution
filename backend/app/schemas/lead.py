@@ -121,6 +121,7 @@ class StatusUpdateRequest(BaseModel):
     operadora: Optional[str] = None
     valor_contrato: Optional[float] = None
     observacao: Optional[str] = None
+    promotora: Optional[str] = None
 
 
 class StatusUpdateResponse(BaseModel):

@@ -539,10 +539,11 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
           defaultValor={lead.value_potential != null ? lead.value_potential.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
           saving={statusSalvando}
           onCancel={() => setEmissaoOpen(false)}
-          onConfirm={({ operadora, valor, observacao }) => {
+          onConfirm={({ operadora, valor, observacao, promotora }) => {
             const v = Number(valor.replace(/\./g, '').replace(',', '.'))
             mudarStatus('emissao', undefined, {
               operadora,
+              ...(promotora.trim() ? { promotora: promotora.trim() } : {}),
               ...(valor.trim() && !Number.isNaN(v) ? { valor_contrato: v } : {}),
               ...(observacao.trim() ? { observacao: observacao.trim() } : {}),
             })
