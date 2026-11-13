@@ -1010,6 +1010,7 @@ def update_lead_status(
             raise HTTPException(status_code=422, detail="Selecione a operadora da emissão")
         valor = body.valor_contrato if body.valor_contrato is not None else lead.value_potential
         obs = (body.observacao or "").strip() or None
+        promotora = (body.promotora or "").strip()[:120] or None
         ja_em_emissao = (prev_status or "").lower() == "emissao"
         if ja_em_emissao:
             # so' corrige operadora/valor do envio atual -- nao conta um envio novo.
@@ -1035,12 +1036,14 @@ def update_lead_status(
             row.operadora = operadora
             row.valor = valor
             row.observacao = obs
+            if promotora:  # campo vazio ao reabrir a janela nao apaga a promotora ja' definida
+                row.promotora = promotora
             lead.updated_at = now
             db.commit()
             return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
         db.add(LeadEmissao(
             lead_id=lead.id, operadora=operadora, valor=valor, valor_cotacao=lead.value_potential,
-            observacao=obs, enviado_por=actor, user_id=current_user.id, enviado_em=now,
+            observacao=obs, promotora=promotora, enviado_por=actor, user_id=current_user.id, enviado_em=now,
         ))
 
     lead.status = body.status

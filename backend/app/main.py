@@ -40,6 +40,7 @@ from app.api import trafego_routes
 from app.api import campanhas_routes
 from app.api import notificacoes_routes
 from app.api import emissao_routes
+from app.api import macro_routes
 from app.api.auth_routes import get_current_user
 from app.api.leads_routes import _is_admin
 from app.sync_followize import start_sync_scheduler, start_token_refresh_scheduler, sync_leads_backfill
@@ -111,6 +112,7 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS data_faturamento_previsto TIMESTAMP"))
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS titular_menor VARCHAR(255)"))
     _conn.execute(text("ALTER TABLE campanha_sms_lotes ADD COLUMN IF NOT EXISTS respostas_importadas_em TIMESTAMP"))
+    _conn.execute(text("ALTER TABLE lead_emissoes ADD COLUMN IF NOT EXISTS promotora VARCHAR(120)"))
     _conn.commit()
 
 # seed via ORM (nao SQL puro) pra que o id UUID seja gerado pelo default do
@@ -234,6 +236,7 @@ app.include_router(trafego_routes.router)
 app.include_router(campanhas_routes.router)
 app.include_router(notificacoes_routes.router)
 app.include_router(emissao_routes.router)
+app.include_router(macro_routes.router)
 app.include_router(scripts_routes.router)
 app.include_router(sugestoes_routes.router)
 
@@ -315,6 +318,7 @@ async def startup_event():
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS atendimentos_json TEXT NOT NULL DEFAULT '{}'"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS pausas_json TEXT NOT NULL DEFAULT '{}'"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS tma TEXT NOT NULL DEFAULT '—'"))
+        conn.execute(text("ALTER TABLE lead_emissoes ADD COLUMN IF NOT EXISTS promotora VARCHAR(120)"))
         conn.execute(text("""
             INSERT INTO lead_status_history (id, lead_id, from_status, to_status, changed_at, changed_by)
             SELECT gen_random_uuid(), l.id, NULL, COALESCE(l.status, 'novo'), l.created_at, 'sistema'

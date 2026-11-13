@@ -621,8 +621,9 @@ export default function LeadDetailPage() {
           defaultValor={lead.value_potential != null ? lead.value_potential.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
           saving={savingStatus}
           onCancel={() => setEmissaoOpen(false)}
-          onConfirm={({ operadora, valor, observacao }) => handleStatusChange('emissao', undefined, {
+          onConfirm={({ operadora, valor, observacao, promotora }) => handleStatusChange('emissao', undefined, {
             operadora,
+            ...(promotora.trim() ? { promotora: promotora.trim() } : {}),
             ...(valor.trim() ? { valor_contrato: parseBRNumber(valor) } : {}),
             ...(observacao.trim() ? { observacao: observacao.trim() } : {}),
           })}
