@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { X, Search } from 'lucide-react'
+import { X, Search, ChevronDown } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC, calendarDaysAgo } from '../utils/date'
@@ -20,6 +20,7 @@ interface Resumo {
   funil: Record<'Quente' | 'Morno' | 'Frio', Soma>
   sem_temperatura: number
   captacoes: number
+  motivos: Record<string, number>
 }
 interface FluxoLead {
   id: string; name: string; email: string | null; phone: string | null; attendant: string | null
@@ -29,6 +30,8 @@ interface FluxoLead {
   is_renutrucao: boolean; vidas: number | null
   duplicado_de_id: string | null; duplicado_de_nome: string | null; campanha_canal: string | null
   grupo: Grupo
+  lost_reason: string | null
+  dias_sem_contato: number | null; dias_no_status: number | null; tem_retorno: boolean
 }
 interface Meta {
   tipo: string; meta_valor: number; progresso: number; progresso_anterior: number; projecao: number
@@ -180,7 +183,11 @@ export default function FluxoVendas() {
 
         {erro ? <div className="fv-empty">{erro}</div>
           : loading || !data ? <div className="fv-empty">Carregando…</div>
-          : <Corpo data={data} onAbrir={setAberto} />}
+          : <>
+              <Corpo data={data} onAbrir={setAberto} />
+              <Secao id="perdas" titulo="Por que perdemos" resumo={resumoPerdas(data.atual)}><Perdas data={data} /></Secao>
+              <Secao id="pauta" titulo="Pauta da reunião" resumo={resumoPauta(pauta(data.leads))}><Pauta data={data} onStatusChanged={() => carregar(true)} /></Secao>
+            </>}
       </div>
 
       {aberto && data && (
@@ -275,6 +282,131 @@ function Corpo({ data, onAbrir }: { data: FluxoData; onAbrir: (c: CardDef) => vo
         </div>
       </div>
     </>
+  )
+}
+
+// ---- seções recolhíveis (fechadas por padrão; lembram se foram abertas ao trocar mês/operador) ----
+const SECAO_ABERTA: Record<string, boolean> = {}
+function Secao({ id, titulo, resumo, children }: { id: string; titulo: string; resumo: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(!!SECAO_ABERTA[id])
+  return (
+    <details className="fv-acc" open={open} onToggle={e => { const o = (e.target as HTMLDetailsElement).open; SECAO_ABERTA[id] = o; setOpen(o) }}>
+      <summary><span className="at">{titulo}</span><span className="ar">{resumo}</span><ChevronDown size={15} className="chev" /></summary>
+      {open && <div className="ab">{children}</div>}
+    </details>
+  )
+}
+
+// ---- Por que perdemos: motivos de perda dos Cancelados do mês vs mês anterior ----
+const DICA_PERDA: Record<string, string> = {
+  'Preço': 'revisar a argumentação de valor ou oferecer outra operadora/coparticipação.',
+  'Cliente não retornou contato': 'revisar a cadência: tentar mais vezes e por outro canal antes de desistir.',
+  'Sem retorno': 'revisar a cadência: tentar mais vezes e por outro canal antes de desistir.',
+  'Sem interesse': 'qualificar melhor no primeiro contato, antes de cotar.',
+  'Declinou': 'entender com a operadora o motivo do declínio (documentação, perfil).',
+  'Sem perfil': 'filtrar melhor na entrada: o lead não tinha o perfil do plano.',
+  'Localização': 'checar a rede da operadora na cidade antes de cotar.',
+  'Trocou de número': 'confirmar telefone e e-mail logo no primeiro contato.',
+}
+function resumoPerdas(r: Resumo) {
+  const tot = Object.values(r.motivos).reduce((s, n) => s + n, 0)
+  if (!tot) return 'nenhum cancelado no mês'
+  const top = Object.entries(r.motivos).sort((a, b) => b[1] - a[1])[0][0]
+  return `${tot} ${tot === 1 ? 'cancelado' : 'cancelados'} · ${top} lidera`
+}
+function Perdas({ data }: { data: FluxoData }) {
+  const cur = data.atual.motivos, prev = data.anterior.motivos
+  const tot = Object.values(cur).reduce((s, n) => s + n, 0)
+  if (!tot) return <div className="fv-pempty">Nenhum cancelado neste mês.</div>
+  const max = Math.max(...Object.values(cur))
+  const lista = Array.from(new Set([...Object.keys(cur), ...Object.keys(prev)])).sort((a, b) => (cur[b] || 0) - (cur[a] || 0))
+  const top = lista[0]
+  return (
+    <div className="fv-mot">
+      {lista.map(k => {
+        const n = cur[k] || 0, d = n - (prev[k] || 0)
+        return (
+          <div key={k} className="fv-motr">
+            <span className="nm" title={k}>{k}</span>
+            <span className="tr"><i style={{ width: `${max ? (n / max) * 100 : 0}%` }} /></span>
+            <span className="q"><b>{n}</b> {d === 0 ? <span className="fv-delta fv-flat">=</span> : <span className={`fv-delta ${d > 0 ? 'fv-bad' : 'fv-good'}`}>{d > 0 ? '▲' : '▼'}{Math.abs(d)}</span>}</span>
+          </div>
+        )
+      })}
+      <div className="fv-verdict">
+        <b>{top} lidera</b> ({cur[top]} de {tot}){DICA_PERDA[top] ? `: ${DICA_PERDA[top]}` : '.'} <span style={{ color: 'var(--text-subtle)' }}>Setas = vs {mesCurto(data.mes_anterior)}.</span>
+      </div>
+    </div>
+  )
+}
+
+// ---- Pauta da reunião: o que pede ação agora (mesmas regras do painel do lead) ----
+const PROPOSTA = ['proposta', 'proposal_sent', 'proposal sent']
+interface GrupoPauta { id: string; titulo: string; desc: string; color: string; leads: FluxoLead[]; motivo: (l: FluxoLead) => string }
+function pauta(leads: FluxoLead[]): GrupoPauta[] {
+  const g: GrupoPauta[] = [
+    { id: 'quente', titulo: 'Quentes sem contato', desc: 'mais de 5 dias sem falar com o cliente', color: 'var(--lr-quente)',
+      leads: leads.filter(l => l.grupo === 'aberto' && l.perception === 'Quente' && (l.dias_sem_contato ?? 0) > 5),
+      motivo: l => `sem contato há ${l.dias_sem_contato} dias` },
+    { id: 'proposta', titulo: 'Propostas sem retorno agendado', desc: 'proposta enviada e nenhum retorno marcado', color: 'var(--lr-st-proposta)',
+      leads: leads.filter(l => l.grupo === 'aberto' && PROPOSTA.includes((l.status || '').toLowerCase()) && !l.tem_retorno),
+      motivo: l => l.dias_no_status != null ? `enviada há ${l.dias_no_status} ${l.dias_no_status === 1 ? 'dia' : 'dias'}` : 'sem retorno marcado' },
+    { id: 'emissao', titulo: 'Parados em emissão', desc: 'mais de 3 dias esperando a operadora', color: 'var(--lr-st-emissao)',
+      leads: leads.filter(l => l.grupo === 'esteira' && (l.dias_no_status ?? 0) > 3),
+      motivo: l => `parado há ${l.dias_no_status} dias` },
+  ]
+  return g.map(x => ({ ...x, leads: [...x.leads].sort((a, b) => (b.value_potential || 0) - (a.value_potential || 0)) }))
+}
+function resumoPauta(gs: GrupoPauta[]) {
+  const n = gs.reduce((s, g) => s + g.leads.length, 0)
+  const v = gs.reduce((s, g) => s + g.leads.reduce((a, l) => a + (l.value_potential || 0), 0), 0)
+  return n ? `${n} ${leadsTxt(n)} ${n === 1 ? 'pede' : 'pedem'} ação · ${brl0(v)} em jogo` : 'nada pendente'
+}
+function Pauta({ data, onStatusChanged }: { data: FluxoData; onStatusChanged: () => void }) {
+  const gs = pauta(data.leads)
+  const [mostrarTudo, setMostrarTudo] = useState<Record<string, boolean>>({})
+  const [peek, setPeek] = useState<{ g: number; id: string } | null>(null)
+  const lista = peek ? gs[peek.g].leads : []
+  const idx = peek ? lista.findIndex(l => l.id === peek.id) : -1
+  const lead = idx >= 0 ? lista[idx] : null
+  return (
+    <div className="fv-pauta">
+      {gs.map((g, gi) => {
+        const vis = mostrarTudo[g.id] ? g.leads : g.leads.slice(0, 5)
+        const tot = g.leads.reduce((s, l) => s + (l.value_potential || 0), 0)
+        return (
+          <div key={g.id} className="fv-pcol" style={{ '--c': g.color } as React.CSSProperties}>
+            <div className="ph"><b>{g.titulo}</b><span className="n">{g.leads.length}</span></div>
+            <p className="pd">{g.desc}</p>
+            {vis.length === 0 && <div className="fv-pempty">Nenhum lead nesta situação.</div>}
+            {vis.map(l => (
+              <button key={l.id} className="prow" onClick={() => setPeek({ g: gi, id: l.id })}>
+                <span className="pn">{l.name}</span><span className="pv">{l.value_potential ? brl0(l.value_potential) : '—'}</span>
+                <span className="pw">{g.motivo(l)}</span><span className="ps">{statusLabel(l.status)}</span>
+              </button>
+            ))}
+            {g.leads.length > 5 && (
+              <button className="pmore" onClick={() => setMostrarTudo(m => ({ ...m, [g.id]: !m[g.id] }))}>
+                {mostrarTudo[g.id] ? 'mostrar menos' : `+ ${g.leads.length - 5} ${leadsTxt(g.leads.length - 5)}`}
+              </button>
+            )}
+            {g.leads.length > 0 && <div className="ptotal"><b>{brl0(tot)}</b> em jogo</div>}
+          </div>
+        )
+      })}
+      {lead && peek && (
+        <LeadPeekDrawer
+          key="peek"
+          lead={lead}
+          onClose={() => setPeek(null)}
+          onOpenFull={() => window.open(`/leads/${lead.id}`, '_blank')}
+          position={{ index: idx + 1, total: lista.length }}
+          onPrev={idx > 0 ? () => setPeek({ g: peek.g, id: lista[idx - 1].id }) : undefined}
+          onNext={idx < lista.length - 1 ? () => setPeek({ g: peek.g, id: lista[idx + 1].id }) : undefined}
+          onStatusChanged={() => onStatusChanged()}
+        />
+      )}
+    </div>
   )
 }
 

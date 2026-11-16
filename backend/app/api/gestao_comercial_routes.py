@@ -1309,9 +1309,12 @@ def _fluxo_resumo(rows) -> dict:
     fluxo = {"esteira": vazio(), "pago": vazio(), "cancelado": vazio()}
     funil = {"Quente": vazio(), "Morno": vazio(), "Frio": vazio()}
     sem_temp = 0
+    motivos: dict = defaultdict(int)  # motivo de perda dos cancelados ("Por que perdemos")
     for r in rows:
         g = _fluxo_grupo(r.status, r.receita_data_venda)
         v = float(r.value_potential or 0)
+        if g == "cancelado":
+            motivos[(r.lost_reason or "").strip() or "Não informado"] += 1
         if g in fluxo:
             fluxo[g]["valor"] += v
             fluxo[g]["qtd"] += 1
@@ -1320,7 +1323,7 @@ def _fluxo_resumo(rows) -> dict:
             funil[r.perception]["qtd"] += 1
         else:
             sem_temp += 1
-    return {"fluxo": fluxo, "funil": funil, "sem_temperatura": sem_temp, "captacoes": len(rows)}
+    return {"fluxo": fluxo, "funil": funil, "sem_temperatura": sem_temp, "captacoes": len(rows), "motivos": dict(motivos)}
 
 
 @router.get("/fluxo-vendas")
@@ -1360,15 +1363,30 @@ def fluxo_vendas(
         ini, fim = br_month_utc_range(y, m)
         return db.query(*cols).filter(clause, EFFECTIVE_CAPTACAO >= ini, EFFECTIVE_CAPTACAO < fim).all()
 
-    resumo_cols = (Lead.status, Lead.perception, Lead.value_potential, Lead.receita_data_venda)
+    resumo_cols = (Lead.status, Lead.perception, Lead.value_potential, Lead.receita_data_venda, Lead.lost_reason)
     anterior = _fluxo_resumo(_do_mes(prev_year, prev_mon, resumo_cols))
     rows = _do_mes(year, mon, (
         Lead.id, Lead.name, Lead.email, Lead.phone, Lead.attendant, Lead.origin, Lead.conversion_point,
         Lead.status, Lead.perception, Lead.value_potential, Lead.operadoras_enviadas, Lead.modalidade,
         Lead.created_at, Lead.updated_at, Lead.retrabalhado_em, Lead.is_renutrucao, Lead.receita_data_venda,
-        Lead.duplicado_de_id, Lead.campanha_canal, Lead.vidas,
+        Lead.duplicado_de_id, Lead.campanha_canal, Lead.vidas, Lead.lost_reason, Lead.last_interaction_at,
     ))
     atual = _fluxo_resumo(rows)
+
+    # "Pauta da reunião": mesmas regras do painel do lead (LeadPeekDrawer / GET /leads/{id}/peek)
+    ids = [r.id for r in rows]
+    com_retorno = {
+        lid for (lid,) in db.query(LeadSchedule.lead_id)
+        .filter(LeadSchedule.lead_id.in_(ids), LeadSchedule.is_active.is_(True)).distinct().all()
+    } if ids else set()
+    mudou_status = dict(
+        db.query(LeadStatusHistory.lead_id, func.max(LeadStatusHistory.changed_at))
+        .filter(LeadStatusHistory.lead_id.in_(ids)).group_by(LeadStatusHistory.lead_id).all()
+    ) if ids else {}
+    hoje_br = nb.date()
+
+    def _dias(ts):  # dias de calendario (Brasilia) ate' hoje
+        return (hoje_br - (ts - BR_OFFSET).date()).days if ts else None
 
     # meta do mes (a mesma do Financeiro / Vida do Agente). Em R$ (clt) o
     # progresso e' o valor dos Pagos; senao, a quantidade de captacoes.
@@ -1410,6 +1428,10 @@ def fluxo_vendas(
             "duplicado_de_nome": _dup_nomes.get(r.duplicado_de_id),
             "campanha_canal": r.campanha_canal,
             "grupo": _fluxo_grupo(r.status, r.receita_data_venda),
+            "lost_reason": r.lost_reason,
+            "dias_sem_contato": _dias(r.last_interaction_at or r.updated_at or r.created_at),
+            "dias_no_status": _dias(mudou_status.get(r.id)),
+            "tem_retorno": r.id in com_retorno,
         }
         for r in rows
     ]
