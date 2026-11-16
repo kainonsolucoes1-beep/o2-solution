@@ -238,6 +238,14 @@ export default function LeadDetailPage() {
           const e = extra as Record<string, string>
           setLead(prev => prev ? { ...prev, modalidade: e.modalidade, document: e.documento, ...(e.razao_social ? { company: e.razao_social } : {}) } : prev)
         }
+        // valor do contrato vira o valor da Negociação; a observação vira anotação
+        if (typeof extra?.valor_contrato === 'number') {
+          const v = extra.valor_contrato
+          setLead(prev => prev ? { ...prev, value_potential: v } : prev)
+        }
+        if (typeof extra?.observacao === 'string') {
+          api.get<{ notes: Note[] }>(`/api/v1/leads/${id}/notes`).then(r => setNotes(r.data.notes)).catch(() => {})
+        }
         setEditingStatus(false)
         setStatusSubMenu(null)
         setEmissaoOpen(false)
