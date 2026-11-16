@@ -1,0 +1,114 @@
+/* Fluxo de vendas (tela de reunião por operador) — mockup "Fluxo de Vendas Pamela", opção B */
+.fv { background: var(--bg-page); color: var(--text-1); min-height: 100%; }
+.fv-wrap { max-width: 1240px; margin: 0 auto; padding: 24px 24px 40px; display: grid; gap: 24px; }
+.fv-ctl { display: flex; justify-content: flex-end; gap: 10px; }
+.fv-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2); font-weight: 600; font-size: 13px; font-family: inherit; cursor: pointer; }
+.fv-btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+.fv-btn:focus-visible, .fv-card:focus-visible, .fv-pick select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.fv-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+.fv-eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-subtle); font-weight: 600; }
+.fv-h1 { margin: 4px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+.fv-h1 span { color: var(--text-subtle); font-weight: 500; }
+.fv-picks { display: flex; gap: 10px; flex-wrap: wrap; }
+.fv-pick { display: grid; gap: 2px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 7px 12px; min-width: 160px; }
+.fv-pick label { font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.fv-pick select { border: 0; background: transparent; color: var(--text-1); font-weight: 600; font-size: 15px; font-family: inherit; padding: 0; cursor: pointer; }
+.fv-pick select option { background: var(--bg-card); color: var(--text-1); }
+
+.fv-lay { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 960px) { .fv-lay { grid-template-columns: 1fr; } }
+.fv-goal { background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; padding: 24px; display: grid; gap: 18px; justify-items: center; }
+.fv-goal h3 { margin: 0; justify-self: start; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
+.fv-tag { font-size: 10.5px; letter-spacing: .04em; padding: 2px 8px; border-radius: 99px; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border); }
+.fv-ring { position: relative; width: 220px; max-width: 100%; aspect-ratio: 1; }
+.fv-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.fv-ring circle { fill: none; stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1); }
+.fv-ring .bg { stroke: var(--bg-subtle); }
+.fv-ring .proj { stroke: color-mix(in srgb, var(--success) 30%, transparent); }
+.fv-ring .real { stroke: var(--success); }
+.fv-ring .in { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 2px; }
+.fv-ring .in b { font-size: 38px; font-weight: 700; letter-spacing: -.03em; }
+.fv-ring .in small { font-size: 12px; color: var(--text-subtle); }
+.fv-goal dl { margin: 0; width: 100%; display: grid; }
+.fv-goal dl div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 11px 0; border-top: 1px solid var(--border); font-size: 14px; }
+.fv-goal dt { color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+.fv-goal dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.fv-note { font-size: 12.5px; color: var(--text-muted); text-align: center; line-height: 1.5; }
+.fv-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; display: inline-block; }
+
+.fv-col { display: grid; gap: 26px; min-width: 0; }
+.fv-sec { display: grid; gap: 14px; }
+.fv-sec h2 { margin: 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.fv-sec h2::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.fv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 820px) { .fv-grid { grid-template-columns: 1fr; } }
+.fv-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; display: grid; gap: 12px; cursor: pointer; text-align: left; font: inherit; color: inherit; transition: transform .18s, box-shadow .18s, border-color .18s; }
+.fv-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px -14px rgba(16,32,43,.35); border-color: color-mix(in srgb, var(--c) 45%, var(--border)); }
+.fv-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.fv-lbl { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+.fv-pill { font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent); white-space: nowrap; }
+.fv-val { font-size: 30px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.fv-val small { font-size: 15px; font-weight: 600; color: var(--text-muted); margin-right: 4px; }
+.fv-meta { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.fv-meta b { color: var(--text-1); font-size: 15px; }
+.fv-bar { height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--c) 12%, transparent); overflow: hidden; }
+.fv-bar i { display: block; height: 100%; border-radius: 99px; background: var(--c); transition: width .9s cubic-bezier(.2,.8,.2,1); }
+.fv-share { font-size: 12px; color: var(--text-subtle); }
+.fv-cmp { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px dashed var(--border); padding-top: 10px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.fv-delta { font-weight: 600; }
+.fv-good { color: var(--success); } .fv-bad { color: var(--danger); } .fv-flat { color: var(--text-muted); }
+.fv-ver { font-size: 12px; color: var(--text-subtle); }
+.fv-card:hover .fv-ver { color: var(--c); }
+.fv-foot { font-size: 12.5px; color: var(--text-subtle); line-height: 1.6; }
+.fv-empty { padding: 48px 20px; text-align: center; color: var(--text-subtle); }
+
+/* janela de leads (colunas do Relatório de Leads) */
+.fv-scrim { position: fixed; inset: 0; z-index: 900; background: rgba(15,23,42,.4); display: grid; place-items: center; padding: 24px 16px; }
+.fv-box { width: min(1180px, 100%); max-height: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 30px 60px -20px rgba(0,0,0,.45); }
+.fv-bh { padding: 20px 22px 14px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.fv-bh h2 { margin: 0; font-size: 19px; display: flex; align-items: center; gap: 9px; }
+.fv-bh p { margin: 6px 0 0; color: var(--text-muted); font-size: 13.5px; }
+.fv-x { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-subtle); color: var(--text-muted); cursor: pointer; display: grid; place-items: center; flex: none; }
+.fv-search { margin: 0 22px 14px; display: flex; align-items: center; gap: 8px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 0 12px; color: var(--text-subtle); }
+.fv-search input { flex: 1; border: 0; background: transparent; color: var(--text-1); font-size: 14px; font-family: inherit; padding: 9px 0; outline: none; min-width: 0; }
+.fv-search:focus-within { border-color: var(--accent); }
+.fv-tbl { overflow: auto; flex: 1; min-height: 0; border-top: 1px solid var(--border); }
+.fv-tbl table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.fv-tbl th { position: sticky; top: 0; z-index: 1; background: var(--bg-card); padding: 11px 10px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-subtle); text-transform: uppercase; letter-spacing: .04em; cursor: pointer; user-select: none; white-space: nowrap; border-bottom: 1px solid var(--border); }
+.fv-tbl td { padding: 12px 10px; border-top: 1px solid var(--border); vertical-align: middle; }
+.fv-tbl tbody tr:first-child td { border-top: 0; }
+.fv-tbl tbody tr { cursor: pointer; }
+.fv-tbl tbody tr:hover, .fv-tbl tbody tr.cur { background: var(--bg-subtle); }
+.fv-tbl th:first-child, .fv-tbl td:first-child { padding-left: 22px; }
+.fv-tbl th:last-child, .fv-tbl td:last-child { padding-right: 22px; }
+.fv-bf { padding: 12px 22px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-subtle); }
+
+/* modo apresentação (tela cheia da reunião) */
+.fv.pres { overflow: auto; }
+.fv.pres .fv-ctl { display: none; }
+.fv-exit { display: none; position: fixed; top: 12px; right: 12px; z-index: 50; opacity: .55; }
+.fv-exit:hover { opacity: 1; }
+.fv.pres .fv-exit { display: inline-flex; }
+.fv.pres .fv-wrap { max-width: 1680px; padding: 28px 32px 32px; gap: 28px; }
+.fv.pres .fv-h1 { font-size: 40px; }
+.fv.pres .fv-eyebrow { font-size: 13px; }
+.fv.pres .fv-pick select { font-size: 19px; }
+.fv.pres .fv-lay { grid-template-columns: 400px minmax(0, 1fr); gap: 28px; }
+.fv.pres .fv-ring { width: 290px; }
+.fv.pres .fv-ring .in b { font-size: 56px; }
+.fv.pres .fv-ring .in small { font-size: 15px; }
+.fv.pres .fv-goal dl div { font-size: 18px; padding: 14px 0; }
+.fv.pres .fv-note { font-size: 16px; }
+.fv.pres .fv-goal h3, .fv.pres .fv-sec h2 { font-size: 15px; }
+.fv.pres .fv-lbl { font-size: 19px; }
+.fv.pres .fv-pill { font-size: 13.5px; }
+.fv.pres .fv-val { font-size: clamp(32px, 3vw, 50px); }
+.fv.pres .fv-val small { font-size: 20px; }
+.fv.pres .fv-meta { font-size: 16px; }
+.fv.pres .fv-meta b { font-size: 21px; }
+.fv.pres .fv-share, .fv.pres .fv-ver { font-size: 14px; }
+.fv.pres .fv-cmp { font-size: 15.5px; }
+.fv.pres .fv-foot { font-size: 14px; }
+@media (max-width: 960px) { .fv.pres .fv-lay { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .fv-card, .fv-bar i, .fv-ring circle { transition: none; } }
