@@ -57,6 +57,17 @@ _PROMOTORA_ALIASES = {
     "viva": "Viva Saúde",
     "bliss": "Bliss",
     "multinotas": "Multinotas",
+    # Multinotas por operadora (16/11/2026)
+    "multinotas amil": "Multinotas Amil",
+    "multinotas hapvida/ndi": "Multinotas Hapvida/NDI",
+    "multinotas hapvida / ndi": "Multinotas Hapvida/NDI",
+    "multinotas hapvida ndi": "Multinotas Hapvida/NDI",
+    "multinotas hapvida-ndi": "Multinotas Hapvida/NDI",
+    "multinotas hapvida": "Multinotas Hapvida/NDI",
+    "multinotas ndi": "Multinotas Hapvida/NDI",
+    "multinotas medsenior": "Multinotas MedSenior",
+    "multinotas medsênior": "Multinotas MedSenior",
+    "multinotas med senior": "Multinotas MedSenior",
     "allcross": "Allcross",
 }
 _MODALIDADE_ALIASES = {

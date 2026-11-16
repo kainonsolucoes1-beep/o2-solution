@@ -59,13 +59,17 @@ def _primeira(lista: str | None) -> str | None:
     return p or None
 
 
+# promotoras que aparecem sempre nas sugestoes, mesmo antes do primeiro uso
+PROMOTORAS_FIXAS = ("Multinotas", "Multinotas Amil", "Multinotas Hapvida/NDI", "Multinotas MedSenior")
+
+
 @router.get("/promotoras")
 def promotoras(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[str]:
-    """Sugestoes pro campo Promotora da janela "Enviar para emissao": nomes ja' usados
-    nas emissoes e na planilha de receita."""
+    """Sugestoes pro campo Promotora da janela "Enviar para emissao": as fixas + nomes
+    ja' usados nas emissoes e na planilha de receita."""
     a = db.query(LeadEmissao.promotora).filter(LeadEmissao.promotora.isnot(None)).distinct().all()
     b = db.query(Lead.receita_promotora).filter(Lead.receita_promotora.isnot(None)).distinct().all()
-    nomes = {(r[0] or "").strip() for r in a + b}
+    nomes = {(r[0] or "").strip() for r in a + b} | set(PROMOTORAS_FIXAS)
     return sorted((n for n in nomes if n), key=str.lower)
 
 

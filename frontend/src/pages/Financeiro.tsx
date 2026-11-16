@@ -84,6 +84,9 @@ const PROMOTORA_COLORS: Record<string, string> = {
   "Viva Saúde": "#5B4FE0",
   Bliss: "#0E9F6E",
   Multinotas: "#2F80ED",
+  "Multinotas Amil": "#1E5BB8",
+  "Multinotas Hapvida/NDI": "#5FA8F5",
+  "Multinotas MedSenior": "#0B3D82",
   Allcross: "#C9CDD9",
 };
 
