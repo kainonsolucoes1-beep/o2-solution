@@ -1030,6 +1030,11 @@ def update_lead_status(
         for campo_lead, k in (("modalidade", "modalidade"), ("document", "documento"), ("company", "razao_social"), ("categoria", "categoria")):
             if k in contrato:
                 setattr(lead, campo_lead, contrato[k])
+        # o valor do contrato passa a ser o valor da Negociacao (cotacao) na ficha;
+        # a cotacao de antes fica guardada no envio (valor_cotacao)
+        cotacao_antes = lead.value_potential
+        if body.valor_contrato is not None:
+            lead.value_potential = body.valor_contrato
         ja_em_emissao = (prev_status or "").lower() == "emissao"
         if ja_em_emissao:
             # so' corrige operadora/valor do envio atual -- nao conta um envio novo.
@@ -1047,13 +1052,16 @@ def update_lead_status(
                     .order_by(LeadStatusHistory.changed_at.desc()).first()
                 )
                 row = LeadEmissao(
-                    lead_id=lead.id, valor_cotacao=lead.value_potential,
+                    lead_id=lead.id, valor_cotacao=cotacao_antes,
                     enviado_por=(entrada.changed_by if entrada else None) or actor,
                     enviado_em=(entrada.changed_at if entrada and entrada.changed_at else now),
                 )
                 db.add(row)
             row.operadora = operadora
             row.valor = valor
+            # observacao da emissao vira anotacao na ficha (so' se mudou, pra nao repetir ao reabrir a janela)
+            if obs and obs != row.observacao:
+                db.add(LeadNote(lead_id=lead.id, user_id=current_user.id, content=obs))
             row.observacao = obs
             if promotora:  # campo vazio ao reabrir a janela nao apaga a promotora ja' definida
                 row.promotora = promotora
@@ -1063,10 +1071,12 @@ def update_lead_status(
             db.commit()
             return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
         db.add(LeadEmissao(
-            lead_id=lead.id, operadora=operadora, valor=valor, valor_cotacao=lead.value_potential,
+            lead_id=lead.id, operadora=operadora, valor=valor, valor_cotacao=cotacao_antes,
             observacao=obs, promotora=promotora, enviado_por=actor, user_id=current_user.id, enviado_em=now,
             **contrato,
         ))
+        if obs:  # observacao da emissao vira anotacao na ficha
+            db.add(LeadNote(lead_id=lead.id, user_id=current_user.id, content=obs))
 
     lead.status = body.status
     if body.lost_reason is not None:
