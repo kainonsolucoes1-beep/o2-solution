@@ -1,10 +1,7 @@
 /* Fluxo de vendas (tela de reunião por operador) — mockup "Fluxo de Vendas Pamela", opção B */
 .fv { background: var(--bg-page); color: var(--text-1); min-height: 100%; }
 .fv-wrap { max-width: 1240px; margin: 0 auto; padding: 24px 24px 40px; display: grid; gap: 24px; }
-.fv-ctl { display: flex; justify-content: flex-end; gap: 10px; }
-.fv-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2); font-weight: 600; font-size: 13px; font-family: inherit; cursor: pointer; }
-.fv-btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
-.fv-btn:focus-visible, .fv-card:focus-visible, .fv-pick select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fv-card:focus-visible, .fv-pick select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .fv-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
 .fv-eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-subtle); font-weight: 600; }
@@ -60,7 +57,6 @@
 .fv-good { color: var(--success); } .fv-bad { color: var(--danger); } .fv-flat { color: var(--text-muted); }
 .fv-ver { font-size: 12px; color: var(--text-subtle); }
 .fv-card:hover .fv-ver { color: var(--c); }
-.fv-foot { font-size: 12.5px; color: var(--text-subtle); line-height: 1.6; }
 .fv-empty { padding: 48px 20px; text-align: center; color: var(--text-subtle); }
 
 /* janela de leads (colunas do Relatório de Leads) */
@@ -84,31 +80,4 @@
 .fv-tbl th:last-child, .fv-tbl td:last-child { padding-right: 22px; }
 .fv-bf { padding: 12px 22px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-subtle); }
 
-/* modo apresentação (tela cheia da reunião) */
-.fv.pres { overflow: auto; }
-.fv.pres .fv-ctl { display: none; }
-.fv-exit { display: none; position: fixed; top: 12px; right: 12px; z-index: 50; opacity: .55; }
-.fv-exit:hover { opacity: 1; }
-.fv.pres .fv-exit { display: inline-flex; }
-.fv.pres .fv-wrap { max-width: 1680px; padding: 28px 32px 32px; gap: 28px; }
-.fv.pres .fv-h1 { font-size: 40px; }
-.fv.pres .fv-eyebrow { font-size: 13px; }
-.fv.pres .fv-pick select { font-size: 19px; }
-.fv.pres .fv-lay { grid-template-columns: 400px minmax(0, 1fr); gap: 28px; }
-.fv.pres .fv-ring { width: 290px; }
-.fv.pres .fv-ring .in b { font-size: 56px; }
-.fv.pres .fv-ring .in small { font-size: 15px; }
-.fv.pres .fv-goal dl div { font-size: 18px; padding: 14px 0; }
-.fv.pres .fv-note { font-size: 16px; }
-.fv.pres .fv-goal h3, .fv.pres .fv-sec h2 { font-size: 15px; }
-.fv.pres .fv-lbl { font-size: 19px; }
-.fv.pres .fv-pill { font-size: 13.5px; }
-.fv.pres .fv-val { font-size: clamp(32px, 3vw, 50px); }
-.fv.pres .fv-val small { font-size: 20px; }
-.fv.pres .fv-meta { font-size: 16px; }
-.fv.pres .fv-meta b { font-size: 21px; }
-.fv.pres .fv-share, .fv.pres .fv-ver { font-size: 14px; }
-.fv.pres .fv-cmp { font-size: 15.5px; }
-.fv.pres .fv-foot { font-size: 14px; }
-@media (max-width: 960px) { .fv.pres .fv-lay { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .fv-card, .fv-bar i, .fv-ring circle { transition: none; } }

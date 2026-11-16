@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Presentation, X, Search } from 'lucide-react'
+import { X, Search } from 'lucide-react'
 import api from '../api'
 import { statusLabel } from '../utils/statusLabel'
 import { parseUTC, calendarDaysAgo } from '../utils/date'
@@ -117,9 +117,7 @@ export default function FluxoVendas() {
   const [data, setData] = useState<FluxoData | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState('')
-  const [pres, setPres] = useState(false)
   const [aberto, setAberto] = useState<CardDef | null>(null)
-  const rootRef = useRef<HTMLDivElement>(null)
 
   const meses = useMemo(() => ultimosMeses(3), [])
   const op = sp.get('op') || me
@@ -151,36 +149,11 @@ export default function FluxoVendas() {
     navigate(`/fluxo-vendas?${p.toString()}`, { replace: true })
   }
 
-  // modo apresentação: tela cheia só da página (some o menu) + tela não apaga
-  const wake = useRef<{ release: () => Promise<void> } | null>(null)
-  function entrarPres() {
-    setPres(true)
-    rootRef.current?.requestFullscreen?.().catch(() => {})
-    const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } }
-    nav.wakeLock?.request('screen').then(w => { wake.current = w }).catch(() => {})
-  }
-  const sairPres = useCallback(() => {
-    setPres(false)
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
-    wake.current?.release().catch(() => {})
-    wake.current = null
-  }, [])
-  useEffect(() => {
-    const onFs = () => { if (!document.fullscreenElement) sairPres() }
-    document.addEventListener('fullscreenchange', onFs)
-    return () => document.removeEventListener('fullscreenchange', onFs)
-  }, [sairPres])
-
   const nomeOp = data?.operador || op
 
   return (
-    <div ref={rootRef} className={`fv lr-theme${pres ? ' pres' : ''}`}>
-      <button className="fv-btn fv-exit" onClick={sairPres}><X size={14} /> Sair da apresentação</button>
+    <div className="fv lr-theme">
       <div className="fv-wrap">
-        <div className="fv-ctl">
-          <button className="fv-btn pri" onClick={entrarPres}><Presentation size={15} /> Modo apresentação</button>
-        </div>
-
         <header className="fv-head">
           <div>
             <div className="fv-eyebrow">Reunião de resultados</div>
@@ -298,16 +271,8 @@ function Corpo({ data, onAbrir }: { data: FluxoData; onAbrir: (c: CardDef) => vo
           <section className="fv-sec">
             <h2>Funil de vendas</h2>
             <div className="fv-grid">{cards(FUNIL, atual.funil, anterior.funil)}</div>
-            <div className="fv-foot">
-              Considera só leads ainda antes de "Emissão" com temperatura preenchida. Da emissão em diante, a temperatura deixa de contar
-              {' · '}{atual.sem_temperatura} {leadsTxt(atual.sem_temperatura)} sem temperatura não {atual.sem_temperatura === 1 ? 'entra' : 'entram'}.
-            </div>
           </section>
         </div>
-      </div>
-      <div className="fv-foot">
-        Leads captados em {mesNome(data.mes)} · Em esteira = status "Emissão" · Pago = "Data da venda" preenchida ou status de venda (inclui Aguardando faturamento)
-        {!encerrado && ' · Projeção = realizado no ritmo dos dias úteis do mês'} · Comparação com {mesNome(data.mes_anterior)}.
       </div>
     </>
   )
