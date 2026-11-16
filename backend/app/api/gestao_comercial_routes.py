@@ -1280,3 +1280,149 @@ def vida_sdr_receita_composicao(
             for r in rows[:12]
         ],
     }
+
+
+# ---- Fluxo de vendas (tela de reuniao por operador) -------------------------
+# Mes = captacao efetiva do lead (EFFECTIVE_CAPTACAO). Cada lead cai em um grupo:
+#   cancelado -> status "Perdido" (sale_not_performed)
+#   pago      -> "Data da venda" preenchida OU status de venda (inclui Aguardando faturamento)
+#   esteira   -> status "Emissao"
+#   aberto    -> o resto (antes da emissao); so' aqui a temperatura conta (Funil)
+EMISSAO_STATUSES = ("emissao", "emissão")
+FUNIL_PERCEPTIONS = ("Quente", "Morno", "Frio")
+
+
+def _fluxo_grupo(status: str | None, data_venda) -> str:
+    s = (status or "").lower()
+    if s == CANCELADO_STATUS:
+        return "cancelado"
+    if data_venda is not None or s in VENDA_STATUSES:
+        return "pago"
+    if s in EMISSAO_STATUSES:
+        return "esteira"
+    return "aberto"
+
+
+def _fluxo_resumo(rows) -> dict:
+    def vazio():
+        return {"valor": 0.0, "qtd": 0}
+    fluxo = {"esteira": vazio(), "pago": vazio(), "cancelado": vazio()}
+    funil = {"Quente": vazio(), "Morno": vazio(), "Frio": vazio()}
+    sem_temp = 0
+    for r in rows:
+        g = _fluxo_grupo(r.status, r.receita_data_venda)
+        v = float(r.value_potential or 0)
+        if g in fluxo:
+            fluxo[g]["valor"] += v
+            fluxo[g]["qtd"] += 1
+        elif r.perception in FUNIL_PERCEPTIONS:
+            funil[r.perception]["valor"] += v
+            funil[r.perception]["qtd"] += 1
+        else:
+            sem_temp += 1
+    return {"fluxo": fluxo, "funil": funil, "sem_temperatura": sem_temp, "captacoes": len(rows)}
+
+
+@router.get("/fluxo-vendas")
+def fluxo_vendas(
+    origens: str = Query(...),
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Fluxo de vendas (Em esteira / Pagos / Cancelados) + Funil por temperatura
+    + meta do mes de um operador, com o mes anterior pra comparacao e os leads do
+    mes no mesmo formato do Relatorio de Leads. Mesmo acesso da Vida do Agente."""
+    if needs_own_origin_filter(current_user):
+        proprio = current_user.first_name or current_user.username
+        if current_user.role == "supervisor":
+            permitido = set(_agentes_do_supervisor(db, current_user))
+            permitido.add(proprio)
+            if origens.split(",")[0].strip() not in permitido:
+                origens = proprio
+        else:
+            origens = proprio
+    parts = [s.strip() for s in origens.split(",") if s.strip()]
+    if not parts:
+        raise HTTPException(status_code=400, detail="Informe o operador.")
+
+    nb = now_br()
+    year, mon = _parse_month(month) if month else (nb.year, nb.month)
+    if (year, mon) > (nb.year, nb.month):
+        year, mon = nb.year, nb.month
+    prev_year, prev_mon = (year, mon - 1) if mon > 1 else (year - 1, 12)
+    encerrado = (year, mon) != (nb.year, nb.month)
+
+    matched_users = db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).all()
+    clause = agent_leads_clause(db, parts, [u.id for u in matched_users])
+
+    def _do_mes(y: int, m: int, cols):
+        ini, fim = br_month_utc_range(y, m)
+        return db.query(*cols).filter(clause, EFFECTIVE_CAPTACAO >= ini, EFFECTIVE_CAPTACAO < fim).all()
+
+    resumo_cols = (Lead.status, Lead.perception, Lead.value_potential, Lead.receita_data_venda)
+    anterior = _fluxo_resumo(_do_mes(prev_year, prev_mon, resumo_cols))
+    rows = _do_mes(year, mon, (
+        Lead.id, Lead.name, Lead.email, Lead.phone, Lead.attendant, Lead.origin, Lead.conversion_point,
+        Lead.status, Lead.perception, Lead.value_potential, Lead.operadoras_enviadas, Lead.modalidade,
+        Lead.created_at, Lead.updated_at, Lead.retrabalhado_em, Lead.is_renutrucao, Lead.receita_data_venda,
+        Lead.duplicado_de_id, Lead.campanha_canal, Lead.vidas,
+    ))
+    atual = _fluxo_resumo(rows)
+
+    # meta do mes (a mesma do Financeiro / Vida do Agente). Em R$ (clt) o
+    # progresso e' o valor dos Pagos; senao, a quantidade de captacoes.
+    meta = None
+    meta_row = None
+    for p in parts:
+        meta_row = db.query(SdrMeta).filter(func.lower(SdrMeta.nome) == p.lower()).first()
+        if meta_row:
+            break
+    if meta_row:
+        tipo, meta_valor = meta_do_mes(db, meta_row, year, mon)
+        def _prog(res):
+            return res["fluxo"]["pago"]["valor"] if tipo == "clt" else float(res["captacoes"])
+        progresso, progresso_ant = _prog(atual), _prog(anterior)
+        du_mes = business_days_in_month(year, mon)
+        du_ate_hoje = du_mes if encerrado else business_days_in_month(year, mon, nb.day)
+        du_rest = max(0, du_mes - du_ate_hoje)
+        faltam = max(0.0, meta_valor - progresso)
+        projecao = progresso if encerrado else (progresso / du_ate_hoje * du_mes if du_ate_hoje > 0 else 0.0)
+        meta = {
+            "tipo": tipo, "meta_valor": meta_valor, "progresso": progresso, "progresso_anterior": progresso_ant,
+            "projecao": round(projecao), "faltam": faltam, "dias_uteis_restantes": du_rest,
+            "ritmo_necessario": round(faltam / du_rest, 1) if du_rest > 0 else 0.0,
+        }
+
+    _dup_ids = {r.duplicado_de_id for r in rows if r.duplicado_de_id}
+    _dup_nomes = dict(db.query(Lead.id, Lead.name).filter(Lead.id.in_(_dup_ids)).all()) if _dup_ids else {}
+    leads = [
+        {
+            "id": str(r.id), "name": r.name, "email": r.email, "phone": r.phone, "attendant": r.attendant,
+            "origem": r.origin, "conversion_point": r.conversion_point, "status": r.status, "perception": r.perception,
+            "value_potential": float(r.value_potential) if r.value_potential is not None else None,
+            "operadoras_enviadas": r.operadoras_enviadas, "modalidade": r.modalidade,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            "retrabalhado_em": r.retrabalhado_em.isoformat() if r.retrabalhado_em else None,
+            "is_renutrucao": bool(r.is_renutrucao), "vidas": r.vidas,
+            "duplicado_de_id": str(r.duplicado_de_id) if r.duplicado_de_id else None,
+            "duplicado_de_nome": _dup_nomes.get(r.duplicado_de_id),
+            "campanha_canal": r.campanha_canal,
+            "grupo": _fluxo_grupo(r.status, r.receita_data_venda),
+        }
+        for r in rows
+    ]
+
+    return {
+        "operador": parts[0],
+        "mes": f"{year}-{mon:02d}",
+        "mes_anterior": f"{prev_year}-{prev_mon:02d}",
+        "encerrado": encerrado,
+        "dia": nb.day if not encerrado else monthrange(year, mon)[1],
+        "dias_mes": monthrange(year, mon)[1],
+        "atual": atual,
+        "anterior": anterior,
+        "meta": meta,
+        "leads": leads,
+    }
