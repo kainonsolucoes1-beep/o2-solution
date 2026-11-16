@@ -17,6 +17,13 @@ logging.basicConfig(
 )
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
+
+# dados do contrato pedidos na janela "Enviar para emissao" (lead_emissoes)
+EMISSAO_CONTRATO_COLS = (
+    ("modalidade", "VARCHAR(60)"), ("documento", "VARCHAR(20)"), ("razao_social", "VARCHAR(255)"),
+    ("categoria", "VARCHAR(255)"), ("acomodacao", "VARCHAR(20)"), ("coparticipacao", "VARCHAR(20)"),
+    ("reducao_carencia", "VARCHAR(5)"),
+)
 from app.database import engine, Base, get_db, SessionLocal
 from app.models import User, Lead, LeadNote, LeadStatusHistory, AppSettings
 from app.models.form_user import FormUser
@@ -113,6 +120,8 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS titular_menor VARCHAR(255)"))
     _conn.execute(text("ALTER TABLE campanha_sms_lotes ADD COLUMN IF NOT EXISTS respostas_importadas_em TIMESTAMP"))
     _conn.execute(text("ALTER TABLE lead_emissoes ADD COLUMN IF NOT EXISTS promotora VARCHAR(120)"))
+    for _col, _tipo in EMISSAO_CONTRATO_COLS:
+        _conn.execute(text(f"ALTER TABLE lead_emissoes ADD COLUMN IF NOT EXISTS {_col} {_tipo}"))
     _conn.commit()
 
 # seed via ORM (nao SQL puro) pra que o id UUID seja gerado pelo default do
@@ -319,6 +328,8 @@ async def startup_event():
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS pausas_json TEXT NOT NULL DEFAULT '{}'"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS tma TEXT NOT NULL DEFAULT '—'"))
         conn.execute(text("ALTER TABLE lead_emissoes ADD COLUMN IF NOT EXISTS promotora VARCHAR(120)"))
+        for _col, _tipo in EMISSAO_CONTRATO_COLS:
+            conn.execute(text(f"ALTER TABLE lead_emissoes ADD COLUMN IF NOT EXISTS {_col} {_tipo}"))
         conn.execute(text("""
             INSERT INTO lead_status_history (id, lead_id, from_status, to_status, changed_at, changed_by)
             SELECT gen_random_uuid(), l.id, NULL, COALESCE(l.status, 'novo'), l.created_at, 'sistema'

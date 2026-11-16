@@ -134,6 +134,14 @@ class LeadEmissao(Base):
     valor = Column(Numeric(12, 2), nullable=True)
     valor_cotacao = Column(Numeric(12, 2), nullable=True)
     observacao = Column(Text, nullable=True)
+    # dados do contrato pedidos na janela de emissao (16/11/2026)
+    modalidade = Column(String(60), nullable=True)
+    documento = Column(String(20), nullable=True)      # CNPJ ou CPF, so' digitos
+    razao_social = Column(String(255), nullable=True)
+    categoria = Column(String(255), nullable=True)
+    acomodacao = Column(String(20), nullable=True)     # Enfermaria | Apartamento
+    coparticipacao = Column(String(20), nullable=True)  # Com | Sem | Parcial
+    reducao_carencia = Column(String(5), nullable=True)  # Sim | Não
     enviado_por = Column(String(255), nullable=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     enviado_em = Column(TIMESTAMP, nullable=False, server_default=func.now(), index=True)

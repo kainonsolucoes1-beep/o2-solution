@@ -534,15 +534,17 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
       {/* Emissão pede operadora e valor -- mesma janela da ficha */}
       {emissaoOpen && (
         <EmissaoModal
+          leadId={lead.id}
           leadName={lead.name}
           statusLabel={statusLabel(statusAtual)}
           defaultValor={lead.value_potential != null ? lead.value_potential.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
           saving={statusSalvando}
           onCancel={() => setEmissaoOpen(false)}
-          onConfirm={({ operadora, valor, observacao, promotora }) => {
+          onConfirm={({ operadora, valor, observacao, promotora, contrato }) => {
             const v = Number(valor.replace(/\./g, '').replace(',', '.'))
             mudarStatus('emissao', undefined, {
               operadora,
+              ...contrato,
               ...(promotora.trim() ? { promotora: promotora.trim() } : {}),
               ...(valor.trim() && !Number.isNaN(v) ? { valor_contrato: v } : {}),
               ...(observacao.trim() ? { observacao: observacao.trim() } : {}),

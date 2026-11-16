@@ -928,6 +928,16 @@ def list_operadoras_emissao(
     return get_operadoras(db)
 
 
+@router.get("/leads/categorias", response_model=List[str])
+def list_categorias(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Sugestoes pro campo Categoria da janela de emissao: as ja' usadas na ficha."""
+    rows = db.query(Lead.categoria).filter(Lead.categoria.isnot(None), Lead.categoria != "").distinct().all()
+    return sorted({r[0].strip() for r in rows if r[0] and r[0].strip()}, key=str.lower)
+
+
 @router.get("/leads/{lead_id}", response_model=LeadReportItem)
 def get_lead(
     lead_id: str,
@@ -964,6 +974,7 @@ def get_lead(
         receita_categoria=lead.receita_categoria if show_fin else None,
         receita_data_venda=lead.receita_data_venda if show_fin else None,
         data_venda=lead.receita_data_venda,
+        categoria=lead.categoria,
         receita_origem=lead.receita_origem if show_fin else None,
         aviso_previo=bool(lead.aviso_previo) if show_fin else False,
         data_faturamento_previsto=lead.data_faturamento_previsto if show_fin else None,
@@ -1011,6 +1022,14 @@ def update_lead_status(
         valor = body.valor_contrato if body.valor_contrato is not None else lead.value_potential
         obs = (body.observacao or "").strip() or None
         promotora = (body.promotora or "").strip()[:120] or None
+        # dados do contrato: vao pro envio e, os que a ficha tambem tem, pro lead
+        _lim = {"modalidade": 60, "razao_social": 255, "categoria": 255, "acomodacao": 20, "coparticipacao": 20, "reducao_carencia": 5}
+        contrato = {k: (getattr(body, k) or "").strip()[:n] or None for k, n in _lim.items()}
+        contrato["documento"] = "".join(ch for ch in (body.documento or "") if ch.isdigit())[:20] or None
+        contrato = {k: v for k, v in contrato.items() if v is not None}
+        for campo_lead, k in (("modalidade", "modalidade"), ("document", "documento"), ("company", "razao_social"), ("categoria", "categoria")):
+            if k in contrato:
+                setattr(lead, campo_lead, contrato[k])
         ja_em_emissao = (prev_status or "").lower() == "emissao"
         if ja_em_emissao:
             # so' corrige operadora/valor do envio atual -- nao conta um envio novo.
@@ -1038,12 +1057,15 @@ def update_lead_status(
             row.observacao = obs
             if promotora:  # campo vazio ao reabrir a janela nao apaga a promotora ja' definida
                 row.promotora = promotora
+            for k, v in contrato.items():
+                setattr(row, k, v)
             lead.updated_at = now
             db.commit()
             return StatusUpdateResponse(success=True, lead_id=lead.id, status=lead.status)
         db.add(LeadEmissao(
             lead_id=lead.id, operadora=operadora, valor=valor, valor_cotacao=lead.value_potential,
             observacao=obs, promotora=promotora, enviado_por=actor, user_id=current_user.id, enviado_em=now,
+            **contrato,
         ))
 
     lead.status = body.status
