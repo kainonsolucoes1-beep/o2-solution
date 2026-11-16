@@ -254,7 +254,7 @@ function Corpo({ data, onAbrir }: { data: FluxoData; onAbrir: (c: CardDef) => vo
               <dl>
                 <div><dt>Meta do mês</dt><dd>{fmtMeta(meta.meta_valor)}</dd></div>
                 <div><dt><span className="fv-dot" style={{ '--c': 'var(--success)' } as React.CSSProperties} />Realizado</dt><dd>{fmtMeta(meta.progresso)} · {pct(meta.progresso, meta.meta_valor)}%</dd></div>
-                {!encerrado && <div><dt><span className="fv-dot" style={{ '--c': 'color-mix(in srgb, var(--success) 35%, transparent)' } as React.CSSProperties} />Projeção</dt><dd style={{ color: 'var(--success)' }}>{fmtMeta(meta.projecao)}</dd></div>}
+                {!encerrado && <div title={emReais ? 'Realizado + o que está em emissão' : 'Realizado no ritmo dos dias úteis do mês'}><dt><span className="fv-dot" style={{ '--c': 'color-mix(in srgb, var(--success) 35%, transparent)' } as React.CSSProperties} />Projeção</dt><dd style={{ color: 'var(--success)' }}>{fmtMeta(meta.projecao)}</dd></div>}
                 <div><dt>vs {mesCurto(data.mes_anterior)}</dt><dd><Delta cur={meta.progresso} prev={meta.progresso_anterior} bom="up" mesAnt={data.mes_anterior} dinheiro={emReais} /></dd></div>
                 <div><dt>{meta.faltam > 0 ? 'Falta' : 'Acima da meta'}</dt><dd>{fmtMeta(meta.faltam > 0 ? meta.faltam : meta.progresso - meta.meta_valor)}</dd></div>
               </dl>
