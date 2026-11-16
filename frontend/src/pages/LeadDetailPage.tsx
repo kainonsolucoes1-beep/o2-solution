@@ -233,6 +233,11 @@ export default function LeadDetailPage() {
       .then(() => {
         setStatus(newStatus)
         if (lostReason) setLead(prev => prev ? { ...prev, lost_reason: lostReason } : prev)
+        // janela de emissão grava modalidade / CNPJ-CPF / razão social na ficha também
+        if (typeof extra?.documento === 'string') {
+          const e = extra as Record<string, string>
+          setLead(prev => prev ? { ...prev, modalidade: e.modalidade, document: e.documento, ...(e.razao_social ? { company: e.razao_social } : {}) } : prev)
+        }
         setEditingStatus(false)
         setStatusSubMenu(null)
         setEmissaoOpen(false)
@@ -616,13 +621,15 @@ export default function LeadDetailPage() {
       )}
       {emissaoOpen && lead && (
         <EmissaoModal
+          leadId={lead.id}
           leadName={lead.name}
           statusLabel={statusLabel(status)}
           defaultValor={lead.value_potential != null ? lead.value_potential.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
           saving={savingStatus}
           onCancel={() => setEmissaoOpen(false)}
-          onConfirm={({ operadora, valor, observacao, promotora }) => handleStatusChange('emissao', undefined, {
+          onConfirm={({ operadora, valor, observacao, promotora, contrato }) => handleStatusChange('emissao', undefined, {
             operadora,
+            ...contrato,
             ...(promotora.trim() ? { promotora: promotora.trim() } : {}),
             ...(valor.trim() ? { valor_contrato: parseBRNumber(valor) } : {}),
             ...(observacao.trim() ? { observacao: observacao.trim() } : {}),

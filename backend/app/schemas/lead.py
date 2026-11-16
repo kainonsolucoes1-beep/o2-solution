@@ -37,6 +37,7 @@ class LeadReportItem(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     company: Optional[str] = None
+    categoria: Optional[str] = None  # so' na ficha (GET /leads/{id}); vem preenchida na janela de emissao
     titular_menor: Optional[str] = None
     attendant: Optional[str] = None
     origem: Optional[str] = None
@@ -122,6 +123,14 @@ class StatusUpdateRequest(BaseModel):
     valor_contrato: Optional[float] = None
     observacao: Optional[str] = None
     promotora: Optional[str] = None
+    # dados do contrato (janela de emissao); os que existem na ficha tambem atualizam o lead
+    modalidade: Optional[str] = None
+    documento: Optional[str] = None
+    razao_social: Optional[str] = None
+    categoria: Optional[str] = None
+    acomodacao: Optional[str] = None
+    coparticipacao: Optional[str] = None
+    reducao_carencia: Optional[str] = None
 
 
 class StatusUpdateResponse(BaseModel):
