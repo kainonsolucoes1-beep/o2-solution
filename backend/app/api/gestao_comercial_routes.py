@@ -1405,7 +1405,13 @@ def fluxo_vendas(
         du_ate_hoje = du_mes if encerrado else business_days_in_month(year, mon, nb.day)
         du_rest = max(0, du_mes - du_ate_hoje)
         faltam = max(0.0, meta_valor - progresso)
-        projecao = progresso if encerrado else (progresso / du_ate_hoje * du_mes if du_ate_hoje > 0 else 0.0)
+        if encerrado:
+            projecao = progresso
+        elif tipo == "clt":
+            # meta em R$: o que ja' pagou + o que esta' em emissao (venda quase concluida)
+            projecao = progresso + atual["fluxo"]["esteira"]["valor"]
+        else:
+            projecao = progresso / du_ate_hoje * du_mes if du_ate_hoje > 0 else 0.0
         meta = {
             "tipo": tipo, "meta_valor": meta_valor, "progresso": progresso, "progresso_anterior": progresso_ant,
             "projecao": round(projecao), "faltam": faltam, "dias_uteis_restantes": du_rest,
