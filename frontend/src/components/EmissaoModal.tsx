@@ -28,25 +28,54 @@ function mascaraDoc(s: string): string {
   return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2')
 }
 
-function Opcoes({ value, onChange, options, label }: { value: string; onChange: (v: string) => void; options: string[]; label: string }) {
+// Campo de escolha em acordeão (opção A do mockup): fechado mostra a escolha;
+// ao clicar abre as opções e fecha sozinho ao escolher.
+function Acordeao({ label, value, onChange, options, placeholder = 'Selecione', defaultOpen = false, hint, extra }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]
+  placeholder?: string; defaultOpen?: boolean; hint?: string; extra?: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
-    <div role="group" aria-label={label} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {options.map(op => {
-        const active = op === value
-        return (
-          <button
-            key={op} type="button" aria-pressed={active} onClick={() => onChange(op)}
-            style={{
-              padding: '8px 14px', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer',
-              border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-              background: active ? 'var(--accent-weak, #EFF6FF)' : 'var(--bg-card)',
-              color: active ? 'var(--accent)' : 'var(--text-2)', fontWeight: active ? 700 : 500,
-            }}
-          >
-            {op}
-          </button>
-        )
-      })}
+    <div>
+      <span style={labelStyle}>{label} <Req /></span>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          padding: '10px 14px', borderRadius: 10, fontFamily: 'inherit', fontSize: 14, cursor: 'pointer',
+          border: `1px solid ${open ? 'var(--accent)' : 'var(--border-in)'}`, background: 'var(--bg-input)',
+          color: value ? 'var(--text-1)' : 'var(--text-muted)', textAlign: 'left',
+        }}
+      >
+        <span style={{ fontWeight: value ? 600 : 400 }}>{value || placeholder}</span>
+        <ChevronDown size={16} style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+      </button>
+      {open && (
+        <div role="group" aria-label={label} style={{ marginTop: 8, maxHeight: 210, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: 8, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
+          {extra}
+          {options.map(op => {
+            const active = op === value
+            return (
+              <button
+                key={op} type="button" aria-pressed={active}
+                onClick={() => { onChange(op); setOpen(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+                  padding: '9px 12px', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', textAlign: 'left',
+                  border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                  background: active ? 'var(--accent-weak, #EFF6FF)' : 'var(--bg-card)',
+                  color: active ? 'var(--accent)' : 'var(--text-2)', fontWeight: active ? 700 : 500,
+                }}
+              >
+                {op}{active && <Check size={14} />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {hint && <p style={hintStyle}>{hint}</p>}
     </div>
   )
 }
@@ -66,7 +95,6 @@ export default function EmissaoModal({ leadId, leadName, statusLabel, defaultVal
   const [operadoras, setOperadoras] = useState<string[]>([])
   const [loadError, setLoadError] = useState(false)
   const [operadora, setOperadora] = useState('')
-  const [pickerOpen, setPickerOpen] = useState(true)
   const [valor, setValor] = useState(defaultValor)
   const [observacao, setObservacao] = useState('')
   const [promotora, setPromotora] = useState('')
@@ -133,10 +161,7 @@ export default function EmissaoModal({ leadId, leadName, statusLabel, defaultVal
           </p>
         </div>
 
-        <div>
-          <span style={labelStyle}>Modalidade <Req /></span>
-          <Opcoes value={modalidade} onChange={setModalidade} options={opcoesModalidade} label="Modalidade" />
-        </div>
+        <Acordeao label="Modalidade" value={modalidade} onChange={setModalidade} options={opcoesModalidade} />
 
         <div style={{ display: 'grid', gridTemplateColumns: ehCnpj ? 'minmax(0, 1fr) minmax(0, 1.3fr)' : '1fr', gap: 12 }}>
           <div>
@@ -155,67 +180,20 @@ export default function EmissaoModal({ leadId, leadName, statusLabel, defaultVal
           )}
         </div>
 
-        <div>
-          <span style={labelStyle}>Operadora / seguradora <Req /></span>
-          <button
-            type="button"
-            onClick={() => setPickerOpen(o => !o)}
-            aria-expanded={pickerOpen}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-              padding: '10px 14px', borderRadius: 10, fontFamily: 'inherit', fontSize: 14, cursor: 'pointer',
-              border: `1px solid ${pickerOpen ? 'var(--accent)' : 'var(--border-in)'}`, background: 'var(--bg-input)',
-              color: operadora ? 'var(--text-1)' : 'var(--text-muted)', textAlign: 'left',
-            }}
-          >
-            <span style={{ fontWeight: operadora ? 600 : 400 }}>{operadora || 'Selecione a operadora'}</span>
-            <ChevronDown size={16} style={{ flexShrink: 0, transform: pickerOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
-          </button>
-          {pickerOpen && (
-            <div style={{ marginTop: 8, maxHeight: 210, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: 8, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
-              {loadError && <p style={{ gridColumn: '1 / -1', margin: 0, fontSize: 12.5, color: '#DC2626' }}>Não foi possível carregar as operadoras.</p>}
-              {operadoras.map(op => {
-                const active = op === operadora
-                return (
-                  <button
-                    key={op} type="button" aria-pressed={active}
-                    onClick={() => { setOperadora(op); setPickerOpen(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-                      padding: '9px 12px', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', textAlign: 'left',
-                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                      background: active ? 'var(--accent-weak, #EFF6FF)' : 'var(--bg-card)',
-                      color: active ? 'var(--accent)' : 'var(--text-2)', fontWeight: active ? 700 : 500,
-                    }}
-                  >
-                    {op}{active && <Check size={14} />}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-          <p style={hintStyle}>A operadora que vai emitir o contrato. Escolha uma só.</p>
-        </div>
+        <Acordeao
+          label="Operadora / seguradora" value={operadora} onChange={setOperadora} options={operadoras}
+          placeholder="Selecione a operadora" defaultOpen hint="A operadora que vai emitir o contrato. Escolha uma só."
+          extra={loadError && <p style={{ gridColumn: '1 / -1', margin: 0, fontSize: 12.5, color: '#DC2626' }}>Não foi possível carregar as operadoras.</p>}
+        />
 
         <div>
           <span style={labelStyle}>Categoria <Req /></span>
           <Combobox value={categoria} onChange={setCategoria} options={categorias} placeholder="Ex.: nome do plano / produto" />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
-          <div>
-            <span style={labelStyle}>Acomodação <Req /></span>
-            <Opcoes value={acomodacao} onChange={setAcomodacao} options={ACOMODACAO} label="Acomodação" />
-          </div>
-          <div>
-            <span style={labelStyle}>Coparticipação <Req /></span>
-            <Opcoes value={coparticipacao} onChange={setCoparticipacao} options={COPARTICIPACAO} label="Coparticipação" />
-          </div>
-          <div>
-            <span style={labelStyle}>Redução de carências <Req /></span>
-            <Opcoes value={carencia} onChange={setCarencia} options={CARENCIA} label="Redução de carências" />
-          </div>
-        </div>
+        <Acordeao label="Acomodação" value={acomodacao} onChange={setAcomodacao} options={ACOMODACAO} />
+        <Acordeao label="Coparticipação" value={coparticipacao} onChange={setCoparticipacao} options={COPARTICIPACAO} />
+        <Acordeao label="Redução de carências" value={carencia} onChange={setCarencia} options={CARENCIA} />
 
         <div>
           <label htmlFor="emissao-valor" style={labelStyle}>Valor do contrato <Req /></label>
