@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronDown, Menu, X, Pin, PinOff, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, ScrollText, Lightbulb, UserRound, Megaphone, Bell, Clock, AlertTriangle,
+  Settings, LogOut, ChevronDown, Menu, X, Pin, PinOff, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, ScrollText, Lightbulb, UserRound, Presentation, Megaphone, Bell, Clock, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
@@ -292,6 +292,7 @@ export default function Sidebar() {
   // (supervisor troca de agente pelo seletor do topo da tela).
   const meuNome = user ? (user.first_name || user.username) : ''
   const showMeuDesempenho = !!user && (user.role === 'usuario' || user.role === 'supervisor')
+  const showFluxoVendas = showMeuDesempenho || canViewAll
   // "Campanhas": só quem está marcado como operador (Configurações → Usuários)
   // e o admin (supervisão). Igual à checagem do backend em campanhas_routes.py.
   const showCampanhas = !!user && (isAdmin || !!user.is_campanha_operador)
@@ -308,6 +309,8 @@ export default function Sidebar() {
     ...(showMeuDesempenho
       ? [{ to: `/vida-sdr/${encodeURIComponent(meuNome)}?nome=${encodeURIComponent(meuNome)}`, label: 'Meu desempenho', Icon: UserRound }]
       : []),
+    // tela de reunião: operador vê o próprio; admin/diretor/supervisor escolhem no seletor
+    ...(showFluxoVendas ? [{ to: '/fluxo-vendas', label: 'Fluxo de vendas', Icon: Presentation }] : []),
   ]
 
   const linkEl = (to: string) => {
@@ -483,6 +486,7 @@ export default function Sidebar() {
         <>
           <div className="sb-sect">Equipe</div>
           {meuDesempenhoTo && linkEl(meuDesempenhoTo)}
+          {linkEl('/fluxo-vendas')}
           {linkEl('/kpis')}
           {linkEl('/scripts')}
           {linkEl('/sugestoes')}
