@@ -132,6 +132,27 @@ CONVERSION_POINT_ALIASES: dict[str, str] = {
 }
 
 
+# Formulario do Meta -> ponto de conversao. A automacao da agencia manda so o
+# ID do formulario quando ele nao esta cadastrado do lado deles; aqui o SIG
+# traduz na entrada do lead. Formulario novo = uma linha nova.
+META_FORM_CONVERSION_POINTS: dict[str, str] = {
+    "1138607152473995": "Meta Amil - BH",
+    "1903560497496989": "Meta SulAmerica - Campinas",
+}
+
+
+def resolve_meta_form(raw: str | None) -> str | None:
+    """Troca o ID de formulario do Meta pelo nome do ponto de conversao.
+    Aceita o ID puro ou com texto em volta ("Formulario Meta - <id>");
+    qualquer outro valor volta intacto."""
+    if not raw:
+        return raw
+    for form_id in re.findall(r"\d{10,}", raw):
+        if form_id in META_FORM_CONVERSION_POINTS:
+            return META_FORM_CONVERSION_POINTS[form_id]
+    return raw
+
+
 def normalize_conversion_point(raw: str | None) -> str:
     nome = (raw or "").strip() or "Não informado"
     return CONVERSION_POINT_ALIASES.get(nome.lower(), nome)

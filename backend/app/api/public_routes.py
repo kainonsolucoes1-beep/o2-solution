@@ -19,7 +19,7 @@ from app.api.notificacoes_routes import notificar_novo_lead
 from app.models import Lead, LeadNote, LeadSinalPendente, User
 from app.models.app_settings import AppSettings
 from app.teams import TEAMS, team_key_setting, team_rr_index_setting, team_attendant_names, fixed_attendant
-from app.lead_utils import normalize_current_plan as _normalize_current_plan
+from app.lead_utils import normalize_current_plan as _normalize_current_plan, resolve_meta_form
 
 from app.duplicidade import lead_parecido, marcar_duplicado
 
@@ -340,7 +340,7 @@ def create_public_lead(
     # "Site - Plano Odonto..." é ponto de conversão, não origem: lead de site
     # entra como Orgânico (o site já vem em conversion_point)
     origem = (body.origin or "").strip()
-    conversion_point = body.conversion_point
+    conversion_point = resolve_meta_form(body.conversion_point)
     if origem.lower().replace(" ", "").startswith("site-"):
         conversion_point = conversion_point or origem
         origem = ""
