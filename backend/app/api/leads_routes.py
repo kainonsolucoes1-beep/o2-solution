@@ -886,7 +886,7 @@ def list_conversion_points(
     # ficha, e a pessoa cadastrando escolhe uma delas ao acaso.
     points = sorted({normalize_conversion_point(r.conversion_point) for r in rows})
     # opcoes fixas, disponiveis mesmo sem nenhum lead ainda usar esse valor
-    for fixed in ("Adm", "SMS"):
+    for fixed in ("Adm", "SMS", "Meta SulAmerica - Campinas", "Meta Amil - BH"):
         if fixed not in points:
             points.append(fixed)
     points.sort()
