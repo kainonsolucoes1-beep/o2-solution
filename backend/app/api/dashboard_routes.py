@@ -606,17 +606,26 @@ def dashboard_performance(
     # orgânico separado pela Origem da ficha (Google, Site, Orgânico...), cada
     # canal com os próprios pontos de conversão -- um quadro por canal no card
     canais_count: dict = defaultdict(lambda: defaultdict(int))
+    # Discadora tem quadro proprio (mesma regra do Placar do Dia): a Origem da
+    # ficha diz "Discadora", entao nao faz sentido aparecer como "SDR"
+    discadora_count: dict = defaultdict(int)
     for origin, notes, conversion_point in hoje_origem_rows:
         if is_organico(origin, conversion_point):
             cp = normalize_conversion_point(conversion_point)
             conv_points_count[cp] += 1
             canais_count[_canal_label(origin)][cp] += 1
+        elif "discadora" in (origin or "").strip().lower():
+            discadora_count[_drilldown_base_label(conversion_point, notes)] += 1
         else:
             bases_count[_drilldown_base_label(conversion_point, notes)] += 1
     captacao_hoje_origem = {
         "bases": [
             {"label": k, "count": v}
             for k, v in sorted(bases_count.items(), key=lambda kv: kv[1], reverse=True)
+        ],
+        "discadora": [
+            {"label": k, "count": v}
+            for k, v in sorted(discadora_count.items(), key=lambda kv: kv[1], reverse=True)
         ],
         "conversion_points": [
             {"label": k, "count": v}
