@@ -309,7 +309,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
               ))}
             </div>
           </div>
-          <div className="fva-dh"><span className="fva-big">{brl0(totG)}</span><span className="fva-sub">a receber · {nCt(ativos)}</span></div>
+          <div className="fva-dh"><span className="fva-big">{brl0(totG)}</span><span className="fva-sub">a receber de hoje em diante · {nCt(ativos)}</span></div>
           <div className="fva-curva">
             <svg viewBox={`0 0 ${GW} ${GH}`} role="img" aria-label={`Saldo da carteira no início de cada mês: ${ms.map((m, i) => `${mesLongo(m)} ${brl0(saldo[i])}`).join(', ')}`}>
               <defs><linearGradient id="fva-gbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--accent)" stopOpacity=".22" /><stop offset="1" stopColor="var(--accent)" stopOpacity="0" /></linearGradient></defs>
@@ -318,13 +318,13 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
               <path d={linha} className="ln" />
               {saldo.map((v, i) => (
                 <g key={ms[i]}>
-                  <circle cx={gx(i)} cy={gy(v)} r={i === 0 ? 4.5 : 3} className={i === 0 ? 'on' : ''}><title>{mesLongo(ms[i])}: saldo {brl0(v)} · entra {brl0(porMes[i])} no mês</title></circle>
+                  <circle cx={gx(i)} cy={gy(v)} r={i === 0 ? 4.5 : 3} className={i === 0 ? 'on' : ''}><title>{i === 0 ? `hoje: falta entrar ${brl0(v)} · ${brl0(porMes[i])} ainda em ${mesLongo(ms[i])}` : `1º de ${mesLongo(ms[i])}: falta entrar ${brl0(v)} · ${brl0(porMes[i])} no mês`}</title></circle>
                   {(i === 0 || i === n - 1 || n <= 6) && <text x={gx(i)} y={gy(v) - 10} textAnchor={ancora(i)} className="v">{mil(v)}</text>}
-                  <text x={gx(i)} y={GH - 6} textAnchor={ancora(i)} className="m">{mes3(ms[i])}</text>
+                  <text x={gx(i)} y={GH - 6} textAnchor={ancora(i)} className="m">{i === 0 ? 'hoje' : `1º ${mes3(ms[i])}`}</text>
                 </g>
               ))}
             </svg>
-            <div className="fva-sub">Saldo a receber no início de cada mês{zera > 0 && <> · a carteira atual se esgota em <b>{mesLongo(ms[zera])}</b></>}</div>
+            <div className="fva-sub">Quanto ainda falta entrar, de hoje até o início de cada mês{zera > 0 && <> · a carteira atual se esgota em <b>{mesLongo(ms[zera])}</b></>}</div>
           </div>
         </div>
       </div>
