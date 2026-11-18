@@ -225,7 +225,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
     gar: { tit: `A receber em ${lente.m ? `${mesLongo(lente.m)}/${lente.m.slice(0, 4)}` : ''}`, dt: 'Vencimento', vl: 'A receber' },
   }
   const lt = LT[L]
-  const chave = (c: Contrato) => c[dim] || 'Não informado'
+  const chave = (c: Contrato) => { const v = c[dim]; return v ? nomeOp(v) : 'Não informado' }
   const acc: Record<string, number> = {}
   linhas.forEach(r => { acc[chave(r.c)] = (acc[chave(r.c)] || 0) + r.val })
   const fatias = Object.entries(acc).sort((a, b) => b[1] - a[1])
@@ -432,10 +432,10 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
               </div>
               {fatias.length > 0 && (
                 <div className="fva-pills" role="group" aria-label="Filtrar contratos">
-                  <button className={`fva-pill${filtro ? '' : ' on'}`} aria-pressed={!filtro} onClick={() => setFiltro(null)}>Todos <span>{brl0(totL)}</span></button>
                   {fatias.map(([k, v]) => (
                     <button key={k} className={`fva-pill${filtro === k ? ' on' : ''}`} aria-pressed={filtro === k} title={`${k}: ${brl0(v)}`} onClick={() => setFiltro(k)}>{k} <span>{pct(v, totL)}%</span></button>
                   ))}
+                  <button className={`fva-pill${filtro ? '' : ' on'}`} aria-pressed={!filtro} onClick={() => setFiltro(null)}>Todos <span>{brl0(totL)}</span></button>
                 </div>
               )}
             </div>
@@ -461,9 +461,9 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
                     const rc = recebido(c)
                     return (
                       <tr key={c.id} tabIndex={0} className={c.estorno ? 'est' : ''} onClick={() => setPeek(c.id)} onKeyDown={e => { if (e.key === 'Enter') setPeek(c.id) }}>
-                        <td className="nm"><b>{c.nome}</b><small>{c.modalidade || '—'} · {brl0(total(c))}{equipe && c.atendente && <> · <span className="atd">{c.atendente}</span></>}</small></td>
+                        <td className="nm"><b>{c.nome}</b><small>{c.modalidade ? nomeOp(c.modalidade) : '—'} · {brl0(total(c))}{equipe && c.atendente && <> · <span className="atd">{c.atendente}</span></>}</small></td>
                         <td className="mut num">{c.venda ? ddmm(c.venda) : '—'}</td>
-                        <td className="nm"><b className="op">{c.operadora ? nomeOp(c.operadora) : '—'}</b><small>{c.promotora || '—'}</small></td>
+                        <td className="nm"><b className="op">{c.operadora ? nomeOp(c.operadora) : '—'}</b><small>{c.promotora ? nomeOp(c.promotora) : '—'}</small></td>
                         <td>
                           <div className="fva-pgb" title={c.parcelas.map(p => `${p.numero ?? '—'}ª ${brl0(p.valor)} · ${p.recebida ? 'recebida' : p.data && p.data < K.hoje ? 'vencida' : 'a receber'}`).join('\n')}>
                             {c.parcelas.map((p, i) => <i key={i} className={p.recebida ? 'ok' : p.data && p.data < K.hoje ? 'late' : ''} />)}
