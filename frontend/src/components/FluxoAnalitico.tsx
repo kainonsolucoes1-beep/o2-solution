@@ -29,7 +29,7 @@ const addM = (ym: string, n: number) => {
   const d = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + n, 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
-const brl0 = (n: number) => 'R$ ' + Math.round(n).toLocaleString('pt-BR')
+const brl0 = (n: number) => 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0)
 const mil = (v: number) => !v ? '—' : v >= 10000 ? Math.round(v / 1000) + ' mil' : v >= 1000 ? (v / 1000).toFixed(1).replace('.', ',') + ' mil' : brl0(v)
 const nCt = (n: number) => `${n} ${n === 1 ? 'contrato' : 'contratos'}`

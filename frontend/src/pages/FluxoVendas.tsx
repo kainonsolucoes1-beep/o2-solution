@@ -69,7 +69,7 @@ function ultimosMeses(n: number): string[] {
 }
 
 const brl2 = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const brl0 = (n: number) => 'R$ ' + Math.round(n).toLocaleString('pt-BR')
+const brl0 = (n: number) => 'R$ ' + brl2(n)
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0)
 const leadsTxt = (q: number) => (q === 1 ? 'lead' : 'leads')
 
