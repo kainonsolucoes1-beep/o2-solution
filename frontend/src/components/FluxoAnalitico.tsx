@@ -123,7 +123,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
       }
     })
     // comparação justa: mês em andamento vs mês anterior ATÉ O MESMO DIA
-    let ant: { ger: number; rec: number } | null = null, antLabel = ''
+    let ant: { ger: number; rec: number } | null = null
     if (!T) {
       const pm = addM(mes, -1), corte = parcial ? `${pm}-${hoje.slice(8, 10)}` : null
       const ok = (d: string | null) => !!d && d.slice(0, 7) === pm && (!corte || d <= corte)
@@ -131,7 +131,6 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
         ger: soma(data.contratos.filter(c => ok(c.venda)).map(total)),
         rec: soma(parcs.filter(x => x.p.recebida && ok(x.p.data)).map(x => x.p.valor)),
       }
-      antLabel = parcial ? `${mes3(pm)}. até o dia ${+hoje.slice(8, 10)}` : mesLongo(pm)
     }
 
     // Velocidade de vendas: leads × taxa de conversão × ticket ÷ ciclo
@@ -160,7 +159,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
     const futuras = parcs.filter(x => !x.p.recebida && !x.c.estorno && x.p.data && x.p.data >= hoje)
 
     return {
-      T, hoje, curYM, parcial, cs, ger, rec, arec, est, emRisco, serie, ant, antLabel,
+      T, hoje, curYM, parcial, cs, ger, rec, arec, est, emRisco, serie, ant,
       n: cs.length, ticket: cs.length ? ger / cs.length : 0,
       nRec: nC(pRec), nRecAnt: T ? 0 : nC(pRec.filter(x => !noP(x.c.venda))), nArec: nC(pArec),
       vencN: pArec.filter(x => x.p.data && x.p.data < hoje).length,
@@ -232,7 +231,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
 
   return (
     <section className="fva">
-      <h2 className="fva-h2">Analítico financeiro <span className="fva-esc">{escopo}</span><span className="fva-lock">🔒 só admin, diretor, financeiro e coordenador</span></h2>
+      <h2 className="fva-h2">Analítico financeiro <span className="fva-esc">{escopo}</span></h2>
 
       {/* ---- cards do topo ---- */}
       <div className={`fva-kpis${K.previsao !== null ? ' k5' : ''}`}>
@@ -272,11 +271,6 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
             </div>
           </div>
         )}
-      </div>
-      <div className="fva-nota">
-        {K.T
-          ? 'Todo o período: gerada = todas as vendas · recebida = tudo que já entrou · a receber = tudo que ainda falta entrar'
-          : `Gerada = vendas com data no mês · recebida e a receber = parcelas com data no mês, de qualquer venda · variação vs ${K.antLabel}${K.parcial ? ' (comparação justa)' : ''}`} · minilinha = últimos 4 meses.
       </div>
 
       {/* ---- velocidade + garantida ---- */}
