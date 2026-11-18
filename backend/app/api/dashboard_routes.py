@@ -882,6 +882,7 @@ def placar_do_dia(
             "min": local.minute,
             "grupo": _placar_grupo(r.origin, r.conversion_point, r.campanha_midia, person_names),
             "origem": (r.origin or "").strip() or None,
+            "ponto": (r.conversion_point or "").strip() or None,
             "status": _PLACAR_STATUS.get(st, "outro"),
             "status_raw": r.status,
             "atendente": atendente,
