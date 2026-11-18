@@ -145,13 +145,25 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
       const ticket = vendas ? s('soma_ticket') / vendas : 0
       const ciclo = s('ciclo_n') ? s('ciclo_soma') / s('ciclo_n') : 0
       const fr = soma(ms.map(frac)), leadsMes = fr ? s('leads') / fr : 0
-      return { leads: ms.length > 1 ? leadsMes : s('leads'), taxa, ticket, ciclo, v: ciclo ? leadsMes * taxa * ticket / ciclo : 0, tem: rs.length > 0 }
+      return { leads: ms.length > 1 ? leadsMes : s('leads'), leadsMes, taxa, ticket, ciclo, v: ciclo ? leadsMes * taxa * ticket / ciclo : 0, tem: rs.length > 0 }
     }
     const velMeses = T ? data.velocidade.map(v => v.mes) : [mes]
     const vel = velOf(velMeses)
     const hist = T ? [] : [-3, -2, -1].map(i => velOf([addM(mes, i)])).filter(h => h.tem)
+    // mês sem venda paga com data ainda não tem ciclo: usa a média dos meses anteriores (estimado)
+    const hc = hist.filter(h => h.ciclo > 0)
+    let cicloEst = false
+    if (!vel.ciclo && hc.length) {
+      vel.ciclo = soma(hc.map(h => h.ciclo)) / hc.length
+      vel.v = vel.leadsMes * vel.taxa * vel.ticket / vel.ciclo
+      cicloEst = true
+    }
     const prop = parcial ? frac(mes) : 1
-    const med = (k: 'leads' | 'taxa' | 'ticket' | 'ciclo' | 'v') => hist.length ? soma(hist.map(h => h[k])) / hist.length * (k === 'leads' ? prop : 1) : 0
+    // ciclo e velocidade: só meses que tiveram ciclo (senão a média puxa pra zero)
+    const med = (k: 'leads' | 'taxa' | 'ticket' | 'ciclo' | 'v') => {
+      const base = k === 'ciclo' || k === 'v' ? hc : hist
+      return base.length ? soma(base.map(h => h[k])) / base.length * (k === 'leads' ? prop : 1) : 0
+    }
     const histLbl = hist.length ? `${mes3(addM(mes, -hist.length))}–${mes3(addM(mes, -1))}` : ''
     const velLbl = velMeses.length ? `${mes3(velMeses[0])}–${mes3(velMeses[velMeses.length - 1])}` : ''
 
@@ -165,7 +177,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
       vencN: pArec.filter(x => x.p.data && x.p.data < hoje).length,
       estV: soma(est.map(c => c.estorno!.valor)),
       previsao: parcial ? rec + arec - emRisco : null,
-      vel, med, histLbl, velLbl, futuras,
+      vel, cicloEst, med, histLbl, velLbl, futuras,
     }
   }, [data, mes])
 
@@ -212,7 +224,13 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
     const d = Math.round(((a - b) / b) * 100)
     return { d, ok: d === 0 ? null : (d > 0) === (bom === 'up') }
   }
-  const fat = FAT.map(x => ({ ...x, a: K.vel[x.k], md: K.med(x.k), r: K.T ? null : variacao(K.vel[x.k], K.med(x.k), x.bom) }))
+  const semCiclo = (k: string) => k === 'ciclo' && (K.cicloEst || !K.vel.ciclo)
+  const fat = FAT.map(x => ({
+    ...x, a: K.vel[x.k], md: K.med(x.k),
+    r: K.T || semCiclo(x.k) ? null : variacao(K.vel[x.k], K.med(x.k), x.bom),
+    txt: x.k === 'ciclo' && !K.vel.ciclo ? '—' : (x.k === 'ciclo' && K.cicloEst ? '~' : '') + x.f(K.vel[x.k]),
+    extra: x.k === 'ciclo' && K.cicloEst ? ' · estimado pela média dos meses anteriores (ainda sem venda paga no mês)' : '',
+  }))
   const pior = fat.filter(x => x.r?.ok === false).sort((a, b) => Math.abs(b.r!.d) - Math.abs(a.r!.d))[0]
   const melhor = fat.filter(x => x.r?.ok).sort((a, b) => Math.abs(b.r!.d) - Math.abs(a.r!.d))[0]
 
@@ -281,13 +299,13 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
             <span className="fva-sub">{K.T ? `média ${K.velLbl}` : K.histLbl ? `vs média ${K.histLbl}` : 'sem meses anteriores'}</span>
           </div>
           <div className="fva-dh">
-            <span className="fva-big">{brl0(K.vel.v)}<small>/dia</small></span>
-            {!K.T && K.histLbl && <VarPct a={K.vel.v} b={K.med('v')} sufixo="média" />}
+            <span className="fva-big">{K.vel.ciclo ? <>{brl0(K.vel.v)}<small>/dia</small></> : '—'}</span>
+            {!K.T && K.histLbl && K.vel.ciclo > 0 && <VarPct a={K.vel.v} b={K.med('v')} sufixo="média" />}
           </div>
           <ul className="fva-vf">
             {fat.map(x => (
-              <li key={x.k} title={`${x.dica}${K.T || !K.histLbl ? '' : ` · média ${x.f(x.md)}${x.k === 'leads' && K.parcial ? ` até o dia ${+K.hoje.slice(8, 10)}` : ''}`}`}>
-                <span className="vt">{x.t}</span><b>{x.f(x.a)}</b>
+              <li key={x.k} title={`${x.dica}${x.extra}${K.T || !K.histLbl ? '' : ` · média ${x.f(x.md)}${x.k === 'leads' && K.parcial ? ` até o dia ${+K.hoje.slice(8, 10)}` : ''}`}`}>
+                <span className="vt">{x.t}</span><b>{x.txt}</b>
                 {x.r ? (x.r.ok === null ? <span className="fva-vp flat">= média</span> : <span className={`fva-vp ${x.r.ok ? 'good' : 'bad'}`}>{x.r.d > 0 ? '▲' : '▼'} {Math.abs(x.r.d)}%</span>) : <span />}
               </li>
             ))}
