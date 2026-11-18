@@ -168,7 +168,8 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
     const velLbl = velMeses.length ? `${mes3(velMeses[0])}–${mes3(velMeses[velMeses.length - 1])}` : ''
 
     // Receita garantida: parcelas futuras não vencidas, sem contratos marcados p/ estorno
-    const futuras = parcs.filter(x => !x.p.recebida && !x.c.estorno && x.p.data && x.p.data >= hoje)
+    // a partir do mês atual inteiro (inclui as vencidas deste mês) -> a coluna do mês bate com "A receber no mês"
+    const futuras = parcs.filter(x => !x.p.recebida && !x.c.estorno && x.p.data && x.p.data >= `${curYM}-01`)
 
     return {
       T, hoje, curYM, parcial, cs, ger, rec, arec, est, emRisco, serie, ant,
@@ -234,17 +235,17 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
   const pior = fat.filter(x => x.r?.ok === false).sort((a, b) => Math.abs(b.r!.d) - Math.abs(a.r!.d))[0]
   const melhor = fat.filter(x => x.r?.ok).sort((a, b) => Math.abs(b.r!.d) - Math.abs(a.r!.d))[0]
 
-  // ---- Receita garantida (curva de saldo) ----
+  // ---- Receita garantida (curva: quanto entra em cada mês) ----
   const ms = Array.from({ length: garP }, (_, i) => addM(K.curYM, i))
   const porMes = ms.map(m => soma(K.futuras.filter(x => x.p.data!.slice(0, 7) === m).map(x => x.p.valor)))
-  const saldo = porMes.map((_, i) => soma(porMes.slice(i)))
-  const totG = saldo[0] || 0
-  const ativos = new Set(K.futuras.map(x => x.c.id)).size
-  const zera = saldo.findIndex(v => v <= 0)
+  const totG = soma(porMes)
+  const ativos = new Set(K.futuras.filter(x => ms.includes(x.p.data!.slice(0, 7))).map(x => x.c.id)).size
+  // 1º mês a partir do qual não entra mais nada (dentro do período mostrado)
+  const zera = porMes.findIndex((_, i) => soma(porMes.slice(i)) <= 0)
   const GW = 520, GH = 150, gm = { l: 8, r: 8, t: 26, b: 22 }, n = ms.length
   const gx = (i: number) => gm.l + (n === 1 ? 0 : (i * (GW - gm.l - gm.r)) / (n - 1))
-  const gy = (v: number) => gm.t + (GH - gm.t - gm.b) * (1 - v / Math.max(1, totG))
-  const linha = saldo.map((v, i) => `${i ? 'L' : 'M'}${gx(i).toFixed(1)} ${gy(v).toFixed(1)}`).join(' ')
+  const gy = (v: number) => gm.t + (GH - gm.t - gm.b) * (1 - v / Math.max(1, ...porMes))
+  const linha = porMes.map((v, i) => `${i ? 'L' : 'M'}${gx(i).toFixed(1)} ${gy(v).toFixed(1)}`).join(' ')
   const ancora = (i: number) => (i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle')
 
   return (
@@ -320,29 +321,29 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
 
         <div className="fva-dp gar">
           <div className="fva-dh">
-            <h4>Receita garantida <span className="fva-info" title="Parcelas já contratadas e ainda não vencidas. Entram mesmo sem nova venda. Parcelas vencidas e contratos marcados p/ estorno ficam de fora.">i</span></h4>
+            <h4>Receita garantida <span className="fva-info" title="Quanto entra em cada mês, de parcelas já contratadas (entram mesmo sem nova venda). O mês atual é o mesmo valor do card A receber no mês. Contratos marcados p/ estorno ficam de fora.">i</span></h4>
             <div className="fva-seg" role="group" aria-label="Período">
               {[[3, '3 meses'], [6, '6 meses'], [12, '1 ano']].map(([v, t]) => (
                 <button key={v} aria-pressed={garP === v} onClick={() => { setGarP(+v); GAR_P = +v; try { localStorage.setItem('fva-gar', String(v)) } catch { /* */ } }}>{t}</button>
               ))}
             </div>
           </div>
-          <div className="fva-dh"><span className="fva-big">{brl0(totG)}</span><span className="fva-sub">a receber de hoje em diante · {nCt(ativos)}</span></div>
+          <div className="fva-dh"><span className="fva-big">{brl0(totG)}</span><span className="fva-sub">a receber nos próximos {garP} meses · {nCt(ativos)}</span></div>
           <div className="fva-curva">
-            <svg viewBox={`0 0 ${GW} ${GH}`} role="img" aria-label={`Saldo da carteira no início de cada mês: ${ms.map((m, i) => `${mesLongo(m)} ${brl0(saldo[i])}`).join(', ')}`}>
+            <svg viewBox={`0 0 ${GW} ${GH}`} role="img" aria-label={`A receber por mês: ${ms.map((m, i) => `${mesLongo(m)} ${brl0(porMes[i])}`).join(', ')}`}>
               <defs><linearGradient id="fva-gbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--accent)" stopOpacity=".22" /><stop offset="1" stopColor="var(--accent)" stopOpacity="0" /></linearGradient></defs>
               <line x1={gm.l} x2={GW - gm.r} y1={GH - gm.b} y2={GH - gm.b} className="base" />
               <path d={`${linha} L${gx(n - 1)} ${GH - gm.b} L${gx(0)} ${GH - gm.b} Z`} fill="url(#fva-gbg)" />
               <path d={linha} className="ln" />
-              {saldo.map((v, i) => (
+              {porMes.map((v, i) => (
                 <g key={ms[i]}>
-                  <circle cx={gx(i)} cy={gy(v)} r={i === 0 ? 4.5 : 3} className={i === 0 ? 'on' : ''}><title>{i === 0 ? `hoje: falta entrar ${brl0(v)} · ${brl0(porMes[i])} ainda em ${mesLongo(ms[i])}` : `1º de ${mesLongo(ms[i])}: falta entrar ${brl0(v)} · ${brl0(porMes[i])} no mês`}</title></circle>
+                  <circle cx={gx(i)} cy={gy(v)} r={i === 0 ? 4.5 : 3} className={i === 0 ? 'on' : ''}><title>{`${mesLongo(ms[i])}: entra ${brl0(v)}`}</title></circle>
                   {(i === 0 || i === n - 1 || n <= 6) && <text x={gx(i)} y={gy(v) - 10} textAnchor={ancora(i)} className="v">{mil(v)}</text>}
-                  <text x={gx(i)} y={GH - 6} textAnchor={ancora(i)} className="m">{i === 0 ? 'hoje' : `1º ${mes3(ms[i])}`}</text>
+                  <text x={gx(i)} y={GH - 6} textAnchor={ancora(i)} className="m">{mes3(ms[i])}</text>
                 </g>
               ))}
             </svg>
-            <div className="fva-sub">Quanto ainda falta entrar, de hoje até o início de cada mês{zera > 0 && <> · a carteira atual se esgota em <b>{mesLongo(ms[zera])}</b></>}</div>
+            <div className="fva-sub">Quanto entra em cada mês{zera > 0 && <> · a carteira atual se esgota em <b>{mesLongo(ms[zera])}</b></>}</div>
           </div>
         </div>
       </div>
