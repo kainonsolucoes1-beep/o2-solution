@@ -134,7 +134,6 @@
 .fva-h2 { margin: 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .fva-h2::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .fva-esc { font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--text-1); background: var(--bg-card); border: 1px solid var(--border); border-radius: 99px; padding: 3px 10px; }
-.fva-lock { font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--text-subtle); border: 1px solid var(--border); border-radius: 99px; padding: 2px 8px; }
 .fva-vp { font-size: 11.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .fva-vp.good { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
 .fva-vp.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
@@ -166,7 +165,6 @@
 .fva-kf small b { color: var(--text-1); }
 .fva-link { border: 0; background: none; padding: 0; color: var(--danger); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; justify-self: start; }
 .fva-link.sm { color: var(--accent); margin-left: 8px; }
-.fva-nota { font-size: 11.5px; color: var(--text-subtle); }
 
 .fva-dono { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 900px) { .fva-dono { grid-template-columns: 1fr; } }
