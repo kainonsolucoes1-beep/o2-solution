@@ -437,7 +437,7 @@ export default function LeadDetailPage() {
     api.post<{ retorno_agendado?: string | null; status_atualizado?: string | null }>(`/api/v1/leads/${id}/notes`, { content: noteText.trim() })
       .then(res => {
         setNoteText('')
-        // anotação em lead fora de status final agenda retorno em 2 dias úteis (10/11/2026)
+        // anotação em lead fora de status final agenda retorno: 2 dias úteis em proposta, 1 nos demais (18/11/2026)
         // e leva Novo / Sem retorno / Aguardando dados pra Agendado
         const r = res.data?.retorno_agendado
         const st = res.data?.status_atualizado
