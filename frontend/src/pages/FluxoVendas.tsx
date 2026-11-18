@@ -119,6 +119,7 @@ export default function FluxoVendas() {
   const [me, setMe] = useState<string>('')
   const [role, setRole] = useState<string>('')
   const [agentes, setAgentes] = useState<string[]>([])
+  const [agentesOk, setAgentesOk] = useState(false)
   const [data, setData] = useState<FluxoData | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState('')
@@ -129,7 +130,9 @@ export default function FluxoVendas() {
   const ana = fin && sp.get('vista') === 'analitico'
   // no Analítico: "Toda a equipe" (op=*), "Todo o período" (mes=todos) e 12 meses
   const meses = useMemo(() => ultimosMeses(ana ? 12 : 3), [ana])
-  const opUrl = sp.get('op') || me
+  // quem não é operador (admin/diretor/supervisor) abre no 1º operador da lista, não no próprio nome
+  const padrao = !agentesOk ? '' : (role !== 'usuario' && agentes[0]) || me
+  const opUrl = sp.get('op') || padrao
   const op = !ana && opUrl === '*' ? me : opUrl
   const mesUrl = sp.get('mes') || ''
   const mes = (ana && mesUrl === 'todos') || meses.includes(mesUrl) ? mesUrl : meses[0]
@@ -139,7 +142,7 @@ export default function FluxoVendas() {
       .then(r => { setMe(r.data.first_name || r.data.username); setRole(r.data.role) }).catch(() => {})
     // só admin/diretor/supervisor recebem a lista (403 pros demais: o seletor some)
     api.get<{ nome: string }[]>('/api/v1/gestao-comercial/vida-sdr/agentes')
-      .then(r => setAgentes(r.data.map(a => a.nome))).catch(() => setAgentes([]))
+      .then(r => setAgentes(r.data.map(a => a.nome))).catch(() => setAgentes([])).finally(() => setAgentesOk(true))
   }, [])
 
   const carregar = useCallback((silencioso = false) => {
