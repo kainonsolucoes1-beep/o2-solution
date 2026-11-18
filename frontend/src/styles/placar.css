@@ -104,6 +104,13 @@ html.dark .pl .tt{box-shadow:0 12px 32px rgba(0,0,0,.5)}
 .pl .orow .track i{display:block;height:100%;border-radius:0 4px 4px 0}
 .pl .orow .n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 .pl .orow .pct{text-align:right;color:var(--tx3);font-size:12px;font-variant-numeric:tabular-nums}
+.pl .osubs{padding-bottom:4px}
+.pl .orow.osub{padding:3px 6px;font-size:12.5px;color:var(--tx2)}
+.pl .orow.osub .nm{font-weight:400;padding-left:16px;gap:7px}
+.pl .orow.osub .nm::before{content:"";width:7px;height:10px;margin-top:-6px;flex:none;border-left:1.5px solid var(--line2);border-bottom:1.5px solid var(--line2);border-bottom-left-radius:3px}
+.pl .orow.osub .track{height:4px;background:transparent}
+.pl .orow.osub .track i{background:color-mix(in srgb,var(--s1) 55%,transparent);border-radius:2px}
+.pl .orow.osub .n{font-weight:600}
 .pl .ofoot{display:flex;justify-content:space-between;border-top:1px solid var(--line2);margin-top:10px;padding-top:10px;font-size:12px;color:var(--tx3)}
 .pl .ofoot b{color:var(--tx);font-weight:600}
 
