@@ -43,6 +43,9 @@ const dLocal = (iso: string | null) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 const ymLocal = (iso: string | null) => dLocal(iso).slice(0, 7)
+// operadora vem em caixa alta ("HAPVIDA PF") -> "Hapvida PF" (siglas de 2 letras ficam)
+const nomeOp = (s: string) => s.toLowerCase().split(' ').map(w =>
+  w.length === 2 && !['de', 'da', 'do'].includes(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`
 
 function VarPct({ a, b, bom = 'up', sufixo = '' }: { a: number; b: number; bom?: 'up' | 'down'; sufixo?: string }) {
@@ -460,7 +463,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
                       <tr key={c.id} tabIndex={0} className={c.estorno ? 'est' : ''} onClick={() => setPeek(c.id)} onKeyDown={e => { if (e.key === 'Enter') setPeek(c.id) }}>
                         <td className="nm"><b>{c.nome}</b><small>{c.modalidade || '—'} · {brl0(total(c))}{equipe && c.atendente && <> · <span className="atd">{c.atendente}</span></>}</small></td>
                         <td className="mut num">{c.venda ? ddmm(c.venda) : '—'}</td>
-                        <td className="nm"><b className="op">{c.operadora || '—'}</b><small>{c.promotora || '—'}</small></td>
+                        <td className="nm"><b className="op">{c.operadora ? nomeOp(c.operadora) : '—'}</b><small>{c.promotora || '—'}</small></td>
                         <td>
                           <div className="fva-pgb" title={c.parcelas.map(p => `${p.numero ?? '—'}ª ${brl0(p.valor)} · ${p.recebida ? 'recebida' : p.data && p.data < K.hoje ? 'vencida' : 'a receber'}`).join('\n')}>
                             {c.parcelas.map((p, i) => <i key={i} className={p.recebida ? 'ok' : p.data && p.data < K.hoje ? 'late' : ''} />)}
