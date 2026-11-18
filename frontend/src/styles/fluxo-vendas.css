@@ -195,6 +195,15 @@
 .fva-curva circle.on { fill: var(--accent); }
 .fva-curva .v { font-size: 11px; font-weight: 600; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
 .fva-curva .m { font-size: 11px; fill: var(--text-subtle); }
+.fva-curva .guia { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 3; opacity: .55; }
+.fva-curva .hit { fill: transparent; cursor: pointer; outline: none; }
+.fva-curva g.at .m { fill: var(--accent); font-weight: 700; }
+.fva-curva g.at .v { fill: currentColor; }
+.fva-k.ck { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.fva-k.ck:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.fva-k.ck:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fva-k.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.fva-link.vt { margin-left: 0; align-self: center; }
 
 .fva-ctb { display: grid; gap: 12px; padding: 0 20px 16px; }
 .fva-tool { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
