@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent as KEv } from 'react'
 import { ChevronDown } from 'lucide-react'
 import api from '../api'
 import { parseUTC } from '../utils/date'
@@ -37,11 +37,12 @@ const soma = (xs: number[]) => xs.reduce((s, x) => s + x, 0)
 const total = (c: Contrato) => soma(c.parcelas.map(p => p.valor))
 const recebido = (c: Contrato) => soma(c.parcelas.filter(p => p.recebida).map(p => p.valor))
 const aReceber = (c: Contrato) => soma(c.parcelas.filter(p => !p.recebida).map(p => p.valor))
-const ymLocal = (iso: string | null) => {
+const dLocal = (iso: string | null) => {
   if (!iso) return ''
   const d = new Date(parseUTC(iso))
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+const ymLocal = (iso: string | null) => dLocal(iso).slice(0, 7)
 const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`
 
 function VarPct({ a, b, bom = 'up', sufixo = '' }: { a: number; b: number; bom?: 'up' | 'down'; sufixo?: string }) {
@@ -71,7 +72,10 @@ function Spark({ vals, cor, parcial }: { vals: number[]; cor: string; parcial: b
 
 type Dim = 'operadora' | 'promotora' | 'modalidade'
 const DIMS: [Dim, string][] = [['operadora', 'Operadora'], ['promotora', 'Promotora'], ['modalidade', 'Modalidade']]
-type SortK = 'cli' | 'venda' | 'opr' | 'parc' | 'rec' | 'arec'
+type SortK = 'cli' | 'venda' | 'opr' | 'parc' | 'rec' | 'arec' | 'data' | 'val'
+// recorte da lista de contratos: card clicado (ger/rec/arec/est/prev) ou ponto do gráfico (gar + mês)
+type Lente = { t: 'ger' | 'rec' | 'arec' | 'est' | 'prev' | 'gar'; m?: string }
+interface Linha { c: Contrato; val: number; datas: string[] }
 
 let GAR_P = 6
 try { GAR_P = +(localStorage.getItem('fva-gar') || 6) || 6 } catch { /* sem storage */ }
@@ -86,6 +90,8 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
   const [aberto, setAberto] = useState(false)
   const [peek, setPeek] = useState<string | null>(null)
   const [marcar, setMarcar] = useState<Contrato | null>(null)
+  const [lente, setLente] = useState<Lente>({ t: 'ger' })
+  const [hov, setHov] = useState<number | null>(null)
 
   const carregar = useCallback(() => {
     setErro('')
@@ -94,7 +100,8 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
       .catch(() => setErro('Não foi possível carregar o analítico. Tente de novo em instantes.'))
   }, [op])
   useEffect(() => { setData(null); carregar() }, [carregar])
-  useEffect(() => { setFiltro(null) }, [mes, dim, op])
+  useEffect(() => { setLente({ t: 'ger' }); setSort({ k: 'venda', d: -1 }) }, [mes, op])
+  useEffect(() => { setFiltro(null) }, [mes, dim, op, lente])
 
   const K = useMemo(() => {
     if (!data) return null
@@ -172,7 +179,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
     const futuras = parcs.filter(x => !x.p.recebida && !x.c.estorno && x.p.data && x.p.data >= `${curYM}-01`)
 
     return {
-      T, hoje, curYM, parcial, cs, ger, rec, arec, est, emRisco, serie, ant,
+      T, noP, hoje, curYM, parcial, cs, ger, rec, arec, est, emRisco, serie, ant,
       n: cs.length, ticket: cs.length ? ger / cs.length : 0,
       nRec: nC(pRec), nRecAnt: T ? 0 : nC(pRec.filter(x => !noP(x.c.venda))), nArec: nC(pArec),
       vencN: pArec.filter(x => x.p.data && x.p.data < hoje).length,
@@ -190,22 +197,64 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
   const s = (k: 'ger' | 'rec' | 'arec') => K.serie.map(x => x[k])
 
   // ---- contratos (tabela) ----
+  const L = lente.t, ger = L === 'ger'
+  const linhas: Linha[] = (() => {
+    if (L === 'ger') return K.cs.map(c => ({ c, val: total(c), datas: [] }))
+    if (L === 'est') return K.est.map(c => ({ c, val: c.estorno!.valor, datas: c.estorno!.em ? [dLocal(c.estorno!.em)] : [] }))
+    const ok = (p: Parcela, c: Contrato) =>
+      L === 'rec' ? p.recebida && K.noP(p.data)
+        : L === 'arec' ? !p.recebida && K.noP(p.data)
+          : L === 'prev' ? K.noP(p.data) && (p.recebida || !c.estorno)
+            : !p.recebida && !c.estorno && p.data?.slice(0, 7) === lente.m
+    return data.contratos.flatMap(c => {
+      const ps = c.parcelas.filter(p => ok(p, c))
+      return ps.length ? [{ c, val: soma(ps.map(p => p.valor)), datas: ps.map(p => p.data!).sort() }] : []
+    })
+  })()
+  const totL = soma(linhas.map(r => r.val))
+  const noMes = K.T ? '' : ` em ${mesLongo(mes)}`
+  const LT: Record<Lente['t'], { tit: string; dt: string; vl: string }> = {
+    ger: { tit: K.T ? 'Todos os contratos' : `Contratos vendidos${noMes}`, dt: '', vl: '' },
+    rec: { tit: K.T ? 'Parcelas recebidas' : `Recebido${noMes}`, dt: 'Previsão', vl: 'Recebido' },
+    arec: { tit: K.T ? 'Parcelas a receber' : `A receber${noMes}`, dt: 'Vencimento', vl: 'A receber' },
+    est: { tit: `Marcados p/ possível estorno${noMes}`, dt: 'Marcado em', vl: 'Em risco' },
+    prev: { tit: `Previsão de ${mesLongo(mes)}`, dt: 'Vencimento', vl: 'Previsto' },
+    gar: { tit: `A receber em ${lente.m ? `${mesLongo(lente.m)}/${lente.m.slice(0, 4)}` : ''}`, dt: 'Vencimento', vl: 'A receber' },
+  }
+  const lt = LT[L]
   const chave = (c: Contrato) => c[dim] || 'Não informado'
   const acc: Record<string, number> = {}
-  K.cs.forEach(c => { acc[chave(c)] = (acc[chave(c)] || 0) + total(c) })
+  linhas.forEach(r => { acc[chave(r.c)] = (acc[chave(r.c)] || 0) + r.val })
   const fatias = Object.entries(acc).sort((a, b) => b[1] - a[1])
-  const vis = (filtro ? K.cs.filter(c => chave(c) === filtro) : K.cs)
-  const vOrd = (c: Contrato): string | number => ({
+  const vis = (filtro ? linhas.filter(r => chave(r.c) === filtro) : linhas)
+  const vOrd = ({ c, val, datas }: Linha): string | number => ({
     cli: c.nome, venda: c.venda || '', opr: c.operadora || '',
     parc: (c.parcelas.some(p => !p.recebida && p.data && p.data < K.hoje) ? -1 : 0) + (c.parcelas.length ? c.parcelas.filter(p => p.recebida).length / c.parcelas.length : 0),
-    rec: recebido(c), arec: aReceber(c),
+    rec: recebido(c), arec: aReceber(c), data: datas[0] || '', val,
   }[sort.k])
   const ordenados = [...vis].sort((a, b) => {
     const x = vOrd(a), y = vOrd(b)
     return (typeof x === 'string' ? x.localeCompare(y as string, 'pt') : x - (y as number)) * sort.d
   })
-  const iPeek = peek ? ordenados.findIndex(c => c.id === peek) : -1
-  const cPeek = iPeek >= 0 ? ordenados[iPeek] : null
+  const iPeek = peek ? ordenados.findIndex(r => r.c.id === peek) : -1
+  const cPeek = iPeek >= 0 ? ordenados[iPeek].c : null
+  const cols: [SortK, string, string][] = [['cli', 'Cliente', ''], ['venda', 'Venda', ''], ['opr', 'Operadora · promotora', ''], ['parc', 'Parcelas', ''],
+    ...(ger ? [['rec', 'Recebido', 'r'], ['arec', 'A receber', 'r']] : [['data', lt.dt, ''], ['val', lt.vl, 'r']]) as [SortK, string, string][]]
+
+  // clicar no card / ponto do gráfico troca a lista; clicar de novo no mesmo volta pros vendidos
+  const abrir = (l: Lente) => {
+    const volta = l.t === lente.t && l.m === lente.m && l.t !== 'ger'
+    const nl: Lente = volta ? { t: 'ger' } : l
+    setLente(nl); setSort(nl.t === 'ger' ? { k: 'venda', d: -1 } : { k: 'data', d: 1 })
+    if (volta) return
+    setAberto(true)
+    setTimeout(() => document.getElementById('fva-contratos')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  }
+  const card = (t: Lente['t'], cl = '') => ({
+    className: `fva-k ck${cl}${lente.t === t ? ' sel' : ''}`, role: 'button', tabIndex: 0, 'aria-pressed': lente.t === t,
+    onClick: () => abrir({ t }),
+    onKeyDown: (e: KEv) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir({ t }) } },
+  })
 
   async function desmarcar(c: Contrato) {
     if (!window.confirm(`Desmarcar o possível estorno de ${c.nome}?`)) return
@@ -242,11 +291,15 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
   const ativos = new Set(K.futuras.filter(x => ms.includes(x.p.data!.slice(0, 7))).map(x => x.c.id)).size
   // 1º mês a partir do qual não entra mais nada (dentro do período mostrado)
   const zera = porMes.findIndex((_, i) => soma(porMes.slice(i)) <= 0)
-  const GW = 520, GH = 150, gm = { l: 8, r: 8, t: 26, b: 22 }, n = ms.length
-  const gx = (i: number) => gm.l + (n === 1 ? 0 : (i * (GW - gm.l - gm.r)) / (n - 1))
+  // valores ficam numa linha embaixo do mês (não disputam espaço com a curva)
+  const GW = 520, GH = 170, gm = { l: 26, r: 26, t: 12, b: 44 }, n = ms.length
+  const passo = n === 1 ? GW : (GW - gm.l - gm.r) / (n - 1)
+  const gx = (i: number) => gm.l + (n === 1 ? 0 : i * passo)
   const gy = (v: number) => gm.t + (GH - gm.t - gm.b) * (1 - v / Math.max(1, ...porMes))
   const linha = porMes.map((v, i) => `${i ? 'L' : 'M'}${gx(i).toFixed(1)} ${gy(v).toFixed(1)}`).join(' ')
-  const ancora = (i: number) => (i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle')
+  const selG = L === 'gar' && lente.m ? ms.indexOf(lente.m) : -1
+  const iMax = porMes.indexOf(Math.max(...porMes))
+  const mostraV = (i: number) => n <= 6 || i === hov || i === selG || i === iMax || i === 0
 
   return (
     <section className="fva">
@@ -254,12 +307,12 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
 
       {/* ---- cards do topo ---- */}
       <div className={`fva-kpis${K.previsao !== null ? ' k5' : ''}`}>
-        <div className="fva-k">
+        <div {...card('ger')}>
           <div className="fva-kt"><span className="fva-kl">Receita gerada</span>{K.ant && <VarPct a={K.ger} b={K.ant.ger} />}</div>
           <b className="fva-kv">{brl0(K.ger)}</b>
           <div className="fva-kf"><small>{K.n} {K.n === 1 ? 'venda' : 'vendas'}<br />ticket {brl0(K.ticket)}</small><Spark vals={s('ger')} cor="var(--accent)" parcial={K.parcial} /></div>
         </div>
-        <div className="fva-k">
+        <div {...card('rec')}>
           <div className="fva-kt"><span className="fva-kl">{K.T ? 'Recebida' : 'Recebida no mês'}</span>{K.ant && <VarPct a={K.rec} b={K.ant.rec} />}</div>
           <b className="fva-kv">{brl0(K.rec)}</b>
           <div className="fva-kf">
@@ -267,21 +320,20 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
             <Spark vals={s('rec')} cor="var(--success)" parcial={K.parcial} />
           </div>
         </div>
-        <div className="fva-k">
+        <div {...card('arec')}>
           <div className="fva-kt"><span className="fva-kl">{K.T ? 'A receber' : 'A receber no mês'}</span></div>
           <b className="fva-kv">{brl0(K.arec)}</b>
           <div className="fva-kf"><small>{nCt(K.nArec)}{K.vencN > 0 && <><br /><span className="late">{K.vencN} {K.vencN === 1 ? 'vencida' : 'vencidas'}</span></>}</small><Spark vals={s('arec')} cor="var(--accent)" parcial={K.parcial} /></div>
         </div>
-        <div className={`fva-k est${K.estV ? ' on' : ''}`}>
+        <div {...card('est', ` est${K.estV ? ' on' : ''}`)}>
           <div className="fva-kt"><span className="fva-kl">⚠ Possível estorno</span></div>
           <b className="fva-kv">{brl0(K.estV)}</b>
           <div className="fva-kf col">
             <small title={`marcados pelo financeiro${K.T ? '' : ' no mês'}`}>{K.est.length} {K.est.length === 1 ? 'contrato marcado' : 'contratos marcados'}</small>
-            <button className="fva-link" onClick={() => { setAberto(true); setTimeout(() => document.getElementById('fva-contratos')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0) }}>ver contratos ↓</button>
           </div>
         </div>
         {K.previsao !== null && (
-          <div className="fva-k prev">
+          <div {...card('prev', ' prev')}>
             <div className="fva-kt"><span className="fva-kl">= Previsão do mês</span></div>
             <b className="fva-kv">{brl0(K.previsao)}</b>
             <div className="fva-kf col">
@@ -321,7 +373,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
 
         <div className="fva-dp gar">
           <div className="fva-dh">
-            <h4>Receita garantida <span className="fva-info" title="Quanto entra em cada mês, de parcelas já contratadas (entram mesmo sem nova venda). O mês atual é o mesmo valor do card A receber no mês. Contratos marcados p/ estorno ficam de fora.">i</span></h4>
+            <h4>Recebimentos previstos <span className="fva-info" title="Quanto entra em cada mês, de parcelas já contratadas (entram mesmo sem nova venda). O mês atual é o mesmo valor do card A receber no mês. Contratos marcados p/ estorno ficam de fora. Clique num mês para ver os contratos.">i</span></h4>
             <div className="fva-seg" role="group" aria-label="Período">
               {[[3, '3 meses'], [6, '6 meses'], [12, '1 ano']].map(([v, t]) => (
                 <button key={v} aria-pressed={garP === v} onClick={() => { setGarP(+v); GAR_P = +v; try { localStorage.setItem('fva-gar', String(v)) } catch { /* */ } }}>{t}</button>
@@ -335,12 +387,25 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
               <line x1={gm.l} x2={GW - gm.r} y1={GH - gm.b} y2={GH - gm.b} className="base" />
               <path d={`${linha} L${gx(n - 1)} ${GH - gm.b} L${gx(0)} ${GH - gm.b} Z`} fill="url(#fva-gbg)" />
               <path d={linha} className="ln" />
-              {porMes.map((v, i) => (
-                <g key={ms[i]}>
-                  <circle cx={gx(i)} cy={gy(v)} r={i === 0 ? 4.5 : 3} className={i === 0 ? 'on' : ''}><title>{`${mesLongo(ms[i])}: entra ${brl0(v)}`}</title></circle>
-                  {(i === 0 || i === n - 1 || n <= 6) && <text x={gx(i)} y={gy(v) - 10} textAnchor={ancora(i)} className="v">{mil(v)}</text>}
-                  <text x={gx(i)} y={GH - 6} textAnchor={ancora(i)} className="m">{mes3(ms[i])}</text>
-                </g>
+              {(hov ?? selG) >= 0 && <line x1={gx(hov ?? selG)} x2={gx(hov ?? selG)} y1={gm.t - 4} y2={GH - gm.b} className="guia" />}
+              {porMes.map((v, i) => {
+                const ativo = i === hov || i === selG
+                return (
+                  <g key={ms[i]} className={ativo ? 'at' : ''}>
+                    <circle cx={gx(i)} cy={gy(v)} r={ativo ? 5 : i === 0 ? 4.5 : 3} className={i === 0 || ativo ? 'on' : ''} />
+                    <text x={gx(i)} y={GH - gm.b + 17} textAnchor="middle" className="m">{mes3(ms[i])}</text>
+                    {mostraV(i) && <text x={gx(i)} y={GH - gm.b + 34} textAnchor="middle" className="v">{mil(v)}</text>}
+                  </g>
+                )
+              })}
+              {porMes.map((v, i) => v > 0 && (
+                <rect key={`h${ms[i]}`} x={gx(i) - passo / 2} y={0} width={passo} height={GH} className="hit"
+                  role="button" tabIndex={0} aria-label={`${mesLongo(ms[i])}: entra ${brl0(v)}. Ver contratos`}
+                  onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)} onFocus={() => setHov(i)} onBlur={() => setHov(null)}
+                  onClick={() => abrir({ t: 'gar', m: ms[i] })}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir({ t: 'gar', m: ms[i] }) } }}>
+                  <title>{`${mesLongo(ms[i])}: entra ${brl0(v)} · clique para ver os contratos`}</title>
+                </rect>
               ))}
             </svg>
             <div className="fva-sub">Quanto entra em cada mês{zera > 0 && <> · a carteira atual se esgota em <b>{mesLongo(ms[zera])}</b></>}</div>
@@ -351,21 +416,22 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
       {/* ---- contratos ---- */}
       <details id="fva-contratos" className="fv-acc" open={aberto} onToggle={e => setAberto((e.target as HTMLDetailsElement).open)}>
         <summary>
-          <span className="at">{K.T ? 'Todos os contratos' : `Contratos vendidos em ${mesLongo(mes)}`}</span>
-          <span className="ar">{nCt(K.cs.length)} · {brl0(K.ger)}{K.est.length > 0 && ` · ${K.est.length} marcado${K.est.length === 1 ? '' : 's'} p/ estorno`}</span>
+          <span className="at">{lt.tit}</span>
+          <span className="ar">{nCt(linhas.length)} · {brl0(totL)}{ger && K.est.length > 0 && ` · ${K.est.length} marcado${K.est.length === 1 ? '' : 's'} p/ estorno`}</span>
           <ChevronDown size={15} className="chev" />
         </summary>
         {aberto && (
           <div className="ab fva-ctb">
             <div className="fva-tool">
+              {!ger && <button className="fva-link sm vt" onClick={() => abrir({ t: 'ger' })}>← {K.T ? 'todos os contratos' : `contratos vendidos${noMes}`}</button>}
               <div className="fva-seg" role="group" aria-label="Agrupar por">
                 {DIMS.map(([k, t]) => <button key={k} aria-pressed={dim === k} onClick={() => setDim(k)}>{t}</button>)}
               </div>
               {fatias.length > 0 && (
                 <div className="fva-pills" role="group" aria-label="Filtrar contratos">
-                  <button className={`fva-pill${filtro ? '' : ' on'}`} aria-pressed={!filtro} onClick={() => setFiltro(null)}>Todos <span>{brl0(K.ger)}</span></button>
+                  <button className={`fva-pill${filtro ? '' : ' on'}`} aria-pressed={!filtro} onClick={() => setFiltro(null)}>Todos <span>{brl0(totL)}</span></button>
                   {fatias.map(([k, v]) => (
-                    <button key={k} className={`fva-pill${filtro === k ? ' on' : ''}`} aria-pressed={filtro === k} title={`${k}: ${brl0(v)}`} onClick={() => setFiltro(k)}>{k} <span>{pct(v, K.ger)}%</span></button>
+                    <button key={k} className={`fva-pill${filtro === k ? ' on' : ''}`} aria-pressed={filtro === k} title={`${k}: ${brl0(v)}`} onClick={() => setFiltro(k)}>{k} <span>{pct(v, totL)}%</span></button>
                   ))}
                 </div>
               )}
@@ -373,7 +439,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
             <div className="fva-tw">
               <table className="fva-t">
                 <thead><tr>
-                  {([['cli', 'Cliente', ''], ['venda', 'Venda', ''], ['opr', 'Operadora · promotora', ''], ['parc', 'Parcelas', ''], ['rec', 'Recebido', 'r'], ['arec', 'A receber', 'r']] as [SortK, string, string][]).map(([k, t, cl]) => (
+                  {cols.map(([k, t, cl]) => (
                     <th key={k} className={cl}>
                       <button className={`fva-sort${sort.k === k ? ' on' : ''}`} aria-sort={sort.k === k ? (sort.d > 0 ? 'ascending' : 'descending') : 'none'}
                         onClick={() => setSort(sort.k === k ? { k, d: (-sort.d) as 1 | -1 } : { k, d: k === 'cli' || k === 'opr' ? 1 : -1 })}>
@@ -384,8 +450,8 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
                   <th className="r"><span className="fva-sr">Ações</span></th>
                 </tr></thead>
                 <tbody>
-                  {ordenados.length === 0 && <tr><td colSpan={7} className="fva-vazio">Nenhuma venda {K.T ? 'registrada' : `com data em ${mesLongo(mes)}`}.</td></tr>}
-                  {ordenados.map(c => {
+                  {ordenados.length === 0 && <tr><td colSpan={7} className="fva-vazio">{ger ? `Nenhuma venda ${K.T ? 'registrada' : `com data em ${mesLongo(mes)}`}.` : 'Nenhum contrato neste recorte.'}</td></tr>}
+                  {ordenados.map(({ c, val, datas }) => {
                     const pr = c.parcelas.filter(p => p.recebida).length, np = c.parcelas.length
                     const venc = c.parcelas.some(p => !p.recebida && p.data && p.data < K.hoje)
                     const prox = c.parcelas.find(p => !p.recebida && p.data && p.data >= K.hoje)
@@ -401,8 +467,13 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
                           </div>
                           <small className="fva-pgs">{venc ? <b className="late">parcela vencida</b> : <>{pr} de {np} recebidas{prox?.data && <> · próx. {ddmm(prox.data)}</>}</>}</small>
                         </td>
-                        <td className={`r num${rc ? '' : ' mut'}`}>{rc ? brl0(rc) : '—'}</td>
-                        <td className="r num"><b>{brl0(aReceber(c))}</b></td>
+                        {ger ? <>
+                          <td className={`r num${rc ? '' : ' mut'}`}>{rc ? brl0(rc) : '—'}</td>
+                          <td className="r num"><b>{brl0(aReceber(c))}</b></td>
+                        </> : <>
+                          <td className="mut num">{datas.length ? <>{ddmm(datas[0])}{datas.length > 1 && <small title={datas.map(ddmm).join(', ')}> +{datas.length - 1}</small>}</> : '—'}</td>
+                          <td className="r num"><b>{brl0(val)}</b></td>
+                        </>}
                         <td className="r" onClick={e => e.stopPropagation()}>
                           {c.estorno
                             ? <button className="fva-estb on" title={`${c.estorno.observacao ? c.estorno.observacao + ' · ' : ''}marcado por ${c.estorno.por || '—'} · clique para desmarcar`} onClick={() => desmarcar(c)}>⚠ estorno {brl0(c.estorno.valor)}</button>
@@ -415,8 +486,13 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
                 {ordenados.length > 0 && (
                   <tfoot><tr>
                     <td colSpan={4}><b>{filtro ? `${filtro} · ` : ''}{nCt(ordenados.length)}</b>{filtro && <button className="fva-link sm" onClick={() => setFiltro(null)}>limpar filtro</button>}</td>
-                    <td className="r num">{brl0(soma(ordenados.map(recebido)))}</td>
-                    <td className="r num"><b>{brl0(soma(ordenados.map(aReceber)))}</b></td>
+                    {ger ? <>
+                      <td className="r num">{brl0(soma(ordenados.map(r => recebido(r.c))))}</td>
+                      <td className="r num"><b>{brl0(soma(ordenados.map(r => aReceber(r.c))))}</b></td>
+                    </> : <>
+                      <td />
+                      <td className="r num"><b>{brl0(soma(ordenados.map(r => r.val)))}</b></td>
+                    </>}
                     <td />
                   </tr></tfoot>
                 )}
@@ -433,8 +509,8 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
           onClose={() => setPeek(null)}
           onOpenFull={() => window.open(`/leads/${cPeek.id}`, '_blank')}
           position={{ index: iPeek + 1, total: ordenados.length }}
-          onPrev={iPeek > 0 ? () => setPeek(ordenados[iPeek - 1].id) : undefined}
-          onNext={iPeek < ordenados.length - 1 ? () => setPeek(ordenados[iPeek + 1].id) : undefined}
+          onPrev={iPeek > 0 ? () => setPeek(ordenados[iPeek - 1].c.id) : undefined}
+          onNext={iPeek < ordenados.length - 1 ? () => setPeek(ordenados[iPeek + 1].c.id) : undefined}
           onStatusChanged={() => carregar()}
         />
       )}
