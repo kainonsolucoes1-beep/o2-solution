@@ -6,6 +6,7 @@ import { statusLabel } from '../utils/statusLabel'
 import { parseUTC, calendarDaysAgo } from '../utils/date'
 import { reportStatusColor, reportPerceptionColor } from '../utils/reportColors'
 import LeadPeekDrawer from '../components/LeadPeekDrawer'
+import FluxoAnalitico from '../components/FluxoAnalitico'
 import '../styles/leads-report-theme.css'
 import '../styles/fluxo-vendas.css'
 
@@ -116,43 +117,56 @@ export default function FluxoVendas() {
   const navigate = useNavigate()
   const [sp] = useSearchParams()
   const [me, setMe] = useState<string>('')
+  const [role, setRole] = useState<string>('')
   const [agentes, setAgentes] = useState<string[]>([])
   const [data, setData] = useState<FluxoData | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState('')
   const [aberto, setAberto] = useState<CardDef | null>(null)
 
-  const meses = useMemo(() => ultimosMeses(3), [])
-  const op = sp.get('op') || me
-  const mes = meses.includes(sp.get('mes') || '') ? sp.get('mes')! : meses[0]
+  // Analítico: só os perfis de can_see_financials (o backend também bloqueia)
+  const fin = ['admin', 'diretor', 'financeiro', 'coordenador'].includes(role)
+  const ana = fin && sp.get('vista') === 'analitico'
+  // no Analítico: "Toda a equipe" (op=*), "Todo o período" (mes=todos) e 12 meses
+  const meses = useMemo(() => ultimosMeses(ana ? 12 : 3), [ana])
+  const opUrl = sp.get('op') || me
+  const op = !ana && opUrl === '*' ? me : opUrl
+  const mesUrl = sp.get('mes') || ''
+  const mes = (ana && mesUrl === 'todos') || meses.includes(mesUrl) ? mesUrl : meses[0]
 
   useEffect(() => {
-    api.get<{ first_name: string | null; username: string }>('/api/v1/auth/me')
-      .then(r => setMe(r.data.first_name || r.data.username)).catch(() => {})
+    api.get<{ first_name: string | null; username: string; role: string }>('/api/v1/auth/me')
+      .then(r => { setMe(r.data.first_name || r.data.username); setRole(r.data.role) }).catch(() => {})
     // só admin/diretor/supervisor recebem a lista (403 pros demais: o seletor some)
     api.get<{ nome: string }[]>('/api/v1/gestao-comercial/vida-sdr/agentes')
       .then(r => setAgentes(r.data.map(a => a.nome))).catch(() => setAgentes([]))
   }, [])
 
   const carregar = useCallback((silencioso = false) => {
-    if (!op) return
+    if (!op || ana) return
     if (!silencioso) setLoading(true)
     setErro('')
     api.get<FluxoData>('/api/v1/gestao-comercial/fluxo-vendas', { params: { origens: op, month: mes } })
       .then(r => setData(r.data))
       .catch(() => setErro('Não foi possível carregar o fluxo de vendas. Tente de novo em instantes.'))
       .finally(() => setLoading(false))
-  }, [op, mes])
+  }, [op, mes, ana])
   useEffect(() => { carregar() }, [carregar])
 
-  function trocar(campo: 'op' | 'mes', valor: string) {
+  function trocar(campo: 'op' | 'mes' | 'vista', valor: string) {
     const p = new URLSearchParams(sp)
     p.set(campo, valor)
     if (campo === 'op') p.set('mes', mes)
+    if (campo === 'vista' && valor !== 'analitico') {
+      // fora do Analítico, "Toda a equipe"/"Todo o período" voltam pro padrão
+      if (p.get('op') === '*') p.delete('op')
+      if (p.get('mes') === 'todos') p.delete('mes')
+    }
     navigate(`/fluxo-vendas?${p.toString()}`, { replace: true })
   }
 
-  const nomeOp = data?.operador || op
+  const nomeOp = op === '*' ? 'Toda a equipe' : (!ana && data?.operador) || op
+  const opcoesOp = ana && !agentes.includes(op) && op && op !== '*' ? [op, ...agentes] : agentes
 
   return (
     <div className="fv lr-theme">
@@ -163,25 +177,35 @@ export default function FluxoVendas() {
             <h1 className="fv-h1">Fluxo de vendas {nomeOp && <span>· {nomeOp}</span>}</h1>
           </div>
           <div className="fv-picks">
-            {agentes.length > 0 && (
+            {(agentes.length > 0 || ana) && (
               <div className="fv-pick">
                 <label htmlFor="fv-op">Operador</label>
-                <select id="fv-op" value={agentes.includes(op) ? op : ''} onChange={e => e.target.value && trocar('op', e.target.value)}>
-                  {!agentes.includes(op) && <option value="">{op || 'Escolha'}</option>}
-                  {agentes.map(a => <option key={a} value={a}>{a}</option>)}
+                <select id="fv-op" value={op === '*' || opcoesOp.includes(op) ? op : ''} onChange={e => e.target.value && trocar('op', e.target.value)}>
+                  {op !== '*' && !opcoesOp.includes(op) && <option value="">{op || 'Escolha'}</option>}
+                  {ana && <option value="*">Toda a equipe</option>}
+                  {opcoesOp.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
             )}
             <div className="fv-pick">
               <label htmlFor="fv-mes">Mês de referência</label>
               <select id="fv-mes" value={mes} onChange={e => trocar('mes', e.target.value)}>
+                {ana && <option value="todos">Todo o período</option>}
                 {meses.map(m => <option key={m} value={m}>{mesNome(m)}</option>)}
               </select>
             </div>
           </div>
         </header>
 
-        {erro ? <div className="fv-empty">{erro}</div>
+        {fin && (
+          <div className="fv-vistas" role="group" aria-label="Visão">
+            <button aria-pressed={!ana} onClick={() => trocar('vista', 'resumo')}>Resumo</button>
+            <button aria-pressed={ana} onClick={() => trocar('vista', 'analitico')}>🔒 Analítico</button>
+          </div>
+        )}
+
+        {ana ? (op ? <FluxoAnalitico op={op} mes={mes} /> : <div className="fv-empty">Carregando…</div>)
+          : erro ? <div className="fv-empty">{erro}</div>
           : loading || !data ? <div className="fv-empty">Carregando…</div>
           : <>
               <Corpo data={data} onAbrir={setAberto} />
