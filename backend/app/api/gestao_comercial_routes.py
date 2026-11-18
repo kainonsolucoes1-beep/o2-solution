@@ -1,4 +1,5 @@
 import logging
+import uuid
 from calendar import monthrange
 from collections import defaultdict
 
@@ -6,6 +7,7 @@ from app.lead_utils import normalize_conversion_point
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
@@ -14,7 +16,7 @@ from app.api.dashboard_routes import _owner_names, _person_name_set
 from app.lead_scope import own_leads_clause
 from app.br_calendar import business_days_in_month
 from app.database import get_db
-from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule
+from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule, LeadParcela, LeadEstorno
 from app.models.user import User
 from app.models.sdr_meta import SdrMeta, meta_do_mes
 from app.security import can_see_financials, needs_own_origin_filter, team_scope
@@ -1454,3 +1456,148 @@ def fluxo_vendas(
         "meta": meta,
         "leads": leads,
     }
+
+
+# ---- Analitico (aba do Fluxo de vendas; so' perfis financeiros) --------------
+# Devolve os CONTRATOS do escopo (lead com "Data da venda") com as parcelas e a
+# marcacao de estorno, mais a serie mensal pra Velocidade de vendas. Os cortes
+# por mes (receita gerada = data da venda; recebida/a receber = data da parcela)
+# sao feitos na tela -- trocar o mes nao recarrega.
+# origens="*" = toda a equipe (todos os leads com venda).
+
+def _data_pura(ts):
+    # receita_data_venda / previsao_recebimento sao datas puras (sem fuso)
+    return ts.date().isoformat() if ts else None
+
+
+@router.get("/fluxo-vendas/analitico")
+def fluxo_vendas_analitico(
+    origens: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    equipe = origens.strip() == "*"
+    if equipe:
+        clause = Lead.id.isnot(None)
+        operador = "Toda a equipe"
+    else:
+        parts = [s.strip() for s in origens.split(",") if s.strip()]
+        if not parts:
+            raise HTTPException(status_code=400, detail="Informe o operador.")
+        matched_users = db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).all()
+        clause = agent_leads_clause(db, parts, [u.id for u in matched_users])
+        operador = parts[0]
+
+    vendidos = db.query(
+        Lead.id, Lead.name, Lead.attendant, Lead.receita_data_venda, Lead.receita_operadora,
+        Lead.receita_promotora, Lead.receita_modalidade, Lead.modalidade,
+        Lead.status, Lead.perception, Lead.phone, Lead.email, Lead.origin, Lead.value_potential, Lead.vidas,
+    ).filter(clause, Lead.receita_data_venda.isnot(None)).all()
+    ids = [r.id for r in vendidos]
+
+    parcelas: dict = defaultdict(list)
+    estornos: dict = {}
+    if ids:
+        for p in db.query(LeadParcela).filter(LeadParcela.lead_id.in_(ids)).order_by(LeadParcela.numero).all():
+            parcelas[p.lead_id].append(p)
+        estornos = {e.lead_id: e for e in db.query(LeadEstorno).filter(LeadEstorno.lead_id.in_(ids)).all()}
+
+    contratos = []
+    for r in vendidos:
+        e = estornos.get(r.id)
+        contratos.append({
+            "id": str(r.id), "nome": r.name, "atendente": r.attendant,
+            "venda": _data_pura(r.receita_data_venda),
+            "operadora": r.receita_operadora, "promotora": r.receita_promotora,
+            "modalidade": r.receita_modalidade or r.modalidade,
+            # campos do painel lateral do lead (LeadPeekDrawer)
+            "status": r.status, "perception": r.perception, "phone": r.phone, "email": r.email,
+            "origem": r.origin, "vidas": r.vidas,
+            "value_potential": float(r.value_potential) if r.value_potential is not None else None,
+            # parcela sem previsao conta na data da venda (mesma regra da tela Macro)
+            "parcelas": [
+                {"numero": p.numero, "valor": float(p.valor or 0), "recebida": p.status == "recebido",
+                 "data": _data_pura(p.previsao_recebimento or r.receita_data_venda), "descricao": p.descricao}
+                for p in parcelas.get(r.id, [])
+            ],
+            "estorno": {
+                "valor": float(e.valor), "observacao": e.observacao, "por": e.marcado_por_nome,
+                "em": e.marcado_em.isoformat() if e.marcado_em else None,
+            } if e else None,
+        })
+
+    # Velocidade de vendas, por mes de captacao (ultimos 24 meses):
+    # leads = recebidos; vendas = pagos + em emissao; perdidos = cancelados em qualquer etapa;
+    # ticket = valor da negociacao das vendas; ciclo = captacao -> data da venda (so' pagos com data)
+    nb = now_br()
+    ini, _ = br_month_utc_range(nb.year - 2, nb.month)
+    serie: dict = defaultdict(lambda: {"leads": 0, "vendas": 0, "perdidos": 0, "soma_ticket": 0.0, "ciclo_soma": 0, "ciclo_n": 0})
+    for cap, status, dv, vp in db.query(EFFECTIVE_CAPTACAO, Lead.status, Lead.receita_data_venda, Lead.value_potential) \
+            .filter(clause, EFFECTIVE_CAPTACAO >= ini).all():
+        if cap is None:
+            continue
+        dia = (cap - BR_OFFSET).date()
+        s = serie[f"{dia.year}-{dia.month:02d}"]
+        s["leads"] += 1
+        g = _fluxo_grupo(status, dv)
+        if g in ("pago", "esteira"):
+            s["vendas"] += 1
+            s["soma_ticket"] += float(vp or 0)
+            if dv is not None and (dv.date() - dia).days >= 0:
+                s["ciclo_soma"] += (dv.date() - dia).days
+                s["ciclo_n"] += 1
+        elif g == "cancelado":
+            s["perdidos"] += 1
+
+    return {
+        "operador": operador,
+        "hoje": nb.date().isoformat(),
+        "contratos": contratos,
+        "velocidade": [{"mes": k, **v} for k, v in sorted(serie.items())],
+    }
+
+
+class EstornoIn(BaseModel):
+    lead_id: str
+    valor: float
+    observacao: str | None = None
+
+
+@router.post("/fluxo-vendas/estornos")
+def marcar_estorno(body: EstornoIn, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Marca (ou atualiza) o possivel estorno de um contrato. So' perfis financeiros."""
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    try:
+        lid = uuid.UUID(body.lead_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Lead inválido")
+    if body.valor <= 0:
+        raise HTTPException(status_code=400, detail="Informe o valor em risco.")
+    if not db.query(Lead.id).filter(Lead.id == lid).first():
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    nome = " ".join(x for x in (current_user.first_name, current_user.last_name) if x) or current_user.username
+    e = db.query(LeadEstorno).filter(LeadEstorno.lead_id == lid).first() or LeadEstorno(lead_id=lid)
+    e.valor = body.valor
+    e.observacao = (body.observacao or "").strip() or None
+    e.marcado_por_id = current_user.id
+    e.marcado_por_nome = nome
+    e.marcado_em = datetime.utcnow()
+    db.add(e)
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/fluxo-vendas/estornos/{lead_id}")
+def desmarcar_estorno(lead_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    try:
+        lid = uuid.UUID(lead_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Lead inválido")
+    db.query(LeadEstorno).filter(LeadEstorno.lead_id == lid).delete()
+    db.commit()
+    return {"ok": True}

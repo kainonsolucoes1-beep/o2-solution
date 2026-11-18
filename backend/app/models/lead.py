@@ -205,6 +205,20 @@ class CampanhaTemplate(Base):
     atualizado_em = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
 
+class LeadEstorno(Base):
+    """Possivel estorno de um contrato, marcado a mao pelo financeiro (Simone) no
+    Analitico do Fluxo de vendas. Um por lead; desmarcar = apagar a linha."""
+    __tablename__ = "lead_estornos"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lead_id = Column(UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, unique=True)
+    valor = Column(Numeric(12, 2), nullable=False)
+    observacao = Column(Text, nullable=True)
+    marcado_por_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    marcado_por_nome = Column(String(255), nullable=True)
+    marcado_em = Column(TIMESTAMP, server_default=func.now())
+
+
 class LeadParcela(Base):
     """Detalhamento por parcela da receita real (planilha de vendas), por lead."""
     __tablename__ = "lead_parcelas"

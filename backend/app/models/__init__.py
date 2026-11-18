@@ -1,5 +1,5 @@
 from app.models.user import User
-from app.models.lead import Lead, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, LeadAttachment, CampanhaEvento, CampanhaTemplate, LeadEmissao
+from app.models.lead import Lead, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, LeadAttachment, CampanhaEvento, CampanhaTemplate, LeadEmissao, LeadEstorno
 from app.models.campanha_sms import CampanhaSmsLote, CampanhaSmsResposta
 from app.models.notificacao import Notificacao
 from app.models.app_settings import AppSettings
