@@ -1459,7 +1459,7 @@ def fluxo_vendas(
 
 
 # ---- Analitico (aba do Fluxo de vendas; so' perfis financeiros) --------------
-# Devolve os CONTRATOS do escopo (lead com "Data da venda") com as parcelas e a
+# Devolve os CONTRATOS do escopo (lead com "Data da venda" ou com parcela) com as parcelas e a
 # marcacao de estorno, mais a serie mensal pra Velocidade de vendas. Os cortes
 # por mes (receita gerada = data da venda; recebida/a receber = data da parcela)
 # sao feitos na tela -- trocar o mes nao recarrega.
@@ -1494,7 +1494,11 @@ def fluxo_vendas_analitico(
         Lead.id, Lead.name, Lead.attendant, Lead.receita_data_venda, Lead.receita_operadora,
         Lead.receita_promotora, Lead.receita_modalidade, Lead.modalidade,
         Lead.status, Lead.perception, Lead.phone, Lead.email, Lead.origin, Lead.value_potential, Lead.vidas,
-    ).filter(clause, Lead.receita_data_venda.isnot(None)).all()
+    ).filter(clause, or_(
+        Lead.receita_data_venda.isnot(None),
+        # parcela lançada sem "Data da venda" também é caixa (bate com a aba Financeiro)
+        Lead.id.in_(db.query(LeadParcela.lead_id).distinct()),
+    )).all()
     ids = [r.id for r in vendidos]
 
     parcelas: dict = defaultdict(list)
@@ -1516,10 +1520,10 @@ def fluxo_vendas_analitico(
             "status": r.status, "perception": r.perception, "phone": r.phone, "email": r.email,
             "origem": r.origin, "vidas": r.vidas,
             "value_potential": float(r.value_potential) if r.value_potential is not None else None,
-            # parcela sem previsao conta na data da venda (mesma regra da tela Macro)
+            # data = previsao de recebimento; sem previsao a parcela nao cai em mes nenhum (igual a aba Financeiro)
             "parcelas": [
                 {"numero": p.numero, "valor": float(p.valor or 0), "recebida": p.status == "recebido",
-                 "data": _data_pura(p.previsao_recebimento or r.receita_data_venda), "descricao": p.descricao}
+                 "data": _data_pura(p.previsao_recebimento), "descricao": p.descricao}
                 for p in parcelas.get(r.id, [])
             ],
             "estorno": {

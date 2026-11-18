@@ -12,7 +12,7 @@ import LeadPeekDrawer from './LeadPeekDrawer'
 interface Parcela { numero: number | null; valor: number; recebida: boolean; data: string | null; descricao: string | null }
 interface Estorno { valor: number; observacao: string | null; por: string | null; em: string | null }
 interface Contrato {
-  id: string; nome: string; atendente: string | null; venda: string
+  id: string; nome: string; atendente: string | null; venda: string | null  // null = parcela lançada sem "Data da venda" (só conta no caixa)
   operadora: string | null; promotora: string | null; modalidade: string | null
   status: string | null; perception: string | null; phone: string | null; email: string | null
   origem: string | null; vidas: number | null; value_potential: number | null
@@ -102,7 +102,8 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
     const hoje = data.hoje, curYM = hoje.slice(0, 7)
     const noP = (d: string | null) => T || (!!d && d.slice(0, 7) === mes)
     const parcs = data.contratos.flatMap(c => c.parcelas.map(p => ({ p, c })))
-    const cs = data.contratos.filter(c => noP(c.venda))
+    // receita gerada / tabela: só contratos com "Data da venda"; recebida e a receber: todas as parcelas
+    const cs = data.contratos.filter(c => c.venda && noP(c.venda))
     const ger = soma(cs.map(total))
     const pRec = parcs.filter(x => x.p.recebida && noP(x.p.data))
     const pArec = parcs.filter(x => !x.p.recebida && noP(x.p.data))
@@ -116,7 +117,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
     const serie = [-3, -2, -1, 0].map(i => {
       const m = addM(fim, i)
       return {
-        ger: soma(data.contratos.filter(c => c.venda.slice(0, 7) === m).map(total)),
+        ger: soma(data.contratos.filter(c => c.venda?.slice(0, 7) === m).map(total)),
         rec: soma(parcs.filter(x => x.p.recebida && x.p.data?.slice(0, 7) === m).map(x => x.p.valor)),
         arec: soma(parcs.filter(x => !x.p.recebida && x.p.data?.slice(0, 7) === m).map(x => x.p.valor)),
       }
@@ -183,7 +184,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
   const fatias = Object.entries(acc).sort((a, b) => b[1] - a[1])
   const vis = (filtro ? K.cs.filter(c => chave(c) === filtro) : K.cs)
   const vOrd = (c: Contrato): string | number => ({
-    cli: c.nome, venda: c.venda, opr: c.operadora || '',
+    cli: c.nome, venda: c.venda || '', opr: c.operadora || '',
     parc: (c.parcelas.some(p => !p.recebida && p.data && p.data < K.hoje) ? -1 : 0) + (c.parcelas.length ? c.parcelas.filter(p => p.recebida).length / c.parcelas.length : 0),
     rec: recebido(c), arec: aReceber(c),
   }[sort.k])
@@ -379,7 +380,7 @@ export default function FluxoAnalitico({ op, mes }: { op: string; mes: string })
                     return (
                       <tr key={c.id} tabIndex={0} className={c.estorno ? 'est' : ''} onClick={() => setPeek(c.id)} onKeyDown={e => { if (e.key === 'Enter') setPeek(c.id) }}>
                         <td className="nm"><b>{c.nome}</b><small>{c.modalidade || '—'} · {brl0(total(c))}{equipe && c.atendente && <> · <span className="atd">{c.atendente}</span></>}</small></td>
-                        <td className="mut num">{ddmm(c.venda)}</td>
+                        <td className="mut num">{c.venda ? ddmm(c.venda) : '—'}</td>
                         <td className="nm"><b className="op">{c.operadora || '—'}</b><small>{c.promotora || '—'}</small></td>
                         <td>
                           <div className="fva-pgb" title={c.parcelas.map(p => `${p.numero ?? '—'}ª ${brl0(p.valor)} · ${p.recebida ? 'recebida' : p.data && p.data < K.hoje ? 'vencida' : 'a receber'}`).join('\n')}>
