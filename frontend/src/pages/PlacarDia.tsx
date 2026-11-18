@@ -16,6 +16,7 @@ interface PlacarLead {
   min: number
   grupo: GrupoKey
   origem: string | null
+  ponto?: string | null
   status: string
   status_raw: string | null
   atendente: string | null
@@ -62,6 +63,8 @@ function personColor(nome: string) {
   return PESSOA_CORES[h % PESSOA_CORES.length]
 }
 
+// ponto de conversão do Meta: "Meta Amil - SP" -> "Amil · SP"
+const nomePonto = (p: string | null | undefined) => (p || '').replace(/^meta\s+/i, '').replace(/\s+-\s+/g, ' · ').trim() || 'Sem formulário'
 const pct = (a: number, b: number) => (b ? Math.round(a / b * 100) : 0)
 const pad = (n: number) => String(n).padStart(2, '0')
 const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
@@ -99,6 +102,7 @@ export default function PlacarDia() {
   const [atualizado, setAtualizado] = useState('')
   const [origSel, setOrigSel] = useState<GrupoKey | null>(null)
   const [origOff, setOrigOff] = useState<Set<GrupoKey>>(new Set())
+  const [pontoSel, setPontoSel] = useState<string | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
   const [peek, setPeek] = useState<PlacarLead | null>(null)
   const idsRef = useRef<Set<string> | null>(null)
@@ -135,6 +139,7 @@ export default function PlacarDia() {
     setPlacar(null)
     setOrigSel(null)
     setOrigOff(new Set())
+    setPontoSel(null)
     carregar()
   }, [carregar])
 
@@ -148,12 +153,13 @@ export default function PlacarDia() {
   const ativos = ORIGENS.filter(o => !origOff.has(o.k) && (!origSel || o.k === origSel))
   const filtrado = ativos.length < ORIGENS.length
   const leadsF = useMemo(
-    () => (placar?.leads ?? []).filter(l => !origOff.has(l.grupo) && (!origSel || l.grupo === origSel)),
-    [placar, origOff, origSel],
+    () => (placar?.leads ?? []).filter(l => !origOff.has(l.grupo) && (!origSel || l.grupo === origSel) && (!pontoSel || nomePonto(l.ponto) === pontoSel)),
+    [placar, origOff, origSel, pontoSel],
   )
 
   function toggleLeg(k: GrupoKey) {
     setOrigSel(null)
+    setPontoSel(null)
     setOrigOff(prev => {
       const n = new Set(prev)
       if (n.has(k)) n.delete(k)
@@ -199,7 +205,9 @@ export default function PlacarDia() {
               </section>
               <section className="card orig">
                 <div className="chh"><div><h3>Origem dos leads</h3><p>Clique para filtrar o gráfico e a lista</p></div></div>
-                <Origens p={placar} sel={origSel} onSel={k => { setOrigSel(s => (s === k ? null : k)); setOrigOff(new Set()) }} />
+                <Origens p={placar} sel={origSel} ponto={pontoSel}
+                  onSel={k => { setOrigSel(s => (s === k && !pontoSel ? null : k)); setPontoSel(null); setOrigOff(new Set()) }}
+                  onPonto={pt => { const sai = pontoSel === pt; setPontoSel(sai ? null : pt); setOrigSel(sai ? null : 'meta'); setOrigOff(new Set()) }} />
               </section>
             </div>
 
@@ -209,7 +217,7 @@ export default function PlacarDia() {
               </section>
               <section className="card ch feed">
                 <div className="chh">
-                  <div><h3>Últimos leads</h3><p>{origSel ? `Só ${ORIGENS.find(o => o.k === origSel)!.l}` : 'Os mais recentes primeiro'}</p></div>
+                  <div><h3>Últimos leads</h3><p>{pontoSel ? `Só Meta Ads · ${pontoSel}` : origSel ? `Só ${ORIGENS.find(o => o.k === origSel)!.l}` : 'Os mais recentes primeiro'}</p></div>
                   <div className="sp" />
                   <button className="link" onClick={() => navigate(`/leads-report?date_from=${placar.data}&date_to=${placar.data}&estrito=1`)}>
                     Ver no Relatório <Ico n="arr" style={{ width: 13 }} />
@@ -451,7 +459,7 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
 }
 
 /* ---------- origem ---------- */
-function Origens({ p, sel, onSel }: { p: Placar; sel: GrupoKey | null; onSel: (k: GrupoKey) => void }) {
+function Origens({ p, sel, ponto, onSel, onPonto }: { p: Placar; sel: GrupoKey | null; ponto: string | null; onSel: (k: GrupoKey) => void; onPonto: (pt: string) => void }) {
   const all = p.leads, total = all.length
   // origem zerada no dia não aparece (fica só a selecionada, pra dar pra limpar o filtro)
   const rows = ORIGENS.map(o => ({ ...o, n: all.filter(l => l.grupo === o.k).length })).filter(o => o.n > 0 || o.k === sel).sort((a, b) => b.n - a.n)
@@ -471,6 +479,14 @@ function Origens({ p, sel, onSel }: { p: Placar; sel: GrupoKey | null; onSel: (k
                 return acc
               }, {})).sort((a, b) => b[1] - a[1]).map(([nome, n]) => `${nome} ${n}`).join(' · ')
             : ''
+          // Meta Ads: um formulário por sub-linha (só quando tem mais de um no dia)
+          const pontos = r.k === 'meta'
+            ? Object.entries(all.filter(l => l.grupo === 'meta').reduce<Record<string, number>>((acc, l) => {
+                const nm = nomePonto(l.ponto)
+                acc[nm] = (acc[nm] || 0) + 1
+                return acc
+              }, {})).sort((a, b) => b[1] - a[1])
+            : []
           return (
             <div key={r.k}>
               <div
@@ -482,6 +498,18 @@ function Origens({ p, sel, onSel }: { p: Placar; sel: GrupoKey | null; onSel: (k
                 <span className="track"><i style={{ width: `${r.n / max * 100}%`, background: `var(${r.c})` }} /></span>
                 <span className="n">{r.n}</span><span className="pct">{pct(r.n, total)}%</span>
               </div>
+              {pontos.length > 1 && (
+                <div className="osubs" style={sel && sel !== r.k ? { opacity: 0.45 } : undefined}>
+                  {pontos.map(([nm, n]) => (
+                    <div key={nm} className={`orow osub ${ponto === nm ? 'sel' : ''}`} onClick={() => onPonto(nm)} title={`${nm}: ${n} de ${r.n} do Meta Ads`}
+                      style={ponto && ponto !== nm ? { opacity: 0.5 } : undefined}>
+                      <span className="nm">{nm}</span>
+                      <span className="track"><i style={{ width: `${n / max * 100}%` }} /></span>
+                      <span className="n">{n}</span><span className="pct" />
+                    </div>
+                  ))}
+                </div>
+              )}
               {detalhe && (
                 <div style={{ fontSize: 11.5, color: 'var(--tx3)', padding: '0 0 6px 18px', marginTop: -2 }}>{detalhe}</div>
               )}
