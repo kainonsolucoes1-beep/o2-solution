@@ -138,11 +138,11 @@ def _concluir_agendamento_vencido(db: Session, lead_id, user: User) -> None:
             s.concluido_por = user.first_name or user.username
 
 
-def _mais_dois_dias_uteis(base: datetime) -> datetime:
-    """Mesmo horário, 2 dias ÚTEIS depois (pula fim de semana e feriado
+def _mais_dois_dias_uteis(base: datetime, dias: int = 2) -> datetime:
+    """Mesmo horário, N dias ÚTEIS depois (padrão 2; pula fim de semana e feriado
     nacional, contando no calendário de Brasília)."""
     retorno, uteis = base, 0
-    while uteis < 2:
+    while uteis < dias:
         retorno += timedelta(days=1)
         if is_business_day((retorno - BR_OFFSET).date()):
             uteis += 1
@@ -160,13 +160,14 @@ _STATUS_FINAIS_SEM_RETORNO = {
 
 def _retorno_por_anotacao(db: Session, lead: Lead, user: User, now: datetime):
     """Anotação feita em lead que não está em status final agenda um retorno
-    automático 2 dias úteis depois, no mesmo horário da anotação (mesma conta
-    da regra de "proposta enviada"). Se já existe um agendamento ativo MAIS
-    DISTANTE (ex.: cliente pediu retorno numa data específica), ele é mantido.
-    Devolve a data do retorno criado, ou None."""
-    if (lead.status or "").strip().lower() in _STATUS_FINAIS_SEM_RETORNO:
+    automático no mesmo horário da anotação: 2 dias úteis se o lead está em
+    "proposta enviada", 1 dia útil nos demais (18/11/2026). Se já existe um
+    agendamento ativo MAIS DISTANTE (ex.: cliente pediu retorno numa data
+    específica), ele é mantido. Devolve a data do retorno criado, ou None."""
+    st = (lead.status or "").strip().lower()
+    if st in _STATUS_FINAIS_SEM_RETORNO:
         return None
-    retorno = _mais_dois_dias_uteis(now)
+    retorno = _mais_dois_dias_uteis(now, 2 if st in ("proposta", "proposal_sent", "proposal sent") else 1)
     ativos = db.query(LeadSchedule).filter(LeadSchedule.lead_id == lead.id, LeadSchedule.is_active.is_(True)).all()
     if any(s.scheduled_at > retorno for s in ativos):
         return None
