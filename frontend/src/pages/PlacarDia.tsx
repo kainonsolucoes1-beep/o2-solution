@@ -291,7 +291,7 @@ function Row1({ p }: { p: Placar }) {
         </div>
       </div>
       <div className="card tile">
-        <div className="lbl"><Ico n="ph" />Já tiveram 1º contato</div>
+        <div className="lbl"><Ico n="ph" />Já tiveram interação</div>
         <div className="pl-ring">
           <svg width="44" height="44" viewBox="0 0 44 44">
             <circle cx="22" cy="22" r="17" fill="none" stroke="var(--chip)" strokeWidth="5" />
@@ -302,7 +302,7 @@ function Row1({ p }: { p: Placar }) {
         <div className="sub"><b>{pAt}%</b> dos captados {quando}</div>
       </div>
       <div className="card tile">
-        <div className="lbl"><Ico n="hour" />Aguardando 1º contato</div>
+        <div className="lbl"><Ico n="hour" />Aguardando 1ª interação</div>
         <div className="val">{pend.length}</div>
         <div className="sub">
           {!pend.length ? 'ninguém esperando'
