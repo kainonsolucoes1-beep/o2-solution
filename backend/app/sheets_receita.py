@@ -249,6 +249,18 @@ def sync_receita_real(db: Session) -> dict:
         email = _normalize_email(cell("EMAIL").get("formattedValue"))
 
         candidates = phone_map.get(phone, []) if phone else []
+        if email and candidates:
+            # mesmo telefone em mais de um cliente (ex.: familia/empresa): o e-mail desempata
+            if len(candidates) > 1:
+                por_email = [l for l in candidates if _normalize_email(l.email) == email]
+                if len(por_email) == 1:
+                    candidates = por_email
+            # telefone aponta pra um lead, mas o e-mail e' de OUTRO lead: vale o do e-mail
+            # (evita lancar o valor de um cliente no outro que divide o telefone)
+            elif _normalize_email(candidates[0].email) not in (None, email):
+                outros = [l for l in email_map.get(email, []) if l.id != candidates[0].id]
+                if len(outros) == 1:
+                    candidates = outros
         if not candidates and email:
             candidates = email_map.get(email, [])
 
