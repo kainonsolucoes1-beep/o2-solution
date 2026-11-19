@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
@@ -16,7 +16,7 @@ from app.api.dashboard_routes import _owner_names, _person_name_set
 from app.lead_scope import own_leads_clause
 from app.br_calendar import business_days_in_month
 from app.database import get_db
-from app.models.lead import Lead, LeadStatusHistory, LeadNote, LeadSchedule, LeadParcela, LeadEstorno
+from app.models.lead import Lead, LeadEmissao, LeadStatusHistory, LeadNote, LeadSchedule, LeadParcela, LeadEstorno
 from app.models.user import User
 from app.models.sdr_meta import SdrMeta, meta_do_mes
 from app.security import can_see_financials, needs_own_origin_filter, team_scope
@@ -1293,6 +1293,24 @@ def vida_sdr_receita_composicao(
 EMISSAO_STATUSES = ("emissao", "emissão")
 FUNIL_PERCEPTIONS = ("Quente", "Morno", "Frio")
 
+# Data da venda (19/11/2026): a venda conta no mes em que foi pra "Em emissao" (a
+# ultima emissao, que e' a que valeu), ja' a partir da emissao. Sem emissao registrada
+# (antes de 15/09/2026) vale a "Data da venda" da planilha (data pura -> meia-noite BR
+# em UTC) e, sem ela, a captacao. Usado na meta (Fluxo de vendas e Financeiro > Metas).
+ULTIMA_EMISSAO = (
+    select(func.max(LeadEmissao.enviado_em))
+    .where(LeadEmissao.lead_id == Lead.id)
+    .correlate(Lead)
+    .scalar_subquery()
+)
+DATA_VENDA_EFETIVA = func.coalesce(ULTIMA_EMISSAO, Lead.receita_data_venda + BR_OFFSET, EFFECTIVE_CAPTACAO)
+# mesmo criterio do grupo "pago"/"esteira" de _fluxo_grupo
+_status_lower = func.coalesce(func.lower(Lead.status), "")
+VENDIDO_CLAUSE = and_(
+    _status_lower != CANCELADO_STATUS,
+    or_(_status_lower.in_(VENDA_STATUSES + EMISSAO_STATUSES), Lead.receita_data_venda.isnot(None)),
+)
+
 
 def _fluxo_grupo(status: str | None, data_venda) -> str:
     s = (status or "").lower()
@@ -1305,15 +1323,28 @@ def _fluxo_grupo(status: str | None, data_venda) -> str:
     return "aberto"
 
 
+def _grupo_mes(r) -> str:
+    """Grupo do lead na tela do mes: venda (pago/esteira) so' conta no mes da
+    DATA_VENDA_EFETIVA; captado no mes mas vendido em outro = "outro_mes"."""
+    g = _fluxo_grupo(r.status, r.receita_data_venda)
+    if g in ("pago", "esteira") and not r.vendido_mes:
+        return "outro_mes"
+    return g
+
+
 def _fluxo_resumo(rows) -> dict:
     def vazio():
         return {"valor": 0.0, "qtd": 0}
     fluxo = {"esteira": vazio(), "pago": vazio(), "cancelado": vazio()}
     funil = {"Quente": vazio(), "Morno": vazio(), "Frio": vazio()}
     sem_temp = 0
+    captacoes = 0
     motivos: dict = defaultdict(int)  # motivo de perda dos cancelados ("Por que perdemos")
     for r in rows:
-        g = _fluxo_grupo(r.status, r.receita_data_venda)
+        captacoes += 1 if r.captado else 0
+        g = _grupo_mes(r)
+        if g == "outro_mes":
+            continue
         v = float(r.value_potential or 0)
         if g == "cancelado":
             motivos[(r.lost_reason or "").strip() or "Não informado"] += 1
@@ -1325,7 +1356,7 @@ def _fluxo_resumo(rows) -> dict:
             funil[r.perception]["qtd"] += 1
         else:
             sem_temp += 1
-    return {"fluxo": fluxo, "funil": funil, "sem_temperatura": sem_temp, "captacoes": len(rows), "motivos": dict(motivos)}
+    return {"fluxo": fluxo, "funil": funil, "sem_temperatura": sem_temp, "captacoes": captacoes, "motivos": dict(motivos)}
 
 
 @router.get("/fluxo-vendas")
@@ -1362,8 +1393,12 @@ def fluxo_vendas(
     clause = agent_leads_clause(db, parts, [u.id for u in matched_users])
 
     def _do_mes(y: int, m: int, cols):
+        # leads captados no mes + vendas (emissao) do mes, mesmo que captadas antes
         ini, fim = br_month_utc_range(y, m)
-        return db.query(*cols).filter(clause, EFFECTIVE_CAPTACAO >= ini, EFFECTIVE_CAPTACAO < fim).all()
+        captado = and_(EFFECTIVE_CAPTACAO >= ini, EFFECTIVE_CAPTACAO < fim)
+        vendido = and_(VENDIDO_CLAUSE, DATA_VENDA_EFETIVA >= ini, DATA_VENDA_EFETIVA < fim)
+        return db.query(*cols, captado.label("captado"), vendido.label("vendido_mes")) \
+            .filter(clause, or_(captado, vendido)).all()
 
     resumo_cols = (Lead.status, Lead.perception, Lead.value_potential, Lead.receita_data_venda, Lead.lost_reason)
     anterior = _fluxo_resumo(_do_mes(prev_year, prev_mon, resumo_cols))
@@ -1401,7 +1436,7 @@ def fluxo_vendas(
     if meta_row:
         tipo, meta_valor = meta_do_mes(db, meta_row, year, mon)
         def _prog(res):
-            return res["fluxo"]["pago"]["valor"] if tipo == "clt" else float(res["captacoes"])
+            return res["fluxo"]["pago"]["valor"] + res["fluxo"]["esteira"]["valor"] if tipo == "clt" else float(res["captacoes"])
         progresso, progresso_ant = _prog(atual), _prog(anterior)
         du_mes = business_days_in_month(year, mon)
         du_ate_hoje = du_mes if encerrado else business_days_in_month(year, mon, nb.day)
@@ -1410,8 +1445,8 @@ def fluxo_vendas(
         if encerrado:
             projecao = progresso
         elif tipo == "clt":
-            # meta em R$: o que ja' pagou + o que esta' em emissao (venda quase concluida)
-            projecao = progresso + atual["fluxo"]["esteira"]["valor"]
+            # meta em R$: a emissao ja' conta como venda, entao a projecao e' o proprio progresso
+            projecao = progresso
         else:
             projecao = progresso / du_ate_hoje * du_mes if du_ate_hoje > 0 else 0.0
         meta = {
@@ -1435,7 +1470,7 @@ def fluxo_vendas(
             "duplicado_de_id": str(r.duplicado_de_id) if r.duplicado_de_id else None,
             "duplicado_de_nome": _dup_nomes.get(r.duplicado_de_id),
             "campanha_canal": r.campanha_canal,
-            "grupo": _fluxo_grupo(r.status, r.receita_data_venda),
+            "grupo": _grupo_mes(r),
             "lost_reason": r.lost_reason,
             "dias_sem_contato": _dias(r.last_interaction_at or r.updated_at or r.created_at),
             "dias_no_status": _dias(mudou_status.get(r.id)),
@@ -1532,28 +1567,35 @@ def fluxo_vendas_analitico(
             } if e else None,
         })
 
-    # Velocidade de vendas, por mes de captacao (ultimos 24 meses):
-    # leads = recebidos; vendas = pagos + em emissao; perdidos = cancelados em qualquer etapa;
-    # ticket = valor da negociacao das vendas; ciclo = captacao -> data da venda (so' pagos com data)
+    # Velocidade de vendas (ultimos 24 meses):
+    # leads = recebidos e perdidos = cancelados em qualquer etapa, no mes de captacao;
+    # vendas = pagos + em emissao, no mes da data da venda (DATA_VENDA_EFETIVA);
+    # ticket = valor da negociacao das vendas; ciclo = captacao -> data da venda (so' com data real)
     nb = now_br()
     ini, _ = br_month_utc_range(nb.year - 2, nb.month)
     serie: dict = defaultdict(lambda: {"leads": 0, "vendas": 0, "perdidos": 0, "soma_ticket": 0.0, "ciclo_soma": 0, "ciclo_n": 0})
-    for cap, status, dv, vp in db.query(EFFECTIVE_CAPTACAO, Lead.status, Lead.receita_data_venda, Lead.value_potential) \
-            .filter(clause, EFFECTIVE_CAPTACAO >= ini).all():
+    for cap, status, dv, ult_em, vp in db.query(
+            EFFECTIVE_CAPTACAO, Lead.status, Lead.receita_data_venda, ULTIMA_EMISSAO, Lead.value_potential) \
+            .filter(clause, or_(EFFECTIVE_CAPTACAO >= ini, DATA_VENDA_EFETIVA >= ini)).all():
         if cap is None:
             continue
         dia = (cap - BR_OFFSET).date()
-        s = serie[f"{dia.year}-{dia.month:02d}"]
-        s["leads"] += 1
+        if cap >= ini:
+            serie[f"{dia.year}-{dia.month:02d}"]["leads"] += 1
         g = _fluxo_grupo(status, dv)
         if g in ("pago", "esteira"):
+            dia_venda = (ult_em - BR_OFFSET).date() if ult_em else (dv.date() if dv else None)
+            ref = dia_venda or dia
+            if ref < ini.date():
+                continue
+            s = serie[f"{ref.year}-{ref.month:02d}"]
             s["vendas"] += 1
             s["soma_ticket"] += float(vp or 0)
-            if dv is not None and (dv.date() - dia).days >= 0:
-                s["ciclo_soma"] += (dv.date() - dia).days
+            if dia_venda is not None and (dia_venda - dia).days >= 0:
+                s["ciclo_soma"] += (dia_venda - dia).days
                 s["ciclo_n"] += 1
-        elif g == "cancelado":
-            s["perdidos"] += 1
+        elif g == "cancelado" and cap >= ini:
+            serie[f"{dia.year}-{dia.month:02d}"]["perdidos"] += 1
 
     return {
         "operador": operador,
