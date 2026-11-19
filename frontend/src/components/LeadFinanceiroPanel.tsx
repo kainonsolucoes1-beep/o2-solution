@@ -56,8 +56,12 @@ interface GeralDraft {
 export default function LeadFinanceiroPanel({
   leadId, modalidadeOptions,
   titularLabel, promotoraLabel, modalidadeLabel, operadoraLabel, categoriaLabel, dataVendaLabel, dataVendaRaw,
+  entradaLabel, emissaoLabel, ativacaoLabel,
   onSaved, locked,
 }: {
+  entradaLabel: string
+  emissaoLabel: string | null
+  ativacaoLabel: string | null
   leadId: string
   modalidadeOptions: string[]
   titularLabel: string
@@ -300,6 +304,29 @@ export default function LeadFinanceiroPanel({
       }
     >
       <div className="flex flex-col gap-4">
+        {(emissaoLabel || ativacaoLabel) && (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr auto 1fr', alignItems: 'start', gap: 6 }}>
+              {([
+                ['Entrada', entradaLabel, null],
+                ['Emissão', emissaoLabel, 'data da venda'],
+                ['Ativação', ativacaoLabel, null],
+              ] as const).map(([rotulo, valor, nota], i) => (
+                <Fragment key={rotulo}>
+                  {i > 0 && <span style={{ color: 'var(--text-subtle)', fontSize: 12, marginTop: 16 }}>→</span>}
+                  <div style={{ minWidth: 0 }}>
+                    <FieldLabel>{rotulo}</FieldLabel>
+                    <div style={{ fontSize: 13, fontWeight: i === 1 ? 700 : 500, color: valor ? 'var(--text-1)' : 'var(--text-subtle)', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
+                      {valor ?? '—'}
+                    </div>
+                    {nota && <div style={{ fontSize: 10.5, color: 'var(--text-subtle)', marginTop: 1 }}>{nota}</div>}
+                  </div>
+                </Fragment>
+              ))}
+            </div>
+            <div style={{ height: 1, background: 'var(--border)', marginTop: 14 }} />
+          </div>
+        )}
         {collapsed ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>Nenhuma receita registrada ainda</span>

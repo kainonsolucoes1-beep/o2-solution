@@ -42,6 +42,8 @@ interface LeadItem {
   receita_operadora: string | null
   receita_categoria: string | null
   receita_data_venda: string | null
+  data_emissao?: string | null
+  data_ativacao?: string | null
   data_venda?: string | null
   aviso_previo: boolean
   data_faturamento_previsto: string | null
@@ -934,6 +936,9 @@ export default function LeadDetailPage() {
               categoriaLabel={lead.receita_categoria ?? 'Não informado'}
               dataVendaLabel={lead.receita_data_venda ? fmtDateOnlyLiteral(lead.receita_data_venda) : 'Não informado'}
               dataVendaRaw={lead.receita_data_venda}
+              entradaLabel={fmtDateOnly(lead.created_at)}
+              emissaoLabel={lead.data_emissao ? fmtDateOnly(lead.data_emissao) : null}
+              ativacaoLabel={lead.data_ativacao ? fmtDateOnly(lead.data_ativacao) : null}
               onSaved={() => api.get<LeadItem>(`/api/v1/leads/${id}`).then(r => setLead(r.data))}
             />
           )}

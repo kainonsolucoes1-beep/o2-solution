@@ -56,6 +56,9 @@ class LeadReportItem(BaseModel):
     receita_data_venda: Optional[datetime] = None
     # mesma data, mas pra todos os perfis (topo da ficha); não é dado financeiro
     data_venda: Optional[datetime] = None
+    # linha do tempo do card Receita: ultimo envio pra emissao e primeira ativacao do plano
+    data_emissao: Optional[datetime] = None
+    data_ativacao: Optional[datetime] = None
     receita_origem: Optional[str] = None
     aviso_previo: bool = False
     data_faturamento_previsto: Optional[datetime] = None
