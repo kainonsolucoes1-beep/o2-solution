@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronDown, Menu, X, Pin, PinOff, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, ScrollText, Lightbulb, UserRound, Presentation, Megaphone, Bell, Clock, AlertTriangle,
+  Settings, LogOut, ChevronDown, Menu, X, Pin, PinOff, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, ScrollText, Lightbulb, UserRound, Presentation, Megaphone, Target, Bell, Clock, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
@@ -310,6 +310,9 @@ export default function Sidebar() {
       : []),
     // tela de reunião: operador vê o próprio; admin/diretor/supervisor escolhem no seletor
     ...(showFluxoVendas ? [{ to: '/fluxo-vendas', label: 'Fluxo de vendas', Icon: Presentation }] : []),
+    // mesmos papéis de can_see_financials (backend/app/security.py)
+    ...(isAdmin || ['diretor', 'financeiro', 'coordenador'].includes(user?.role ?? '')
+      ? [{ to: '/trafego-pago', label: 'Tráfego pago', Icon: Target }] : []),
   ]
 
   const linkEl = (to: string) => {
@@ -485,6 +488,7 @@ export default function Sidebar() {
           <div className="sb-sect">Equipe</div>
           {meuDesempenhoTo && linkEl(meuDesempenhoTo)}
           {linkEl('/fluxo-vendas')}
+          {linkEl('/trafego-pago')}
           {linkEl('/kpis')}
           {linkEl('/scripts')}
           {linkEl('/sugestoes')}

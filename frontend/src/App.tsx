@@ -22,6 +22,7 @@ import FinanceiroTrafego from './pages/FinanceiroTrafego'
 import GestaoComercial from './pages/GestaoComercial'
 import VidaSDR from './pages/VidaSDR'
 import FluxoVendas from './pages/FluxoVendas'
+import TrafegoPago from './pages/TrafegoPago'
 import RelatorioProducao from './pages/RelatorioProducao'
 import Agenda from './pages/Agenda'
 import Scripts from './pages/Scripts'
@@ -140,6 +141,7 @@ export default function App() {
           <Route path="/gestao-comercial" element={<GestaoComercial />} />
           <Route path="/vida-sdr/:origens" element={<VidaSDR />} />
           <Route path="/fluxo-vendas" element={<FluxoVendas />} />
+          <Route path="/trafego-pago" element={<TrafegoPago />} />
           <Route path="/campanhas" element={<CampanhasFila />} />
           <Route path="/campanhas/modelos" element={<CampanhasTemplates />} />
           <Route path="/campanhas/dashboard" element={<CampanhasDashboard />} />
