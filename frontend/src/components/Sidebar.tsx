@@ -49,7 +49,7 @@ const SETTINGS_CHILDREN = [
 const FINANCEIRO_CHILDREN = [
   { to: '/financeiro/visao-geral', label: 'Visão Geral' },
   { to: '/financeiro/metas',       label: 'Metas Mensais' },
-  { to: '/financeiro/trafego',     label: 'Tráfego pago' },
+  // Tráfego pago oculto do menu (2026-11-19); rota continua existindo
 ]
 
 function ExpandableNavGroup({ label, Icon, basePath, headerTo, children, pathname, open, onToggle }: {
