@@ -480,7 +480,7 @@ export default function Sidebar() {
       <div className="sb-sect">Operação</div>
       {dashboardGroup}
       {linkEl('/leads-report')}
-      {linkEl('/gestao-comercial')}
+      {/* Gestão Comercial e Telefonia ocultas do menu pra todos (2026-11-18); rotas continuam existindo */}
       {linkEl('/agenda')}
       {!isTrafego && (
         <>
@@ -490,7 +490,6 @@ export default function Sidebar() {
           {linkEl('/kpis')}
           {linkEl('/scripts')}
           {linkEl('/sugestoes')}
-          {linkEl('/telefonia')}
         </>
       )}
       {gestao.length > 0 && (

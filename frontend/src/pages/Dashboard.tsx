@@ -44,6 +44,7 @@ interface PerformanceData {
   captacao_hoje_por_fonte: { name: string; count: number; propostas_valor: number }[]
   captacao_hoje_origem: {
     bases: { label: string; count: number }[]
+    discadora?: { label: string; count: number }[]
     conversion_points: { label: string; count: number }[]
     canais: { label: string; count: number; conversion_points: { label: string; count: number }[] }[]
   }
@@ -441,12 +442,17 @@ export default function Dashboard() {
             </p>
             {(() => {
               const bases = data.captacao_hoje_origem.bases
-              // um quadro por canal orgânico (Origem da ficha) + um quadro SDR
+              const discadora = data.captacao_hoje_origem.discadora ?? []
+              // um quadro por canal orgânico (Origem da ficha) + Discadora + SDR
               const grupos = [
                 ...data.captacao_hoje_origem.canais.map((c, i) => ({
                   key: c.label, label: c.label, count: c.count, items: c.conversion_points,
                   color: isGoogle(c.label) ? GOOGLE_COLOR : CANAL_COLORS[i % CANAL_COLORS.length], openLabel: `${c.label} · pontos de conversão`,
                 })),
+                ...(discadora.length ? [{
+                  key: 'discadora', label: 'Discadora', count: discadora.reduce((s, it) => s + it.count, 0), items: discadora,
+                  color: '#F59E0B', openLabel: 'Discadora',
+                }] : []),
                 ...(bases.length ? [{
                   key: 'base', label: 'SDR', count: bases.reduce((s, it) => s + it.count, 0), items: bases,
                   color: '#F59E0B', openLabel: 'SDR',

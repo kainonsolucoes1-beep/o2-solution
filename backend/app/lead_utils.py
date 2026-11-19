@@ -89,6 +89,8 @@ META_FORMULARIOS: dict[str, str] = {
     "920887077776708": "Meta Alice - SP",
     "2154020872683921": "Meta SulAmerica - BH",
     "1873422073618444": "Meta Amil - SP",
+    "1138607152473995": "Meta Amil - BH",
+    "1903560497496989": "Meta SulAmerica - Campinas",
 }
 
 
@@ -130,6 +132,18 @@ CONVERSION_POINT_ALIASES: dict[str, str] = {
     "campanha whatsapp": "Campanhas WhatsApp",
     "campanhas whatsapp": "Campanhas WhatsApp",
 }
+
+
+def resolve_meta_form(raw: str | None) -> str | None:
+    """Troca o ID de formulario do Meta pelo nome (META_FORMULARIOS) quando o
+    lead chega pela API publica. Aceita o ID puro ou com texto em volta
+    ("Formulario Meta - <id>"); qualquer outro valor volta intacto."""
+    if not raw:
+        return raw
+    for form_id in re.findall(r"\d{10,}", raw):
+        if form_id in META_FORMULARIOS:
+            return META_FORMULARIOS[form_id]
+    return raw
 
 
 def normalize_conversion_point(raw: str | None) -> str:

@@ -887,7 +887,7 @@ def list_conversion_points(
     # ficha, e a pessoa cadastrando escolhe uma delas ao acaso.
     points = sorted({normalize_conversion_point(r.conversion_point) for r in rows})
     # opcoes fixas, disponiveis mesmo sem nenhum lead ainda usar esse valor
-    for fixed in ("Adm", "SMS"):
+    for fixed in ("Adm", "SMS", "Meta SulAmerica - Campinas", "Meta Amil - BH"):
         if fixed not in points:
             points.append(fixed)
     points.sort()
@@ -957,7 +957,15 @@ def get_lead(
     dup_nome = None
     if lead.duplicado_de_id:
         dup_nome = db.query(Lead.name).filter(Lead.id == lead.duplicado_de_id).scalar()
+    data_emissao = data_ativacao = None
+    if show_fin:
+        data_emissao = db.query(func.max(LeadEmissao.enviado_em)).filter(LeadEmissao.lead_id == lead.id).scalar()
+        data_ativacao = db.query(func.min(LeadStatusHistory.changed_at)).filter(
+            LeadStatusHistory.lead_id == lead.id,
+            LeadStatusHistory.to_status.in_(("waiting_billing", "sale_performed")),
+        ).scalar()
     return LeadReportItem(
+        data_emissao=data_emissao, data_ativacao=data_ativacao,
         duplicado_de_id=lead.duplicado_de_id, duplicado_de_nome=dup_nome,
         vidas=lead.vidas, ages_raw=lead.ages_raw,
         id=lead.id, name=lead.name, email=lead.email, phone=lead.phone,
