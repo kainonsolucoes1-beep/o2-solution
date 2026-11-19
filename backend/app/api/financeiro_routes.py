@@ -7,7 +7,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
-from app.api.gestao_comercial_routes import EFFECTIVE_CAPTACAO, MESES_ABREV, VENDA_STATUSES, agent_leads_clause
+from app.api.gestao_comercial_routes import DATA_VENDA_EFETIVA, EFFECTIVE_CAPTACAO, MESES_ABREV, VENDIDO_CLAUSE, agent_leads_clause
 from app.database import get_db
 from app.models.lead import Lead, LeadParcela
 from app.models.sdr_meta import SdrMeta, SdrMetaMensal, meta_do_mes
@@ -241,21 +241,25 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
     tipo, meta_valor = meta_do_mes(db, meta, *_ref_month(date_to))
     owner_ids = [u.id for u in db.query(User.id).filter(or_(User.first_name == meta.nome, User.username == meta.nome)).all()]
     agent = agent_leads_clause(db, [meta.nome], owner_ids)
+    # leads captados = pela captacao; vendas = pela data da venda (mes da emissao,
+    # ja' contando a partir da emissao) -- ver DATA_VENDA_EFETIVA
     filters = [agent]
+    venda_filters = [agent, VENDIDO_CLAUSE]
     if date_from:
         dt_from, _ = br_date_to_utc_range(date_from)
         filters.append(EFFECTIVE_CAPTACAO >= dt_from)
+        venda_filters.append(DATA_VENDA_EFETIVA >= dt_from)
     if date_to:
         _, dt_to_excl = br_date_to_utc_range(date_to)
         filters.append(EFFECTIVE_CAPTACAO < dt_to_excl)
+        venda_filters.append(DATA_VENDA_EFETIVA < dt_to_excl)
 
-    leads_rows = db.query(Lead.status, Lead.value_potential).filter(*filters).all()
-    venda_set = {s.lower() for s in VENDA_STATUSES}
-    leads_count = len(leads_rows)
-    vendas_count = sum(1 for status, _ in leads_rows if (status or "").lower() in venda_set)
+    leads_count = db.query(func.count(Lead.id)).filter(*filters).scalar() or 0
+    vendas_rows = db.query(Lead.value_potential).filter(*venda_filters).all()
+    vendas_count = len(vendas_rows)
 
     if tipo == "clt":
-        atingido = sum(float(value or 0) for status, value in leads_rows if (status or "").lower() in venda_set)
+        atingido = sum(float(value or 0) for (value,) in vendas_rows)
     else:
         atingido = float(leads_count)
 
@@ -264,17 +268,8 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
     projecao = None
     if _is_current_month_range(date_from, date_to):
         if tipo == "clt":
-            # projecao = o que ja esta garantido (vendido/aguardando faturamento)
-            # + o valor dos leads em emissao (documentacao ja enviada pelo
-            # cliente, etapa avancada) -- proposta/negociacao ainda sao
-            # "frias" demais pra entrar na projecao. Emissao conta tudo que
-            # esta nesse status agora, independente do mes de captacao.
-            pipeline_valor = float(
-                db.query(func.coalesce(func.sum(Lead.value_potential), 0))
-                .filter(agent, func.lower(Lead.status).in_(("emissao", "emissão")))
-                .scalar()
-            )
-            projecao = round(atingido + pipeline_valor, 2)
+            # a emissao ja' conta no atingido -- nao ha' mais o que somar na projecao
+            projecao = None
         else:
             now = now_br()
             dias_no_mes = calendar.monthrange(now.year, now.month)[1]

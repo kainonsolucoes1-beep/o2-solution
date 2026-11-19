@@ -14,7 +14,8 @@ import '../styles/fluxo-vendas.css'
 // Mês = captação do lead. Pago = "Data da venda" preenchida ou status de venda.
 // Em esteira = status Emissão. Funil = só leads antes da emissão (temperatura só vale ali).
 
-type Grupo = 'esteira' | 'pago' | 'cancelado' | 'aberto'
+// outro_mes = captado neste mes, mas a venda (emissao) caiu em outro mes
+type Grupo = 'esteira' | 'pago' | 'cancelado' | 'aberto' | 'outro_mes'
 interface Soma { valor: number; qtd: number }
 interface Resumo {
   fluxo: Record<'esteira' | 'pago' | 'cancelado', Soma>
