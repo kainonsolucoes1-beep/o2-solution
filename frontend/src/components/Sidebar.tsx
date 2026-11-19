@@ -462,7 +462,8 @@ export default function Sidebar() {
   const followupBell = sinoNoSlot ? createPortal(followupBellEl, sinoSlot!) : followupBellEl
 
   // menu agrupado por assunto; seção sem nenhum item (ex: Gestão pra quem não vê nada dela) some
-  const gestao = [campanhasGroup, financeiroGroup, settingsGroup].filter(Boolean)
+  // Campanhas oculta do menu (2026-11-19); rotas continuam existindo
+  const gestao = [financeiroGroup, settingsGroup].filter(Boolean)
   const navBody = (
     <>
       <div className="sb-sect">Operação</div>
