@@ -379,6 +379,13 @@ export default function Sidebar() {
   )
 
   const sinoTotal = followupAlerts.length + naoLidas
+  // sino = uma lista só, a atualização mais recente no topo: lead novo pela chegada,
+  // agendamento vencido pela hora em que venceu, vencendo (próx. 10 min) = agora
+  const utcMs = (iso: string | null) => iso ? new Date(iso.endsWith('Z') ? iso : iso + 'Z').getTime() : 0
+  const feedSino = [
+    ...notificacoes.map(n => ({ n, a: null, t: utcMs(n.criado_em) })),
+    ...followupAlerts.map(a => ({ n: null, a, t: a.bucket === 'overdue' ? utcMs(a.scheduled_at) : Date.now() })),
+  ].sort((x, y) => y.t - x.t)
   // página com <SinoSlot /> no cabeçalho: o sino entra ali, ao lado dos botões
   // do topo; sem encaixe (ou no celular), flutua fixo no canto superior direito
   const sinoSlot = useSinoSlot()
@@ -418,12 +425,12 @@ export default function Sidebar() {
             position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 61, width: 300, maxHeight: 420, overflowY: 'auto',
             background: '#1F2937', border: '1px solid #374151', borderRadius: 12, padding: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.4)',
           }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '4px 6px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Leads recebidos</p>
-            {notificacoes.length === 0 ? (
-              <p style={{ fontSize: 12.5, color: '#6B7280', padding: '4px 6px 8px' }}>Nenhum lead recebido nos últimos 30 dias.</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '4px 6px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Notificações</p>
+            {feedSino.length === 0 ? (
+              <p style={{ fontSize: 12.5, color: '#6B7280', padding: '4px 6px 8px' }}>Nenhuma notificação por enquanto.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
-                {notificacoes.map(n => (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {feedSino.map(({ n, a }) => n ? (
                   <button
                     key={n.id}
                     onClick={() => { toggleSino(); navigate(n.lead_id ? `/leads/${n.lead_id}` : '/leads-report') }}
@@ -437,15 +444,7 @@ export default function Sidebar() {
                       <span style={{ display: 'block', fontSize: 11, color: '#9CA3AF' }}>{fmtQuando(n.criado_em)}</span>
                     </span>
                   </button>
-                ))}
-              </div>
-            )}
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', margin: '4px 6px 10px', textTransform: 'uppercase', letterSpacing: '0.06em', borderTop: '1px solid #374151', paddingTop: 10 }}>Follow-up</p>
-            {followupAlerts.length === 0 ? (
-              <p style={{ fontSize: 12.5, color: '#6B7280', padding: '4px 6px 8px' }}>Nada vencendo nos próximos 10 minutos.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {followupAlerts.map(a => (
+                ) : a && (
                   <button
                     key={a.schedule_id}
                     onClick={() => { toggleSino(); navigate(`/leads/${a.id}`) }}
