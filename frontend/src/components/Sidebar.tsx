@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, Users,
-  Settings, LogOut, ChevronDown, Menu, X, Pin, PinOff, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, ScrollText, Lightbulb, UserRound, Presentation, Megaphone, Target, Bell, Clock, AlertTriangle,
+  Settings, LogOut, ChevronDown, Menu, X, Pin, PinOff, Sun, Moon, Phone, TrendingUp, DollarSign, Briefcase, CalendarDays, ScrollText, Lightbulb, UserRound, Presentation, Megaphone, Target, Trophy, Bell, Clock, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import api from '../api'
@@ -30,6 +30,7 @@ const fmtHM = (iso: string) => new Date(iso.endsWith('Z') ? iso : iso + 'Z').toL
 
 const NAV = [
   { to: '/dashboard',        label: 'Dashboard',        Icon: LayoutDashboard, adminOnly: false },
+  { to: '/placar',           label: 'Placar do dia',    Icon: Trophy,          adminOnly: false },
   { to: '/leads-report',     label: 'Relatório',        Icon: FileText,        adminOnly: false },
   { to: '/gestao-comercial', label: 'Gestão Comercial', Icon: Briefcase,       adminOnly: false },
   { to: '/agenda',           label: 'Agenda',           Icon: CalendarDays,    adminOnly: false },
@@ -37,10 +38,6 @@ const NAV = [
   { to: '/sugestoes',        label: 'Sugestões',        Icon: Lightbulb,       adminOnly: false },
   { to: '/kpis',             label: 'Performance',      Icon: TrendingUp,      adminOnly: false },
   { to: '/telefonia',        label: 'Telefonia',        Icon: Phone,           adminOnly: true  },
-]
-
-const DASHBOARD_CHILDREN = [
-  { to: '/dashboard/placar', label: 'Placar do dia' },
 ]
 
 const SETTINGS_CHILDREN = [
@@ -116,9 +113,9 @@ export default function Sidebar() {
   // Expanders da sidebar (Campanhas/Financeiro/Configurações) em modo "sanfona"
   // -- só um aberto por vez. Abre sozinho ao entrar numa rota do grupo; fora
   // isso, só um clique manual no cabeçalho abre/fecha.
-  const [openGroup, setOpenGroup] = useState<'dashboard' | 'campanhas' | 'financeiro' | 'settings' | null>(null)
+  const [openGroup, setOpenGroup] = useState<'campanhas' | 'financeiro' | 'settings' | null>(null)
   useEffect(() => {
-    const match = (['dashboard', 'campanhas', 'financeiro', 'settings'] as const).find(k => location.pathname.startsWith(`/${k}`))
+    const match = (['campanhas', 'financeiro', 'settings'] as const).find(k => location.pathname.startsWith(`/${k}`))
     if (match) setOpenGroup(match)
   }, [location.pathname])
 
@@ -333,13 +330,6 @@ export default function Sidebar() {
   }
   const meuDesempenhoTo = navItems.find(n => n.to.startsWith('/vida-sdr'))?.to
 
-  // Dashboard com a sub-aba "Placar do dia" (some pro parceiro de tráfego, igual ao item antigo)
-  const dashboardGroup = navItems.some(n => n.to === '/dashboard') && (
-    <ExpandableNavGroup
-      label="Dashboard" Icon={LayoutDashboard} basePath="/dashboard" headerTo="/dashboard" children={DASHBOARD_CHILDREN} pathname={location.pathname}
-      open={openGroup === 'dashboard'} onToggle={() => setOpenGroup(g => g === 'dashboard' ? null : 'dashboard')}
-    />
-  )
   const campanhasGroup = showCampanhas && (
     <ExpandableNavGroup
       label="Campanhas" Icon={Megaphone} basePath="/campanhas" headerTo="/campanhas" children={campanhasChildren} pathname={location.pathname}
@@ -480,7 +470,8 @@ export default function Sidebar() {
   const navBody = (
     <>
       <div className="sb-sect">Operação</div>
-      {dashboardGroup}
+      {linkEl('/dashboard')}
+      {linkEl('/placar')}
       {linkEl('/leads-report')}
       {/* Gestão Comercial e Telefonia ocultas do menu pra todos (2026-11-18); rotas continuam existindo */}
       {linkEl('/agenda')}
