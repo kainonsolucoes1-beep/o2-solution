@@ -291,7 +291,7 @@ export default function Sidebar() {
   // (supervisor troca de agente pelo seletor do topo da tela).
   const meuNome = user ? (user.first_name || user.username) : ''
   const showMeuDesempenho = !!user && (user.role === 'usuario' || user.role === 'supervisor')
-  const showFluxoVendas = showMeuDesempenho || canViewAll
+  const showFluxoVendas = showMeuDesempenho || canViewAll || user?.role === 'coordenador'
   // "Campanhas": só quem está marcado como operador (Configurações → Usuários)
   // e o admin (supervisão). Igual à checagem do backend em campanhas_routes.py.
   const showCampanhas = !!user && (isAdmin || !!user.is_campanha_operador)

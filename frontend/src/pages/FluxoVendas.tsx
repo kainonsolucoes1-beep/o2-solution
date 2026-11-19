@@ -141,7 +141,7 @@ export default function FluxoVendas() {
   useEffect(() => {
     api.get<{ first_name: string | null; username: string; role: string }>('/api/v1/auth/me')
       .then(r => { setMe(r.data.first_name || r.data.username); setRole(r.data.role) }).catch(() => {})
-    // só admin/diretor/supervisor recebem a lista (403 pros demais: o seletor some)
+    // só admin/diretor/supervisor/coordenador recebem a lista (403 pros demais: o seletor some)
     api.get<{ nome: string }[]>('/api/v1/gestao-comercial/vida-sdr/agentes')
       .then(r => setAgentes(r.data.map(a => a.nome))).catch(() => setAgentes([])).finally(() => setAgentesOk(true))
   }, [])
