@@ -123,7 +123,8 @@ export default function App() {
         <Route path="/acesso-bloqueado" element={<AcessoBloqueado />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/placar" element={<PlacarDia />} />
+          <Route path="/placar" element={<PlacarDia />} />
+          <Route path="/dashboard/placar" element={<Navigate to="/placar" replace />} />
           <Route path="/leads-report" element={<LeadsReport />} />
           <Route path="/leads/:id" element={<LeadDetailPage />} />
           <Route path="/pipeline" element={<Pipeline />} />
