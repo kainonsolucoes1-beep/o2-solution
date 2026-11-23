@@ -14,7 +14,7 @@ from app.api.gestao_comercial_routes import PROPOSTA_STATUSES, VENDA_STATUSES
 from app.database import get_db
 from app.lead_utils import normalize_conversion_point
 from app.models.lead import Lead
-from app.models.trafego import TrafegoGasto, TrafegoVerba
+from app.models.trafego import TrafegoGasto, TrafegoGastoCampanha, TrafegoVerba
 from app.models.user import User
 from app.security import can_see_financials
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
@@ -234,6 +234,11 @@ def _agrega(rows, inicio: date, dias: int) -> dict:
     return camps
 
 
+def _gastos_campanha(db: Session, plataforma: str, mes: str) -> dict:
+    rows = db.query(TrafegoGastoCampanha).filter(TrafegoGastoCampanha.plataforma == plataforma, TrafegoGastoCampanha.mes == mes).all()
+    return {r.campanha: float(r.valor) for r in rows}
+
+
 @router.get("/campanhas")
 def trafego_campanhas(
     plataforma: str = Query("meta"),
@@ -261,14 +266,30 @@ def trafego_campanhas(
 
     atual = _agrega(_rows(db, plataforma, inicio, fim), inicio, dias)
     anterior = _agrega(_rows(db, plataforma, p_ini, p_fim), p_ini, (p_fim - p_ini).days + 1)
+    g_camp = _gastos_campanha(db, plataforma, f"{y:04d}-{m:02d}")
     for nome, c in atual.items():
         a = anterior.get(nome)
         c["anterior"] = {"leads": a["leads"], "vendas": a["vendas"], "valor_vendas": a["valor_vendas"]} if a else None
+        c["gasto"] = g_camp.get(nome)
     campanhas = sorted(atual.values(), key=lambda c: -c["leads"])
+    # campanhas que aparecem na janela "Lançar gastos": as do mês, as do mês
+    # anterior (pode ter gasto antes do 1º lead) e as que já têm gasto lançado
+    lancamento = [c["nome"] for c in campanhas]
+    lancamento += sorted(n for n in set(anterior) | set(g_camp) if n not in atual)
 
-    # gasto: semanas lançadas no mês; no anterior, só as que começaram até o mesmo dia
-    gasto = sum(v for (p, _), v in _gastos(db, inicio, date(y, m, dias_mes)).items() if p == plataforma)
-    gasto_ant = sum(v for (p, _), v in _gastos(db, p_ini, p_fim).items() if p == plataforma)
+    # gasto: soma do lançado por campanha; sem nada por campanha, vale o lançamento
+    # semanal antigo (Financeiro > Tráfego pago). No mês anterior: campanha ->
+    # proporcional aos mesmos dias; semanal -> só as semanas que começaram até o mesmo dia
+    if g_camp:
+        gasto, fonte = sum(g_camp.values()), "campanhas"
+    else:
+        gasto = sum(v for (p, _), v in _gastos(db, inicio, date(y, m, dias_mes)).items() if p == plataforma)
+        fonte = "semanas" if gasto else None
+    g_camp_ant = _gastos_campanha(db, plataforma, f"{py:04d}-{pm:02d}")
+    if g_camp_ant:
+        gasto_ant = sum(g_camp_ant.values()) * min(1.0, dias / calendar.monthrange(py, pm)[1])
+    else:
+        gasto_ant = sum(v for (p, _), v in _gastos(db, p_ini, p_fim).items() if p == plataforma)
     verba = db.query(TrafegoVerba).filter(TrafegoVerba.plataforma == plataforma, TrafegoVerba.mes == f"{y:04d}-{m:02d}").first()
 
     soma = lambda rows, k: sum(r[k] for r in rows)
@@ -281,6 +302,9 @@ def trafego_campanhas(
         "dias_decorridos": dias,
         "dias_mes": dias_mes,
         "verba": float(verba.valor) if verba else None,
+        "gasto_fonte": fonte,
+        "lancamento": lancamento,
+        "gastos_campanha": g_camp,
         "total": {
             "gasto": round(gasto, 2),
             "leads": soma(campanhas, "leads"),
@@ -328,6 +352,55 @@ def salvar_verba(
         row.valor, row.updated_by, row.updated_at = body.valor, quem, func.now()
     else:
         db.add(TrafegoVerba(plataforma=body.plataforma, mes=mes, valor=body.valor, updated_by=quem))
+    db.commit()
+    return {"success": True}
+
+
+class GastoCampanhaItem(BaseModel):
+    campanha: str
+    valor: Optional[float] = None  # None apaga
+
+
+class GastosCampanhaIn(BaseModel):
+    plataforma: str
+    mes: str
+    itens: list[GastoCampanhaItem]
+
+
+@router.put("/gastos-campanha")
+def salvar_gastos_campanha(
+    body: GastosCampanhaIn,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Grava de uma vez o gasto do mês de cada campanha (janela "Lançar gastos")."""
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Sem permissão.")
+    if body.plataforma not in PLATAFORMAS:
+        raise HTTPException(status_code=422, detail="Plataforma inválida.")
+    y, m = _parse_mes(body.mes)
+    if date(y, m, 1) > now_br().date():
+        raise HTTPException(status_code=422, detail="Esse mês ainda não começou.")
+    mes = f"{y:04d}-{m:02d}"
+    quem = current_user.first_name or current_user.username
+    existentes = {
+        r.campanha: r for r in db.query(TrafegoGastoCampanha)
+        .filter(TrafegoGastoCampanha.plataforma == body.plataforma, TrafegoGastoCampanha.mes == mes).all()
+    }
+    for it in body.itens:
+        nome = (it.campanha or "").strip()
+        if not nome or len(nome) > 255:
+            raise HTTPException(status_code=422, detail="Campanha inválida.")
+        if it.valor is not None and (it.valor < 0 or it.valor > 10_000_000):
+            raise HTTPException(status_code=422, detail=f"Valor inválido em {nome}.")
+        row = existentes.get(nome)
+        if it.valor is None:
+            if row:
+                db.delete(row)
+        elif row:
+            row.valor, row.updated_by, row.updated_at = it.valor, quem, func.now()
+        else:
+            db.add(TrafegoGastoCampanha(plataforma=body.plataforma, mes=mes, campanha=nome, valor=it.valor, updated_by=quem))
     db.commit()
     return {"success": True}
 

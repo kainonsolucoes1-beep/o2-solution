@@ -21,6 +21,22 @@ class TrafegoGasto(Base):
     updated_at = Column(TIMESTAMP, server_default=func.now())
 
 
+class TrafegoGastoCampanha(Base):
+    """Gasto do mês numa campanha (= ponto de conversão normalizado), lançado à
+    mão em Equipe > Tráfego pago (valor acumulado do mês, copiado do gerenciador
+    de anúncios; cada lançamento substitui o anterior)."""
+    __tablename__ = "trafego_gastos_campanha"
+    __table_args__ = (UniqueConstraint("plataforma", "mes", "campanha", name="uq_trafego_gasto_campanha"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("uuid_generate_v4()"))
+    plataforma = Column(String(20), nullable=False)  # 'google' | 'meta'
+    mes = Column(String(7), nullable=False)          # 'AAAA-MM'
+    campanha = Column(String(255), nullable=False)
+    valor = Column(Numeric(12, 2), nullable=False)
+    updated_by = Column(String(255), nullable=True)
+    updated_at = Column(TIMESTAMP, server_default=func.now())
+
+
 class TrafegoVerba(Base):
     """Verba mensal planejada por plataforma (Equipe > Tráfego pago)."""
     __tablename__ = "trafego_verbas"
