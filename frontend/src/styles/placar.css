@@ -45,10 +45,18 @@ html.dark .pl {
 .pl .seg button.on{background:var(--pri-bg);color:var(--pri-dk);font-weight:600}
 .pl .seg input[type=date]{height:28px;border:0;background:none;color:var(--tx2);font:inherit;font-size:12.5px;padding:0 6px;border-radius:6px;cursor:pointer}
 .pl .seg input[type=date].on{background:var(--pri-bg);color:var(--pri-dk);font-weight:600}
-.pl .seg.range{align-items:center;padding:3px 3px 3px 10px}
-.pl .seg.range label{font-size:12px;color:var(--tx3);display:inline-flex;align-items:center;gap:2px}
-.pl .seg.range label + label{margin-left:4px}
-.pl .seg.range.bad{border-color:var(--danger,#DC2626)}
+/* botão Filtro (Hoje/Ontem + De/Até num painel) */
+.pl .flt{position:relative}
+.pl .flt-btn{height:36px;padding:0 12px;display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);border-radius:9px;font:inherit;font-size:12.5px;font-weight:600;color:var(--tx);cursor:pointer}
+.pl .flt-btn:hover,.pl .flt-btn.open{border-color:var(--pri)}
+.pl .flt-btn .flt-val{font-weight:600;color:var(--pri-dk);background:var(--pri-bg);border-radius:6px;padding:2px 8px}
+.pl .flt-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:40;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(17,24,39,.16);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:260px}
+.pl .flt-pop .seg{display:flex}
+.pl .flt-pop .seg button{flex:1;justify-content:center}
+.pl .flt-range{display:flex;flex-direction:column;gap:6px;border:1px solid transparent;border-radius:9px}
+.pl .flt-range label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--tx3)}
+.pl .flt-range input[type=date]{height:32px;flex:1;max-width:170px;border:1px solid var(--line);background:var(--card);color:var(--tx);font:inherit;font-size:12.5px;padding:0 8px;border-radius:7px;cursor:pointer}
+.pl .flt-range.bad input[type=date]{border-color:var(--danger,#DC2626)}
 html.dark .pl input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.8)}
 .pl .sp{flex:1}
 

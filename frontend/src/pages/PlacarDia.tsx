@@ -103,6 +103,8 @@ const ICONS: Record<string, ReactNode> = {
   ok: <path d="M20 6 9 17l-5-5" />,
   warn: <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />,
   arr: <path d="M5 12h14M13 6l6 6-6 6" />,
+  cal: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
+  chev: <path d="m6 9 6 6 6-6" />,
 }
 function Ico({ n, style }: { n: string; style?: React.CSSProperties }) {
   return <svg className="ico" viewBox="0 0 24 24" style={style}>{ICONS[n]}</svg>
@@ -136,6 +138,18 @@ export default function PlacarDia() {
     const t = setTimeout(() => { setDe(deTxt); setAte(ateTxt) }, 600)
     return () => clearTimeout(t)
   }, [deTxt, ateTxt, rangeOk, de, ate])
+
+  // botão "Filtro": abre o painel com Hoje/Ontem + De/Até; fecha clicando fora ou no Esc
+  const [filtroAberto, setFiltroAberto] = useState(false)
+  const filtroRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!filtroAberto) return
+    const fora = (e: MouseEvent) => { if (!filtroRef.current?.contains(e.target as Node)) setFiltroAberto(false) }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setFiltroAberto(false) }
+    document.addEventListener('mousedown', fora)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', esc) }
+  }, [filtroAberto])
 
   function escolherDia(iso: string) {
     setDe(iso); setAte(iso); setDeTxt(iso); setAteTxt(iso)
@@ -210,13 +224,24 @@ export default function PlacarDia() {
             <span className="live"><i /><span>Ao vivo · atualizado às {atualizado}</span></span>
           )}
           <div className="sp" />
-          <div className={`seg range ${rangeOk ? '' : 'bad'}`}>
-            <label>De<input type="date" value={deTxt} max={hoje} onChange={e => setDeTxt(e.target.value)} /></label>
-            <label>Até<input type="date" value={ateTxt} max={hoje} onChange={e => setAteTxt(e.target.value)} /></label>
-          </div>
-          <div className="seg">
-            <button className={de === hoje && ate === hoje ? 'on' : ''} onClick={() => escolherDia(hoje)}>Hoje</button>
-            <button className={de === ontem && ate === ontem ? 'on' : ''} onClick={() => escolherDia(ontem)}>Ontem</button>
+          <div className="flt" ref={filtroRef}>
+            <button className={`flt-btn ${filtroAberto ? 'open' : ''}`} onClick={() => setFiltroAberto(v => !v)} aria-expanded={filtroAberto}>
+              <Ico n="cal" style={{ width: 14 }} />Filtro
+              <span className="flt-val">{de === hoje && ate === hoje ? 'Hoje' : de === ontem && ate === ontem ? 'Ontem' : de === ate ? ddmm(de) : `${ddmm(de)} – ${ddmm(ate)}`}</span>
+              <Ico n="chev" style={{ width: 12, transform: filtroAberto ? 'rotate(180deg)' : undefined }} />
+            </button>
+            {filtroAberto && (
+              <div className="flt-pop">
+                <div className="seg">
+                  <button className={de === hoje && ate === hoje ? 'on' : ''} onClick={() => { escolherDia(hoje); setFiltroAberto(false) }}>Hoje</button>
+                  <button className={de === ontem && ate === ontem ? 'on' : ''} onClick={() => { escolherDia(ontem); setFiltroAberto(false) }}>Ontem</button>
+                </div>
+                <div className={`flt-range ${rangeOk ? '' : 'bad'}`}>
+                  <label>De<input type="date" value={deTxt} max={hoje} onChange={e => setDeTxt(e.target.value)} /></label>
+                  <label>Até<input type="date" value={ateTxt} max={hoje} onChange={e => setAteTxt(e.target.value)} /></label>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
