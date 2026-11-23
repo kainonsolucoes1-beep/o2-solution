@@ -235,8 +235,16 @@ def _agrega(rows, inicio: date, dias: int) -> dict:
 
 
 def _gastos_campanha(db: Session, plataforma: str, mes: str) -> dict:
+    """Investimento do mês por campanha (lançado à mão)."""
     rows = db.query(TrafegoGastoCampanha).filter(TrafegoGastoCampanha.plataforma == plataforma, TrafegoGastoCampanha.mes == mes).all()
     return {r.campanha: float(r.valor) for r in rows}
+
+
+def _saldo(db: Session, plataforma: str, mes: str) -> Optional[float]:
+    """Saldo que ainda resta do investimento do mês (guardado em trafego_verbas,
+    endpoint PUT /verba -- a tabela nasceu como "verba do mês")."""
+    row = db.query(TrafegoVerba).filter(TrafegoVerba.plataforma == plataforma, TrafegoVerba.mes == mes).first()
+    return float(row.valor) if row else None
 
 
 @router.get("/campanhas")
@@ -266,31 +274,43 @@ def trafego_campanhas(
 
     atual = _agrega(_rows(db, plataforma, inicio, fim), inicio, dias)
     anterior = _agrega(_rows(db, plataforma, p_ini, p_fim), p_ini, (p_fim - p_ini).days + 1)
-    g_camp = _gastos_campanha(db, plataforma, f"{y:04d}-{m:02d}")
+    # Lançamento manual (2026-11-23): por campanha, o INVESTIMENTO do mês
+    # (trafego_gastos_campanha) e, por plataforma, o SALDO que ainda resta
+    # (trafego_verbas). Gasto = investimento - saldo; o gasto de cada campanha
+    # é estimado na proporção do investimento dela.
+    mes_txt = f"{y:04d}-{m:02d}"
+    g_camp = _gastos_campanha(db, plataforma, mes_txt)
+    saldo = _saldo(db, plataforma, mes_txt)
+    if g_camp:
+        investimento, fonte = sum(g_camp.values()), "campanhas"
+        gasto = max(0.0, investimento - saldo) if saldo is not None else investimento
+    else:
+        # sem nada por campanha, vale o lançamento semanal antigo (Financeiro > Tráfego pago)
+        investimento = gasto = sum(v for (p, _), v in _gastos(db, inicio, date(y, m, dias_mes)).items() if p == plataforma)
+        fonte = "semanas" if gasto else None
+    fator = gasto / investimento if investimento else 0.0
+
     for nome, c in atual.items():
         a = anterior.get(nome)
         c["anterior"] = {"leads": a["leads"], "vendas": a["vendas"], "valor_vendas": a["valor_vendas"]} if a else None
-        c["gasto"] = g_camp.get(nome)
+        inv = g_camp.get(nome)
+        c["investimento"] = inv
+        c["gasto"] = round(inv * fator, 2) if inv is not None else None
     campanhas = sorted(atual.values(), key=lambda c: -c["leads"])
-    # campanhas que aparecem na janela "Lançar gastos": as do mês, as do mês
-    # anterior (pode ter gasto antes do 1º lead) e as que já têm gasto lançado
+    # campanhas que aparecem na janela de lançamento: as do mês, as do mês
+    # anterior (pode ter investimento antes do 1º lead) e as que já têm valor lançado
     lancamento = [c["nome"] for c in campanhas]
     lancamento += sorted(n for n in set(anterior) | set(g_camp) if n not in atual)
 
-    # gasto: soma do lançado por campanha; sem nada por campanha, vale o lançamento
-    # semanal antigo (Financeiro > Tráfego pago). No mês anterior: campanha ->
-    # proporcional aos mesmos dias; semanal -> só as semanas que começaram até o mesmo dia
-    if g_camp:
-        gasto, fonte = sum(g_camp.values()), "campanhas"
-    else:
-        gasto = sum(v for (p, _), v in _gastos(db, inicio, date(y, m, dias_mes)).items() if p == plataforma)
-        fonte = "semanas" if gasto else None
-    g_camp_ant = _gastos_campanha(db, plataforma, f"{py:04d}-{pm:02d}")
+    # mês anterior: gasto (investimento - saldo) proporcional aos mesmos dias;
+    # semanal antigo -> só as semanas que começaram até o mesmo dia
+    ant_txt = f"{py:04d}-{pm:02d}"
+    g_camp_ant = _gastos_campanha(db, plataforma, ant_txt)
     if g_camp_ant:
-        gasto_ant = sum(g_camp_ant.values()) * min(1.0, dias / calendar.monthrange(py, pm)[1])
+        inv_ant, saldo_ant = sum(g_camp_ant.values()), _saldo(db, plataforma, ant_txt)
+        gasto_ant = max(0.0, inv_ant - (saldo_ant or 0.0)) * min(1.0, dias / calendar.monthrange(py, pm)[1])
     else:
         gasto_ant = sum(v for (p, _), v in _gastos(db, p_ini, p_fim).items() if p == plataforma)
-    verba = db.query(TrafegoVerba).filter(TrafegoVerba.plataforma == plataforma, TrafegoVerba.mes == f"{y:04d}-{m:02d}").first()
 
     soma = lambda rows, k: sum(r[k] for r in rows)
     ant = list(anterior.values())
@@ -301,11 +321,12 @@ def trafego_campanhas(
         "fim": fim.isoformat(),
         "dias_decorridos": dias,
         "dias_mes": dias_mes,
-        "verba": float(verba.valor) if verba else None,
+        "saldo": saldo,
         "gasto_fonte": fonte,
         "lancamento": lancamento,
         "gastos_campanha": g_camp,
         "total": {
+            "investimento": round(investimento, 2),
             "gasto": round(gasto, 2),
             "leads": soma(campanhas, "leads"),
             "vendas": soma(campanhas, "vendas"),

@@ -10,15 +10,17 @@ interface Campanha {
   vendas: number; valor_vendas: number; vendas_temp: number[]; perdidos: number
   motivos: [string, number][]; diario: { leads: number; vendas: number }[]
   anterior: { leads: number; vendas: number; valor_vendas: number } | null
-  gasto: number | null // lançado à mão na janela "Lançar gastos"
+  investimento: number | null // lançado à mão (janela "Investimento por campanha")
+  gasto: number | null // estimado: investimento × (gasto total / investimento total)
 }
 interface Dados {
   plataforma: Plataforma; mes: string; inicio: string; fim: string
-  dias_decorridos: number; dias_mes: number; verba: number | null
+  dias_decorridos: number; dias_mes: number
+  saldo: number | null // quanto ainda resta do investimento do mês
   gasto_fonte: 'campanhas' | 'semanas' | null
-  lancamento: string[] // campanhas listadas na janela "Lançar gastos"
-  gastos_campanha: Record<string, number>
-  total: { gasto: number; leads: number; vendas: number; valor_vendas: number; temperatura: number[]; diario_leads: number[] }
+  lancamento: string[] // campanhas listadas na janela de lançamento
+  gastos_campanha: Record<string, number> // investimento por campanha
+  total: { investimento: number; gasto: number; leads: number; vendas: number; valor_vendas: number; temperatura: number[]; diario_leads: number[] }
   anterior: { gasto: number; leads: number; vendas: number; valor_vendas: number }
   campanhas: Campanha[]
 }
@@ -211,48 +213,51 @@ export default function TrafegoPago() {
             <div className="tp-kpi">
               <div className="tp-lbl">Investimento</div>
               <div className="tp-krow">
-                <span className="tp-val">{brl(data.total.gasto)}</span><Delta cur={data.total.gasto} prev={data.anterior.gasto} lowGood />
+                <span className="tp-val">{brl(data.total.investimento)}</span>
                 {data.lancamento.length > 0 && (
-                  <button className="tp-icon" aria-label="Lançar gastos" title="Lançar gastos das campanhas" onClick={() => setLancar(true)}><Pencil size={14} /></button>
+                  <button className="tp-icon" aria-label="Investimento por campanha" title="Investimento por campanha" onClick={() => setLancar(true)}><Pencil size={14} /></button>
                 )}
               </div>
-              {data.total.gasto ? (
-                <div className="tp-ctx">vs {brl(data.anterior.gasto)} no mesmo período de {mesAnt}</div>
+              {data.total.investimento ? (
+                <div className="tp-ctx">Gasto até agora <b style={{ color: 'var(--text-1)' }}>{brl(data.total.gasto)}</b> <Delta cur={data.total.gasto} prev={data.anterior.gasto} lowGood /></div>
               ) : data.lancamento.length > 0 ? (
-                <button className="tp-btn ghost" style={{ justifySelf: 'start', alignSelf: 'start' }} onClick={() => setLancar(true)}>Lançar gastos</button>
+                <button className="tp-btn ghost" style={{ justifySelf: 'start', alignSelf: 'start' }} onClick={() => setLancar(true)}>Lançar investimento</button>
               ) : (
                 <div className="tp-ctx">Nenhuma campanha no mês</div>
               )}
             </div>
 
             <div className="tp-kpi">
-              <div className="tp-lbl">Valor restante</div>
+              <div className="tp-lbl">Saldo restante</div>
               {editVerba ? (
                 <form className="tp-verba" onSubmit={e => { e.preventDefault(); salvarVerba() }}>
                   <input id="tp-verba-input" autoFocus value={verbaTxt} onChange={e => { setVerbaTxt(e.target.value); setVerbaErro(false) }}
-                    placeholder="Verba do mês (R$)" aria-invalid={verbaErro} />
+                    placeholder="Saldo restante (R$)" aria-invalid={verbaErro} />
                   <button type="submit" className="tp-btn">Salvar</button>
                   <button type="button" className="tp-btn ghost" onClick={() => setEditVerba(false)}>Cancelar</button>
                 </form>
-              ) : data.verba == null ? (
-                <button className="tp-btn ghost" style={{ justifySelf: 'start' }} onClick={() => { setVerbaTxt(''); setEditVerba(true) }}>Definir verba do mês</button>
+              ) : data.saldo == null || data.gasto_fonte !== 'campanhas' ? (
+                data.gasto_fonte === 'campanhas'
+                  ? <button className="tp-btn ghost" style={{ justifySelf: 'start' }} onClick={() => { setVerbaTxt(''); setEditVerba(true) }}>Informar saldo</button>
+                  : <div className="tp-ctx">Lance o investimento das campanhas primeiro</div>
               ) : (() => {
-                const used = data.total.gasto / data.verba
+                const inv = data.total.investimento
+                const used = inv ? data.total.gasto / inv : 0
                 const proj = data.dias_decorridos ? data.total.gasto / data.dias_decorridos * data.dias_mes : 0
                 return (
                   <>
                     <div className="tp-krow">
-                      <span className="tp-val">{brl(data.verba - data.total.gasto)}</span>
-                      <button className="tp-icon" aria-label="Editar verba" title="Editar verba"
-                        onClick={() => { setVerbaTxt(nf(data.verba ?? 0, 2)); setEditVerba(true) }}><Pencil size={14} /></button>
+                      <span className="tp-val">{brl(data.saldo)}</span>
+                      <button className="tp-icon" aria-label="Editar saldo" title="Editar saldo"
+                        onClick={() => { setVerbaTxt(nf(data.saldo ?? 0, 2)); setEditVerba(true) }}><Pencil size={14} /></button>
                     </div>
                     <div className="tp-track" style={{ margin: '11px 0' }}>
-                      <span className="proj" style={{ width: `${Math.min(proj / data.verba, 1) * 100}%` }} />
+                      <span className="proj" style={{ width: `${inv ? Math.min(proj / inv, 1) * 100 : 0}%` }} />
                       <span className="fill" style={{ width: `${Math.min(used, 1) * 100}%` }} />
                       <span className="mark" style={{ left: `${elapsed * 100}%` }} />
                     </div>
                     <div className="tp-ctx">
-                      {pct(used)} de {brl(data.verba)} · projeção <b style={{ color: proj > data.verba ? 'var(--danger)' : 'var(--text-1)' }}>{brl(proj)}</b>
+                      {pct(used)} de {brl(inv)} usado · projeção <b style={{ color: proj > inv ? 'var(--danger)' : 'var(--text-1)' }}>{brl(proj)}</b>
                     </div>
                   </>
                 )
@@ -310,12 +315,14 @@ export default function TrafegoPago() {
                       {x.temperatura.map((v, j) => <div key={j}><b>{v}</b><span><i className={`sw ${TEMP[j].c}`} />{TEMP[j].k}</span></div>)}
                     </div>
                     <div className="ccost">
-                      {x.gasto != null ? (
+                      {x.investimento != null && x.gasto != null ? (
                         <>
-                          <span>Gasto <b>{brl(x.gasto)}</b></span>
-                          <span>Custo por lead <b>{x.leads ? brl(x.gasto / x.leads) : '—'}</b></span>
+                          <span>Investimento <b>{brl(x.investimento)}</b></span>
+                          <span title={`Gasto estimado ${brl(x.gasto)} (proporcional ao investimento) ÷ ${x.leads} leads`}>
+                            Custo por lead <b>{x.leads ? brl(x.gasto / x.leads) : '—'}</b>
+                          </span>
                         </>
-                      ) : <span className="tp-muted">Gasto não lançado</span>}
+                      ) : <span className="tp-muted">Investimento não lançado</span>}
                     </div>
                     <div className="cmetrics">
                       <div><span>Vendas</span><b>{x.vendas}</b></div>
@@ -342,8 +349,8 @@ export default function TrafegoPago() {
   )
 }
 
-/* Janela "Lançar gastos": gasto do mês por campanha (valor acumulado do
-   gerenciador de anúncios); campo vazio apaga o lançamento daquela campanha. */
+/* Janela "Investimento por campanha": investimento do mês de cada campanha
+   (o saldo restante vai no card ao lado); campo vazio apaga o lançamento. */
 function LancarGastos({ data, onClose, onSaved }: { data: Dados; onClose: () => void; onSaved: () => void }) {
   const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(
     data.lancamento.map(n => [n, data.gastos_campanha[n] != null ? nf(data.gastos_campanha[n], 2) : '']),
@@ -377,7 +384,7 @@ function LancarGastos({ data, onClose, onSaved }: { data: Dados; onClose: () => 
     <div className="tp-modal" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
       <form className="tp-mbox" role="dialog" aria-modal="true" aria-labelledby="tp-mtitle" onSubmit={e => { e.preventDefault(); salvar() }}>
         <div className="mhead">
-          <h2 id="tp-mtitle">Lançar gastos</h2>
+          <h2 id="tp-mtitle">Investimento por campanha</h2>
           <span className="tp-muted tp-small" style={{ textTransform: 'capitalize' }}>{PLATS.find(p => p.id === data.plataforma)?.nome} · {mesNome(data.mes)} {data.mes.slice(0, 4)}</span>
         </div>
         <div className="mlist">
