@@ -11,6 +11,7 @@ interface PlacarLead {
   id: string
   nome: string
   telefone: string | null
+  d: string
   h: number
   min: number
   grupo: GrupoKey
@@ -25,10 +26,14 @@ interface PlacarLead {
 }
 interface Placar {
   data: string
-  hoje: boolean
+  data_fim: string
+  periodo: boolean // mais de um dia (De/Até)
+  dias: string[]
+  hoje: boolean // o intervalo inclui hoje
   agora: string | null
   corte_min: number
   meta_dia: number
+  meta: number // meta do dia, ou somada nos dias úteis do período
   media_hora: number[]
   media_dia: number
   leads: PlacarLead[]
@@ -72,6 +77,19 @@ function dataLabel(iso: string) {
   const dt = new Date(y, m - 1, d)
   return `${DIAS_SEMANA[dt.getDay()]}, ${d} de ${MESES[m - 1]}`
 }
+function periodoLabel(a: string, b: string) {
+  if (a === b) return dataLabel(a)
+  const [ya, ma, da] = a.split('-').map(Number), [yb, mb, db] = b.split('-').map(Number)
+  if (ya === yb && ma === mb) return `${da} a ${db} de ${MESES[mb - 1]}`
+  if (ya === yb) return `${da} de ${MESES[ma - 1]} a ${db} de ${MESES[mb - 1]}`
+  return `${pad(da)}/${pad(ma)}/${ya} a ${pad(db)}/${pad(mb)}/${yb}`
+}
+const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+const hojeIso = () => isoLocal(new Date())
+const ontemIso = () => { const d = new Date(); d.setDate(d.getDate() - 1); return isoLocal(d) }
+const MAX_DIAS = 93 // mesmo limite do backend
+const diasEntre = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1
+const dataValida = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) && s >= '2020-01-01'
 const badgeStyle = (c: string) => ({
   color: `var(${c})`, background: `color-mix(in srgb,var(${c}) 11%,transparent)`, border: `1px solid color-mix(in srgb,var(${c}) 30%,transparent)`,
 })
@@ -92,7 +110,13 @@ function Ico({ n, style }: { n: string; style?: React.CSSProperties }) {
 
 export default function PlacarDia() {
   const navigate = useNavigate()
-  const [dia, setDia] = useState<'hoje' | 'ontem'>('hoje')
+  // período aplicado (de/ate) e o que está digitado nos campos (deTxt/ateTxt):
+  // os campos só aplicam depois de uma pausa e com as duas datas válidas --
+  // input date sem debounce já derrubou o backend na aba Performance
+  const [de, setDe] = useState(hojeIso)
+  const [ate, setAte] = useState(hojeIso)
+  const [deTxt, setDeTxt] = useState(de)
+  const [ateTxt, setAteTxt] = useState(ate)
   const [placar, setPlacar] = useState<Placar | null>(null)
   const [erro, setErro] = useState('')
   const [atualizado, setAtualizado] = useState('')
@@ -103,15 +127,23 @@ export default function PlacarDia() {
   const [peek, setPeek] = useState<PlacarLead | null>(null)
   const idsRef = useRef<Set<string> | null>(null)
 
-  const dataAlvo = useMemo(() => {
-    const d = new Date()
-    if (dia === 'ontem') d.setDate(d.getDate() - 1)
-    return isoLocal(d)
-  }, [dia])
+  const hoje = hojeIso(), ontem = ontemIso()
+  const incluiHoje = de <= hoje && hoje <= ate
+  const rangeOk = dataValida(deTxt) && dataValida(ateTxt) && deTxt <= ateTxt && diasEntre(deTxt, ateTxt) <= MAX_DIAS
+
+  useEffect(() => {
+    if (!rangeOk || (deTxt === de && ateTxt === ate)) return
+    const t = setTimeout(() => { setDe(deTxt); setAte(ateTxt) }, 600)
+    return () => clearTimeout(t)
+  }, [deTxt, ateTxt, rangeOk, de, ate])
+
+  function escolherDia(iso: string) {
+    setDe(iso); setAte(iso); setDeTxt(iso); setAteTxt(iso)
+  }
 
   const carregar = useCallback((silencioso = false) => {
     if (!silencioso) setErro('')
-    return api.get<Placar>('/api/v1/dashboard/placar', { params: { data: dataAlvo } })
+    return api.get<Placar>('/api/v1/dashboard/placar', { params: { date_from: de, date_to: ate } })
       .then(r => {
         const novos = r.data.leads
         // lead novo chegando ao vivo: pisca no topo da lista
@@ -128,7 +160,7 @@ export default function PlacarDia() {
         if (err?.response?.status === 401) navigate('/login')
         else if (!silencioso) setErro('Não foi possível carregar o placar.')
       })
-  }, [dataAlvo, navigate])
+  }, [de, ate, navigate])
 
   useEffect(() => {
     idsRef.current = null
@@ -139,12 +171,12 @@ export default function PlacarDia() {
     carregar()
   }, [carregar])
 
-  // ao vivo: atualiza a cada minuto enquanto estiver olhando o dia de hoje
+  // ao vivo: atualiza a cada minuto enquanto o período incluir hoje
   useEffect(() => {
-    if (dia !== 'hoje') return
+    if (!incluiHoje) return
     const t = setInterval(() => { if (!document.hidden) carregar(true) }, 60000)
     return () => clearInterval(t)
-  }, [dia, carregar])
+  }, [incluiHoje, carregar])
 
   const ativos = ORIGENS.filter(o => !origOff.has(o.k) && (!origSel || o.k === origSel))
   const filtrado = ativos.length < ORIGENS.length
@@ -171,16 +203,20 @@ export default function PlacarDia() {
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <h1>Placar do dia</h1>
-              <span className="date">{dataLabel(dataAlvo)}</span>
+              <span className="date">{periodoLabel(de, ate)}</span>
             </div>
           </div>
-          {dia === 'hoje' && placar && (
+          {incluiHoje && placar && (
             <span className="live"><i /><span>Ao vivo · atualizado às {atualizado}</span></span>
           )}
           <div className="sp" />
+          <div className={`seg range ${rangeOk ? '' : 'bad'}`}>
+            <label>De<input type="date" value={deTxt} max={hoje} onChange={e => setDeTxt(e.target.value)} /></label>
+            <label>Até<input type="date" value={ateTxt} max={hoje} onChange={e => setAteTxt(e.target.value)} /></label>
+          </div>
           <div className="seg">
-            <button className={dia === 'hoje' ? 'on' : ''} onClick={() => setDia('hoje')}>Hoje</button>
-            <button className={dia === 'ontem' ? 'on' : ''} onClick={() => setDia('ontem')}>Ontem</button>
+            <button className={de === hoje && ate === hoje ? 'on' : ''} onClick={() => escolherDia(hoje)}>Hoje</button>
+            <button className={de === ontem && ate === ontem ? 'on' : ''} onClick={() => escolherDia(ontem)}>Ontem</button>
           </div>
         </div>
 
@@ -205,17 +241,17 @@ export default function PlacarDia() {
 
             <div className="row3">
               <section className="card ch" style={{ alignSelf: 'start' }}>
-                <Status leads={leadsF} hoje={placar.hoje} />
+                <Status leads={leadsF} quando={placar.periodo ? 'no período' : placar.hoje ? 'hoje' : 'no dia'} />
               </section>
               <section className="card ch feed">
                 <div className="chh">
                   <div><h3>Últimos leads</h3><p>{pontoSel ? `Só Meta Ads · ${pontoSel}` : origSel ? `Só ${ORIGENS.find(o => o.k === origSel)!.l}` : 'Os mais recentes primeiro'}</p></div>
                   <div className="sp" />
-                  <button className="link" onClick={() => navigate(`/leads-report?date_from=${placar.data}&date_to=${placar.data}&estrito=1`)}>
+                  <button className="link" onClick={() => navigate(`/leads-report?date_from=${placar.data}&date_to=${placar.data_fim}&estrito=1`)}>
                     Ver no Relatório <Ico n="arr" style={{ width: 13 }} />
                   </button>
                 </div>
-                <Feed leads={leadsF.slice(0, 8)} flashId={flashId} onOpen={setPeek} />
+                <Feed leads={leadsF.slice(0, 8)} flashId={flashId} onOpen={setPeek} periodo={placar.periodo} />
               </section>
             </div>
           </>
@@ -241,9 +277,10 @@ export default function PlacarDia() {
 function Row1({ p }: { p: Placar }) {
   const all = p.leads
   const total = all.length
+  const live = p.hoje && !p.periodo // um dia só, e é hoje
   const corteH = Math.floor(p.corte_min / 60), corteM = p.corte_min % 60
   const anteriorAte = p.anterior.filter(a => a.m < p.corte_min).length
-  const mediaAte = p.hoje
+  const mediaAte = live
     ? Math.round(p.media_hora.slice(0, corteH).reduce((a, b) => a + b, 0) + (p.media_hora[corteH] ?? 0) * corteM / 60)
     : Math.round(p.media_dia)
   const dAnt = total - anteriorAte, dMedia = total - mediaAte
@@ -257,28 +294,30 @@ function Row1({ p }: { p: Placar }) {
   const em15 = pct(tempos.filter(t => t <= 15).length, tempos.length)
   const semHorario = atendidos.length - tempos.length
   const fechados = all.filter(l => l.status === 'fech').length
-  const projecao = p.hoje && mediaAte > 0 ? Math.round(total / mediaAte * p.media_dia) : total
+  const projecao = live && mediaAte > 0 ? Math.round(total / mediaAte * p.media_dia) : total
   const pAt = pct(atendidos.length, total)
   const C = 2 * Math.PI * 17
-  const quando = p.hoje ? 'hoje' : 'no dia'
+  const quando = p.periodo ? 'no período' : p.hoje ? 'hoje' : 'no dia'
   const atrasados = pend.filter(l => (l.espera_min ?? 0) > 30).length
 
   return (
     <div className="row1">
       <div className="card hero">
         <div className="lbl"><Ico n="in" style={{ color: 'var(--pri)' }} />Leads captados {quando}</div>
-        <div className="big">{total}{p.hoje && <small>até {corteH}h{pad(corteM)}</small>}</div>
+        <div className="big">{total}{live && <small>até {corteH}h{pad(corteM)}</small>}</div>
         <div className="chips">
-          {p.hoje ? <>{chip(dAnt, 'vs ontem no mesmo horário')}{chip(dMedia, 'vs média 7 dias')}</> : <>{chip(dAnt, 'vs dia anterior')}{chip(dMedia, 'vs média 7 dias')}</>}
+          {p.periodo ? chip(dAnt, 'vs período anterior')
+            : live ? <>{chip(dAnt, 'vs ontem no mesmo horário')}{chip(dMedia, 'vs média 7 dias')}</>
+            : <>{chip(dAnt, 'vs dia anterior')}{chip(dMedia, 'vs média 7 dias')}</>}
         </div>
         <div className="meta">
           <div className="bar">
-            <i style={{ width: `${Math.min(100, pct(total, p.meta_dia))}%` }} />
-            {p.hoje && <b style={{ left: `${Math.min(99, pct(projecao, p.meta_dia))}%` }} title="Projeção" />}
+            <i style={{ width: `${Math.min(100, pct(total, p.meta))}%` }} />
+            {live && <b style={{ left: `${Math.min(99, pct(projecao, p.meta))}%` }} title="Projeção" />}
           </div>
           <div className="ml">
-            <span>Meta do dia: <b>{p.meta_dia}</b> · {pct(total, p.meta_dia)}%</span>
-            {p.hoje && <span>Projeção: <b>~{projecao}</b></span>}
+            <span>Meta do {p.periodo ? 'período' : 'dia'}: <b>{p.meta}</b> · {pct(total, p.meta)}%</span>
+            {live && <span>Projeção: <b>~{projecao}</b></span>}
           </div>
         </div>
       </div>
@@ -343,25 +382,32 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
     return () => ro.disconnect()
   }, [])
 
+  // um dia: barras por hora (+ média 7 dias); período: barras por dia
+  const per = p.periodo
+  const live = p.hoje && !per
   const horasComLead = p.leads.map(l => l.h)
   const h0 = Math.min(7, ...horasComLead), h1 = Math.max(22, ...horasComLead)
   const HORAS = Array.from({ length: h1 - h0 + 1 }, (_, i) => h0 + i)
   const corteH = Math.floor(p.corte_min / 60)
+  const comMedia = !filtrado && !per
 
-  const porHora = HORAS.map(h => {
-    const r: Record<string, number> & { h: number; tot: number } = { h, tot: 0 }
+  const porHora = (per ? p.dias : HORAS).map(b => {
+    const h = per ? -1 : (b as number), d = per ? (b as string) : ''
+    const r = { h, d, tot: 0 } as Record<string, number> & { h: number; d: string; tot: number }
     ORIGENS.forEach(o => {
-      r[o.k] = leads.filter(l => l.h === h && l.grupo === o.k).length
+      r[o.k] = leads.filter(l => (per ? l.d === d : l.h === h) && l.grupo === o.k).length
       if (ativos.includes(o)) r.tot += r[o.k]
     })
     return r
   })
-  const maxV = Math.max(4, ...porHora.map(r => r.tot), ...(filtrado ? [] : HORAS.map(h => p.media_hora[h] ?? 0)))
+  const rotulo = (r: { h: number; d: string }) => (per ? ddmm(r.d) : `${r.h}h`)
+  const maxV = Math.max(4, ...porHora.map(r => r.tot), ...(comMedia ? HORAS.map(h => p.media_hora[h] ?? 0) : []))
   const step = maxV <= 8 ? 2 : maxV <= 16 ? 4 : maxV <= 40 ? 5 : 10
   const yMax = Math.ceil(maxV / step) * step
   const H = 250, ml = 30, mr = 8, mt = 10, mb = 26
-  const iw = W - ml - mr, ih = H - mt - mb, bw = iw / HORAS.length
+  const iw = W - ml - mr, ih = H - mt - mb, bw = iw / porHora.length
   const y = (v: number) => mt + ih - v / yMax * ih
+  const cadaN = Math.max(1, Math.ceil(42 / bw)) // rótulo do eixo X a cada N barras quando aperta
 
   const grid = []
   for (let v = 0; v <= yMax; v += step) {
@@ -383,13 +429,13 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
         ? <path key={o.k} d={`M${x},${y0} V${y1 + 4} Q${x},${y1} ${x + 4},${y1} H${x + w - 4} Q${x + w},${y1} ${x + w},${y1 + 4} V${y0} Z`} fill={`var(${o.c})`} />
         : <rect key={o.k} x={x} y={y1 + 2} width={w} height={Math.max(0, y0 - y1 - 2)} fill={`var(${o.c})`} />
     })
-    const futuro = p.hoje && r.h > corteH, atual = p.hoje && r.h === corteH
+    const futuro = live && r.h > corteH, atual = live && r.h === corteH
     return (
-      <g key={r.h}>
+      <g key={per ? r.d : r.h}>
         {out}
         {futuro && <rect x={x} y={mt} width={w} height={ih} fill="var(--chip)" opacity={0.35} rx={4} />}
         {atual && <text x={x + w / 2} y={y(r.tot) - 6} textAnchor="middle" fontSize={10.5} fontWeight={600} fill="var(--pri)">agora</text>}
-        <text x={ml + i * bw + bw / 2} y={H - 8} textAnchor="middle" fontSize={11} fill={`var(${atual ? '--tx' : '--tx3'})`} fontWeight={atual ? 600 : 400}>{r.h}h</text>
+        {i % cadaN === 0 && <text x={ml + i * bw + bw / 2} y={H - 8} textAnchor="middle" fontSize={11} fill={`var(${atual ? '--tx' : '--tx3'})`} fontWeight={atual ? 600 : 400}>{rotulo(r)}</text>}
         <rect
           x={ml + i * bw} y={mt} width={bw} height={ih} fill="transparent"
           onMouseMove={e => setTip({ i, x: e.clientX, y: e.clientY })}
@@ -398,7 +444,7 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
       </g>
     )
   })
-  const media = !filtrado && (
+  const media = comMedia && (
     <polyline
       points={HORAS.map((h, i) => `${ml + i * bw + bw / 2},${y(p.media_hora[h] ?? 0)}`).join(' ')}
       fill="none" stroke="var(--tx3)" strokeWidth={2} strokeDasharray="5 4" strokeLinejoin="round" pointerEvents="none"
@@ -412,9 +458,9 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
   return (
     <>
       <div className="chh">
-        <div><h3>Captação por hora</h3>{filtrado && <p>Filtrado: {ativos.map(o => o.l).join(', ')}</p>}</div>
+        <div><h3>Captação por {per ? 'dia' : 'hora'}</h3>{filtrado && <p>Filtrado: {ativos.map(o => o.l).join(', ')}</p>}</div>
         <div className="sp" />
-        {pico && pico.tot > 0 && <span className="muted" style={{ fontSize: 12 }}>Pico: <b style={{ color: 'var(--tx)' }}>{pico.h}h–{pico.h + 1}h</b> · {pico.tot} leads</span>}
+        {pico && pico.tot > 0 && <span className="muted" style={{ fontSize: 12 }}>Pico: <b style={{ color: 'var(--tx)' }}>{per ? dataLabel(pico.d) : `${pico.h}h–${pico.h + 1}h`}</b> · {pico.tot} leads</span>}
       </div>
       <div className="legend">
         {/* só as origens que têm lead no dia (desligadas continuam, pra religar) */}
@@ -423,7 +469,7 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
             <i className="dot" style={{ background: `var(${o.c})` }} />{o.l}
           </span>
         ))}
-        {!filtrado && <span style={{ cursor: 'default' }}><i className="avg" />Média 7 dias</span>}
+        {comMedia && <span style={{ cursor: 'default' }}><i className="avg" />Média 7 dias</span>}
       </div>
       <div ref={boxRef}>
         <svg width={W} height={H} style={{ display: 'block' }}>{grid}{bars}{media}</svg>
@@ -435,14 +481,14 @@ function HourChart({ p, leads, ativos, filtrado, origOff, origSel, onLegend }: {
       >
         {tr && (
           <>
-            <h5>{tr.h}h – {tr.h + 1}h{p.hoje && tr.h === corteH ? ' · em andamento' : ''}</h5>
-            {p.hoje && tr.h > corteH
+            <h5>{per ? dataLabel(tr.d) : `${tr.h}h – ${tr.h + 1}h${live && tr.h === corteH ? ' · em andamento' : ''}`}</h5>
+            {live && tr.h > corteH
               ? <div className="r">Ainda não chegou</div>
               : <>
                   {ativos.map(o => <div className="r" key={o.k}><i className="dot" style={{ background: `var(${o.c})` }} />{o.l}<b>{tr[o.k]}</b></div>)}
                   <div className="r t"><span style={{ fontWeight: 600, color: 'var(--tx)' }}>Total</span><b>{tr.tot}</b></div>
                 </>}
-            {!filtrado && <div className="r"><i className="avg" style={{ width: 12, borderTop: '2px dashed var(--tx3)' }} />Média 7 dias<b>{(p.media_hora[tr.h] ?? 0).toLocaleString('pt-BR')}</b></div>}
+            {comMedia && <div className="r"><i className="avg" style={{ width: 12, borderTop: '2px dashed var(--tx3)' }} />Média 7 dias<b>{(p.media_hora[tr.h] ?? 0).toLocaleString('pt-BR')}</b></div>}
           </>
         )}
       </div>
@@ -483,7 +529,7 @@ function Origens({ p, sel, ponto, onSel, onPonto }: { p: Placar; sel: GrupoKey |
             <div key={r.k}>
               <div
                 className={`orow ${sel === r.k ? 'sel' : ''}`} onClick={() => onSel(r.k)}
-                title={`${d >= 0 ? '+' : ''}${d} vs ${p.hoje ? 'ontem no mesmo horário' : 'dia anterior'}`}
+                title={`${d >= 0 ? '+' : ''}${d} vs ${p.periodo ? 'período anterior' : p.hoje ? 'ontem no mesmo horário' : 'dia anterior'}`}
                 style={sel && sel !== r.k ? { opacity: 0.45 } : undefined}
               >
                 <span className="nm"><i className="dot" style={{ background: `var(${r.c})` }} />{r.l}</span>
@@ -518,7 +564,7 @@ function Origens({ p, sel, ponto, onSel, onPonto }: { p: Placar; sel: GrupoKey |
 }
 
 /* ---------- status ---------- */
-function Status({ leads, hoje }: { leads: PlacarLead[]; hoje: boolean }) {
+function Status({ leads, quando }: { leads: PlacarLead[]; quando: string }) {
   const total = leads.length
   const linhas = STATUS.map(s => ({ ...s, n: leads.filter(l => l.status === s.k).length })).filter(s => s.n > 0)
   const max = Math.max(1, ...linhas.map(s => s.n))
@@ -527,9 +573,9 @@ function Status({ leads, hoje }: { leads: PlacarLead[]; hoje: boolean }) {
   const fech = leads.filter(l => l.status === 'fech').length
   return (
     <>
-      <div className="chh"><div><h3>Status dos leads captados</h3><p>{total} lead{total !== 1 ? 's' : ''} captado{total !== 1 ? 's' : ''} {hoje ? 'hoje' : 'no dia'}, pela situação atual</p></div></div>
+      <div className="chh"><div><h3>Status dos leads captados</h3><p>{total} lead{total !== 1 ? 's' : ''} captado{total !== 1 ? 's' : ''} {quando}, pela situação atual</p></div></div>
       <div style={{ marginTop: 6 }}>
-        {!linhas.length && <div className="empty">Nenhum lead captado {hoje ? 'hoje' : 'no dia'}.</div>}
+        {!linhas.length && <div className="empty">Nenhum lead captado {quando}.</div>}
         {linhas.map(s => (
           <div className="strow" key={s.k}>
             <span><span className="badge" style={badgeStyle(s.c)}><i className="dot" style={{ width: 6, height: 6, background: `var(${s.c})` }} />{s.l}</span></span>
@@ -548,11 +594,11 @@ function Status({ leads, hoje }: { leads: PlacarLead[]; hoje: boolean }) {
 }
 
 /* ---------- últimos leads ---------- */
-function Feed({ leads, flashId, onOpen }: { leads: PlacarLead[]; flashId: string | null; onOpen: (l: PlacarLead) => void }) {
+function Feed({ leads, flashId, onOpen, periodo }: { leads: PlacarLead[]; flashId: string | null; onOpen: (l: PlacarLead) => void; periodo: boolean }) {
   if (!leads.length) return <div className="empty">Nenhum lead nesse filtro.</div>
   return (
     <table>
-      <colgroup><col style={{ width: 66 }} /><col /><col style={{ width: '23%' }} /><col style={{ width: 128 }} /><col style={{ width: '19%' }} /></colgroup>
+      <colgroup><col style={{ width: periodo ? 104 : 66 }} /><col /><col style={{ width: '23%' }} /><col style={{ width: 128 }} /><col style={{ width: '19%' }} /></colgroup>
       <thead><tr><th>Hora</th><th>Lead</th><th>Origem</th><th>Status</th><th>Atendente</th></tr></thead>
       <tbody>
         {leads.map(l => {
@@ -560,7 +606,7 @@ function Feed({ leads, flashId, onOpen }: { leads: PlacarLead[]; flashId: string
           const s = STATUS.find(x => x.k === l.status) ?? STATUS[STATUS.length - 1]
           return (
             <tr key={l.id} className={flashId === l.id ? 'new' : ''} onClick={() => onOpen(l)}>
-              <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--tx2)' }}>{pad(l.h)}:{pad(l.min)}</td>
+              <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--tx2)' }}>{periodo && <>{ddmm(l.d)} </>}{pad(l.h)}:{pad(l.min)}</td>
               <td className="nm" title={l.nome}><b className="cut">{l.nome}</b><span className="cut">{l.telefone ?? '—'}</span></td>
               <td><span className="cut" style={{ color: 'var(--tx2)' }}><i className="dot" style={{ background: `var(${o.c})`, marginRight: 7 }} />{o.l}</span></td>
               <td>
