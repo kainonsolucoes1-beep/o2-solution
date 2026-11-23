@@ -45,6 +45,10 @@ html.dark .pl {
 .pl .seg button.on{background:var(--pri-bg);color:var(--pri-dk);font-weight:600}
 .pl .seg input[type=date]{height:28px;border:0;background:none;color:var(--tx2);font:inherit;font-size:12.5px;padding:0 6px;border-radius:6px;cursor:pointer}
 .pl .seg input[type=date].on{background:var(--pri-bg);color:var(--pri-dk);font-weight:600}
+.pl .seg.range{align-items:center;padding:3px 3px 3px 10px}
+.pl .seg.range label{font-size:12px;color:var(--tx3);display:inline-flex;align-items:center;gap:2px}
+.pl .seg.range label + label{margin-left:4px}
+.pl .seg.range.bad{border-color:var(--danger,#DC2626)}
 html.dark .pl input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.8)}
 .pl .sp{flex:1}
 

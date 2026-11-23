@@ -819,23 +819,42 @@ def _placar_entrada(r, hist) -> datetime:
     return r.eff
 
 
+_PLACAR_MAX_DIAS = 93  # periodo De/Ate: no maximo ~3 meses
+
+
 @router.get("/placar")
 def placar_do_dia(
     data: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Placar de um dia (`data`) ou de um periodo (`date_from`..`date_to`).
+    No periodo (mais de um dia) a comparacao e' com o periodo anterior de mesmo
+    tamanho e a meta e' a meta do dia somada nos dias uteis do intervalo."""
     from fastapi import HTTPException
+    from app.br_calendar import is_business_day
     from app.models.lead import LeadNote
     from app.tz_utils import now_br
 
     agora_br = now_br()
     try:
-        dia = datetime.strptime(data, "%Y-%m-%d").date() if data else agora_br.date()
+        ini_txt = date_from or data
+        fim_txt = date_to or date_from or data
+        dia = datetime.strptime(ini_txt, "%Y-%m-%d").date() if ini_txt else agora_br.date()
+        dia_fim = datetime.strptime(fim_txt, "%Y-%m-%d").date() if fim_txt else dia
     except ValueError:
         raise HTTPException(status_code=422, detail="Data inválida. Use YYYY-MM-DD.")
-    hoje = dia == agora_br.date()
-    start, end = br_date_to_utc_range(dia)
+    if dia_fim < dia:
+        raise HTTPException(status_code=422, detail="A data inicial é depois da final.")
+    n_dias = (dia_fim - dia).days + 1
+    if n_dias > _PLACAR_MAX_DIAS:
+        raise HTTPException(status_code=422, detail=f"Período máximo de {_PLACAR_MAX_DIAS} dias.")
+    periodo = n_dias > 1
+    hoje = dia <= agora_br.date() <= dia_fim  # o intervalo inclui hoje
+    start, _ = br_date_to_utc_range(dia)
+    _, end = br_date_to_utc_range(dia_fim)
     # "agora" em UTC naive: no dia de hoje, nada depois disso existe ainda
     agora_utc = agora_br + BR_OFFSET
     corte = min(end, agora_utc) if hoje else end
@@ -878,6 +897,7 @@ def placar_do_dia(
             "id": str(r.id),
             "nome": r.name,
             "telefone": r.phone,
+            "d": local.date().isoformat(),
             "h": local.hour,
             "min": local.minute,
             "grupo": _placar_grupo(r.origin, r.conversion_point, r.campanha_midia, person_names),
@@ -890,16 +910,17 @@ def placar_do_dia(
             "contato_min": _minutos_expediente(entrada, contato_at) if contato_at else None,
             "espera_min": espera,
         })
-    leads.sort(key=lambda x: (x["h"], x["min"]), reverse=True)
+    leads.sort(key=lambda x: (x["d"], x["h"], x["min"]), reverse=True)
 
-    # dia anterior: hora/minuto + grupo de cada lead (comparação "até o mesmo horário")
-    p_start, p_end = br_date_to_utc_range(dia - timedelta(days=1))
-    p_rows = _placar_leads_do_dia(db, p_start, p_end)
+    # dia anterior: hora/minuto + grupo de cada lead (comparação "até o mesmo horário");
+    # no periodo, o periodo anterior de mesmo tamanho inteiro (m=0 -> sempre conta)
+    p_start, _ = br_date_to_utc_range(dia - timedelta(days=n_dias))
+    p_rows = _placar_leads_do_dia(db, p_start, start)
     p_hist = _placar_historico(db, [r.id for r in p_rows if r.retrabalhado_em is not None])
     anterior = []
     for r in p_rows:
         e = _placar_entrada(r, p_hist) - BR_OFFSET
-        anterior.append({"m": e.hour * 60 + e.minute, "grupo": _placar_grupo(r.origin, r.conversion_point, r.campanha_midia, person_names)})
+        anterior.append({"m": 0 if periodo else e.hour * 60 + e.minute, "grupo": _placar_grupo(r.origin, r.conversion_point, r.campanha_midia, person_names)})
 
     # média por hora dos 7 dias anteriores (reativados no horário real da reativação)
     m_start, _ = br_date_to_utc_range(dia - timedelta(days=7))
@@ -910,15 +931,23 @@ def placar_do_dia(
         por_hora[(_placar_entrada(r, m_hist) - BR_OFFSET).hour] += 1
     media_hora = [round(n / 7, 1) for n in por_hora]
 
-    uteis = business_days_in_month(dia.year, dia.month) or 1
-    meta_dia = max(1, round(META_LEADS / uteis))
+    def _meta_do_dia(d):
+        return max(1, round(META_LEADS / (business_days_in_month(d.year, d.month) or 1)))
+
+    meta_dia = _meta_do_dia(dia)
+    dias = [dia + timedelta(days=i) for i in range(n_dias)]
+    meta = sum(_meta_do_dia(d) for d in dias if is_business_day(d)) if periodo else meta_dia
 
     return {
         "data": dia.isoformat(),
+        "data_fim": dia_fim.isoformat(),
+        "periodo": periodo,
+        "dias": [d.isoformat() for d in dias] if periodo else [dia.isoformat()],
         "hoje": hoje,
         "agora": agora_br.strftime("%H:%M") if hoje else None,
-        "corte_min": ((corte - BR_OFFSET).hour * 60 + (corte - BR_OFFSET).minute) if hoje else 24 * 60,
+        "corte_min": ((corte - BR_OFFSET).hour * 60 + (corte - BR_OFFSET).minute) if hoje and not periodo else 24 * 60,
         "meta_dia": meta_dia,
+        "meta": meta,
         "media_hora": media_hora,
         "media_dia": round(sum(por_hora) / 7, 1),
         "leads": leads,
