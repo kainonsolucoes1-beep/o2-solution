@@ -1294,7 +1294,9 @@ EMISSAO_STATUSES = ("emissao", "emissão")
 FUNIL_PERCEPTIONS = ("Quente", "Morno", "Frio")
 
 # Data da venda (19/11/2026): a venda conta no mes em que foi pra "Em emissao" (a
-# ultima emissao, que e' a que valeu), ja' a partir da emissao. Sem emissao registrada
+# ultima emissao, que e' a que valeu). Desde 23/11/2026 o REALIZADO da meta so' soma
+# os "pagos" (Aguardando faturamento / Venda realizada); a esteira (emissao) ainda pode
+# dar errado e entra so' na projecao -- mas no mes da emissao. Sem emissao registrada
 # (antes de 15/09/2026) vale a "Data da venda" da planilha (data pura -> meia-noite BR
 # em UTC) e, sem ela, a captacao. Usado na meta (Fluxo de vendas e Financeiro > Metas).
 ULTIMA_EMISSAO = (
@@ -1436,7 +1438,7 @@ def fluxo_vendas(
     if meta_row:
         tipo, meta_valor = meta_do_mes(db, meta_row, year, mon)
         def _prog(res):
-            return res["fluxo"]["pago"]["valor"] + res["fluxo"]["esteira"]["valor"] if tipo == "clt" else float(res["captacoes"])
+            return res["fluxo"]["pago"]["valor"] if tipo == "clt" else float(res["captacoes"])
         progresso, progresso_ant = _prog(atual), _prog(anterior)
         du_mes = business_days_in_month(year, mon)
         du_ate_hoje = du_mes if encerrado else business_days_in_month(year, mon, nb.day)
@@ -1445,8 +1447,8 @@ def fluxo_vendas(
         if encerrado:
             projecao = progresso
         elif tipo == "clt":
-            # meta em R$: a emissao ja' conta como venda, entao a projecao e' o proprio progresso
-            projecao = progresso
+            # meta em R$: projecao = realizado (pagos) + o que esta' em emissao (esteira)
+            projecao = progresso + atual["fluxo"]["esteira"]["valor"]
         else:
             projecao = progresso / du_ate_hoje * du_mes if du_ate_hoje > 0 else 0.0
         meta = {

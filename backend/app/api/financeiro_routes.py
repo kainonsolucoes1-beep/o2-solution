@@ -7,7 +7,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth_routes import get_current_user
-from app.api.gestao_comercial_routes import DATA_VENDA_EFETIVA, EFFECTIVE_CAPTACAO, MESES_ABREV, VENDIDO_CLAUSE, agent_leads_clause
+from app.api.gestao_comercial_routes import DATA_VENDA_EFETIVA, EFFECTIVE_CAPTACAO, MESES_ABREV, VENDIDO_CLAUSE, _fluxo_grupo, agent_leads_clause
 from app.database import get_db
 from app.models.lead import Lead, LeadParcela
 from app.models.sdr_meta import SdrMeta, SdrMetaMensal, meta_do_mes
@@ -255,11 +255,15 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
         venda_filters.append(DATA_VENDA_EFETIVA < dt_to_excl)
 
     leads_count = db.query(func.count(Lead.id)).filter(*filters).scalar() or 0
-    vendas_rows = db.query(Lead.value_potential).filter(*venda_filters).all()
-    vendas_count = len(vendas_rows)
+    # atingido so' com os pagos (Aguardando faturamento / Venda realizada); a esteira
+    # (emissao) ainda pode dar errado e entra so' na projecao -- ver _fluxo_grupo
+    vendas_rows = db.query(Lead.value_potential, Lead.status, Lead.receita_data_venda).filter(*venda_filters).all()
+    pagos = [float(v or 0) for v, s, dv in vendas_rows if _fluxo_grupo(s, dv) == "pago"]
+    em_esteira = sum(float(v or 0) for v, s, dv in vendas_rows if _fluxo_grupo(s, dv) == "esteira")
+    vendas_count = len(pagos)
 
     if tipo == "clt":
-        atingido = sum(float(value or 0) for (value,) in vendas_rows)
+        atingido = sum(pagos)
     else:
         atingido = float(leads_count)
 
@@ -268,8 +272,8 @@ def _progress_for_meta(db: Session, meta: SdrMeta, date_from: Optional[str], dat
     projecao = None
     if _is_current_month_range(date_from, date_to):
         if tipo == "clt":
-            # a emissao ja' conta no atingido -- nao ha' mais o que somar na projecao
-            projecao = None
+            # realizado (pagos) + o que esta' em emissao
+            projecao = round(atingido + em_esteira, 2)
         else:
             now = now_br()
             dias_no_mes = calendar.monthrange(now.year, now.month)[1]
