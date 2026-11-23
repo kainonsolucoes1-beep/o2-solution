@@ -19,3 +19,16 @@ class TrafegoGasto(Base):
     updated_by = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())
+
+
+class TrafegoVerba(Base):
+    """Verba mensal planejada por plataforma (Equipe > Tráfego pago)."""
+    __tablename__ = "trafego_verbas"
+    __table_args__ = (UniqueConstraint("plataforma", "mes", name="uq_trafego_verba_mes"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("uuid_generate_v4()"))
+    plataforma = Column(String(20), nullable=False)  # 'google' | 'meta'
+    mes = Column(String(7), nullable=False)          # 'AAAA-MM'
+    valor = Column(Numeric(12, 2), nullable=False)
+    updated_by = Column(String(255), nullable=True)
+    updated_at = Column(TIMESTAMP, server_default=func.now())
