@@ -10,10 +10,14 @@ interface Campanha {
   vendas: number; valor_vendas: number; vendas_temp: number[]; perdidos: number
   motivos: [string, number][]; diario: { leads: number; vendas: number }[]
   anterior: { leads: number; vendas: number; valor_vendas: number } | null
+  gasto: number | null // lançado à mão na janela "Lançar gastos"
 }
 interface Dados {
   plataforma: Plataforma; mes: string; inicio: string; fim: string
   dias_decorridos: number; dias_mes: number; verba: number | null
+  gasto_fonte: 'campanhas' | 'semanas' | null
+  lancamento: string[] // campanhas listadas na janela "Lançar gastos"
+  gastos_campanha: Record<string, number>
   total: { gasto: number; leads: number; vendas: number; valor_vendas: number; temperatura: number[]; diario_leads: number[] }
   anterior: { gasto: number; leads: number; vendas: number; valor_vendas: number }
   campanhas: Campanha[]
@@ -135,6 +139,7 @@ export default function TrafegoPago() {
   const [editVerba, setEditVerba] = useState(false)
   const [verbaTxt, setVerbaTxt] = useState('')
   const [verbaErro, setVerbaErro] = useState(false)
+  const [lancar, setLancar] = useState(false)
   const genRef = useRef(0)
 
   function fetchData(silencioso = false) {
@@ -205,10 +210,19 @@ export default function TrafegoPago() {
           <div className="tp-summary">
             <div className="tp-kpi">
               <div className="tp-lbl">Investimento</div>
-              <div className="tp-krow"><span className="tp-val">{brl(data.total.gasto)}</span><Delta cur={data.total.gasto} prev={data.anterior.gasto} lowGood /></div>
-              <div className="tp-ctx">
-                {data.total.gasto ? `vs ${brl(data.anterior.gasto)} no mesmo período de ${mesAnt}` : 'Nenhuma semana lançada em Financeiro › Tráfego pago'}
+              <div className="tp-krow">
+                <span className="tp-val">{brl(data.total.gasto)}</span><Delta cur={data.total.gasto} prev={data.anterior.gasto} lowGood />
+                {data.lancamento.length > 0 && (
+                  <button className="tp-icon" aria-label="Lançar gastos" title="Lançar gastos das campanhas" onClick={() => setLancar(true)}><Pencil size={14} /></button>
+                )}
               </div>
+              {data.total.gasto ? (
+                <div className="tp-ctx">vs {brl(data.anterior.gasto)} no mesmo período de {mesAnt}</div>
+              ) : data.lancamento.length > 0 ? (
+                <button className="tp-btn ghost" style={{ justifySelf: 'start', alignSelf: 'start' }} onClick={() => setLancar(true)}>Lançar gastos</button>
+              ) : (
+                <div className="tp-ctx">Nenhuma campanha no mês</div>
+              )}
             </div>
 
             <div className="tp-kpi">
@@ -295,6 +309,14 @@ export default function TrafegoPago() {
                     <div className="temps">
                       {x.temperatura.map((v, j) => <div key={j}><b>{v}</b><span><i className={`sw ${TEMP[j].c}`} />{TEMP[j].k}</span></div>)}
                     </div>
+                    <div className="ccost">
+                      {x.gasto != null ? (
+                        <>
+                          <span>Gasto <b>{brl(x.gasto)}</b></span>
+                          <span>Custo por lead <b>{x.leads ? brl(x.gasto / x.leads) : '—'}</b></span>
+                        </>
+                      ) : <span className="tp-muted">Gasto não lançado</span>}
+                    </div>
                     <div className="cmetrics">
                       <div><span>Vendas</span><b>{x.vendas}</b></div>
                       <div><span>Conversão</span><b>{x.leads ? pct(x.vendas / x.leads) : '—'}</b></div>
@@ -312,6 +334,73 @@ export default function TrafegoPago() {
           }} />}
         </div>
       ) : null}
+
+      {lancar && data && (
+        <LancarGastos data={data} onClose={() => setLancar(false)} onSaved={() => { setLancar(false); fetchData(true) }} />
+      )}
+    </div>
+  )
+}
+
+/* Janela "Lançar gastos": gasto do mês por campanha (valor acumulado do
+   gerenciador de anúncios); campo vazio apaga o lançamento daquela campanha. */
+function LancarGastos({ data, onClose, onSaved }: { data: Dados; onClose: () => void; onSaved: () => void }) {
+  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(
+    data.lancamento.map(n => [n, data.gastos_campanha[n] != null ? nf(data.gastos_campanha[n], 2) : '']),
+  ))
+  const [erro, setErro] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const parsed = data.lancamento.map(n => ({ n, v: parseValor(vals[n] ?? '') }))
+  const invalidos = new Set(parsed.filter(p => p.v === 'erro').map(p => p.n))
+  const total = parsed.reduce((s, p) => s + (typeof p.v === 'number' ? p.v : 0), 0)
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', esc)
+    return () => document.removeEventListener('keydown', esc)
+  }, [onClose])
+
+  function salvar() {
+    if (invalidos.size) { setErro('Corrija os valores marcados.'); return }
+    // só manda o que mudou
+    const itens = parsed
+      .filter(p => (p.v as number | null) !== (data.gastos_campanha[p.n] ?? null))
+      .map(p => ({ campanha: p.n, valor: p.v as number | null }))
+    if (!itens.length) { onClose(); return }
+    setSalvando(true)
+    api.put('/api/v1/financeiro/trafego/gastos-campanha', { plataforma: data.plataforma, mes: data.mes, itens })
+      .then(onSaved)
+      .catch(() => { setErro('Não foi possível salvar. Tente de novo.'); setSalvando(false) })
+  }
+
+  return (
+    <div className="tp-modal" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+      <form className="tp-mbox" role="dialog" aria-modal="true" aria-labelledby="tp-mtitle" onSubmit={e => { e.preventDefault(); salvar() }}>
+        <div className="mhead">
+          <h2 id="tp-mtitle">Lançar gastos</h2>
+          <span className="tp-muted tp-small" style={{ textTransform: 'capitalize' }}>{PLATS.find(p => p.id === data.plataforma)?.nome} · {mesNome(data.mes)} {data.mes.slice(0, 4)}</span>
+        </div>
+        <div className="mlist">
+          {data.lancamento.map((n, i) => (
+            <label key={n} className="mrow">
+              <span title={n}>{n}</span>
+              <span className="minput">
+                <i>R$</i>
+                <input autoFocus={i === 0} inputMode="decimal" value={vals[n] ?? ''} placeholder="0,00" aria-invalid={invalidos.has(n)}
+                  onChange={e => { const v = e.target.value; setVals(s => ({ ...s, [n]: v })); setErro('') }} />
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="mfoot">
+          <span>Total <b>{brl(total)}</b></span>
+          {erro && <span className="merr">{erro}</span>}
+          <span className="mbtns">
+            <button type="button" className="tp-btn ghost" onClick={onClose}>Cancelar</button>
+            <button type="submit" className="tp-btn" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</button>
+          </span>
+        </div>
+      </form>
     </div>
   )
 }
@@ -460,6 +549,24 @@ html.dark .tp{--tp-surface:var(--bg-card);--hot:#C7DAFE;--warm:#6F9CFB;--cold:#2
 .tp-card .temps b{font-size:15px;font-weight:600}
 .tp-card .temps span{font-size:11px;line-height:14px;color:var(--text-muted);display:flex;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tp-card .temps .sw{width:6px;height:6px;margin-right:4px}
+.tp-card .ccost{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--text-muted);min-height:16px}
+.tp-card .ccost b{font-size:12px;font-weight:600;color:var(--text-1);margin-left:4px;white-space:nowrap}
+.tp-modal{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.tp-mbox{background:var(--tp-surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 48px rgba(15,23,42,.25);width:min(520px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;color:var(--text-1);font-variant-numeric:tabular-nums}
+.tp-mbox .mhead{padding:18px 22px 12px;display:grid;gap:2px;border-bottom:1px solid var(--border)}
+.tp-mbox .mlist{overflow:auto;padding:8px 22px}
+.tp-mbox .mrow{display:grid;grid-template-columns:minmax(0,1fr) 160px;gap:12px;align-items:center;padding:7px 0;font-size:14px}
+.tp-mbox .mrow>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-mbox .minput{display:flex;align-items:center;height:34px;border:1px solid var(--border-in);border-radius:8px;background:var(--bg-input);padding:0 10px;gap:6px}
+.tp-mbox .minput:focus-within{border-color:var(--accent)}
+.tp-mbox .minput i{font-style:normal;font-size:12px;color:var(--text-muted)}
+.tp-mbox .minput input{border:0;outline:0;background:transparent;color:var(--text-1);font:inherit;width:100%;text-align:right}
+.tp-mbox .minput:has(input[aria-invalid="true"]){border-color:var(--danger)}
+.tp-mbox .mfoot{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px 22px;border-top:1px solid var(--border);font-size:13px}
+.tp-mbox .mfoot b{font-size:15px;margin-left:6px}
+.tp-mbox .merr{color:var(--danger);font-size:12px}
+.tp-mbox .mbtns{margin-left:auto;display:flex;gap:8px}
+.tp-btn:disabled{opacity:.6;cursor:default}
 .tp-card .cmetrics{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding-top:12px}
 .tp-card .cmetrics div{display:grid;gap:2px;min-width:0}
 .tp-card .cmetrics div:last-child{text-align:right}
