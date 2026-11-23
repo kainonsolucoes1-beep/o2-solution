@@ -1453,8 +1453,8 @@ def fluxo_vendas(
             projecao = progresso / du_ate_hoje * du_mes if du_ate_hoje > 0 else 0.0
         meta = {
             "tipo": tipo, "meta_valor": meta_valor, "progresso": progresso, "progresso_anterior": progresso_ant,
-            "projecao": round(projecao), "faltam": faltam, "dias_uteis_restantes": du_rest,
-            "ritmo_necessario": round(faltam / du_rest, 1) if du_rest > 0 else 0.0,
+            "projecao": round(projecao, 2) if tipo == "clt" else round(projecao), "faltam": faltam, "dias_uteis_restantes": du_rest,
+            "ritmo_necessario": round(faltam / du_rest, 2 if tipo == "clt" else 1) if du_rest > 0 else 0.0,
         }
 
     _dup_ids = {r.duplicado_de_id for r in rows if r.duplicado_de_id}
