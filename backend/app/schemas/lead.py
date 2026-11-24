@@ -357,6 +357,7 @@ class StatusHistoryResponse(BaseModel):
 
 class ScheduleCreateRequest(BaseModel):
     scheduled_at: datetime
+    tipo: Optional[str] = None  # "virtual" ou vazio
 
 
 class ScheduleItem(BaseModel):
@@ -367,6 +368,7 @@ class ScheduleItem(BaseModel):
     created_at: datetime
     concluido_em: Optional[datetime] = None
     concluido_por: Optional[str] = None
+    tipo: Optional[str] = None
 
     class Config:
         from_attributes = True

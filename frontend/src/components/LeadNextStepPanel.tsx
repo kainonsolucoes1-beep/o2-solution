@@ -57,7 +57,7 @@ export default function LeadNextStepPanel({
   onStatusOptionClick, onClosedSubClick, onLostReasonClick, onBackToStatusOptions, onCancelStatusEdit,
   onVendaRealizadaClick, onBackToFinalizar,
   perception, editingPerception, savingPerception, onPerceptionClick, onCancelPerceptionEdit,
-  agendaRef, editingSchedule, scheduleInput, onScheduleInputChange, savingSchedule, loadingSchedules,
+  agendaRef, editingSchedule, scheduleInput, onScheduleInputChange, scheduleVirtual, onScheduleVirtualChange, savingSchedule, loadingSchedules,
   activeSchedule, cancelingSchedule, onSaveSchedule, onCancelScheduleEdit, onRemoveSchedule,
   editingProposta, propostaValor, onPropostaValorChange, savingProposta, onSaveProposta, onCancelPropostaEdit,
   vendaValor, onVendaValorChange, vendaData, onVendaDataChange,
@@ -95,9 +95,11 @@ export default function LeadNextStepPanel({
   editingSchedule: boolean
   scheduleInput: string
   onScheduleInputChange: (value: string) => void
+  scheduleVirtual: boolean
+  onScheduleVirtualChange: (value: boolean) => void
   savingSchedule: boolean
   loadingSchedules: boolean
-  activeSchedule: { scheduled_at: string } | undefined
+  activeSchedule: { scheduled_at: string; tipo?: string | null } | undefined
   cancelingSchedule: boolean
   onSaveSchedule: () => void
   onCancelScheduleEdit: () => void
@@ -563,9 +565,25 @@ export default function LeadNextStepPanel({
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 {activeSchedule && (
                   <span style={{ fontSize: 12, color: 'var(--text-subtle)', width: '100%' }}>
-                    Agendado para {fmtDate(activeSchedule.scheduled_at)}
+                    Agendado para {fmtDate(activeSchedule.scheduled_at)}{activeSchedule.tipo === 'virtual' ? ' · reunião virtual' : ''}
                   </span>
                 )}
+                <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 8, background: 'var(--bg-subtle)', border: '1px solid var(--border-lt)' }}>
+                  {([[false, 'Retorno'], [true, 'Reunião virtual']] as [boolean, string][]).map(([v, label]) => {
+                    const on = scheduleVirtual === v
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => onScheduleVirtualChange(v)}
+                        style={{ height: 28, padding: '0 10px', border: 'none', borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: on ? 'var(--bg-card)' : 'transparent', color: on ? 'var(--text-1)' : 'var(--text-muted)', boxShadow: on ? '0 1px 2px rgba(16,24,40,0.10)' : 'none' }}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
                 <input
                   type="datetime-local"
                   value={scheduleInput}
