@@ -304,14 +304,9 @@ function Row1({ p }: { p: Placar }) {
   const total = all.length
   const live = p.hoje && !p.periodo // um dia só, e é hoje
   const corteH = Math.floor(p.corte_min / 60), corteM = p.corte_min % 60
-  const anteriorAte = p.anterior.filter(a => a.m < p.corte_min).length
   const mediaAte = live
     ? Math.round(p.media_hora.slice(0, corteH).reduce((a, b) => a + b, 0) + (p.media_hora[corteH] ?? 0) * corteM / 60)
     : Math.round(p.media_dia)
-  const dAnt = total - anteriorAte, dMedia = total - mediaAte
-  const chip = (d: number, txt: string) => (
-    <span className={`delta ${d > 0 ? 'up' : d < 0 ? 'down' : 'flat'}`}>{d > 0 ? '↑' : d < 0 ? '↓' : '='} {Math.abs(d)} {txt}</span>
-  )
   const atendidos = all.filter(l => l.contatado)
   const pend = all.filter(l => !l.contatado).sort((a, b) => (b.espera_min ?? 0) - (a.espera_min ?? 0))
   const tempos = atendidos.map(l => l.contato_min).filter((t): t is number => t != null).sort((a, b) => a - b)
@@ -330,11 +325,6 @@ function Row1({ p }: { p: Placar }) {
       <div className="card hero">
         <div className="lbl"><Ico n="in" style={{ color: 'var(--pri)' }} />Leads captados {quando}</div>
         <div className="big">{total}{live && <small>até {corteH}h{pad(corteM)}</small>}</div>
-        <div className="chips">
-          {p.periodo ? chip(dAnt, 'vs período anterior')
-            : live ? <>{chip(dAnt, 'vs ontem no mesmo horário')}{chip(dMedia, 'vs média 7 dias')}</>
-            : <>{chip(dAnt, 'vs dia anterior')}{chip(dMedia, 'vs média 7 dias')}</>}
-        </div>
         <div className="meta">
           <div className="bar">
             <i style={{ width: `${Math.min(100, pct(total, p.meta))}%` }} />
