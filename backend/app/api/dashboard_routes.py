@@ -11,7 +11,7 @@ from app.api.auth_routes import get_current_user
 from app.database import get_db
 from app.br_calendar import business_days_in_month
 from app.lead_utils import extract_base, is_google, is_organico, normalize_conversion_point
-from app.models.lead import Lead, LeadStatusHistory
+from app.models.lead import Lead, LeadSchedule, LeadStatusHistory
 from app.models.user import User
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, today_utc_range
 from app.schemas.dashboard import (
@@ -568,6 +568,7 @@ def dashboard_performance(
     _proposta_set = {s.lower() for s in _PROPOSTA}
     hoje_counts: dict = defaultdict(int)
     hoje_proposta_valor: dict = defaultdict(float)
+    cotacao_periodo_qtd = 0
     # "de onde vieram" por operador -- mesma ideia do card "De onde vieram" do
     # dia, mas recortado por quem está com a posse do lead, pra abrir junto do
     # número de captação no Ranking (clicar num operador mostra a origem dele).
@@ -578,6 +579,7 @@ def dashboard_performance(
         hoje_counts[fonte] += 1
         if (status or "").lower() in _proposta_set:
             hoje_proposta_valor[fonte] += float(value_potential or 0)
+            cotacao_periodo_qtd += 1
         if is_organico(origin, conversion_point):
             cp = normalize_conversion_point(conversion_point)
             hoje_conv_por_operador[fonte][cp] += 1
@@ -644,7 +646,33 @@ def dashboard_performance(
         ),
     }
 
+    # Cotação enviada no mês: mesma regra do card do dia (leads captados no
+    # período que estão com status de proposta), recortada pelo mês.
+    cotacao_mes_filters = [_s_in(_PROPOSTA), EFFECTIVE_CAPTACAO >= month_start, EFFECTIVE_CAPTACAO < today_end]
+    cotacao_mes_valor = _sum(cotacao_mes_filters)
+    cotacao_mes_qtd = _cnt(cotacao_mes_filters)
+
+    # Reuniões virtuais agendadas (pela data em que foram marcadas); um lead
+    # reagendado conta uma vez só.
+    def _virtuais(start, end):
+        return (
+            db.query(func.count(func.distinct(LeadSchedule.lead_id)))
+            .filter(LeadSchedule.tipo == "virtual", LeadSchedule.created_at >= start, LeadSchedule.created_at < end)
+            .scalar() or 0
+        )
+    virtuais_periodo = _virtuais(today_start, today_end)
+    virtuais_periodo_ant = _virtuais(today_start - (today_end - today_start), today_start)
+    virtuais_mes = _virtuais(month_start, today_end)
+    virtuais_mes_ant = _virtuais(prev_month_start, prev_month_end)
+
     return {
+        "cotacao_periodo_qtd": cotacao_periodo_qtd,
+        "cotacao_mes_valor": round(cotacao_mes_valor, 2),
+        "cotacao_mes_qtd": cotacao_mes_qtd,
+        "virtuais_periodo": virtuais_periodo,
+        "vs_virtuais_periodo": _pct(virtuais_periodo, virtuais_periodo_ant),
+        "virtuais_mes": virtuais_mes,
+        "vs_virtuais_mes": _pct(virtuais_mes, virtuais_mes_ant),
         "captacao_hoje": captacao_hoje,
         "vs_ontem": _pct(captacao_hoje, captacao_ontem),
         "captacao_mes": captacao_mes,
