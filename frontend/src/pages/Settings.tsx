@@ -9,6 +9,7 @@ import { parseUTC } from '../utils/date'
 import { useTheme } from '../ThemeContext'
 import Accordion from '../components/Accordion'
 import OperadorasEmissaoTab from '../components/OperadorasEmissaoTab'
+import MotivosPerdaTab from '../components/MotivosPerdaTab'
 import ApiDocsTab from '../components/ApiDocsTab'
 import { DocShell, Section, Table, C, type DocToc } from '../components/ApiDocShell'
 
@@ -1386,16 +1387,17 @@ export default function Settings() {
   const { section } = useParams<{ section: string }>()
   const isUsuarios = section === 'usuarios'
   const isOperadoras = section === 'operadoras'
+  const isMotivos = section === 'motivos-perda'
 
   return (
     <div style={{ background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
     <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>
-          {isUsuarios ? 'Usuários' : isOperadoras ? 'Operadoras' : 'API'}
+          {isUsuarios ? 'Usuários' : isOperadoras ? 'Operadoras' : isMotivos ? 'Motivos de perda' : 'API'}
         </h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-          {isUsuarios ? 'Gestão de usuários e acesso ao formulário' : isOperadoras ? 'Operadoras disponíveis no envio de contratos para emissão' : 'Integrações, chaves e sincronização'}
+          {isUsuarios ? 'Gestão de usuários e acesso ao formulário' : isOperadoras ? 'Operadoras disponíveis no envio de contratos para emissão' : isMotivos ? 'Opções que aparecem ao marcar um lead como Perdido' : 'Integrações, chaves e sincronização'}
         </p>
       </div>
 
@@ -1416,6 +1418,8 @@ export default function Settings() {
         </div>
       ) : isOperadoras ? (
         <OperadorasEmissaoTab />
+      ) : isMotivos ? (
+        <MotivosPerdaTab />
       ) : (
         <ConfiguracoesTab />
       )}

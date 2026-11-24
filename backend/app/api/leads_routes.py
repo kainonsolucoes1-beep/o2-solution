@@ -17,6 +17,8 @@ from app.lead_utils import parse_vidas, parse_idades, extract_base, normalize_co
 from app.lead_scope import own_leads_clause
 from app.models import Lead, LeadAttachment, LeadEmissao, LeadNote, LeadStatusHistory, LeadSchedule, LeadParcela, User
 from app.operadoras import get_operadoras
+from app.motivos_perda import LISTA_MAX as MOTIVOS_LISTA_MAX, NOME_MAX as MOTIVO_NOME_MAX, get_motivos, salvar_motivos
+from pydantic import BaseModel
 from app.duplicidade import lead_parecido, marcar_duplicado
 from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads, can_view_all
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
@@ -927,6 +929,53 @@ def list_operadoras_emissao(
     db: Session = Depends(get_db),
 ):
     return get_operadoras(db)
+
+
+@router.get("/leads/motivos-perda")
+def list_motivos_perda(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Motivos de perda cadastrados, com `ativo` (a ficha mostra so' os ativos)."""
+    return get_motivos(db)
+
+
+class MotivoPerdaItem(BaseModel):
+    nome: str
+    ativo: bool = True
+
+
+class MotivosPerdaRequest(BaseModel):
+    motivos: List[MotivoPerdaItem]
+
+
+@router.put("/leads/motivos-perda")
+def salvar_lista_motivos_perda(
+    body: MotivosPerdaRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Lista de motivos de perda (so' admin). Nao altera leads ja' marcados."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    vistos: set[str] = set()
+    motivos: list[dict] = []
+    for m in body.motivos:
+        nome = (m.nome or "").strip()
+        if not nome:
+            continue
+        if len(nome) > MOTIVO_NOME_MAX:
+            raise HTTPException(status_code=422, detail=f"Nome muito longo (máx. {MOTIVO_NOME_MAX} caracteres): {nome[:20]}…")
+        if nome.lower() in vistos:
+            raise HTTPException(status_code=422, detail=f'"{nome}" está repetido na lista')
+        vistos.add(nome.lower())
+        motivos.append({"nome": nome, "ativo": bool(m.ativo)})
+    if not any(m["ativo"] for m in motivos):
+        raise HTTPException(status_code=422, detail="Deixe ao menos um motivo ativo")
+    if len(motivos) > MOTIVOS_LISTA_MAX:
+        raise HTTPException(status_code=422, detail=f"No máximo {MOTIVOS_LISTA_MAX} motivos")
+    salvar_motivos(db, motivos)
+    return motivos
 
 
 @router.get("/leads/categorias", response_model=List[str])

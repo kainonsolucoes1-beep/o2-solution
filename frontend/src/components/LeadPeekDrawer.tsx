@@ -6,6 +6,7 @@ import { reportStatusColor, reportPerceptionColor, tint, personColor } from '../
 import { fmtDateShort } from '../utils/leadFormat'
 import { parseUTC, calendarDaysAgo } from '../utils/date'
 import EmissaoModal from './EmissaoModal'
+import { useMotivosPerda } from '../utils/useMotivosPerda'
 
 interface PeekLead {
   id: string
@@ -113,13 +114,10 @@ const FECHADO_OPCOES = [
   { value: 'waiting_billing', label: 'Aguardando faturamento' },
   { value: 'sale_performed', label: 'Venda realizada' },
 ]
-const MOTIVOS_PERDA = [
-  'Cliente não retornou contato', 'Trocou de número', 'Declinou', 'Finalizado automaticamente',
-  'Localização', 'Preço', 'Sem interesse', 'Sem perfil', 'Sem retorno',
-]
 
 export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNext, onStatusChanged }: Props) {
   const [peek, setPeek] = useState<Peek | null>(null)
+  const motivosPerda = useMotivosPerda()
   const [loading, setLoading] = useState(true)
   const [entered, setEntered] = useState(false)
   // anotar/editar sem abrir a ficha: 'nova' = nota nova, 'editar' = última nota
@@ -388,7 +386,7 @@ export default function LeadPeekDrawer({ lead, onClose, onOpenFull, onPrev, onNe
                         <>
                           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Motivo da perda:</div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                            {MOTIVOS_PERDA.map(m => (
+                            {motivosPerda.map(m => (
                               <button key={m} onClick={() => mudarStatus('sale_not_performed', m)} disabled={statusSalvando}
                                 style={{ padding: '6px 10px', borderRadius: 20, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-1)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                                 {m}

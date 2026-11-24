@@ -4,6 +4,7 @@ import { fmtDate } from '../utils/leadFormat'
 import { STATUS_STYLE, PERCEPTION_STYLE } from '../utils/leadStatus'
 import { statusLabel } from '../utils/statusLabel'
 import CurrencyInput from './CurrencyInput'
+import { useMotivosPerda } from '../utils/useMotivosPerda'
 
 const STATUS_OPTIONS = [
   { value: 'novo',        label: 'Novo' },
@@ -21,18 +22,6 @@ const STATUS_OPTIONS = [
 const CLOSED_SUB_OPTIONS = [
   { value: 'waiting_billing', label: 'Aguardando Faturamento' },
   { value: 'sale_performed',  label: 'Venda Realizada' },
-]
-
-const LOST_REASONS = [
-  'Cliente não retornou contato',
-  'Trocou de número',
-  'Declinou',
-  'Finalizado automaticamente',
-  'Localização',
-  'Preço',
-  'Sem interesse',
-  'Sem perfil',
-  'Sem retorno',
 ]
 
 function actionBtnStyle(enabled: boolean): React.CSSProperties {
@@ -136,6 +125,7 @@ export default function LeadNextStepPanel({
   const [statusPickerOpen, setStatusPickerOpen] = useState(false)
   const [perceptionPickerOpen, setPerceptionPickerOpen] = useState(false)
   const [showLostReasons, setShowLostReasons] = useState(false)
+  const lostReasons = useMotivosPerda()
 
   return (
     <section style={{
@@ -384,7 +374,7 @@ export default function LeadNextStepPanel({
                 </div>
               ) : statusSubMenu === 'perdido' || showLostReasons ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {LOST_REASONS.map(reason => {
+                  {lostReasons.map(reason => {
                     const s = STATUS_STYLE.sale_not_performed
                     const active = status === 'sale_not_performed' && lostReason === reason
                     return (
