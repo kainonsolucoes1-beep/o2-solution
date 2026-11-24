@@ -1820,6 +1820,7 @@ def create_schedule(
         lead_id=lead.id,
         scheduled_at=body.scheduled_at,
         created_by=current_user.first_name or current_user.username,
+        tipo="virtual" if body.tipo == "virtual" else None,
     )
     db.add(schedule)
 

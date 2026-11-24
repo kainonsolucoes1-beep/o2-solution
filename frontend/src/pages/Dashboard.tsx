@@ -6,7 +6,6 @@ import { statusLabel } from '../utils/statusLabel'
 import { parseUTC } from '../utils/date'
 import { useTheme } from '../ThemeContext'
 import { isGoogle, GOOGLE_COLOR } from '../utils/canal'
-import type { EmissaoResumo } from '../components/EmissaoTab'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
 interface FeedItem {
@@ -28,6 +27,13 @@ interface PerformanceData {
   vs_carteira: number
   ticket_medio: number
   vs_ticket: number
+  cotacao_periodo_qtd: number
+  cotacao_mes_valor: number
+  cotacao_mes_qtd: number
+  virtuais_periodo: number
+  vs_virtuais_periodo: number
+  virtuais_mes: number
+  vs_virtuais_mes: number
   meta_leads: number
   meta_pct: number
   projecao_mes: number
@@ -75,7 +81,6 @@ const TITLE: React.CSSProperties = { margin: 0, fontSize: 14, fontWeight: 600, c
 const NUM: React.CSSProperties = { fontVariantNumeric: 'tabular-nums' }
 const fmtBrl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmt1 = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-const pctDelta = (curr: number, prev: number) => prev === 0 ? (curr > 0 ? 100 : 0) : Math.round((curr - prev) / prev * 100)
 
 const O2_NAMES = new Set(['clara', 'maria eduarda', 'kauany', 'gabrieli', 'o2 solution', 'o2solution'])
 
@@ -176,8 +181,6 @@ export default function Dashboard() {
   const [rankOpen, setRankOpen] = useState<string | null>(null)
   const [rankSort, setRankSort] = useState<'count' | 'valor'>('count')
   const [hoverDay, setHoverDay] = useState<number | null>(null)
-  const [emDia, setEmDia] = useState<EmissaoResumo | null>(null)
-  const [emMes, setEmMes] = useState<EmissaoResumo | null>(null)
   const [filterOpen, setFilterOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState('')
   const [draftTo, setDraftTo] = useState('')
@@ -191,7 +194,6 @@ export default function Dashboard() {
   // contra o polling de 45s abaixo).
   const fetchAllGenRef = useRef(0)
   const fetchSideGenRef = useRef(0)
-  const fetchEmGenRef = useRef(0)
 
   const fetchAll = useCallback((f: { from: string; to: string } | null, silent = false) => {
     if (!localStorage.getItem('token')) { navigate('/login'); return }
@@ -216,27 +218,14 @@ export default function Dashboard() {
       .catch(() => {})
   }, [])
 
-  // Emissões do dia/período e do mês (mesma fonte do card antigo de emissão).
-  const fetchEmissao = useCallback((f: { from: string; to: string } | null) => {
-    const gen = ++fetchEmGenRef.current
-    const hoje = iso(new Date())
-    const dia = f ?? { from: hoje, to: hoje }
-    const mesFrom = dia.to.slice(0, 8) + '01'
-    const get = (from: string, to: string) =>
-      api.get<EmissaoResumo>('/api/v1/emissao/resumo', { params: { date_from: from, date_to: to } }).then(r => r.data)
-    get(dia.from, dia.to).then(d => { if (fetchEmGenRef.current === gen) setEmDia(d) }).catch(() => {})
-    get(mesFrom, dia.to).then(d => { if (fetchEmGenRef.current === gen) setEmMes(d) }).catch(() => {})
-  }, [])
-
   useEffect(() => { fetchAll(filter) }, [fetchAll, filter])
   useEffect(() => { fetchSide() }, [fetchSide])
-  useEffect(() => { fetchEmissao(filter) }, [fetchEmissao, filter])
 
   useEffect(() => {
     if (filter) return   // vista histórica não precisa de polling
-    const id = setInterval(() => { fetchAll(null, true); fetchSide(); fetchEmissao(null) }, 45000)
+    const id = setInterval(() => { fetchAll(null, true); fetchSide() }, 45000)
     return () => clearInterval(id)
-  }, [fetchAll, fetchSide, fetchEmissao, filter])
+  }, [fetchAll, fetchSide, filter])
 
   useEffect(() => {
     if (!filterOpen) return
@@ -311,7 +300,8 @@ export default function Dashboard() {
   let acc = 0
   const sparkMes = evo.map(d => (acc += d.count))
   const propostasDia = data.captacao_hoje_por_fonte.reduce((s, op) => s + (op.propostas_valor || 0), 0)
-  const em = isDia ? emDia : emMes
+  const cotValor = isDia ? propostasDia : data.cotacao_mes_valor
+  const cotQtd = isDia ? data.cotacao_periodo_qtd : data.cotacao_mes_qtd
   const vsDia = !filter ? 'vs. ontem' : 'vs. período anterior'
   const kpis: { label: string; value: string; delta?: number; foot?: string; spark?: number[]; onClick?: () => void }[] = [
     {
@@ -322,20 +312,18 @@ export default function Dashboard() {
       spark: isDia ? sparkDia : sparkMes,
     },
     isDia
-      ? { label: 'Em propostas', value: fmtBrl(propostasDia), foot: 'leads do dia com proposta enviada' }
+      ? { label: 'Cotação enviada', value: fmtBrl(propostasDia), foot: 'leads do dia com cotação enviada' }
       : { label: 'Em carteira', value: fmtBrl(data.valor_carteira), delta: data.vs_carteira, foot: 'vs. mês anterior' },
     {
-      label: 'Emissões',
-      value: em ? String(em.enviados) : '—',
-      delta: em && em.enviados + em.enviados_anterior > 0 ? pctDelta(em.enviados, em.enviados_anterior) : undefined,
-      foot: em ? `${fmtBrl(em.valor_total)} emitidos` : undefined,
-      spark: em && em.serie.length > 1 ? em.serie.map(s => s.count) : undefined,
-      onClick: () => navigate('/gestao-comercial?tab=emissao'),
+      label: 'Virtuais agendadas',
+      value: String(isDia ? data.virtuais_periodo : data.virtuais_mes),
+      delta: isDia ? data.vs_virtuais_periodo : data.vs_virtuais_mes,
+      foot: isDia ? vsDia : 'vs. mês anterior',
     },
     {
       label: 'Ticket médio',
-      value: em && em.enviados > 0 ? fmtBrl(em.ticket_medio) : '—',
-      foot: isDia ? `das emissões ${periodoLabel === 'hoje' ? 'de hoje' : 'do período'}` : 'das emissões do mês',
+      value: cotQtd > 0 ? fmtBrl(cotValor / cotQtd) : '—',
+      foot: isDia ? `das cotações enviadas ${periodoLabel === 'hoje' ? 'hoje' : 'no período'}` : 'das cotações enviadas no mês',
     },
   ]
 
@@ -616,7 +604,7 @@ export default function Dashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: rkCols, gap: 12, alignItems: 'center', padding: '9px 20px', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)' }}>
                   <span style={{ fontSize: 11.5, fontWeight: 550, color: 'var(--text-muted)' }}>Operador</span>
                   <span style={{ textAlign: 'right' }}>{sortBtn('count', 'Captação')}</span>
-                  <span style={{ textAlign: 'right' }}>{isDia ? sortBtn('valor', 'Em propostas') : <span style={{ fontSize: 11.5, fontWeight: 550, color: 'var(--text-muted)' }}>Participação</span>}</span>
+                  <span style={{ textAlign: 'right' }}>{isDia ? sortBtn('valor', 'Cotação enviada') : <span style={{ fontSize: 11.5, fontWeight: 550, color: 'var(--text-muted)' }}>Participação</span>}</span>
                 </div>
                 {rows.map((r, i) => {
                   const items = origemItemsFor(origemMap, r.name)

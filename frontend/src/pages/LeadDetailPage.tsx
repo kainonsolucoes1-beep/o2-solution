@@ -90,6 +90,7 @@ interface ScheduleItem {
   created_at: string
   concluido_em?: string | null
   concluido_por?: string | null
+  tipo?: string | null
 }
 
 export interface Me {
@@ -137,6 +138,7 @@ export default function LeadDetailPage() {
   const [schedules, setSchedules]         = useState<ScheduleItem[]>([])
   const [loadingSchedules, setLoadingSchedules] = useState(true)
   const [scheduleInput, setScheduleInput] = useState('')
+  const [scheduleVirtual, setScheduleVirtual] = useState(false)
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [cancelingSchedule, setCancelingSchedule] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState(false)
@@ -498,9 +500,10 @@ export default function LeadDetailPage() {
   function handleSchedule() {
     if (!id || !scheduleInput) return
     setSavingSchedule(true)
-    api.post(`/api/v1/leads/${id}/schedule`, { scheduled_at: new Date(scheduleInput).toISOString() })
+    api.post(`/api/v1/leads/${id}/schedule`, { scheduled_at: new Date(scheduleInput).toISOString(), tipo: scheduleVirtual ? 'virtual' : null })
       .then(() => {
         setScheduleInput('')
+        setScheduleVirtual(false)
         setEditingSchedule(false)
         setToast({ msg: 'Agendamento salvo com sucesso', ok: true })
         return api.get<{ schedules: ScheduleItem[] }>(`/api/v1/leads/${id}/schedule-history`)
@@ -790,6 +793,8 @@ export default function LeadDetailPage() {
         editingSchedule={editingSchedule}
         scheduleInput={scheduleInput}
         onScheduleInputChange={setScheduleInput}
+        scheduleVirtual={scheduleVirtual}
+        onScheduleVirtualChange={setScheduleVirtual}
         savingSchedule={savingSchedule}
         loadingSchedules={loadingSchedules}
         activeSchedule={activeSchedule}

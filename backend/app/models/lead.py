@@ -161,6 +161,8 @@ class LeadSchedule(Base):
     # Vazio + is_active False = cancelado/substituído por outro agendamento.
     concluido_em = Column(TIMESTAMP, nullable=True)
     concluido_por = Column(String(255), nullable=True)
+    # "virtual" = reunião virtual (card "Virtuais agendadas" do Dashboard); vazio = retorno comum
+    tipo = Column(String(20), nullable=True)
 
 
 class LeadAttachment(Base):
