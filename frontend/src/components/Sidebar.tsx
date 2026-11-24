@@ -44,6 +44,7 @@ const SETTINGS_CHILDREN = [
   { to: '/settings/usuarios', label: 'Usuários' },
   { to: '/settings/api',      label: 'API' },
   { to: '/settings/operadoras', label: 'Operadoras' },
+  { to: '/settings/motivos-perda', label: 'Motivos de perda' },
 ]
 
 const FINANCEIRO_CHILDREN = [
