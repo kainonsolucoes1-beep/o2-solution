@@ -332,6 +332,20 @@ def list_metas(
     )
 
 
+@router.get("/metas/{meta_id}/historico")
+def historico_meta(
+    meta_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mudancas de meta do operador (mes a partir do qual valeu), mais recente primeiro."""
+    if not can_see_financials(current_user):
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores e diretores")
+    rows = (db.query(SdrMetaMensal).filter(SdrMetaMensal.meta_id == meta_id)
+            .order_by(SdrMetaMensal.ano_mes.desc()).all())
+    return [{"ano_mes": r.ano_mes, "tipo": r.tipo, "meta_valor": float(r.meta_valor)} for r in rows]
+
+
 @router.post("/metas", response_model=SdrMetaProgress, status_code=201)
 def create_meta(
     body: SdrMetaCreate,

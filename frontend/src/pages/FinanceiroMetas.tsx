@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Pencil, Plus, X, Columns3 } from 'lucide-react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { ChevronLeft, ChevronRight, Pencil, Plus, X } from 'lucide-react'
 import api from '../api'
-import { type FiltroPeriodo, mesAtualRange } from '../utils/periodoFiltro'
 import { useTheme } from '../ThemeContext'
 import SinoSlot, { VerComoSlot } from '../components/SinoSlot'
 
+type Tipo = 'clt' | 'estagiario'
 interface MetaProgress {
   id: string
   nome: string
-  tipo: 'clt' | 'estagiario'
+  tipo: Tipo
   meta_valor: number
   leads: number
   vendas: number
@@ -17,10 +17,10 @@ interface MetaProgress {
   projecao: number | null
 }
 interface MetasResponse { mes_label: string; ano_mes: string; metas: MetaProgress[] }
+interface HistItem { ano_mes: string; tipo: Tipo; meta_valor: number }
 
-const ACCENT = '#2563EB'
-const SUCCESS = '#059669'
-const WARN = '#B45309'
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+const MESES_ABREV = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 function fmtNum(v: number) {
   return v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
@@ -28,87 +28,159 @@ function fmtNum(v: number) {
 function fmtBrl(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
-function fmtValor(tipo: 'clt' | 'estagiario', v: number) {
+function fmtValor(tipo: Tipo, v: number) {
   return tipo === 'clt' ? fmtBrl(v) : `${fmtNum(v)} leads`
+}
+// aceita "5000.5" (valor vindo da API) e "5.000,50" (digitado em pt-BR)
+function parseValor(s: string) {
+  return Number(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s)
 }
 function initials(nome: string) {
   return nome.trim().slice(0, 2).toUpperCase()
 }
-function avatarBg(tipo: 'clt' | 'estagiario') {
-  return tipo === 'clt' ? 'linear-gradient(145deg,#1E3A8A,#2563EB)' : 'linear-gradient(145deg,#7C3AED,#A78BFA)'
-}
-function statusColor(pct: number) {
-  if (pct >= 100) return SUCCESS
-  if (pct >= 60) return ACCENT
-  return WARN
-}
-const inputStyle: CSSProperties = {
-  padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-in)', fontSize: 13,
-  color: 'var(--text-2)', background: 'var(--bg-input)', outline: 'none', fontFamily: 'inherit',
-}
-const labelStyle: CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }
 
-function mesAtualIso() {
+// ── dias úteis (feriados nacionais fixos + móveis a partir da Páscoa) ──
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+function easterSunday(year: number): Date {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31)
+  const day = ((h + l - 7 * m + 114) % 31) + 1
+  return new Date(year, month - 1, day)
+}
+function brHolidays(year: number): Set<string> {
+  const easter = easterSunday(year)
+  const shift = (n: number) => { const x = new Date(easter); x.setDate(x.getDate() + n); return iso(x) }
+  return new Set([
+    `${year}-01-01`, `${year}-04-21`, `${year}-05-01`, `${year}-09-07`,
+    `${year}-10-12`, `${year}-11-02`, `${year}-11-15`, `${year}-11-20`, `${year}-12-25`,
+    shift(-48), shift(-47), shift(-2), shift(60),
+  ])
+}
+function diasUteis(ano: number, mes0: number, hoje: Date) {
+  const hol = brHolidays(ano)
+  const last = new Date(ano, mes0 + 1, 0).getDate()
+  const hojeIso = iso(hoje)
+  let total = 0, ate = 0
+  for (let d = 1; d <= last; d++) {
+    const dt = new Date(ano, mes0, d)
+    const dow = dt.getDay()
+    if (dow === 0 || dow === 6 || hol.has(iso(dt))) continue
+    total++
+    if (iso(dt) <= hojeIso) ate++
+  }
+  // ate = dias úteis até hoje (inclusive); restantes conta hoje se for útil
+  const hojeUtil = hoje.getFullYear() === ano && hoje.getMonth() === mes0 && ![0, 6].includes(hoje.getDay()) && !hol.has(hojeIso)
+  return { total, ate, restantes: total - ate + (hojeUtil ? 1 : 0) }
+}
+
+function anoMesAtual() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
+function shiftAnoMes(am: string, n: number) {
+  const d = new Date(Number(am.slice(0, 4)), Number(am.slice(5, 7)) - 1 + n, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+function labelAnoMes(am: string, longo = false) {
+  const m = Number(am.slice(5, 7)) - 1
+  return `${longo ? MESES[m] : MESES_ABREV[m]} ${am.slice(0, 4)}`
+}
+
+type Status = 'batida' | 'ritmo' | 'atras'
 
 export default function FinanceiroMetas() {
   const { dark } = useTheme()
+  const C = {
+    accent: dark ? '#60A5FA' : '#2563EB',
+    ok: dark ? '#34D399' : '#047857',
+    warn: dark ? '#FBBF24' : '#B45309',
+    accentBg: dark ? 'rgba(96,165,250,0.14)' : '#EFF4FE',
+    okBg: dark ? 'rgba(52,211,153,0.14)' : '#E3F5EE',
+    warnBg: dark ? 'rgba(251,191,36,0.14)' : '#FDF1E3',
+    pace: dark ? '#F1F5F9' : '#111827',
+    estFg: dark ? '#C4B5FD' : '#6D28D9',
+    estBg: dark ? 'rgba(167,139,250,0.16)' : '#F1EAFE',
+  }
+
+  const [anoMes, setAnoMes] = useState(anoMesAtual())
   const [data, setData] = useState<MetasResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  const [filtro, setFiltro] = useState<FiltroPeriodo>('mes_atual')
-  const [dataInicio, setDataInicio] = useState('')
-  const [dataFim, setDataFim] = useState('')
-
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [showCompare, setShowCompare] = useState(false)
+  const [tab, setTab] = useState<'todos' | Tipo>('todos')
+  const [openId, setOpenId] = useState<string | null>(null)
   const [editing, setEditing] = useState<MetaProgress | 'new' | null>(null)
-  const [form, setForm] = useState({ nome: '', tipo: 'clt' as 'clt' | 'estagiario', meta_valor: '', vigente_desde: mesAtualIso() })
+  const [form, setForm] = useState({ nome: '', tipo: 'clt' as Tipo, meta_valor: '', vigente_desde: anoMesAtual() })
+  const [hist, setHist] = useState<HistItem[] | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
-  const fetchMetasGenRef = useRef(0)
-  function fetchMetas() {
-    if (filtro === 'entre_datas' && (!dataInicio || !dataFim)) return
-    const gen = ++fetchMetasGenRef.current
-    const params: Record<string, string> = {}
-    if (filtro === 'mes_atual') Object.assign(params, mesAtualRange())
-    else if (filtro === 'entre_datas') { params.date_from = dataInicio; params.date_to = dataFim }
+  const ano = Number(anoMes.slice(0, 4)), mes0 = Number(anoMes.slice(5, 7)) - 1
+  const isAtual = anoMes === anoMesAtual()
+  const du = diasUteis(ano, mes0, new Date())
+  const paceFrac = isAtual && du.total ? du.ate / du.total : 1
 
+  const fetchGenRef = useRef(0)
+  function fetchMetas() {
+    const gen = ++fetchGenRef.current
+    const params = { date_from: `${anoMes}-01`, date_to: iso(new Date(ano, mes0 + 1, 0)) }
     setLoading(true)
     setError(false)
     api.get<MetasResponse>('/api/v1/financeiro/metas', { params })
-      .then(r => { if (fetchMetasGenRef.current === gen) setData(r.data) })
-      .catch(() => { if (fetchMetasGenRef.current === gen) setError(true) })
-      .finally(() => { if (fetchMetasGenRef.current === gen) setLoading(false) })
+      .then(r => { if (fetchGenRef.current === gen) setData(r.data) })
+      .catch(() => { if (fetchGenRef.current === gen) setError(true) })
+      .finally(() => { if (fetchGenRef.current === gen) setLoading(false) })
   }
-
-  useEffect(fetchMetas, [filtro, dataInicio, dataFim])
+  useEffect(fetchMetas, [anoMes])
 
   const metas = data?.metas ?? []
-  const sortedMetas = [...metas].sort((a, b) => b.pct - a.pct)
-  const selected = metas.find(m => m.id === selectedId) ?? sortedMetas[0] ?? null
-  const teamAvgPct = metas.length ? metas.reduce((s, m) => s + m.pct, 0) / metas.length : 0
+  const status = (m: MetaProgress): Status =>
+    m.pct >= 100 ? 'batida' : (isAtual && m.pct >= paceFrac * 100 * 0.95 ? 'ritmo' : 'atras')
+  const stColor = (s: Status) => s === 'batida' ? C.ok : s === 'ritmo' ? C.accent : C.warn
+  const stBg = (s: Status) => s === 'batida' ? C.okBg : s === 'ritmo' ? C.accentBg : C.warnBg
+  const stLabel = (s: Status) => s === 'batida' ? 'Batida' : s === 'ritmo' ? 'No ritmo' : (isAtual ? 'Atrás' : 'Não batida')
+  const need = (m: MetaProgress) => {
+    if (!isAtual || m.atingido >= m.meta_valor || du.restantes <= 0) return '—'
+    const v = (m.meta_valor - m.atingido) / du.restantes
+    return m.tipo === 'clt' ? fmtBrl(v) : `${fmtNum(Math.ceil(v))} leads`
+  }
+  const teamAvg = metas.length ? metas.reduce((s, m) => s + m.pct, 0) / metas.length : 0
+
+  const clt = metas.filter(m => m.tipo === 'clt')
+  const est = metas.filter(m => m.tipo === 'estagiario')
+  const sum = (arr: MetaProgress[], f: (m: MetaProgress) => number) => arr.reduce((s, m) => s + f(m), 0)
+  const cltReal = sum(clt, m => m.atingido), cltMeta = sum(clt, m => m.meta_valor), cltProj = sum(clt, m => m.projecao ?? m.atingido)
+  const estReal = sum(est, m => m.atingido), estMeta = sum(est, m => m.meta_valor), estProj = sum(est, m => m.projecao ?? m.atingido)
+  const pctOf = (a: number, b: number) => b > 0 ? Math.round(a / b * 100) : 0
+  const noRitmo = metas.filter(m => status(m) !== 'atras').length
+
+  const rows = metas
+    .filter(m => tab === 'todos' || m.tipo === tab)
+    .sort((a, b) => b.pct - a.pct)
 
   function openCreate() {
-    setForm({ nome: '', tipo: 'clt', meta_valor: '', vigente_desde: mesAtualIso() })
+    setForm({ nome: '', tipo: 'clt', meta_valor: '', vigente_desde: anoMesAtual() })
     setFormError('')
+    setHist(null)
     setEditing('new')
   }
   function openEdit(m: MetaProgress) {
     // abre no mes que esta' na tela -- o valor mostrado e' o vigente nele
-    setForm({ nome: m.nome, tipo: m.tipo, meta_valor: String(m.meta_valor), vigente_desde: data?.ano_mes ?? mesAtualIso() })
+    setForm({ nome: m.nome, tipo: m.tipo, meta_valor: String(m.meta_valor), vigente_desde: data?.ano_mes ?? anoMesAtual() })
     setFormError('')
+    setHist(null)
     setEditing(m)
+    api.get<HistItem[]>(`/api/v1/financeiro/metas/${m.id}/historico`).then(r => setHist(r.data)).catch(() => setHist([]))
   }
   function closeEdit() { setEditing(null) }
 
   function handleSave() {
     const nome = form.nome.trim()
-    const metaValor = Number(form.meta_valor.replace(',', '.'))
+    const metaValor = parseValor(form.meta_valor)
     if (!nome) { setFormError('Informe o nome do operador'); return }
     if (!metaValor || metaValor <= 0) { setFormError('Informe uma meta maior que zero'); return }
     if (!form.vigente_desde) { setFormError('Informe a partir de qual mês a meta vale'); return }
@@ -119,324 +191,279 @@ export default function FinanceiroMetas() {
     const req = editing === 'new'
       ? api.post<MetaProgress>('/api/v1/financeiro/metas', body)
       : api.put<MetaProgress>(`/api/v1/financeiro/metas/${(editing as MetaProgress).id}`, body)
-
     req
       .then(() => { closeEdit(); fetchMetas() })
       .catch(err => setFormError(err.response?.data?.detail || 'Erro ao salvar meta'))
       .finally(() => setSaving(false))
   }
 
-  return (
-    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-2)', margin: 0 }}>Metas Mensais</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-          Metas por operador — CLT (vendas em R$) e estagiário (captação de leads)
-        </p>
-      </div>
+  const card: CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14 }
+  const ctrlBtn: CSSProperties = { height: 38, display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
+  const GRID = '220px minmax(220px, 1fr) 170px 140px 140px 120px 44px'
+  const tabs: [typeof tab, string, number][] = [['todos', 'Todos', metas.length], ['clt', 'CLT', clt.length], ['estagiario', 'Estagiários', est.length]]
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700 }}>
-            Filtros
-            <select
-              value={filtro}
-              onChange={e => setFiltro(e.target.value as FiltroPeriodo)}
-              style={{ minWidth: 168, height: 40, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }}
-            >
-              <option value="mes_atual">Mês atual</option>
-              <option value="geral">Geral</option>
-              <option value="entre_datas">Entre datas</option>
-            </select>
-          </label>
-          {filtro === 'entre_datas' && (
-            <>
-              <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700 }}>
-                De
-                <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)}
-                  style={{ height: 40, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }} />
-              </label>
-              <label style={{ display: 'grid', gap: 5, color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 700 }}>
-                Até
-                <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)}
-                  style={{ height: 40, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-2)', background: 'var(--bg-card)', fontSize: 12.5, fontFamily: 'inherit' }} />
-              </label>
-            </>
-          )}
+  return (
+    <div style={{ padding: '28px 32px', maxWidth: 1240, margin: '0 auto', background: dark ? 'transparent' : '#EEF1F5', minHeight: '100%' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em' }}>Metas Mensais</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>
+            {labelAnoMes(anoMes, true)}{isAtual ? ` · dia útil ${du.ate} de ${du.total}` : ` · ${du.total} dias úteis`}
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          <div style={{ ...card, display: 'flex', alignItems: 'center', height: 38, borderRadius: 10 }}>
+            <button aria-label="Mês anterior" onClick={() => setAnoMes(a => shiftAnoMes(a, -1))}
+              style={{ width: 36, height: 36, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ChevronLeft size={16} />
+            </button>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', minWidth: 66, textAlign: 'center' }}>{labelAnoMes(anoMes)}</span>
+            <button aria-label="Próximo mês" disabled={isAtual} onClick={() => setAnoMes(a => shiftAnoMes(a, 1))}
+              style={{ width: 36, height: 36, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: isAtual ? 'not-allowed' : 'pointer', opacity: isAtual ? 0.35 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
           <VerComoSlot />
-          <button
-            onClick={() => setShowCompare(true)}
-            disabled={metas.length < 2}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 13, fontWeight: 600, cursor: metas.length < 2 ? 'not-allowed' : 'pointer', opacity: metas.length < 2 ? 0.5 : 1 }}
-          >
-            <Columns3 size={15} color={ACCENT} />
-            Comparativo
-          </button>
-          <button
-            onClick={openCreate}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 16px', borderRadius: 9, border: 'none', background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >
+          <button onClick={openCreate} style={{ ...ctrlBtn, padding: '0 14px', border: 'none', background: C.accent, color: dark ? '#0F172A' : '#fff' }}>
             <Plus size={15} />
-            Novo operador
+            Nova meta
           </button>
           <SinoSlot />
         </div>
       </div>
 
-      {loading ? (
+      {loading && !data ? (
         <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Carregando…</p>
       ) : error ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-2)' }}>
           Não foi possível carregar as metas.
-          <button onClick={fetchMetas} style={{ color: ACCENT, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0 }}>Tentar novamente</button>
+          <button onClick={fetchMetas} style={{ color: C.accent, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0 }}>Tentar novamente</button>
         </div>
       ) : metas.length === 0 ? (
         <p style={{ fontSize: 13, color: 'var(--text-subtle)' }}>Nenhum operador com meta cadastrada ainda.</p>
       ) : (
-        <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-          <div style={{ width: 320, flexShrink: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--border-lt)' }}>
-              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>
-                Equipe — {Math.round(teamAvgPct)}% da meta em média
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', padding: 8 }}>
-              {sortedMetas.map(m => {
-                const active = selected?.id === m.id
-                const sc = statusColor(m.pct)
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setSelectedId(m.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', border: 'none', cursor: 'pointer',
-                      borderRadius: 12, marginBottom: 2, textAlign: 'left', fontFamily: 'inherit',
-                      background: active ? (m.tipo === 'clt' ? 'rgba(37,99,235,0.08)' : 'rgba(124,58,237,0.08)') : 'transparent',
-                    }}
-                  >
-                    <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: avatarBg(m.tipo), color: '#fff', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {initials(m.nome)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: active ? 'var(--text-1)' : 'var(--text-2)' }}>{m.nome}</span>
-                      <span style={{ fontSize: 10.5, fontWeight: 700, color: m.tipo === 'clt' ? ACCENT : '#7C3AED' }}>{m.tipo === 'clt' ? 'CLT' : 'Estagiário'}</span>
-                    </div>
-                    <div style={{ width: 58, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: sc }}>{Math.round(m.pct)}%</span>
-                      <div style={{ width: 50, height: 5, borderRadius: 99, background: 'var(--bg-subtle)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.min(100, m.pct)}%`, borderRadius: 99, background: sc }} />
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, opacity: loading ? 0.6 : 1, transition: 'opacity 150ms' }}>
+          <div style={{ ...card, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', overflow: 'hidden' }}>
+            <Kpi label="Vendas da equipe (CLT)" value={fmtBrl(cltReal)}
+              sub={<>de {fmtBrl(cltMeta)} · <b style={{ color: 'var(--text-1)' }}>{pctOf(cltReal, cltMeta)}%</b></>} />
+            {isAtual ? (
+              <Kpi label="Projeção de fechamento" value={fmtBrl(cltProj)}
+                sub={<span style={{ fontWeight: 600, color: cltProj >= cltMeta ? C.ok : C.warn }}>
+                  {pctOf(cltProj, cltMeta)}% da meta{cltProj < cltMeta ? ` · faltam ${fmtBrl(cltMeta - cltProj)}` : ''}
+                </span>} />
+            ) : (
+              <Kpi label="Vendas fechadas (CLT)" value={fmtNum(sum(clt, m => m.vendas))}
+                sub={<>ticket médio <b style={{ color: 'var(--text-1)' }}>{fmtBrl(sum(clt, m => m.vendas) ? cltReal / sum(clt, m => m.vendas) : 0)}</b></>} />
+            )}
+            <Kpi label="Captação (estagiários)" value={`${fmtNum(estReal)} leads`}
+              sub={<>de {fmtNum(estMeta)}{isAtual ? <> · projeção <b style={{ color: 'var(--text-1)' }}>{fmtNum(estProj)}</b></> : <> · <b style={{ color: 'var(--text-1)' }}>{pctOf(estReal, estMeta)}%</b></>}</>} />
+            <Kpi label={isAtual ? 'No ritmo da meta' : 'Metas batidas'} value={`${isAtual ? noRitmo : metas.filter(m => m.pct >= 100).length} de ${metas.length}`} last
+              sub={isAtual ? <>ritmo esperado hoje: <b style={{ color: 'var(--text-1)' }}>{Math.round(paceFrac * 100)}%</b></> : <>média da equipe <b style={{ color: 'var(--text-1)' }}>{Math.round(teamAvg)}%</b></>} />
           </div>
 
-          {selected && (
-            <FocusPanel
-              meta={selected}
-              teamAvgPct={teamAvgPct}
-              onEdit={() => openEdit(selected)}
-            />
-          )}
-        </div>
-      )}
+          <div style={{ ...card, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 16px', borderBottom: '1px solid var(--border-lt)' }}>
+              <div style={{ display: 'flex', gap: 2, background: 'var(--bg-subtle)', border: '1px solid var(--border-lt)', padding: 3, borderRadius: 10 }}>
+                {tabs.map(([k, label, n]) => {
+                  const on = tab === k
+                  return (
+                    <button key={k} onClick={() => setTab(k)}
+                      style={{ border: 0, height: 30, padding: '0 12px', borderRadius: 7, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: on ? 'var(--bg-card)' : 'transparent', color: on ? 'var(--text-1)' : 'var(--text-muted)', boxShadow: on ? '0 1px 2px rgba(16,24,40,0.10)' : 'none' }}>
+                      {label} · {n}
+                    </button>
+                  )
+                })}
+              </div>
+              {isAtual && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                  <span style={{ width: 2, height: 12, background: C.pace }} />onde deveria estar hoje
+                </span>
+              )}
+            </div>
 
-      {showCompare && (
-        <CompareModal metas={metas} mesLabel={data?.mes_label ?? ''} onClose={() => setShowCompare(false)} />
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ minWidth: 900 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 16, padding: '10px 16px', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
+                  <span>Operador</span><span>Progresso</span><span style={{ textAlign: 'right' }}>Realizado / meta</span>
+                  <span style={{ textAlign: 'right' }}>Projeção</span><span style={{ textAlign: 'right' }}>Precisa / dia útil</span><span>Status</span><span />
+                </div>
+                {rows.map(m => {
+                  const st = status(m), col = stColor(st)
+                  const projPct = m.projecao != null && m.meta_valor > 0 ? Math.round(m.projecao / m.meta_valor * 100) : null
+                  const open = openId === m.id
+                  const diff = Math.round(m.pct - teamAvg)
+                  return (
+                    <div key={m.id} style={{ borderTop: '1px solid var(--border-lt)' }}>
+                      <div className="metas-row" style={{ display: 'grid', gridTemplateColumns: GRID, gap: 16, alignItems: 'center', padding: '14px 16px' }}>
+                        <button onClick={() => setOpenId(open ? null : m.id)} aria-expanded={open}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, border: 0, background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-1)' }}>
+                          <span style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, background: m.tipo === 'clt' ? C.accentBg : C.estBg, color: m.tipo === 'clt' ? C.accent : C.estFg }}>
+                            {initials(m.nome)}
+                          </span>
+                          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 14, fontWeight: 600 }}>{m.nome}</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.tipo === 'clt' ? 'CLT · vendas' : 'Estagiário · captação'}</span>
+                          </span>
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ position: 'relative', flex: 1, height: 8, borderRadius: 99, background: 'var(--bg-subtle)' }}>
+                            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(100, m.pct)}%`, borderRadius: 99, background: col }} />
+                            {projPct != null && projPct > m.pct && (
+                              <div title={`Projeção: ${projPct}%`} style={{ position: 'absolute', left: `${Math.min(100, projPct)}%`, top: -1, width: 6, height: 10, marginLeft: -3, borderRadius: 3, border: `1.5px dashed ${col}`, boxSizing: 'border-box', opacity: 0.8 }} />
+                            )}
+                            {isAtual && (
+                              <div style={{ position: 'absolute', left: `${paceFrac * 100}%`, top: -5, bottom: -5, width: 2, background: C.pace }} />
+                            )}
+                          </div>
+                          <span style={{ width: 42, textAlign: 'right', fontSize: 14, fontWeight: 700, color: col }}>{Math.round(m.pct)}%</span>
+                        </div>
+                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{fmtValor(m.tipo, m.atingido)}</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>de {fmtValor(m.tipo, m.meta_valor)}</span>
+                        </div>
+                        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {m.projecao != null ? (
+                            <>
+                              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{fmtValor(m.tipo, m.projecao)}</span>
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{projPct}% da meta</span>
+                            </>
+                          ) : <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>—</span>}
+                        </div>
+                        <span style={{ textAlign: 'right', fontSize: 14, fontWeight: 600, color: 'var(--text-1)' }}>{need(m)}</span>
+                        <span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 24, padding: '0 10px', borderRadius: 99, fontSize: 12, fontWeight: 600, background: stBg(st), color: col }}>
+                            <span style={{ width: 6, height: 6, borderRadius: 99, background: col }} />{stLabel(st)}
+                          </span>
+                        </span>
+                        <button onClick={() => openEdit(m)} aria-label="Editar meta" title="Editar meta"
+                          style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Pencil size={14} />
+                        </button>
+                      </div>
+                      {open && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, padding: '4px 16px 18px 60px' }}>
+                          <Mini label="Leads captados" value={fmtNum(m.leads)} />
+                          <Mini label="Vendas" value={fmtNum(m.vendas)} />
+                          {m.tipo === 'clt'
+                            ? <Mini label="Ticket médio" value={m.vendas ? fmtBrl(m.atingido / m.vendas) : '—'} />
+                            : <Mini label="Leads por dia útil" value={(du.ate || du.total) ? (m.leads / (isAtual ? Math.max(1, du.ate) : du.total)).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—'} />}
+                          <Mini label="Vs. média da equipe" value={`${diff > 0 ? '+' : diff < 0 ? '−' : ''}${Math.abs(diff)} p.p.`} color={col} />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {editing && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={closeEdit}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-lt)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-2)' }}>{editing === 'new' ? 'Novo operador' : 'Editar meta'}</span>
-              <button onClick={closeEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-subtle)', display: 'flex' }}><X size={18} /></button>
+        <div onClick={closeEdit} style={{ position: 'fixed', inset: 0, background: 'rgba(8,12,20,0.45)', display: 'flex', justifyContent: 'flex-end', zIndex: 50 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: 400, maxWidth: '100%', height: '100%', background: 'var(--bg-card)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', boxShadow: '-12px 0 40px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid var(--border-lt)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>{editing === 'new' ? 'Nova meta' : `Editar meta · ${editing.nome}`}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {editing === 'new' ? labelAnoMes(anoMesAtual(), true) : `${editing.tipo === 'clt' ? 'CLT' : 'Estagiário'} · realizado ${fmtValor(editing.tipo, editing.atingido)}`}
+                </span>
+              </div>
+              <button onClick={closeEdit} aria-label="Fechar" style={{ width: 34, height: 34, border: 0, borderRadius: 8, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={18} />
+              </button>
             </div>
-            <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <label style={labelStyle}>Nome
+                <input type="text" placeholder="Nome do operador" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} style={inputStyle} />
+              </label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={labelStyle}>Nome</label>
-                <input type="text" placeholder="Nome do operador" value={form.nome}
-                  onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} style={inputStyle} />
+                <span style={labelStyle}>Tipo de meta</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                  {([['clt', 'CLT', 'Meta em vendas (R$)'], ['estagiario', 'Estagiário', 'Meta em leads captados']] as [Tipo, string, string][]).map(([k, t, d]) => {
+                    const on = form.tipo === k
+                    return (
+                      <button key={k} onClick={() => setForm(f => ({ ...f, tipo: k }))} aria-pressed={on}
+                        style={{ textAlign: 'left', padding: 12, borderRadius: 10, border: `1.5px solid ${on ? C.accent : 'var(--border)'}`, background: on ? C.accentBg : 'var(--bg-card)', color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>{t}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{d}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={labelStyle}>Perfil</label>
-                <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as 'clt' | 'estagiario' }))} style={inputStyle}>
-                  <option value="clt">CLT — meta de vendas (R$)</option>
-                  <option value="estagiario">Estagiário — meta de captação (leads)</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={labelStyle}>Meta mensal {form.tipo === 'clt' ? '(R$)' : '(quantidade de leads)'}</label>
+              <label style={labelStyle}>{form.tipo === 'clt' ? 'Meta mensal (R$)' : 'Meta mensal (leads)'}
                 <input type="text" inputMode="decimal" placeholder={form.tipo === 'clt' ? '6000' : '200'} value={form.meta_valor}
-                  onChange={e => setForm(f => ({ ...f, meta_valor: e.target.value }))} style={inputStyle} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={labelStyle}>Vale a partir de</label>
-                <input type="month" max={mesAtualIso()} value={form.vigente_desde}
-                  onChange={e => setForm(f => ({ ...f, vigente_desde: e.target.value }))} style={inputStyle} />
-                <span style={{ fontSize: 11.5, color: 'var(--text-subtle)' }}>Meses anteriores mantêm a meta que tinham.</span>
-              </div>
-              {formError && <p style={{ fontSize: 13, color: '#EF4444', margin: 0 }}>{formError}</p>}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
-                <button onClick={closeEdit} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: saving ? '#93C5FD' : ACCENT, color: 'white', border: 'none', cursor: saving ? 'not-allowed' : 'pointer' }}>
-                  {saving ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
+                  onChange={e => setForm(f => ({ ...f, meta_valor: e.target.value }))} style={{ ...inputStyle, fontWeight: 600 }} />
+              </label>
+              <label style={labelStyle}>Vale a partir de
+                <input type="month" max={anoMesAtual()} value={form.vigente_desde} onChange={e => setForm(f => ({ ...f, vigente_desde: e.target.value }))} style={inputStyle} />
+              </label>
+              {editing !== 'new' && isAtual && du.restantes > 0 && (() => {
+                const mv = parseValor(form.meta_valor) || 0
+                const falta = Math.max(0, mv - editing.atingido)
+                return (
+                  <div style={{ background: C.accentBg, borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: C.accent }}>Com essa meta</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                      {falta <= 0 ? 'Meta já atingida no mês.'
+                        : `Faltam ${form.tipo === 'clt' ? fmtBrl(falta / du.restantes) : `${fmtNum(Math.ceil(falta / du.restantes))} leads`} por dia útil nos ${du.restantes} dias úteis restantes.`}
+                    </span>
+                  </div>
+                )
+              })()}
+              {editing !== 'new' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={labelStyle}>Histórico</span>
+                  {hist === null ? (
+                    <span style={{ fontSize: 13, color: 'var(--text-subtle)', padding: '8px 0' }}>Carregando…</span>
+                  ) : hist.length === 0 ? (
+                    <span style={{ fontSize: 13, color: 'var(--text-subtle)', padding: '8px 0' }}>Sem alterações registradas.</span>
+                  ) : hist.map(h => (
+                    <div key={h.ano_mes} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '8px 0', borderBottom: '1px solid var(--border-lt)' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Desde {labelAnoMes(h.ano_mes)}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--text-1)' }}>{fmtValor(h.tipo, h.meta_valor)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {formError && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>{formError}</p>}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid var(--border-lt)' }}>
+              <button onClick={closeEdit} style={{ ...ctrlBtn, padding: '0 14px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)' }}>Cancelar</button>
+              <button onClick={handleSave} disabled={saving} style={{ ...ctrlBtn, padding: '0 16px', border: 0, background: C.accent, color: dark ? '#0F172A' : '#fff', opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                {saving ? 'Salvando…' : 'Salvar meta'}
+              </button>
             </div>
           </div>
         </div>
       )}
+      <style>{'.metas-row:hover{background:var(--bg-hover)}'}</style>
     </div>
   )
 }
 
-function Donut({ pct, color }: { pct: number; color: string }) {
-  const size = 100, stroke = 10
-  const r = (size - stroke) / 2
-  const c = 2 * Math.PI * r
-  const offset = c - (Math.min(100, Math.max(0, pct)) / 100) * c
+const inputStyle: CSSProperties = {
+  height: 40, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border-in)', fontSize: 14,
+  color: 'var(--text-1)', background: 'var(--bg-input)', outline: 'none', fontFamily: 'inherit',
+}
+const labelStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--text-3b)' }
+
+function Kpi({ label, value, sub, last }: { label: string; value: string; sub: ReactNode; last?: boolean }) {
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--bg-subtle)" strokeWidth={stroke} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 400ms ease' }} />
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: 19, fontWeight: 800, color: 'var(--text-1)' }}>{Math.round(pct)}%</span>
-      </div>
+    <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 6, borderRight: last ? 'none' : '1px solid var(--border-lt)' }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{label}</span>
+      <span style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-1)' }}>{value}</span>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{sub}</span>
     </div>
   )
 }
 
-function FocusPanel({ meta, teamAvgPct, onEdit }: {
-  meta: MetaProgress; teamAvgPct: number; onEdit: () => void
-}) {
-  const color = statusColor(meta.pct)
-  const diff = Math.round(meta.pct - teamAvgPct)
-  const compareText = diff === 0
-    ? 'na média da equipe'
-    : diff > 0
-      ? `${diff}% acima da média da equipe (${Math.round(teamAvgPct)}%)`
-      : `${Math.abs(diff)}% abaixo da média da equipe (${Math.round(teamAvgPct)}%)`
-
+function Mini({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div style={{ flex: 1, minWidth: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 18, padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 48, height: 48, borderRadius: 13, background: avatarBg(meta.tipo), color: '#fff', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {initials(meta.nome)}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 17, fontWeight: 800, display: 'block', color: 'var(--text-1)' }}>{meta.nome}</span>
-          <span style={{ display: 'inline-block', marginTop: 3, fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 99, background: meta.tipo === 'clt' ? 'rgba(37,99,235,0.1)' : 'rgba(124,58,237,0.1)', color: meta.tipo === 'clt' ? ACCENT : '#7C3AED' }}>
-            {meta.tipo === 'clt' ? 'CLT' : 'Estagiário'}
-          </span>
-        </div>
-        <button onClick={onEdit} title="Editar meta" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 34, padding: '0 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
-          <Pencil size={14} />
-          Editar meta
-        </button>
-      </div>
-
-      <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <Donut pct={meta.pct} color={color} />
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 150 }}>{compareText}</span>
-        </div>
-
-        <div style={{ flex: 1, minWidth: 280, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, alignContent: 'start' }}>
-          <Tile label="Leads captados" value={fmtNum(meta.leads)} />
-          <Tile label="Vendas realizadas" value={fmtNum(meta.vendas)} />
-          <Tile label="Meta mensal" value={fmtValor(meta.tipo, meta.meta_valor)} />
-          <Tile label="Valor atingido no mês" value={fmtValor(meta.tipo, meta.atingido)} />
-        </div>
-      </div>
-
-      {meta.projecao != null && (
-        <div style={{ borderRadius: 12, padding: '13px 16px', background: 'rgba(37,99,235,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: ACCENT }}>Projeção pro fim do mês</span>
-            <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-              {meta.tipo === 'clt'
-                ? `Vendas já fechadas/aguardando faturamento + leads em emissão, ${meta.projecao >= meta.meta_valor ? 'fica acima' : 'fica abaixo'} da meta de ${fmtValor(meta.tipo, meta.meta_valor)}`
-                : `Mantendo o ritmo atual, ${meta.projecao >= meta.meta_valor ? 'fica acima' : 'fica abaixo'} da meta de ${fmtValor(meta.tipo, meta.meta_valor)}`}
-            </span>
-          </div>
-          <span style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{fmtValor(meta.tipo, meta.projecao)}</span>
-        </div>
-      )}
+    <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-lt)', borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label}</span>
+      <span style={{ fontSize: 18, fontWeight: 700, color: color ?? 'var(--text-1)' }}>{value}</span>
     </div>
   )
 }
-
-function Tile({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '13px 14px' }}>
-      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>{label}</span>
-      <span style={{ display: 'block', fontSize: 19, fontWeight: 800, color: 'var(--text-1)', marginTop: 6 }}>{value}</span>
-    </div>
-  )
-}
-
-function CompareModal({ metas, mesLabel, onClose }: { metas: MetaProgress[]; mesLabel: string; onClose: () => void }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={onClose}>
-      <div style={{ background: 'var(--bg-card)', borderRadius: 20, width: '100%', maxWidth: 960, padding: 26, boxShadow: '0 24px 64px rgba(0,0,0,0.35)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)' }}>Comparativo — {mesLabel}</span>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: 'none', color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <X size={18} />
-          </button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(3, metas.length)}, 1fr)`, gap: 14 }}>
-          {metas.map(m => {
-            const color = statusColor(m.pct)
-            return (
-              <div key={m.id} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 10, background: avatarBg(m.tipo), color: '#fff', fontWeight: 700, fontSize: 12.5, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {initials(m.nome)}
-                  </div>
-                  <div>
-                    <span style={{ fontSize: 13.5, fontWeight: 700, display: 'block', color: 'var(--text-1)' }}>{m.nome}</span>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: m.tipo === 'clt' ? ACCENT : '#7C3AED' }}>{m.tipo === 'clt' ? 'CLT' : 'Estagiário'}</span>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center', padding: 12, borderRadius: 12, background: 'var(--bg-subtle)' }}>
-                  <span style={{ fontSize: 22, fontWeight: 800, color }}>{Math.round(m.pct)}%</span>
-                  <div style={{ height: 6, borderRadius: 99, background: 'var(--border)', overflow: 'hidden', marginTop: 8 }}>
-                    <div style={{ height: '100%', width: `${Math.min(100, m.pct)}%`, background: color, borderRadius: 99 }} />
-                  </div>
-                </div>
-                <MiniTile label="Leads captados" value={fmtNum(m.leads)} />
-                <MiniTile label="Vendas realizadas" value={fmtNum(m.vendas)} />
-                <MiniTile label="Meta mensal" value={fmtValor(m.tipo, m.meta_valor)} />
-                <MiniTile label="Atingido" value={fmtValor(m.tipo, m.atingido)} />
-                {m.projecao != null && (
-                  <div style={{ borderRadius: 10, padding: '10px 11px', background: 'rgba(37,99,235,0.08)' }}>
-                    <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: ACCENT }}>Projeção</span>
-                    <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: ACCENT, marginTop: 4 }}>{fmtValor(m.tipo, m.projecao)}</span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function MiniTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 11px' }}>
-      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>{label}</span>
-      <span style={{ display: 'block', fontSize: 14.5, fontWeight: 800, color: 'var(--text-1)', marginTop: 4 }}>{value}</span>
-    </div>
-  )
-}
-
