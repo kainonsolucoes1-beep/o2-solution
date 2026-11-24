@@ -472,7 +472,7 @@ export default function Dashboard() {
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text-muted)' }}>{k.label}</span>
-                {k.delta !== undefined && (
+                {k.delta !== undefined && k.delta !== 0 && (
                   <span style={{ ...NUM, fontSize: 11.5, fontWeight: 600, padding: '2px 7px', borderRadius: 999, color: up ? 'var(--success)' : 'var(--danger)', background: up ? 'var(--success-weak)' : 'var(--danger-weak)' }}>
                     {up ? '↑' : '↓'} {Math.abs(k.delta)}%
                   </span>
