@@ -315,15 +315,15 @@ export default function Dashboard() {
       ? { label: 'Cotação enviada', value: fmtBrl(propostasDia), foot: 'leads do dia com cotação enviada' }
       : { label: 'Em carteira', value: fmtBrl(data.valor_carteira), delta: data.vs_carteira, foot: 'vs. mês anterior' },
     {
+      label: 'Ticket médio',
+      value: cotQtd > 0 ? fmtBrl(cotValor / cotQtd) : '—',
+      foot: isDia ? `das cotações enviadas ${periodoLabel === 'hoje' ? 'hoje' : 'no período'}` : 'das cotações enviadas no mês',
+    },
+    {
       label: 'Virtuais agendadas',
       value: String(isDia ? data.virtuais_periodo : data.virtuais_mes),
       delta: isDia ? data.vs_virtuais_periodo : data.vs_virtuais_mes,
       foot: isDia ? vsDia : 'vs. mês anterior',
-    },
-    {
-      label: 'Ticket médio',
-      value: cotQtd > 0 ? fmtBrl(cotValor / cotQtd) : '—',
-      foot: isDia ? `das cotações enviadas ${periodoLabel === 'hoje' ? 'hoje' : 'no período'}` : 'das cotações enviadas no mês',
     },
   ]
 
