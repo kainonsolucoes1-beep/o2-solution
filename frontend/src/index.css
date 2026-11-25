@@ -49,9 +49,17 @@ body {
   --stale-border: rgba(245,158,11,0.40);
   --stale-text:   #92400E;
   --stale-num:    #B45309;
+
+  /* quadro de retorno vencido: vermelho cheio com texto branco nos dois temas */
+  --alerta-bg:     #C81E1E;
+  --alerta-borda:  #A51818;
+  --alerta-sombra: rgba(127,29,29,0.35);
 }
 
 html.dark {
+  --alerta-bg:     #A51C1C;
+  --alerta-borda:  #EF4444;
+  --alerta-sombra: rgba(0,0,0,0.55);
   --kpi-accent-border: #334155;
   --bg-page:    #0F172A;
   --bg-card:    #1E293B;

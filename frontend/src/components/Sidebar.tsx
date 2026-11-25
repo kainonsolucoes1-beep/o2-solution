@@ -16,6 +16,38 @@ interface AgendaAlerts { overdue: number; today: number }
 interface AgendaAlertItem {
   id: string; name: string; phone: string | null; attendant: string | null
   scheduled_at: string; schedule_id: string; bucket: 'overdue' | 'due_soon'
+  vencido_min_uteis: number; responsavel: string | null
+}
+// Retorno vencido sem movimentação na ficha: bip + aviso do Windows a cada 15 min
+// (só em expediente) pro operador; quadro vermelho a partir de 15 min úteis vencido;
+// gestão é avisada com 20 min úteis. Mexer na ficha conclui o retorno e tudo some.
+const GESTAO_ROLES = ['admin', 'coordenador', 'diretor', 'supervisor']
+const LEMBRETE_MS = 15 * 60 * 1000
+const QUADRO_OPERADOR_MIN = 15
+const GESTAO_MIN = 20
+const ADIAR_KEY = 'o2sig_retorno_adiar_v1'
+const fmtAtraso = (iso: string) => {
+  const mins = Math.max(0, Math.floor((Date.now() - new Date(iso.endsWith('Z') ? iso : iso + 'Z').getTime()) / 60000))
+  if (mins < 60) return `há ${mins} min`
+  if (mins < 24 * 60) return `há ${Math.floor(mins / 60)}h${String(mins % 60).padStart(2, '0')}`
+  const d = Math.floor(mins / (24 * 60))
+  return `há ${d} ${d === 1 ? 'dia' : 'dias'}`
+}
+// Chaves que podem avisar agora (compartilhado entre abas): nunca avisou ou
+// avisou há mais de `intervalo` ms (null = avisa uma vez só). Sem localStorage, avisa.
+function claimLembrete(keys: string[], intervalo: number | null): string[] {
+  const KEY = 'o2sig_retorno_lembrete_v1'
+  try {
+    const now = Date.now()
+    const map: Record<string, number> = JSON.parse(localStorage.getItem(KEY) || '{}')
+    for (const k of Object.keys(map)) { if (now - map[k] > 3 * 24 * 60 * 60 * 1000) delete map[k] }
+    const ok = keys.filter(k => !(k in map) || (intervalo != null && now - map[k] >= intervalo))
+    for (const k of ok) map[k] = now
+    localStorage.setItem(KEY, JSON.stringify(map))
+    return ok
+  } catch {
+    return keys
+  }
 }
 interface NotificacaoItem { id: string; lead_id: string | null; texto: string; criado_em: string | null; lida: boolean }
 const fmtQuando = (iso: string | null) => {
@@ -222,26 +254,72 @@ export default function Sidebar() {
   useEffect(() => {
     if (!user || user.role === 'trafego') return
     let cancelled = false
+    const gestao = GESTAO_ROLES.includes(user.role)
+    function avisarWindows(alvo: AgendaAlertItem[]) {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return
+      for (const a of alvo.slice(0, 3)) {
+        try {
+          const n = new Notification(
+            gestao ? `${a.responsavel || a.attendant || 'Operador'} · retorno vencido sem tratativa` : `Retorno vencido: ${a.name}`,
+            { body: `${gestao ? `${a.name} · ` : ''}Era ${fmtHM(a.scheduled_at)} · vencido ${fmtAtraso(a.scheduled_at)}. Clique para abrir a ficha.`, tag: `ret-${a.schedule_id}`, renotify: true } as NotificationOptions,
+          )
+          n.onclick = () => { window.focus(); navigate(`/leads/${a.id}`); n.close() }
+        } catch { /* navegador sem suporte */ }
+      }
+    }
     function loadFollowup() {
-      api.get<{ items: AgendaAlertItem[] }>('/api/v1/agenda/alerts', { params: { window_minutes: 10 } })
+      api.get<{ items: AgendaAlertItem[]; em_expediente: boolean }>('/api/v1/agenda/alerts', { params: { window_minutes: 10 } })
         .then(r => {
           if (cancelled) return
           const items = r.data.items
           const ids = new Set(items.map(a => a.schedule_id))
           const seen = followupSeenRef.current
+          let tocou = false
           if (seen) {
             const newIds = [...ids].filter(id => !seen.has(id))
-            if (newIds.length > 0 && claimFollowupBeep(newIds)) playAgendaBeep()
+            if (newIds.length > 0 && claimFollowupBeep(newIds)) { playAgendaBeep(); tocou = true }
           }
           followupSeenRef.current = ids
           setFollowupAlerts(items)
+          // lembrete de retorno vencido: operador a cada 15 min; gestão uma vez, com 20 min úteis
+          if (!r.data.em_expediente) return
+          const venc = items.filter(a => a.bucket === 'overdue')
+          let alvo: AgendaAlertItem[] = []
+          if (user!.role === 'usuario') {
+            const ok = new Set(claimLembrete(venc.map(a => `r:${a.schedule_id}`), LEMBRETE_MS))
+            alvo = venc.filter(a => ok.has(`r:${a.schedule_id}`))
+          } else if (gestao) {
+            const esc = venc.filter(a => a.vencido_min_uteis >= GESTAO_MIN)
+            const ok = new Set(claimLembrete(esc.map(a => `g:${a.schedule_id}`), null))
+            alvo = esc.filter(a => ok.has(`g:${a.schedule_id}`))
+          }
+          if (alvo.length > 0) {
+            if (!tocou) playAgendaBeep()
+            avisarWindows(alvo)
+          }
         })
         .catch(() => {})
     }
     loadFollowup()
     const id = setInterval(loadFollowup, 60 * 1000)
     return () => { cancelled = true; clearInterval(id) }
-  }, [user, playAgendaBeep, claimFollowupBeep])
+  }, [user, playAgendaBeep, claimFollowupBeep, navigate])
+
+  // aviso do Windows: o navegador só pergunta depois de um clique da pessoa na página
+  useEffect(() => {
+    if (!user || !(user.role === 'usuario' || GESTAO_ROLES.includes(user.role))) return
+    if (!('Notification' in window) || Notification.permission !== 'default') return
+    const pedir = () => { Notification.requestPermission().catch(() => {}); document.removeEventListener('click', pedir) }
+    document.addEventListener('click', pedir)
+    return () => document.removeEventListener('click', pedir)
+  }, [user])
+
+  const [adiadoAte, setAdiadoAte] = useState(() => { try { return Number(localStorage.getItem(ADIAR_KEY) || 0) } catch { return 0 } })
+  function adiarQuadro() {
+    const ate = Date.now() + LEMBRETE_MS
+    setAdiadoAte(ate)
+    try { localStorage.setItem(ADIAR_KEY, String(ate)) } catch { /* sem localStorage: vale só nesta aba */ }
+  }
 
   useEffect(() => {
     if (!user || user.role === 'trafego') return
@@ -453,7 +531,7 @@ export default function Sidebar() {
                     <span style={{ minWidth: 0, flex: 1 }}>
                       <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#F9FAFB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</span>
                       <span style={{ display: 'block', fontSize: 11, color: a.bucket === 'overdue' ? '#EF4444' : '#9CA3AF' }}>
-                        {a.bucket === 'overdue' ? 'Atrasado — ' : 'Vencendo — '}{fmtHM(a.scheduled_at)}{a.attendant ? ` · ${a.attendant}` : ''}
+                        {a.bucket === 'overdue' ? 'Atrasado — ' : 'Vencendo — '}{fmtHM(a.scheduled_at)}{a.bucket === 'overdue' ? ` · ${fmtAtraso(a.scheduled_at)}` : ''}{a.attendant ? ` · ${a.attendant}` : ''}
                       </span>
                     </span>
                   </button>
@@ -466,6 +544,30 @@ export default function Sidebar() {
     </div>
   )
   const followupBell = sinoNoSlot ? createPortal(followupBellEl, sinoSlot!) : followupBellEl
+
+  // quadro vermelho de retorno vencido (canto superior direito)
+  const minQuadro = !user ? Infinity : user.role === 'usuario' ? QUADRO_OPERADOR_MIN : GESTAO_ROLES.includes(user.role) ? GESTAO_MIN : Infinity
+  const quadroItens = followupAlerts
+    .filter(a => a.bucket === 'overdue' && a.vencido_min_uteis >= minQuadro)
+    .sort((x, y) => utcMs(x.scheduled_at) - utcMs(y.scheduled_at))
+  const quadro = quadroItens.length > 0 && Date.now() >= adiadoAte && (
+    <div role="alert" className="retorno-alerta" style={isMobile ? { left: 16, right: 16 } : undefined}>
+      <div className="ra-tit"><AlertTriangle size={16} />{quadroItens.length} {quadroItens.length === 1 ? 'retorno vencido' : 'retornos vencidos'} sem tratativa</div>
+      <ul>
+        {quadroItens.slice(0, 3).map(a => (
+          <li key={a.schedule_id}>
+            <b>{a.name}</b>{GESTAO_ROLES.includes(user!.role) && (a.responsavel || a.attendant) ? ` · ${a.responsavel || a.attendant}` : ''}
+            <span> · era {fmtHM(a.scheduled_at)}, {fmtAtraso(a.scheduled_at)}</span>
+          </li>
+        ))}
+        {quadroItens.length > 3 && <li><span>+ {quadroItens.length - 3} no sino</span></li>}
+      </ul>
+      <div className="ra-acoes">
+        <button className="ra-abrir" onClick={() => navigate(`/leads/${quadroItens[0].id}`)}>Abrir {quadroItens[0].name.split(' ')[0]}</button>
+        <button className="ra-adiar" onClick={adiarQuadro}>Lembrar em 15 min</button>
+      </div>
+    </div>
+  )
 
   // menu agrupado por assunto; seção sem nenhum item (ex: Gestão pra quem não vê nada dela) some
   // Campanhas oculta do menu (2026-11-19); rotas continuam existindo
@@ -503,6 +605,7 @@ export default function Sidebar() {
     return (
       <div className="sb">
         {followupBell}
+        {quadro}
         {!mobileOpen && (
           <button type="button" className="sb-menu-btn" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
             <Menu size={20} />
@@ -527,6 +630,7 @@ export default function Sidebar() {
   return (
     <>
       {followupBell}
+      {quadro}
       <div className={`sb sb-slot ${pinned ? 'pinned' : ''}`}>
         <aside
           className={`sb-rail ${expanded ? 'exp' : ''}`}
