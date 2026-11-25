@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.api.dashboard_routes import _owner_names, _person_name_set
 from app.lead_scope import own_leads_clause
-from app.br_calendar import business_days_in_month
+from app.br_calendar import business_days_in_month, is_business_day
 from app.database import get_db
 from app.models.lead import Lead, LeadEmissao, LeadStatusHistory, LeadNote, LeadSchedule, LeadParcela, LeadEstorno
 from app.models.user import User
@@ -1491,6 +1491,259 @@ def fluxo_vendas(
         "atual": atual,
         "anterior": anterior,
         "meta": meta,
+        "leads": leads,
+    }
+
+
+# ---- Atualização dos leads (o operador está agindo nos leads dele? em quanto tempo?) ----
+# Ação = anotação (user_id), mudança de status (changed_by) ou agendamento (created_by)
+# feitos pela própria pessoa; a sincronização do Followize não conta. Tempos só em
+# horário comercial (seg-qui 9h-18h, sex 9h-17h, sem fim de semana e feriado nacional).
+_EXPEDIENTE = {0: (9, 18), 1: (9, 18), 2: (9, 18), 3: (9, 18), 4: (9, 17)}
+_DIA_UTIL_MIN = 9 * 60      # 1 "dia útil" nos rótulos = 9h de expediente
+_MESMO_TOQUE = timedelta(minutes=15)  # ações coladas (status + nota + retorno) = 1 toque
+
+
+def _min_uteis(ini, fim) -> int:
+    """Minutos de expediente entre dois instantes (UTC naive)."""
+    if not ini or not fim or fim <= ini:
+        return 0
+    a, b = ini - BR_OFFSET, fim - BR_OFFSET
+    total, d = 0, a.date()
+    while d <= b.date():
+        h = _EXPEDIENTE.get(d.weekday())
+        if h and is_business_day(d):
+            j0 = datetime(d.year, d.month, d.day, h[0])
+            j1 = datetime(d.year, d.month, d.day, h[1])
+            s, e = max(a, j0), min(b, j1)
+            if e > s:
+                total += int((e - s).total_seconds() // 60)
+        d += timedelta(days=1)
+    return total
+
+
+def _dias_uteis_desde(ts, hoje) -> int:
+    """Dias úteis completos depois da data de ts (Brasília) até hoje."""
+    d, n = (ts - BR_OFFSET).date() + timedelta(days=1), 0
+    while d <= hoje:
+        n += 1 if (d.weekday() < 5 and is_business_day(d)) else 0
+        d += timedelta(days=1)
+    return n
+
+
+def _mediana(xs: list[int]):
+    if not xs:
+        return None
+    s = sorted(xs)
+    m = len(s) // 2
+    return s[m] if len(s) % 2 else (s[m - 1] + s[m]) / 2
+
+
+@router.get("/atualizacao-leads")
+def atualizacao_leads(
+    origens: str = Query(...),
+    month: str = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Tempo até a 1ª ação, tempo entre ações, leads parados e retornos vencidos de um
+    operador. Mesmo acesso do Fluxo de vendas."""
+    if needs_own_origin_filter(current_user):
+        proprio = current_user.first_name or current_user.username
+        if current_user.role == "supervisor":
+            permitido = set(_agentes_do_supervisor(db, current_user))
+            permitido.add(proprio)
+            if origens.split(",")[0].strip() not in permitido:
+                origens = proprio
+        else:
+            origens = proprio
+    parts = [s.strip() for s in origens.split(",") if s.strip()]
+    if not parts:
+        raise HTTPException(status_code=400, detail="Informe o operador.")
+
+    nb = now_br()
+    agora = datetime.now(timezone.utc).replace(tzinfo=None)
+    year, mon = _parse_month(month) if month else (nb.year, nb.month)
+    if (year, mon) > (nb.year, nb.month):
+        year, mon = nb.year, nb.month
+    prev_year, prev_mon = (year, mon - 1) if mon > 1 else (year - 1, 12)
+
+    users = db.query(User).filter(or_(User.first_name.in_(parts), User.username.in_(parts))).all()
+    uids = [u.id for u in users]
+    nomes = list({p.lower() for p in parts} | {(n or "").lower() for u in users for n in (u.first_name, u.username) if n})
+
+    rows = db.query(
+        Lead.id, Lead.name, Lead.email, Lead.phone, Lead.attendant, Lead.origin, Lead.conversion_point,
+        Lead.status, Lead.perception, Lead.value_potential, Lead.operadoras_enviadas, Lead.modalidade,
+        Lead.created_at, Lead.updated_at, Lead.retrabalhado_em, Lead.is_renutrucao, Lead.receita_data_venda,
+        Lead.duplicado_de_id, Lead.campanha_canal, Lead.vidas, Lead.renutricao_owner_id,
+    ).filter(agent_leads_clause(db, parts, uids)).all()
+    ids = [r.id for r in rows]
+
+    acoes: dict = defaultdict(list)       # lead -> instantes das ações dela
+    retornos: dict = defaultdict(list)    # lead -> (criado_em, marcado_para) dos agendamentos dela
+    ativo: dict = {}                      # lead -> maior data de retorno ativo
+    if ids:
+        for lid, ts in db.query(LeadNote.lead_id, LeadNote.created_at).filter(
+                LeadNote.lead_id.in_(ids), LeadNote.user_id.in_(uids or [uuid.uuid4()])):
+            if ts:
+                acoes[lid].append(ts)
+        for lid, ts in db.query(LeadStatusHistory.lead_id, LeadStatusHistory.changed_at).filter(
+                LeadStatusHistory.lead_id.in_(ids), func.lower(LeadStatusHistory.changed_by).in_(nomes)):
+            if ts:
+                acoes[lid].append(ts)
+        for lid, criado, marcado in db.query(LeadSchedule.lead_id, LeadSchedule.created_at, LeadSchedule.scheduled_at).filter(
+                LeadSchedule.lead_id.in_(ids), func.lower(LeadSchedule.created_by).in_(nomes)):
+            if criado:
+                acoes[lid].append(criado)
+                retornos[lid].append((criado, marcado))
+        ativo = dict(db.query(LeadSchedule.lead_id, func.max(LeadSchedule.scheduled_at)).filter(
+            LeadSchedule.lead_id.in_(ids), LeadSchedule.is_active.is_(True)).group_by(LeadSchedule.lead_id).all())
+    for v in acoes.values():
+        v.sort()
+
+    def _inicio(r):
+        # relógio da 1ª ação: lead novo = chegada; lead do rodízio das Campanhas = distribuição.
+        # Renutrição/lote atribuído: o relógio começa quando ela age, então não entra.
+        if r.renutricao_owner_id is None:
+            return r.created_at
+        if r.campanha_canal and r.retrabalhado_em:
+            return r.retrabalhado_em
+        return None
+
+    def _primeira(r):
+        ini = _inicio(r)
+        if not ini:
+            return None, None
+        prox = next((t for t in acoes.get(r.id, []) if t >= ini), None)
+        return ini, prox
+
+    def _toques(lid):
+        out = []
+        for t in acoes.get(lid, []):
+            if out and t - out[-1][-1] <= _MESMO_TOQUE:
+                out[-1].append(t)
+            else:
+                out.append([t])
+        return out
+
+    def _intervalos(lid, ini_m, fim_m):
+        """Intervalos entre toques (o 2º toque cai no mês). Retorno combinado não é demora:
+        o relógio só corre depois da data que ela marcou no toque anterior."""
+        tq, out = _toques(lid), []
+        for a, b in zip(tq, tq[1:]):
+            t1 = b[0]
+            if not (ini_m <= t1 < fim_m):
+                continue
+            t0 = a[-1]
+            marcados = [m for c, m in retornos.get(lid, []) if m and a[0] <= c <= a[-1] + timedelta(seconds=1)]
+            if marcados:
+                t0 = max(t0, max(marcados))
+            if t1 > t0:
+                out.append(_min_uteis(t0, t1))
+        return out
+
+    def _kpis(y, m):
+        ini_m, fim_m = br_month_utc_range(y, m)
+        prim, pend, gaps = [], 0, []
+        for r in rows:
+            ini, prox = _primeira(r)
+            if ini and ini_m <= ini < fim_m:
+                if prox:
+                    prim.append(_min_uteis(ini, prox))
+                else:
+                    pend += 1
+            gaps += _intervalos(r.id, ini_m, fim_m)
+        return {
+            "primeira_media": round(sum(prim) / len(prim)) if prim else None,
+            "primeira_mediana": _mediana(prim), "primeira_qtd": len(prim), "primeira_pendentes": pend,
+            "primeira_lista": prim,
+            "entre_media": round(sum(gaps) / len(gaps)) if gaps else None, "entre_qtd": len(gaps),
+        }
+
+    atual, anterior = _kpis(year, mon), _kpis(prev_year, prev_mon)
+    faixas = [30, 120, 240, _DIA_UTIL_MIN, 2 * _DIA_UTIL_MIN]
+    distribuicao = [0] * (len(faixas) + 1)
+    for v in atual.pop("primeira_lista"):
+        distribuicao[next((i for i, f in enumerate(faixas) if v <= f), len(faixas))] += 1
+    anterior.pop("primeira_lista")
+
+    # semana a semana (8 semanas, segunda a domingo, até a semana atual)
+    seg = nb.date() - timedelta(days=nb.weekday())
+    semanas = []
+    for k in range(7, -1, -1):
+        d0 = seg - timedelta(weeks=k)
+        w0 = datetime(d0.year, d0.month, d0.day) + BR_OFFSET
+        w1 = w0 + timedelta(weeks=1)
+        vs = []
+        for r in rows:
+            ini, prox = _primeira(r)
+            if ini and prox and w0 <= ini < w1:
+                vs.append(_min_uteis(ini, prox))
+        semanas.append({"inicio": d0.isoformat(), "media": round(sum(vs) / len(vs)) if vs else None, "qtd": len(vs)})
+
+    # foto de agora: carteira em aberto
+    hoje = nb.date()
+    ini_m, fim_m = br_month_utc_range(year, mon)
+    _dup_ids = {r.duplicado_de_id for r in rows if r.duplicado_de_id}
+    _dup_nomes = dict(db.query(Lead.id, Lead.name).filter(Lead.id.in_(_dup_ids)).all()) if _dup_ids else {}
+    leads, parados, vencidos = [], {"total": 0, "sem_acao": 0, "mais_5": 0, "ate_5": 0}, 0
+    em_aberto = 0
+    for r in rows:
+        ac = acoes.get(r.id, [])
+        ultima = ac[-1] if ac else None
+        aberto = _fluxo_grupo(r.status, r.receita_data_venda) == "aberto"
+        retorno = ativo.get(r.id)
+        vencido = bool(aberto and retorno and retorno <= agora and not (ultima and ultima > retorno))
+        parado = bool(aberto and not vencido and not (retorno and retorno > agora))
+        dias_parado = _dias_uteis_desde(ultima, hoje) if (parado and ultima) else None
+        if aberto:
+            em_aberto += 1
+        if vencido:
+            vencidos += 1
+        if parado:
+            parados["total"] += 1
+            key = "sem_acao" if not ultima else ("mais_5" if dias_parado > 5 else "ate_5")
+            parados[key] += 1
+        ini, prox = _primeira(r)
+        primeira = ini is not None and ini_m <= ini < fim_m
+        gaps = _intervalos(r.id, ini_m, fim_m)
+        if not (primeira or gaps or parado or vencido):
+            continue
+        leads.append({
+            "id": str(r.id), "name": r.name, "email": r.email, "phone": r.phone, "attendant": r.attendant,
+            "origem": r.origin, "conversion_point": r.conversion_point, "status": r.status, "perception": r.perception,
+            "value_potential": float(r.value_potential) if r.value_potential is not None else None,
+            "operadoras_enviadas": r.operadoras_enviadas, "modalidade": r.modalidade,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            "retrabalhado_em": r.retrabalhado_em.isoformat() if r.retrabalhado_em else None,
+            "is_renutrucao": bool(r.is_renutrucao), "vidas": r.vidas,
+            "duplicado_de_id": str(r.duplicado_de_id) if r.duplicado_de_id else None,
+            "duplicado_de_nome": _dup_nomes.get(r.duplicado_de_id),
+            "campanha_canal": r.campanha_canal,
+            "ultima_acao": ultima.isoformat() if ultima else None,
+            # tempo até a 1ª ação (minutos úteis); sem ação ainda = quanto já esperou
+            "primeira": primeira,
+            "primeira_min": _min_uteis(ini, prox or agora) if primeira else None,
+            "primeira_pendente": primeira and prox is None,
+            "entre_min": round(sum(gaps) / len(gaps)) if gaps else None,
+            "parado": parado, "parado_dias": dias_parado,
+            "vencido": vencido, "retorno_em": retorno.isoformat() if vencido else None,
+            "vencido_min": _min_uteis(retorno, agora) if vencido else None,
+        })
+
+    return {
+        "operador": parts[0],
+        "mes": f"{year}-{mon:02d}",
+        "mes_anterior": f"{prev_year}-{prev_mon:02d}",
+        "atual": atual,
+        "anterior": anterior,
+        "distribuicao": distribuicao,
+        "semanas": semanas,
+        "em_aberto": em_aberto,
+        "parados": parados,
+        "vencidos": vencidos,
         "leads": leads,
     }
 
