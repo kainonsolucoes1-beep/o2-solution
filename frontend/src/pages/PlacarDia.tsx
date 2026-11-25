@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
 import LeadPeekDrawer from '../components/LeadPeekDrawer'
+import SinoSlot from '../components/SinoSlot'
 import '../styles/placar.css'
 
 // Dashboard › Placar do dia -- mesmo desenho do mockup aprovado em 06/11/2026
@@ -243,6 +244,7 @@ export default function PlacarDia() {
               </div>
             )}
           </div>
+          <SinoSlot />
         </div>
 
         {erro && <div className="card empty">{erro}</div>}
