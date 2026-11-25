@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.auth_routes import get_current_user
 from app.api.dashboard_routes import _owner_names, _person_name_set
 from app.lead_scope import own_leads_clause
-from app.br_calendar import business_days_in_month, is_business_day
+from app.br_calendar import business_days_in_month, is_business_day, minutos_uteis
 from app.database import get_db
 from app.models.lead import Lead, LeadEmissao, LeadStatusHistory, LeadNote, LeadSchedule, LeadParcela, LeadEstorno
 from app.models.user import User
@@ -1499,27 +1499,9 @@ def fluxo_vendas(
 # Ação = anotação (user_id), mudança de status (changed_by) ou agendamento (created_by)
 # feitos pela própria pessoa; a sincronização do Followize não conta. Tempos só em
 # horário comercial (seg-qui 9h-18h, sex 9h-17h, sem fim de semana e feriado nacional).
-_EXPEDIENTE = {0: (9, 18), 1: (9, 18), 2: (9, 18), 3: (9, 18), 4: (9, 17)}
 _DIA_UTIL_MIN = 9 * 60      # 1 "dia útil" nos rótulos = 9h de expediente
 _MESMO_TOQUE = timedelta(minutes=15)  # ações coladas (status + nota + retorno) = 1 toque
-
-
-def _min_uteis(ini, fim) -> int:
-    """Minutos de expediente entre dois instantes (UTC naive)."""
-    if not ini or not fim or fim <= ini:
-        return 0
-    a, b = ini - BR_OFFSET, fim - BR_OFFSET
-    total, d = 0, a.date()
-    while d <= b.date():
-        h = _EXPEDIENTE.get(d.weekday())
-        if h and is_business_day(d):
-            j0 = datetime(d.year, d.month, d.day, h[0])
-            j1 = datetime(d.year, d.month, d.day, h[1])
-            s, e = max(a, j0), min(b, j1)
-            if e > s:
-                total += int((e - s).total_seconds() // 60)
-        d += timedelta(days=1)
-    return total
+_min_uteis = minutos_uteis
 
 
 def _dias_uteis_desde(ts, hoje) -> int:
