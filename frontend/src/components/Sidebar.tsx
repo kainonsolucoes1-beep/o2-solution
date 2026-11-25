@@ -314,6 +314,21 @@ export default function Sidebar() {
     return () => document.removeEventListener('click', pedir)
   }, [user])
 
+  // o quadro fica logo abaixo do sino, onde quer que ele esteja (canto fixo ou no cabeçalho da página)
+  const sinoRef = useRef<HTMLButtonElement>(null)
+  const [quadroTop, setQuadroTop] = useState(60)
+  useEffect(() => {
+    const calc = () => {
+      const r = sinoRef.current?.getBoundingClientRect()
+      setQuadroTop(r && r.bottom > 0 ? r.bottom + 10 : 12)
+    }
+    calc()
+    const t = setTimeout(calc, 300)  // cabeçalho da página pode montar depois
+    window.addEventListener('resize', calc)
+    window.addEventListener('scroll', calc, true)
+    return () => { clearTimeout(t); window.removeEventListener('resize', calc); window.removeEventListener('scroll', calc, true) }
+  }, [location.pathname, followupAlerts.length])
+
   const [adiadoAte, setAdiadoAte] = useState(() => { try { return Number(localStorage.getItem(ADIAR_KEY) || 0) } catch { return 0 } })
   function adiarQuadro() {
     const ate = Date.now() + LEMBRETE_MS
@@ -467,6 +482,7 @@ export default function Sidebar() {
   const followupBellEl = (
     <div style={sinoNoSlot ? { position: 'relative', zIndex: 60 } : { position: 'fixed', top: 12, right: 16, zIndex: 60 }}>
       <button
+        ref={sinoRef}
         onClick={toggleSino}
         title="Notificações"
         style={{
@@ -551,7 +567,7 @@ export default function Sidebar() {
     .filter(a => a.bucket === 'overdue' && a.vencido_min_uteis >= minQuadro)
     .sort((x, y) => utcMs(x.scheduled_at) - utcMs(y.scheduled_at))
   const quadro = quadroItens.length > 0 && Date.now() >= adiadoAte && (
-    <div role="alert" className="retorno-alerta" style={isMobile ? { left: 16, right: 16 } : undefined}>
+    <div role="alert" className="retorno-alerta" style={{ top: quadroTop, ...(isMobile ? { left: 16, right: 16 } : {}) }}>
       <div className="ra-tit"><AlertTriangle size={16} />{quadroItens.length} {quadroItens.length === 1 ? 'retorno vencido' : 'retornos vencidos'} sem tratativa</div>
       <ul>
         {quadroItens.slice(0, 3).map(a => (
