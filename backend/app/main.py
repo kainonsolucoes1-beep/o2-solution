@@ -326,6 +326,12 @@ async def startup_event():
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS termination_date DATE"))
         conn.execute(text("UPDATE users SET role = 'usuario' WHERE role = 'user'"))
         conn.execute(text("UPDATE leads SET categoria = modalidade, modalidade = NULL WHERE modalidade ILIKE '%coparticipa%' AND categoria IS NULL"))
+        # anotação feita por usuário conta como atualização do lead (idempotente: só avança a data)
+        conn.execute(text(
+            "UPDATE leads l SET updated_at = n.ult FROM ("
+            " SELECT lead_id, max(created_at) AS ult FROM lead_notes WHERE user_id IS NOT NULL GROUP BY lead_id"
+            ") n WHERE n.lead_id = l.id AND (l.updated_at IS NULL OR n.ult > l.updated_at)"
+        ))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS atendimentos_json TEXT NOT NULL DEFAULT '{}'"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS pausas_json TEXT NOT NULL DEFAULT '{}'"))
         conn.execute(text("ALTER TABLE telefonia_daily ADD COLUMN IF NOT EXISTS tma TEXT NOT NULL DEFAULT '—'"))

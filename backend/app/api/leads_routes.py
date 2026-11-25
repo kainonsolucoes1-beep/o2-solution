@@ -2163,6 +2163,7 @@ def create_lead_note(
     if 'renutrição' in body.content.lower():
         lead.is_renutrucao = True
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    lead.updated_at = now  # anotar é atuar: a coluna "Atualização" acompanha
     retorno = _retorno_por_anotacao(db, lead, current_user, now)
     novo_status = _status_por_anotacao(db, lead, current_user, now)
     db.commit()
