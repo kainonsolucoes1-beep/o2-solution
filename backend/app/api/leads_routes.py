@@ -2113,7 +2113,7 @@ def get_agenda_alerts(
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     due_soon_until = now + timedelta(minutes=window_minutes)
     # retorno vencido so' sai do sino quando alguem mexe na ficha (o operador
-    # ve os dele sem limite). Gestao ve a equipe toda: corte de 7 dias pra nao
+    # ve os dele sem limite). Gestao ve a equipe toda: corte de 24h pra nao
     # virar lista de backlog antigo -- o resto segue na Agenda.
     q = (
         db.query(LeadSchedule, Lead)
@@ -2124,7 +2124,7 @@ def get_agenda_alerts(
         )
     )
     if current_user.role != "usuario":
-        q = q.filter(LeadSchedule.scheduled_at >= now - timedelta(days=7))
+        q = q.filter(LeadSchedule.scheduled_at >= now - timedelta(hours=24))
     q = _scope_own_agenda(q, current_user)
     rows = q.order_by(LeadSchedule.scheduled_at.asc()).limit(200).all()
 
