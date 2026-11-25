@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from app.duplicidade import lead_parecido, marcar_duplicado
 from app.security import can_see_financials, can_delete_attachments, needs_own_origin_filter, restrict_to_usuario_leads, can_view_all
 from app.tz_utils import BR_OFFSET, br_date_to_utc_range, now_br
-from app.br_calendar import is_business_day
+from app.br_calendar import em_expediente, is_business_day, minutos_uteis
 from app import storage_r2
 from app import renutricao_import
 from app.schemas.lead import (
@@ -2112,22 +2112,21 @@ def get_agenda_alerts(
     so' os proprios; demais perfis, todos)."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     due_soon_until = now + timedelta(minutes=window_minutes)
-    # atraso sem limite viraria lista de backlog acumulado (agendamento
-    # esquecido ha' semanas) em vez de alerta de follow-up -- atraso mais
-    # antigo continua visivel na Agenda, que tem filtro de periodo proprio.
-    overdue_since = now - timedelta(hours=24)
-
+    # retorno vencido so' sai do sino quando alguem mexe na ficha (o operador
+    # ve os dele sem limite). Gestao ve a equipe toda: corte de 7 dias pra nao
+    # virar lista de backlog antigo -- o resto segue na Agenda.
     q = (
         db.query(LeadSchedule, Lead)
         .join(Lead, LeadSchedule.lead_id == Lead.id)
         .filter(
             LeadSchedule.is_active.is_(True),
-            LeadSchedule.scheduled_at >= overdue_since,
             LeadSchedule.scheduled_at < due_soon_until,
         )
     )
+    if current_user.role != "usuario":
+        q = q.filter(LeadSchedule.scheduled_at >= now - timedelta(days=7))
     q = _scope_own_agenda(q, current_user)
-    rows = q.order_by(LeadSchedule.scheduled_at.asc()).limit(50).all()
+    rows = q.order_by(LeadSchedule.scheduled_at.asc()).limit(200).all()
 
     items = [
         AgendaAlertItem(
@@ -2140,10 +2139,12 @@ def get_agenda_alerts(
             created_at=lead.created_at, followize_id=lead.followize_id,
             scheduled_at=sched.scheduled_at, schedule_id=sched.id,
             bucket="overdue" if sched.scheduled_at < now else "due_soon",
+            vencido_min_uteis=minutos_uteis(sched.scheduled_at, now),
+            responsavel=sched.created_by or lead.attendant,
         )
         for sched, lead in rows
     ]
-    return AgendaAlertsListResponse(items=items)
+    return AgendaAlertsListResponse(items=items, em_expediente=em_expediente(now))
 
 
 @router.post("/leads/{lead_id}/notes", response_model=NoteCreateResponse)

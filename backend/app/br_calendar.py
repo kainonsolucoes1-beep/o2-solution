@@ -34,6 +34,35 @@ def is_business_day(d: date) -> bool:
     return d.weekday() < 5 and d not in br_holidays(d.year)
 
 
+# Expediente comercial (Brasília): seg-qui 9h-18h, sex 9h-17h; sem fim de semana e feriado.
+EXPEDIENTE = {0: (9, 18), 1: (9, 18), 2: (9, 18), 3: (9, 18), 4: (9, 17)}
+_BR = timedelta(hours=3)
+
+
+def minutos_uteis(ini, fim) -> int:
+    """Minutos de expediente entre dois instantes (UTC naive)."""
+    from datetime import datetime
+    if not ini or not fim or fim <= ini:
+        return 0
+    a, b = ini - _BR, fim - _BR
+    total, d = 0, a.date()
+    while d <= b.date():
+        h = EXPEDIENTE.get(d.weekday())
+        if h and is_business_day(d):
+            s = max(a, datetime(d.year, d.month, d.day, h[0]))
+            e = min(b, datetime(d.year, d.month, d.day, h[1]))
+            if e > s:
+                total += int((e - s).total_seconds() // 60)
+        d += timedelta(days=1)
+    return total
+
+
+def em_expediente(agora_utc) -> bool:
+    br = agora_utc - _BR
+    h = EXPEDIENTE.get(br.weekday())
+    return bool(h and is_business_day(br.date()) and h[0] <= br.hour < h[1])
+
+
 def business_days_in_month(year: int, month: int, up_to_day: int | None = None) -> int:
     last = _cal.monthrange(year, month)[1]
     end = last if up_to_day is None else min(up_to_day, last)

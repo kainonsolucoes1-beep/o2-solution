@@ -408,10 +408,13 @@ class AgendaAlertsResponse(BaseModel):
 
 class AgendaAlertItem(AgendaItem):
     bucket: str  # 'overdue' | 'due_soon'
+    vencido_min_uteis: int = 0  # atraso em minutos de expediente (0 se ainda não venceu)
+    responsavel: Optional[str] = None  # quem marcou o retorno (ou o atendente)
 
 
 class AgendaAlertsListResponse(BaseModel):
     items: List[AgendaAlertItem]
+    em_expediente: bool = True
 
 
 class RenutricaoPreviewRow(BaseModel):
