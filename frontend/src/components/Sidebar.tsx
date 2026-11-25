@@ -309,6 +309,7 @@ export default function Sidebar() {
       : []),
     // tela de reunião: operador vê o próprio; admin/diretor/supervisor escolhem no seletor
     ...(showFluxoVendas ? [{ to: '/fluxo-vendas', label: 'Fluxo de vendas', Icon: Presentation }] : []),
+    ...(showFluxoVendas ? [{ to: '/atualizacao-leads', label: 'Atualização dos leads', Icon: Clock }] : []),
     // mesmos papéis de can_see_financials (backend/app/security.py)
     ...(isAdmin || ['diretor', 'financeiro', 'coordenador'].includes(user?.role ?? '')
       ? [{ to: '/trafego-pago', label: 'Tráfego pago', Icon: Target }] : []),
@@ -482,6 +483,7 @@ export default function Sidebar() {
           <div className="sb-sect">Equipe</div>
           {meuDesempenhoTo && linkEl(meuDesempenhoTo)}
           {linkEl('/fluxo-vendas')}
+          {linkEl('/atualizacao-leads')}
           {linkEl('/trafego-pago')}
           {linkEl('/kpis')}
           {linkEl('/scripts')}

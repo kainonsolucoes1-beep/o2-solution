@@ -1,0 +1,14 @@
+.al-grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1100px) { .al-grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .al-grid4 { grid-template-columns: 1fr; } }
+.al-sub { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.al-break { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.al-break b { font-size: 14px; }
+.al-charts { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 900px) { .al-charts { grid-template-columns: 1fr; } }
+.al-chart { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; display: grid; gap: 10px; min-width: 0; }
+.al-chart h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.al-chart svg text { fill: var(--text-muted); font-size: 11px; }
+.al-chart svg text.v { fill: var(--text-1); font-weight: 600; }
+.al-legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); }
+.al-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }

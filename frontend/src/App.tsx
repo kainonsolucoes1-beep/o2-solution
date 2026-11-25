@@ -23,6 +23,7 @@ import Macro from './pages/Macro'
 import GestaoComercial from './pages/GestaoComercial'
 import VidaSDR from './pages/VidaSDR'
 import FluxoVendas from './pages/FluxoVendas'
+import AtualizacaoLeads from './pages/AtualizacaoLeads'
 import TrafegoPago from './pages/TrafegoPago'
 import RelatorioProducao from './pages/RelatorioProducao'
 import Agenda from './pages/Agenda'
@@ -144,6 +145,7 @@ export default function App() {
           <Route path="/gestao-comercial" element={<GestaoComercial />} />
           <Route path="/vida-sdr/:origens" element={<VidaSDR />} />
           <Route path="/fluxo-vendas" element={<FluxoVendas />} />
+          <Route path="/atualizacao-leads" element={<AtualizacaoLeads />} />
           <Route path="/trafego-pago" element={<TrafegoPago />} />
           <Route path="/campanhas" element={<CampanhasFila />} />
           <Route path="/campanhas/modelos" element={<CampanhasTemplates />} />
