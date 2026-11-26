@@ -180,7 +180,7 @@ def trafego_mes(
 
 
 # ---- Equipe > Tráfego pago: visão por campanha (= ponto de conversão) -------
-_TEMPS = ("Quente", "Morno", "Frio")
+_TEMPS = ("Quente", "Morno", "Frio plus", "Frio")
 _NAO_CONTATADO = {"novo", "new", "pending"}
 _PROPOSTA_OU_ALEM = {s.lower() for s in PROPOSTA_STATUSES + VENDA_STATUSES}
 _VENDA = {s.lower() for s in VENDA_STATUSES}
@@ -202,12 +202,12 @@ def _agrega(rows, inicio: date, dias: int) -> dict:
     for created, cp, perc, status, valor, motivo in rows:
         nome = normalize_conversion_point(cp)
         c = camps.setdefault(nome, {
-            "nome": nome, "leads": 0, "temperatura": [0, 0, 0, 0], "contatados": 0, "propostas": 0,
-            "vendas": 0, "valor_vendas": 0.0, "vendas_temp": [0, 0, 0], "perdidos": 0, "motivos": {},
+            "nome": nome, "leads": 0, "temperatura": [0, 0, 0, 0, 0], "contatados": 0, "propostas": 0,
+            "vendas": 0, "valor_vendas": 0.0, "vendas_temp": [0, 0, 0, 0], "perdidos": 0, "motivos": {},
             "diario": [{"leads": 0, "vendas": 0} for _ in range(dias)],
         })
         st = (status or "").strip().lower()
-        ti = _TEMPS.index(perc) if perc in _TEMPS else 3
+        ti = _TEMPS.index(perc) if perc in _TEMPS else len(_TEMPS)
         dia = ((created - BR_OFFSET).date() - inicio).days if created else -1
         c["leads"] += 1
         c["temperatura"][ti] += 1
@@ -220,7 +220,7 @@ def _agrega(rows, inicio: date, dias: int) -> dict:
         if st in _VENDA:
             c["vendas"] += 1
             c["valor_vendas"] += float(valor or 0)
-            if ti < 3:
+            if ti < len(_TEMPS):
                 c["vendas_temp"][ti] += 1
             if 0 <= dia < dias:
                 c["diario"][dia]["vendas"] += 1
@@ -331,7 +331,7 @@ def trafego_campanhas(
             "leads": soma(campanhas, "leads"),
             "vendas": soma(campanhas, "vendas"),
             "valor_vendas": round(soma(campanhas, "valor_vendas"), 2),
-            "temperatura": [sum(c["temperatura"][i] for c in campanhas) for i in range(4)],
+            "temperatura": [sum(c["temperatura"][i] for c in campanhas) for i in range(len(_TEMPS) + 1)],
             "diario_leads": [sum(c["diario"][d]["leads"] for c in campanhas) for d in range(dias)],
         },
         "anterior": {

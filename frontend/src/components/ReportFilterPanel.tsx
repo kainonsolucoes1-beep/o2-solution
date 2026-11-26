@@ -191,6 +191,7 @@ export default function ReportFilterPanel(p: Props) {
             items={[
               { value: 'Quente', label: 'Quente', color: 'var(--lr-quente)' },
               { value: 'Morno', label: 'Morno', color: 'var(--lr-morno)' },
+              { value: 'Frio plus', label: 'Frio plus', color: 'var(--lr-frio-plus)' },
               { value: 'Frio', label: 'Frio', color: 'var(--lr-frio)' },
             ].map(o => ({ ...o, count: facets?.perception ? facets.perception[o.value] ?? 0 : undefined }))}
             isOn={x => csvSet(v.perception).has(x)}

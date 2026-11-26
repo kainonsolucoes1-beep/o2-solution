@@ -19,7 +19,7 @@ type Grupo = 'esteira' | 'pago' | 'cancelado' | 'aberto' | 'outro_mes'
 interface Soma { valor: number; qtd: number }
 interface Resumo {
   fluxo: Record<'esteira' | 'pago' | 'cancelado', Soma>
-  funil: Record<'Quente' | 'Morno' | 'Frio', Soma>
+  funil: Record<'Quente' | 'Morno' | 'Frio plus' | 'Frio', Soma>
   sem_temperatura: number
   captacoes: number
   motivos: Record<string, number>
@@ -44,7 +44,7 @@ interface FluxoData {
   atual: Resumo; anterior: Resumo; meta: Meta | null; leads: FluxoLead[]
 }
 
-type CardId = 'esteira' | 'pago' | 'cancelado' | 'Quente' | 'Morno' | 'Frio'
+type CardId = 'esteira' | 'pago' | 'cancelado' | 'Quente' | 'Morno' | 'Frio plus' | 'Frio'
 interface CardDef { id: CardId; label: string; pill: string; color: string; bom: 'up' | 'down' | null }
 const FLUXO: CardDef[] = [
   { id: 'esteira', label: 'Em esteira', pill: 'em emissão', color: 'var(--lr-st-emissao)', bom: 'up' },
@@ -54,6 +54,7 @@ const FLUXO: CardDef[] = [
 const FUNIL: CardDef[] = [
   { id: 'Quente', label: 'Quente', pill: 'fechamento próximo', color: 'var(--lr-quente)', bom: 'up' },
   { id: 'Morno', label: 'Morno', pill: 'em nutrição', color: 'var(--lr-morno)', bom: null },
+  { id: 'Frio plus', label: 'Frio plus', pill: 'potencial a trabalhar', color: 'var(--lr-frio-plus)', bom: null },
   { id: 'Frio', label: 'Frio', pill: 'baixa prioridade', color: 'var(--lr-frio)', bom: null },
 ]
 
@@ -305,7 +306,7 @@ function Corpo({ data, onAbrir }: { data: FluxoData; onAbrir: (c: CardDef) => vo
           </section>
           <section className="fv-sec">
             <h2>Funil de vendas</h2>
-            <div className="fv-grid">{cards(FUNIL, atual.funil, anterior.funil)}</div>
+            <div className="fv-grid fv-grid4">{cards(FUNIL, atual.funil, anterior.funil)}</div>
           </section>
         </div>
       </div>

@@ -26,7 +26,7 @@ interface Dados {
 }
 
 const PLATS: { id: Plataforma; nome: string }[] = [{ id: 'meta', nome: 'Meta Ads' }, { id: 'google', nome: 'Google Ads' }]
-const TEMP = [{ k: 'Quentes', c: 'hot' }, { k: 'Mornos', c: 'warm' }, { k: 'Frios', c: 'cold' }, { k: 'Sem classif.', c: 'none' }]
+const TEMP = [{ k: 'Quentes', c: 'hot' }, { k: 'Mornos', c: 'warm' }, { k: 'Frios plus', c: 'coldp' }, { k: 'Frios', c: 'cold' }, { k: 'Sem classif.', c: 'none' }]
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -416,8 +416,8 @@ function Painel({ c, data, onVerLeads }: { c: Campanha; data: Dados; onVerLeads:
   const st: [string, number][] = [['Leads', c.leads], ['Contatados', c.contatados], ['Em proposta', c.propostas], ['Vendas', c.vendas]]
   const tc = c.vendas_temp.map((v, i) => ({ ...TEMP[i], v, n: c.temperatura[i], r: c.temperatura[i] ? v / c.temperatura[i] : 0 }))
   const maxr = Math.max(...tc.map(x => x.r), 0.01)
-  const outrosLeads = c.temperatura[1] + c.temperatura[2]
-  const outrosRate = outrosLeads ? (c.vendas_temp[1] + c.vendas_temp[2]) / outrosLeads : 0
+  const outrosLeads = c.temperatura.slice(1, -1).reduce((a, b) => a + b, 0)
+  const outrosRate = outrosLeads ? c.vendas_temp.slice(1).reduce((a, b) => a + b, 0) / outrosLeads : 0
   const lmax = c.motivos[0]?.[1] ?? 1
   return (
     <div className="tp-panel">
@@ -483,9 +483,9 @@ function Painel({ c, data, onVerLeads }: { c: Campanha; data: Dados; onVerLeads:
 }
 
 const CSS = `
-.tp{--tp-surface:var(--bg-input);--hot:#1E3A8A;--warm:#3B6FE0;--cold:#A9C4F5;--none:#E4E7EC;--tp-shadow:0 1px 2px rgba(16,24,40,.05);
+.tp{--tp-surface:var(--bg-input);--hot:#1E3A8A;--warm:#3B6FE0;--coldp:#7097EC;--cold:#A9C4F5;--none:#E4E7EC;--tp-shadow:0 1px 2px rgba(16,24,40,.05);
   padding:28px 32px 56px;max-width:1280px;margin:0 auto;min-height:100%;color:var(--text-1);font-variant-numeric:tabular-nums}
-html.dark .tp{--tp-surface:var(--bg-card);--hot:#C7DAFE;--warm:#6F9CFB;--cold:#2E4A80;--none:#334155;--tp-shadow:0 1px 2px rgba(0,0,0,.3)}
+html.dark .tp{--tp-surface:var(--bg-card);--hot:#C7DAFE;--warm:#6F9CFB;--coldp:#4A6FB8;--cold:#2E4A80;--none:#334155;--tp-shadow:0 1px 2px rgba(0,0,0,.3)}
 .tp h1{font-size:28px;line-height:36px;margin:0;font-weight:700;color:var(--text-1)}
 .tp h2{font-size:18px;line-height:28px;margin:0;font-weight:600;color:var(--text-1)}
 .tp h3{font-size:16px;line-height:24px;margin:0;font-weight:600;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -540,7 +540,7 @@ html.dark .tp{--tp-surface:var(--bg-card);--hot:#C7DAFE;--warm:#6F9CFB;--cold:#2
 .tp-sechead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .tp-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--text-3b)}
 .tp-legend i,.tp .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;flex:none}
-.tp .hot{background:var(--hot)}.tp .warm{background:var(--warm)}.tp .cold{background:var(--cold)}.tp .none{background:var(--none)}
+.tp .hot{background:var(--hot)}.tp .warm{background:var(--warm)}.tp .coldp{background:var(--coldp)}.tp .cold{background:var(--cold)}.tp .none{background:var(--none)}
 .tp-empty{padding:28px;text-align:center;color:var(--text-muted);background:var(--tp-surface);border:1px dashed var(--border);border-radius:16px}
 .tp-cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
 .tp-card{all:unset;box-sizing:border-box;position:relative;cursor:pointer;background:var(--tp-surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--tp-shadow);padding:18px 20px 16px;display:grid;gap:14px;align-content:start;min-width:0;transition:border-color .15s,box-shadow .15s}
