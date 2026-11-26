@@ -42,7 +42,7 @@
   /* temperatura */
   --lr-quente: #DC2626;
   --lr-morno:  #D97706;
-  --lr-frio-plus: #16A34A;
+  --lr-frio-plus: #047857;
   --lr-frio:   #3B82F6;
 
   /* etiquetas de operadora */
@@ -94,7 +94,7 @@ html.dark .lr-theme {
 
   --lr-quente: #F87171;
   --lr-morno:  #FBBF24;
-  --lr-frio-plus: #4ADE80;
+  --lr-frio-plus: #34D399;
   --lr-frio:   #60A5FA;
 
   --lr-ops-bg: rgba(129, 140, 248, 0.16);

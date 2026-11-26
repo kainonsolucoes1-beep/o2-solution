@@ -33,7 +33,7 @@ const CANAL_CFG: { key: Canal; label: string; Icon: typeof MessageCircle; color:
   { key: 'sms', label: 'SMS', Icon: MessageSquare, color: '#8B5CF6', bg: '#F2EEFE' },
 ]
 
-const PERCEPTION_STYLE: Record<string, string> = { Quente: '#DC2626', Morno: '#D97706', 'Frio plus': '#16A34A', Frio: '#3B82F6' }
+const PERCEPTION_STYLE: Record<string, string> = { Quente: '#DC2626', Morno: '#D97706', 'Frio plus': '#047857', Frio: '#3B82F6' }
 
 function fmtBRL(n: number | null) {
   if (n == null || n === 0) return '—'
