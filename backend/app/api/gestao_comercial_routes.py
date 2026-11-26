@@ -1291,7 +1291,7 @@ def vida_sdr_receita_composicao(
 #   esteira   -> status "Emissao"
 #   aberto    -> o resto (antes da emissao); so' aqui a temperatura conta (Funil)
 EMISSAO_STATUSES = ("emissao", "emissão")
-FUNIL_PERCEPTIONS = ("Quente", "Morno", "Frio")
+FUNIL_PERCEPTIONS = ("Quente", "Morno", "Frio plus", "Frio")
 
 # Data da venda (19/11/2026): a venda conta no mes em que foi pra "Em emissao" (a
 # ultima emissao, que e' a que valeu). Desde 23/11/2026 o REALIZADO da meta so' soma
@@ -1338,7 +1338,7 @@ def _fluxo_resumo(rows) -> dict:
     def vazio():
         return {"valor": 0.0, "qtd": 0}
     fluxo = {"esteira": vazio(), "pago": vazio(), "cancelado": vazio()}
-    funil = {"Quente": vazio(), "Morno": vazio(), "Frio": vazio()}
+    funil = {p: vazio() for p in FUNIL_PERCEPTIONS}
     sem_temp = 0
     captacoes = 0
     motivos: dict = defaultdict(int)  # motivo de perda dos cancelados ("Por que perdemos")

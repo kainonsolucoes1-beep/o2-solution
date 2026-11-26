@@ -23,7 +23,7 @@ export function reportStatusColor(status: string | null | undefined): string {
   return ST[status.toLowerCase()] ?? 'var(--lr-st-outro)'
 }
 
-const TEMP: Record<string, string> = { quente: 'var(--lr-quente)', morno: 'var(--lr-morno)', frio: 'var(--lr-frio)' }
+const TEMP: Record<string, string> = { quente: 'var(--lr-quente)', morno: 'var(--lr-morno)', 'frio plus': 'var(--lr-frio-plus)', frio: 'var(--lr-frio)' }
 
 export function reportPerceptionColor(perception: string | null | undefined): string | null {
   if (!perception) return null
