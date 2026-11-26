@@ -22,6 +22,8 @@ interface AgendaAlertItem {
 // (só em expediente) pro operador; quadro vermelho a partir de 15 min úteis vencido;
 // gestão é avisada com 20 min úteis. Mexer na ficha conclui o retorno e tudo some.
 const GESTAO_ROLES = ['admin', 'coordenador', 'diretor', 'supervisor']
+// quadro vermelho suspenso a pedido (2026-11-26); bip, aviso do Windows e sino seguem. true religa.
+const QUADRO_ATIVO = false
 const LEMBRETE_MS = 15 * 60 * 1000
 const QUADRO_OPERADOR_MIN = 15
 const GESTAO_MIN = 20
@@ -566,7 +568,7 @@ export default function Sidebar() {
   const quadroItens = followupAlerts
     .filter(a => a.bucket === 'overdue' && a.vencido_min_uteis >= minQuadro)
     .sort((x, y) => utcMs(x.scheduled_at) - utcMs(y.scheduled_at))
-  const quadro = quadroItens.length > 0 && Date.now() >= adiadoAte && (
+  const quadro = QUADRO_ATIVO && quadroItens.length > 0 && Date.now() >= adiadoAte && (
     <div role="alert" className="retorno-alerta" style={{ top: quadroTop, ...(isMobile ? { left: 16, right: 16 } : {}) }}>
       <div className="ra-tit"><AlertTriangle size={16} />{quadroItens.length} {quadroItens.length === 1 ? 'retorno vencido' : 'retornos vencidos'} sem tratativa</div>
       <ul>
