@@ -9,6 +9,7 @@ import {
 import api from '../api'
 import { useTheme } from '../ThemeContext'
 import { useSinoSlot } from './SinoSlot'
+import { PERCEPTION_STYLE } from '../utils/leadStatus'
 import '../styles/sidebar.css'
 
 interface UserInfo { username: string; first_name: string | null; role: string; is_campanha_operador?: boolean }
@@ -262,7 +263,7 @@ export default function Sidebar() {
         try {
           const n = new Notification(
             gestao ? `${a.responsavel || a.attendant || 'Operador'} · retorno vencido sem tratativa` : `Retorno vencido: ${a.name}`,
-            { body: `${gestao ? `${a.name} · ` : ''}Era ${fmtHM(a.scheduled_at)} · vencido ${fmtAtraso(a.scheduled_at)}. Clique para abrir a ficha.`, tag: `ret-${a.schedule_id}`, renotify: true } as NotificationOptions,
+            { body: `${gestao ? `${a.name} · ` : ''}${a.perception ? `${a.perception} · ` : ''}Era ${fmtHM(a.scheduled_at)} · vencido ${fmtAtraso(a.scheduled_at)}. Clique para abrir a ficha.`, tag: `ret-${a.schedule_id}`, renotify: true } as NotificationOptions,
           )
           n.onclick = () => { window.focus(); navigate(`/leads/${a.id}`); n.close() }
         } catch { /* navegador sem suporte */ }
@@ -550,6 +551,11 @@ export default function Sidebar() {
                       <span style={{ display: 'block', fontSize: 11, color: a.bucket === 'overdue' ? '#EF4444' : '#9CA3AF' }}>
                         {a.bucket === 'overdue' ? 'Atrasado — ' : 'Vencendo — '}{fmtHM(a.scheduled_at)}{a.bucket === 'overdue' ? ` · ${fmtAtraso(a.scheduled_at)}` : ''}{a.attendant ? ` · ${a.attendant}` : ''}
                       </span>
+                      {a.perception && (
+                        <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: PERCEPTION_STYLE[a.perception]?.color ?? '#9CA3AF' }}>
+                          {a.perception}
+                        </span>
+                      )}
                     </span>
                   </button>
                 ))}
