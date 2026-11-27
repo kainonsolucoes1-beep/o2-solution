@@ -46,12 +46,7 @@
 .fv-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px -14px rgba(16,32,43,.35); border-color: color-mix(in srgb, var(--c) 45%, var(--border)); }
 .fv-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .fv-lbl { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
-.fv-head { display: grid; gap: 3px; }
-.fv-head .fv-lbl { white-space: nowrap; }
-.fv-sub { font-size: 12px; font-weight: 600; color: var(--c); }
-.fv-grid4 .fv-val { font-size: 24px; }
-.fv-grid4 .fv-val small { font-size: 13px; }
-.fv-vs { display: block; font-size: 11.5px; font-weight: 400; color: var(--text-subtle); margin-top: 2px; }
+.fv-pill { font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent); white-space: nowrap; }
 .fv-val { font-size: 30px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
 .fv-val small { font-size: 15px; font-weight: 600; color: var(--text-muted); margin-right: 4px; }
 .fv-meta { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
