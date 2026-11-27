@@ -151,6 +151,20 @@ def _mais_dois_dias_uteis(base: datetime, dias: int = 2) -> datetime:
     return retorno
 
 
+def _fora_do_expediente_para_9h(dt: datetime) -> datetime:
+    """Agendamento depois das 18h (Brasília) vai pras 9h do próximo dia útil
+    (pula fim de semana e feriado nacional) -- 27/11/2026. UTC naive."""
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    br = dt - BR_OFFSET
+    if (br.hour, br.minute, br.second) <= (18, 0, 0):
+        return dt
+    d = br.date() + timedelta(days=1)
+    while not is_business_day(d):
+        d += timedelta(days=1)
+    return datetime(d.year, d.month, d.day, 9) + BR_OFFSET
+
+
 # Status finais: a anotação NÃO agenda retorno automático (10/11/2026)
 _STATUS_FINAIS_SEM_RETORNO = {
     "emissao", "emissão",
@@ -169,7 +183,8 @@ def _retorno_por_anotacao(db: Session, lead: Lead, user: User, now: datetime):
     st = (lead.status or "").strip().lower()
     if st in _STATUS_FINAIS_SEM_RETORNO:
         return None
-    retorno = _mais_dois_dias_uteis(now, 2 if st in ("proposta", "proposal_sent", "proposal sent") else 1)
+    retorno = _fora_do_expediente_para_9h(
+        _mais_dois_dias_uteis(now, 2 if st in ("proposta", "proposal_sent", "proposal sent") else 1))
     ativos = db.query(LeadSchedule).filter(LeadSchedule.lead_id == lead.id, LeadSchedule.is_active.is_(True)).all()
     if any(s.scheduled_at > retorno for s in ativos):
         return None
@@ -1160,7 +1175,7 @@ def update_lead_status(
         ).update({"is_active": False})
         db.add(LeadSchedule(
             lead_id=lead.id,
-            scheduled_at=_mais_dois_dias_uteis(now),
+            scheduled_at=_fora_do_expediente_para_9h(_mais_dois_dias_uteis(now)),
             created_by=actor,
         ))
 
@@ -1867,7 +1882,7 @@ def create_schedule(
     ).update({"is_active": False})
     schedule = LeadSchedule(
         lead_id=lead.id,
-        scheduled_at=body.scheduled_at,
+        scheduled_at=_fora_do_expediente_para_9h(body.scheduled_at),
         created_by=current_user.first_name or current_user.username,
         tipo="virtual" if body.tipo == "virtual" else None,
     )
