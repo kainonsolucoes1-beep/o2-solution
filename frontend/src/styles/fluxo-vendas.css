@@ -70,7 +70,7 @@
 .fv-funil { padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;
   --fz-0: #2563EB; --fz-1: #047857; --fz-2: #B45309; --fz-3: #DC2626; }
 html.dark .fv-funil { --fz-0: #3B7BF0; --fz-1: #0F9F6E; --fz-2: #C2620A; --fz-3: #E5484D; }
-.fv-frs { display: grid; gap: 6px; }
+.fv-frs { display: grid; gap: 6px; margin-block: auto; }
 .fv-fr { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 26px; border: 0; background: transparent; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 8px; }
 .fv-fr .band { height: 58px; display: grid; place-content: center; text-align: center; color: #fff; background: color-mix(in srgb, var(--c) 84%, var(--bg-card)); clip-path: polygon(var(--a) 0, calc(100% - var(--a)) 0, calc(100% - var(--b)) 100%, var(--b) 100%); transition: background .15s; }
 .fv-fr .band b { font-size: 14px; font-weight: 700; }
@@ -83,7 +83,7 @@ html.dark .fv-fr .info .s { color: var(--t); }
 .fv-fr:hover .info, .fv-fr:focus-visible .info { background: color-mix(in srgb, var(--c) 8%, transparent); }
 .fv-fr:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 700px) { .fv-fr { grid-template-columns: 1fr; gap: 6px; } }
-.fv-ftot { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 14px; font-size: 13px; color: var(--text-muted); }
+.fv-ftot { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 14px; font-size: 13px; color: var(--text-muted); }
 .fv-ftot b { font-size: 17px; color: var(--text-1); font-variant-numeric: tabular-nums; }
 
 .fv-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; display: grid; gap: 12px; cursor: pointer; text-align: left; font: inherit; color: inherit; transition: transform .18s, box-shadow .18s, border-color .18s; }
