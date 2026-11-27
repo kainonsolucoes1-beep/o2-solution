@@ -92,11 +92,12 @@ function initials(name: string) {
   return ((p[0]?.[0] ?? '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase()
 }
 
-function Delta({ cur, prev, bom, mesAnt, dinheiro = true }: { cur: number; prev: number; bom: 'up' | 'down' | null; mesAnt: string; dinheiro?: boolean }) {
+function Delta({ cur, prev, bom, mesAnt, dinheiro = true, empilhado = false }: { cur: number; prev: number; bom: 'up' | 'down' | null; mesAnt: string; dinheiro?: boolean; empilhado?: boolean }) {
   const d = cur - prev
   if (d === 0) return <span className="fv-delta fv-flat">= {mesCurto(mesAnt)}</span>
   const cls = bom === null ? 'fv-flat' : (d > 0) === (bom === 'up') ? 'fv-good' : 'fv-bad'
   const v = dinheiro ? brl0(Math.abs(d)) : Math.abs(d).toLocaleString('pt-BR')
+  if (empilhado) return <span className={`fv-delta ${cls}`}>{d > 0 ? '▲' : '▼'} {v}<small className="fv-vs">vs {mesCurto(mesAnt)}</small></span>
   return <span className={`fv-delta ${cls}`}>{d > 0 ? '▲' : '▼'} {v} vs {mesCurto(mesAnt)}</span>
 }
 
@@ -247,14 +248,14 @@ function Corpo({ data, onAbrir }: { data: FluxoData; onAbrir: (c: CardDef) => vo
       const x = somas[d.id], p = pct(x.valor, total)
       return (
         <button key={d.id} className="fv-card" style={{ '--c': d.color } as React.CSSProperties} onClick={() => onAbrir(d)}>
-          <div className="fv-top">
+          <div className="fv-head">
             <span className="fv-lbl"><span className="fv-dot" />{d.label}</span>
-            <span className="fv-pill">{d.pill}</span>
+            <span className="fv-sub">{d.pill}</span>
           </div>
           <div className="fv-val"><small>R$</small>{brl2(x.valor)}</div>
           <div className="fv-bar"><i style={{ width: pronto ? `${p}%` : 0 }} /></div>
           <div className="fv-meta"><span><b>{x.qtd}</b> {leadsTxt(x.qtd)}</span><span className="fv-share">{p}% do valor</span></div>
-          <div className="fv-cmp"><Delta cur={x.valor} prev={prev[d.id].valor} bom={d.bom} mesAnt={data.mes_anterior} /><span className="fv-ver">ver leads →</span></div>
+          <div className="fv-cmp"><Delta cur={x.valor} prev={prev[d.id].valor} bom={d.bom} mesAnt={data.mes_anterior} empilhado /></div>
         </button>
       )
     })
