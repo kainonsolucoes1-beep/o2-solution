@@ -158,6 +158,12 @@ export default function FluxoVendas() {
   }, [op, mes, ana])
   useEffect(() => { carregar() }, [carregar])
 
+  // "Indicadores extras" do Fluxo (leads + vs mês anterior); preferência de cada navegador
+  const [extras, setExtras] = useState(() => { try { return localStorage.getItem('fv_extras') !== '0' } catch { return true } })
+  function alternarExtras() {
+    setExtras(v => { try { localStorage.setItem('fv_extras', v ? '0' : '1') } catch { /* sem storage */ } return !v })
+  }
+
   function trocar(campo: 'op' | 'mes' | 'vista', valor: string) {
     const p = new URLSearchParams(sp)
     p.set(campo, valor)
@@ -202,10 +208,15 @@ export default function FluxoVendas() {
           </div>
         </header>
 
-        {fin && (
-          <div className="fv-vistas" role="group" aria-label="Visão">
-            <button aria-pressed={!ana} onClick={() => trocar('vista', 'resumo')}>Resumo</button>
-            <button aria-pressed={ana} onClick={() => trocar('vista', 'analitico')}>🔒 Analítico</button>
+        {(fin || !ana) && (
+          <div className="fv-tb">
+            {fin ? (
+              <div className="fv-vistas" role="group" aria-label="Visão">
+                <button aria-pressed={!ana} onClick={() => trocar('vista', 'resumo')}>Resumo</button>
+                <button aria-pressed={ana} onClick={() => trocar('vista', 'analitico')}>🔒 Analítico</button>
+              </div>
+            ) : <span />}
+            {!ana && <button className="fv-sw" aria-pressed={extras} onClick={alternarExtras}><span className="knob" />Indicadores extras</button>}
           </div>
         )}
 
@@ -213,7 +224,7 @@ export default function FluxoVendas() {
           : erro ? <div className="fv-empty">{erro}</div>
           : loading || !data ? <div className="fv-empty">Carregando…</div>
           : <>
-              <Corpo data={data} onAbrir={setAberto} />
+              <Corpo data={data} onAbrir={setAberto} extras={extras} />
               <Secao id="perdas" titulo="Por que perdemos" resumo={resumoPerdas(data.atual)}><Perdas data={data} /></Secao>
               <Secao id="pauta" titulo="Pauta da reunião" resumo={resumoPauta(pauta(data.leads))}><Pauta data={data} onStatusChanged={() => carregar(true)} /></Secao>
             </>}
@@ -231,7 +242,7 @@ export default function FluxoVendas() {
   )
 }
 
-function Corpo({ data, onAbrir }: { data: FluxoData; onAbrir: (c: CardDef) => void }) {
+function Corpo({ data, onAbrir, extras }: { data: FluxoData; onAbrir: (c: CardDef) => void; extras: boolean }) {
   const { atual, anterior, meta, encerrado } = data
   const emReais = meta?.tipo === 'clt'
   const fmtMeta = (n: number) => (emReais ? brl0(n) : `${Math.round(n).toLocaleString('pt-BR')} captações`)
@@ -241,24 +252,10 @@ function Corpo({ data, onAbrir }: { data: FluxoData; onAbrir: (c: CardDef) => vo
   const [pronto, setPronto] = useState(false)
   useEffect(() => { setPronto(false); const id = requestAnimationFrame(() => requestAnimationFrame(() => setPronto(true))); return () => cancelAnimationFrame(id) }, [data])
 
-  const cards = (defs: CardDef[], somas: Record<string, Soma>, prev: Record<string, Soma>) => {
-    const total = defs.reduce((s, d) => s + somas[d.id].valor, 0)
-    return defs.map(d => {
-      const x = somas[d.id], p = pct(x.valor, total)
-      return (
-        <button key={d.id} className="fv-card" style={{ '--c': d.color } as React.CSSProperties} onClick={() => onAbrir(d)}>
-          <div className="fv-top">
-            <span className="fv-lbl"><span className="fv-dot" />{d.label}</span>
-            <span className="fv-pill">{d.pill}</span>
-          </div>
-          <div className="fv-val"><small>R$</small>{brl2(x.valor)}</div>
-          <div className="fv-bar"><i style={{ width: pronto ? `${p}%` : 0 }} /></div>
-          <div className="fv-meta"><span><b>{x.qtd}</b> {leadsTxt(x.qtd)}</span><span className="fv-share">{p}% do valor</span></div>
-          <div className="fv-cmp"><Delta cur={x.valor} prev={prev[d.id].valor} bom={d.bom} mesAnt={data.mes_anterior} /><span className="fv-ver">ver leads →</span></div>
-        </button>
-      )
-    })
-  }
+  // funil clássico: Frio no topo (largo) até Quente no fundo (estreito); cada faixa estreita ~8,6% por lado
+  const etapas = [...FUNIL].reverse()
+  const funilValor = FUNIL.reduce((s, d) => s + atual.funil[d.id].valor, 0)
+  const funilQtd = FUNIL.reduce((s, d) => s + atual.funil[d.id].qtd, 0)
 
   return (
     <>
@@ -300,13 +297,39 @@ function Corpo({ data, onAbrir }: { data: FluxoData; onAbrir: (c: CardDef) => vo
         </aside>
 
         <div className="fv-col">
-          <section className="fv-sec">
+          <section className="fv-bx fv-fluxo">
             <h2>Fluxo de vendas</h2>
-            <div className="fv-grid">{cards(FLUXO, atual.fluxo, anterior.fluxo)}</div>
+            <div className="fv-strip">
+              {FLUXO.map(d => {
+                const x = atual.fluxo[d.id]
+                return (
+                  <button key={d.id} className={`fv-st${d.id === 'esteira' ? ' main' : d.id === 'cancelado' ? ' muted' : ''}`} style={{ '--c': d.color } as React.CSSProperties} onClick={() => onAbrir(d)}>
+                    <span className="k"><span className="fv-dot" />{d.label}</span>
+                    <span className="v"><small>R$</small>{brl2(x.valor)}</span>
+                    {extras && <>
+                      <span className="l">{x.qtd} {leadsTxt(x.qtd)} · {d.pill}</span>
+                      <span className="l"><Delta cur={x.valor} prev={anterior.fluxo[d.id].valor} bom={d.bom} mesAnt={data.mes_anterior} /></span>
+                    </>}
+                  </button>
+                )
+              })}
+            </div>
           </section>
-          <section className="fv-sec">
+          <section className="fv-bx fv-funil">
             <h2>Funil de vendas</h2>
-            <div className="fv-grid fv-grid4">{cards(FUNIL, atual.funil, anterior.funil)}</div>
+            <div className="fv-frs">
+              {etapas.map((d, i) => {
+                const x = atual.funil[d.id]
+                return (
+                  <button key={d.id} className="fv-fr" onClick={() => onAbrir(d)} aria-label={`${d.label}: ${x.qtd} ${leadsTxt(x.qtd)}, R$ ${brl2(x.valor)}`}
+                    style={{ '--c': `var(--fz-${i})`, '--t': d.color, '--a': `${(i * 8.6).toFixed(1)}%`, '--b': `${((i + 1) * 8.6).toFixed(1)}%` } as React.CSSProperties}>
+                    <span className="band"><b>{d.label}</b><small>{x.qtd} {leadsTxt(x.qtd)}</small></span>
+                    <span className="info"><span className="s">{d.pill}</span><span className="v">R$ {brl2(x.valor)}</span></span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="fv-ftot"><span>Total no funil</span><span><b>R$ {brl2(funilValor)}</b> em {funilQtd} {leadsTxt(funilQtd)} {funilQtd === 1 ? 'aberto' : 'abertos'}</span></div>
           </section>
         </div>
       </div>
