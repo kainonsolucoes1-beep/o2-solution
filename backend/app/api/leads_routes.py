@@ -176,15 +176,15 @@ _STATUS_FINAIS_SEM_RETORNO = {
 
 def _retorno_por_anotacao(db: Session, lead: Lead, user: User, now: datetime):
     """Anotação feita em lead que não está em status final agenda um retorno
-    automático no mesmo horário da anotação: 2 dias úteis se o lead está em
-    "proposta enviada", 1 dia útil nos demais (18/11/2026). Se já existe um
+    automático no mesmo horário da anotação, 1 dia útil depois -- inclusive em
+    "proposta enviada": os 2 dias úteis ficam só na entrada em proposta
+    (update_lead_status), 27/11/2026. Se já existe um
     agendamento ativo MAIS DISTANTE (ex.: cliente pediu retorno numa data
     específica), ele é mantido. Devolve a data do retorno criado, ou None."""
     st = (lead.status or "").strip().lower()
     if st in _STATUS_FINAIS_SEM_RETORNO:
         return None
-    retorno = _fora_do_expediente_para_9h(
-        _mais_dois_dias_uteis(now, 2 if st in ("proposta", "proposal_sent", "proposal sent") else 1))
+    retorno = _fora_do_expediente_para_9h(_mais_dois_dias_uteis(now, 1))
     ativos = db.query(LeadSchedule).filter(LeadSchedule.lead_id == lead.id, LeadSchedule.is_active.is_(True)).all()
     if any(s.scheduled_at > retorno for s in ativos):
         return None
