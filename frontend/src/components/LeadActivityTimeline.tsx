@@ -73,6 +73,13 @@ export default function LeadActivityTimeline({
           <textarea
             value={noteText}
             onChange={e => onNoteTextChange(e.target.value)}
+            onKeyDown={e => {
+              // Enter salva; Shift+Enter quebra linha
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault()
+                if (!savingNote && noteText.trim()) onSaveNote()
+              }
+            }}
             placeholder="Adicione uma nota..."
             rows={3}
             style={{
